@@ -41,8 +41,21 @@ export interface LlmModel {
   };
 }
 
+/** Entry from optional provider model catalog (`GET /api/tags` on some backends). */
+export interface ModelCatalogEntry {
+  name: string;
+  size?: number;
+  details?: {
+    parameter_size?: string;
+    family?: string;
+    quantization_level?: string;
+  };
+}
+
 export interface ModelShowResult {
   modelMaxCtx: number | null;
+  sizeBytes?: number;
+  parameterSize?: string;
 }
 
 export interface ChatMessage {
@@ -163,10 +176,44 @@ function normalizeModels(models: (OpenAiModel | Model)[]): LlmModel[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+export function findModelCatalogEntry(
+  models: ModelCatalogEntry[],
+  modelName: string,
+): ModelCatalogEntry | undefined {
+  const exact = models.find((entry) => entry.name === modelName);
+  if (exact) return exact;
+
+  const base = modelName.split(":")[0];
+  return models.find(
+    (entry) =>
+      entry.name.startsWith(`${base}:`) || entry.name.split(":")[0] === base,
+  );
+}
+
+/** Optional catalog endpoint some OpenAI-compatible servers expose for model size metadata. */
+export async function fetchOptionalModelCatalogEntry(
+  name: string,
+  hostOverride?: string,
+): Promise<ModelCatalogEntry | null> {
+  try {
+    const base = resolveBaseUrl(hostOverride);
+    const res = await fetch(`${base}/api/tags`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { models?: ModelCatalogEntry[] };
+    if (!data.models?.length) return null;
+    return findModelCatalogEntry(data.models, name) ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function showModel(
   name: string,
   hostOverride?: string,
 ): Promise<ModelShowResult> {
+  const empty: ModelShowResult = { modelMaxCtx: null };
   try {
     const base = resolveBaseUrl(hostOverride);
     const url = `${base}/api/show`;
@@ -176,14 +223,18 @@ export async function showModel(
       body: JSON.stringify({ model: name }),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) return { modelMaxCtx: null };
+    if (!res.ok) return empty;
     const data = (await res.json()) as Record<string, unknown>;
+    const details = data.details as { parameter_size?: string } | undefined;
     const modelInfo = data.model_info as Record<string, unknown> | undefined;
-    if (!modelInfo) return { modelMaxCtx: null };
-    const modelMaxCtx = extractModelMaxCtx(modelInfo);
-    return { modelMaxCtx };
+    const parameterSize = details?.parameter_size?.trim() || undefined;
+    const modelMaxCtx = modelInfo ? extractModelMaxCtx(modelInfo) : null;
+    const rawSize = data.size;
+    const sizeBytes =
+      typeof rawSize === "number" && rawSize > 0 ? rawSize : undefined;
+    return { modelMaxCtx, parameterSize, sizeBytes };
   } catch {
-    return { modelMaxCtx: null };
+    return empty;
   }
 }
 

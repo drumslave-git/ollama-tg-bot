@@ -67,13 +67,15 @@ Telegram → Grammy handlers → chat-turn → LLM
 
 ### LLM
 
-- Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`)
+- Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`; optional `showModel` / catalog fetch for context-budget metadata)
 - OpenAI-compatible parsing: `server/src/llm/openai-compat.ts` (`content` vs `reasoning` / `reasoning_content`, request `options`)
 - Debug traces: `server/src/debug-trace.ts`, `server/src/db/debug-traces.ts` — per-message processing stored in SQLite (50 per chat); LLM I/O recorded when a trace session is active
 - Chat options: `server/src/settings-limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
 **OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (`"medium"` when `thinkingEnabled` is on, `"none"` when off). Some models/backends mis-split when thinking is enabled via API (`content` empty, answer in `reasoning`); structured `[REPLY]` replies require the full answer in `message.content`. Parse **`message.content`** for `[REPLY]` (Telegram reply). Parse **`message.reasoning_content`** / **`reasoning`** as chain-of-thought only — never for replies. Extensions: `providerChatExtensions()` in `openai-compat.ts`.
+
+**Terminology — OpenAI-compatible only:** This project targets **any OpenAI-compatible API** (LocalAI, vLLM, llama.cpp server, cloud providers, etc.). Do **not** use vendor-specific names in code, comments, docs, or agent replies — especially **“Ollama”**. Describe behavior in neutral terms: “OpenAI-compatible API”, “provider”, “backend”, “optional model metadata endpoints”. Some servers expose non-standard routes such as `POST /api/show` or `GET /api/tags` for context length and model size; treat these as **optional provider extensions** (best-effort, fail silently if absent). Primary integration is always `/v1/models` and `/v1/chat/completions`.
 
 ### Memory
 
@@ -101,7 +103,7 @@ Model replies use `[REPLY]…[/REPLY]` (Telegram HTML subset). Parser: `server/s
 - **Minimal diffs** — match existing style, naming, and patterns in the file you edit.
 - **No drive-by refactors** or unrelated changes.
 - **Do not commit** unless the user asks. Do not put secrets in git (`.env`, tokens).
-- **No ad-hoc output heuristics** — do not strip or classify model text with hardcoded keyword lists or guessed “reasoning leak” patterns. Use API response fields (`content` vs `reasoning_content` / `reasoning`) and the structured block protocol (`[REPLY]`, `[SEARCH]`, `[STICKER]`, etc.). Side passes parse **closed** blocks only.
+- **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.
 - **SQLite settings** — add new keys to `DEFAULT_SETTINGS` in `server/src/db/database.ts`, validation in `settings-limits.ts`, allowed PATCH keys in `server/src/api/routes.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
 
 ## Dashboard pages
@@ -150,3 +152,4 @@ Optional live LLM check: `npm run test:llm -w server` — requires `LLM_BASE_URL
 3. Assuming `@username` resolves without the user having messaged the bot at least once.
 4. Editing only server or only dashboard types when adding a setting — update both + PATCH allowlist.
 5. New LLM entry points must respect maintenance mode (`isMaintenanceBlocked`) — not only the main message handler.
+6. Naming LLM integration after a single vendor (especially Ollama) — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints.

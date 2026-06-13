@@ -66,11 +66,21 @@ export function parseParameterSizeGb(parameterSize?: string): number | null {
   return billions * 0.65;
 }
 
+/** Infer param size from common model name patterns (e.g. `…-9b-…`, `:3b`). */
+export function parseParameterSizeFromName(modelName: string): string | null {
+  const base = modelName.split(":")[0] ?? modelName;
+  const match = base.match(/(?:^|[-:_.])(\d+(?:\.\d+)?)\s*([bmk])b(?:$|[-:_.])/i);
+  if (!match) return null;
+  return `${match[1]}${match[2]!.toUpperCase()}`;
+}
+
 export function estimateModelWeightGb(model: ModelContextInput): number | null {
   if (model.sizeBytes != null && model.sizeBytes > 0) {
     return model.sizeBytes / 1024 ** 3;
   }
-  return parseParameterSizeGb(model.parameterSize);
+  const fromMetadata = parseParameterSizeGb(model.parameterSize);
+  if (fromMetadata != null) return fromMetadata;
+  return parseParameterSizeGb(parseParameterSizeFromName(model.name) ?? undefined);
 }
 
 /**

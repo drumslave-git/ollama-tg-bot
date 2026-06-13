@@ -26,7 +26,6 @@ import { buildBaseSystemPrompt } from "../prompts.js";
 import { config, getVramAvailableGb } from "../config.js";
 import {
   ensureModelContextCache,
-  getModelContextForBudget,
 } from "../llm/model-context-cache.js";
 import {
   getContextBudgetForSettings,
@@ -213,7 +212,7 @@ export function createApiRouter(): Router {
     }
   });
 
-  router.get("/budget", (req, res) => {
+  router.get("/budget", async (req, res) => {
     try {
       const settings = getSettings();
       const model =
@@ -231,7 +230,7 @@ export function createApiRouter(): Router {
       }
 
       const numPredict = snapNumPredict(numPredictRaw);
-      const modelCtx = getModelContextForBudget(model, settings.apiBaseUrl);
+      const modelCtx = await ensureModelContextCache(model, settings.apiBaseUrl);
       const vramGb = getVramAvailableGb();
       const minRequiredCtx = minNumCtxForPredict(numPredict);
       const contextBudget = calculateContextBudget(vramGb, modelCtx, minRequiredCtx);

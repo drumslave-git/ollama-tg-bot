@@ -4,7 +4,7 @@ import {
   modelContextInputFromTags,
   type ModelContextInput,
 } from "../context-budget.js";
-import { listModels, showModel, type LlmModel } from "./client.js";
+import { fetchOptionalModelCatalogEntry, showModel } from "./client.js";
 
 const CACHE_TTL_MS = 5 * 60_000;
 
@@ -30,13 +30,20 @@ async function fetchModelContext(
   model: string,
   host: string,
 ): Promise<ModelContextInput> {
-  const [tags, show] = await Promise.all([
-    listModels(host).catch(() => [] as LlmModel[]),
+  const [show, catalogEntry] = await Promise.all([
     showModel(model, host).catch(() => null),
+    fetchOptionalModelCatalogEntry(model, host).catch(() => null),
   ]);
 
-  const tagEntry = tags.find((entry) => entry.name === model) ?? null;
-  const input = modelContextInputFromTags(model, tagEntry);
+  const input = modelContextInputFromTags(model, {
+    name: model,
+    size: catalogEntry?.size ?? show?.sizeBytes,
+    details: catalogEntry?.details,
+  });
+
+  if (show?.parameterSize && !input.parameterSize) {
+    input.parameterSize = show.parameterSize;
+  }
   if (show?.modelMaxCtx != null) {
     input.modelMaxCtx = show.modelMaxCtx;
   }
