@@ -66,12 +66,30 @@ export function parseParameterSizeGb(parameterSize?: string): number | null {
   return billions * 0.65;
 }
 
-/** Infer param size from common model name patterns (e.g. `…-9b-…`, `:3b`). */
+/** Infer param size from common model name patterns (e.g. `…-9b-…`, `…-e2b-…`, `:3b`). */
 export function parseParameterSizeFromName(modelName: string): string | null {
-  const base = modelName.split(":")[0] ?? modelName;
-  const match = base.match(/(?:^|[-:_.])(\d+(?:\.\d+)?)\s*([bmk])b(?:$|[-:_.])/i);
-  if (!match) return null;
-  return `${match[1]}${match[2]!.toUpperCase()}`;
+  const candidates = [
+    modelName,
+    modelName.split(":")[0] ?? modelName,
+  ];
+
+  for (const name of candidates) {
+    // Gemma-style effective size: e2b, e4b
+    const effective = name.match(
+      /(?:^|[-:_.])[eE](\d+(?:\.\d+)?)[bB](?:$|[-:_.])/,
+    );
+    if (effective) return `${effective[1]}B`;
+
+    const standard = name.match(
+      /(?:^|[-:_.])(\d+(?:\.\d+)?)\s*([bmk])?b(?:$|[-:_.])/i,
+    );
+    if (standard) {
+      const unit = (standard[2] ?? "b").toUpperCase();
+      return `${standard[1]}${unit}`;
+    }
+  }
+
+  return null;
 }
 
 export function estimateModelWeightGb(model: ModelContextInput): number | null {
