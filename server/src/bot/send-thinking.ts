@@ -1,16 +1,10 @@
 import type { Context } from "grammy";
+import { escapeHtml } from "../telegram/html.js";
 
 type SendMessageExtra = Exclude<
   Parameters<Context["api"]["sendMessage"]>[2],
   undefined
 >;
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
 
 function splitMessage(text: string, maxLen = 3800): string[] {
   if (text.length <= maxLen) return [text];

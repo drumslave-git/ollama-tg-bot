@@ -14,6 +14,7 @@ import {
 import { getHistory, historyToChatMessages } from "../db/history.js";
 import { extractTelegramReply } from "../response-format.js";
 import {
+  escapeHtml,
   hasVisibleTelegramReply,
   prepareTelegramHtml,
 } from "../telegram/html.js";
@@ -65,13 +66,6 @@ function splitMessage(text: string, maxLen = 4000): string[] {
   }
   if (remaining) chunks.push(remaining);
   return chunks;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }
 
 function buildReplyExtra(

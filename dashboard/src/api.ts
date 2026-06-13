@@ -343,7 +343,14 @@ export class ApiError extends Error {
 }
 
 export function isApiError(err: unknown): err is ApiError {
-  return err instanceof ApiError;
+  return (
+    err instanceof ApiError ||
+    (err != null &&
+      typeof err === "object" &&
+      (err as any).name === "ApiError" &&
+      typeof (err as any).kind === "string" &&
+      typeof (err as any).path === "string")
+  );
 }
 
 export function describeApiError(err: unknown): {

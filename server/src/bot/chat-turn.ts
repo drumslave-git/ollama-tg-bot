@@ -10,6 +10,7 @@ import { getActivePersonalityPrompt } from "../db/personalities.js";
 import { getResolvedHistoryLimits, getResolvedSettings } from "../settings-runtime.js";
 import { extractTelegramReply } from "../response-format.js";
 import {
+  escapeHtml,
   hasVisibleTelegramReply,
   prepareTelegramHtml,
   visibleTelegramText,
@@ -97,13 +98,6 @@ function splitMessage(text: string, maxLen = 4000): string[] {
   }
   if (remaining) chunks.push(remaining);
   return chunks;
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }
 
 function formatSourceTitle(title: string): string {

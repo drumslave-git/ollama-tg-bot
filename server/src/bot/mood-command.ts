@@ -6,13 +6,7 @@ import {
   resolveActivePersonalityId,
 } from "../db/personalities.js";
 import { MOOD_KEYS } from "../mood.js";
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
+import { escapeHtml } from "../telegram/html.js";
 
 function formatTraitLine(
   key: string,

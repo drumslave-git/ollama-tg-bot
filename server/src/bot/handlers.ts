@@ -77,6 +77,7 @@ import {
 import { buildMoodCommandReply } from "./mood-command.js";
 import { buildPublicCommandsHelp } from "./commands-help.js";
 import { startTypingForMessage } from "./typing.js";
+import { escapeHtml } from "../telegram/html.js";
 
 async function replyHtml(
   ctx: Context,
@@ -870,11 +871,4 @@ function extractText(ctx: Context): string {
   const msg = ctx.message;
   if (!msg) return "";
   return (msg.text ?? msg.caption ?? "").trim();
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
 }
