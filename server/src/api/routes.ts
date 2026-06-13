@@ -21,15 +21,24 @@ import {
   type Settings,
 } from "../db/database.js";
 import { checkHealth, listModels } from "../llm/client.js";
-import { isTavilyConfigured } from "../tavily/client.js";
+import { checkTavilyHealth, isTavilyConfigured } from "../tavily/client.js";
 import { buildBaseSystemPrompt } from "../prompts.js";
 import { config, getVramAvailableGb } from "../config.js";
-import { ensureModelContextCache } from "../llm/model-context-cache.js";
+import {
+  ensureModelContextCache,
+  getModelContextForBudget,
+} from "../llm/model-context-cache.js";
 import {
   getContextBudgetForSettings,
   getResolvedHistoryLimits,
   getResolvedSettings,
 } from "../settings-runtime.js";
+import { calculateContextBudget, type ModelContextInput } from "../context-budget.js";
+import {
+  getHistoryLimits,
+  snapNumPredict,
+  minNumCtxForPredict,
+} from "../settings-limits.js";
 import {
   clearGroupFactsForGroup,
   deleteGroupFactById,
@@ -204,8 +213,55 @@ export function createApiRouter(): Router {
     }
   });
 
+  router.get("/budget", (req, res) => {
+    try {
+      const settings = getSettings();
+      const model =
+        typeof req.query.model === "string" && req.query.model.trim()
+          ? req.query.model.trim()
+          : settings.model;
+      const numPredictRaw =
+        typeof req.query.numPredict === "string"
+          ? Number(req.query.numPredict)
+          : settings.numPredict;
+
+      if (!Number.isFinite(numPredictRaw) || numPredictRaw < 1) {
+        res.status(400).json({ error: "numPredict must be a positive number" });
+        return;
+      }
+
+      const numPredict = snapNumPredict(numPredictRaw);
+      const modelCtx = getModelContextForBudget(model, settings.apiBaseUrl);
+      const vramGb = getVramAvailableGb();
+      const minRequiredCtx = minNumCtxForPredict(numPredict);
+      const contextBudget = calculateContextBudget(vramGb, modelCtx, minRequiredCtx);
+
+      const syntheticSettings: typeof settings = {
+        ...settings,
+        numPredict,
+        numCtx: contextBudget.effectiveNumCtx,
+      };
+      const derivedHistoryLimits = getHistoryLimits(syntheticSettings);
+
+      res.json({ contextBudget, derivedHistoryLimits });
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "Failed to calculate budget",
+      });
+    }
+  });
+
   router.get("/tavily/status", (_req, res) => {
     res.json({ configured: isTavilyConfigured(), ok: isTavilyConfigured() });
+  });
+
+  router.get("/tavily/health", async (_req, res) => {
+    try {
+      const ok = await checkTavilyHealth();
+      res.json({ ok });
+    } catch {
+      res.json({ ok: false });
+    }
   });
 
   router.get("/stickers", (_req, res) => {
