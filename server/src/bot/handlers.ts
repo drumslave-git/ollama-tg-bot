@@ -75,6 +75,7 @@ import {
   getMessageReport,
 } from "../message-report.js";
 import { buildMoodCommandReply } from "./mood-command.js";
+import { buildPublicCommandsHelp } from "./commands-help.js";
 import { startTypingForMessage } from "./typing.js";
 
 async function replyHtml(
@@ -583,16 +584,24 @@ function registerBotCommands(bot: Bot, botUsername: string): void {
         (inGroup ? `\n• I learn facts about this group (stored per chat)` : "") +
         `\n\n` +
         `Current model: <code>${escapeHtml(settings.model)}</code>\n` +
+        `Commands: /help@${botUsername}\n` +
         `Clear your memory: /forget@${botUsername}` +
         (isOwner(ctx)
           ? `\nOwner tools: /reset@${botUsername}` +
             (inGroup ? ` · /forgetgroup@${botUsername}` : "") +
-            ` · /mood@${botUsername} · /explain@${botUsername} · /remember@${botUsername} (or reply with either)`
+            ` · /explain@${botUsername} (or reply with either)`
           : "") +
         (isOwner(ctx) ? `\n\nYou are the configured bot owner.` : "") +
         (!inGroup && !getOwnerUserId() && !getOwnerUsername()
           ? `\n\nSet owner: enter your @username in the dashboard Settings page (message the bot once first).`
           : ""),
+    );
+  });
+
+  bot.command("help", async (ctx) => {
+    await replyToUser(
+      ctx,
+      buildPublicCommandsHelp(botUsername, isGroupChat(ctx)),
     );
   });
 
@@ -638,11 +647,6 @@ function registerBotCommands(bot: Bot, botUsername: string): void {
   });
 
   bot.command("mood", async (ctx) => {
-    if (!isOwner(ctx)) {
-      await replyToUser(ctx, "Only the bot owner can use /mood.");
-      return;
-    }
-
     try {
       await replyToUser(ctx, buildMoodCommandReply());
     } catch (err) {
@@ -731,24 +735,27 @@ function registerBotCommands(bot: Bot, botUsername: string): void {
   });
 
   bot.command("remember", async (ctx) => {
-    if (!isOwner(ctx)) {
-      await replyToUser(ctx, "Only the bot owner can use /remember.");
-      return;
-    }
-
+    const owner = isOwner(ctx);
     const fact = resolveCommandInlineOrReplyText(ctx, String(ctx.match ?? ""));
     if (!fact) {
       await replyToUser(
         ctx,
-        `Usage: <code>/remember@${botUsername} fact to store</code>\n` +
-          `Or reply to a message with <code>/remember@${botUsername}</code>\n` +
-          `Example: <code>/remember be very aggressive</code>\n\n` +
-          `Private chat → general memory · Group → group memory · Reply → that user's memory`,
+        owner
+          ? `Usage: <code>/remember@${botUsername} fact to store</code>\n` +
+              `Or reply to a message with <code>/remember@${botUsername}</code>\n` +
+              `Example: <code>/remember be very aggressive</code>\n\n` +
+              `Private chat → general memory · Group → group memory · Reply → that user's memory`
+          : `Usage: <code>/remember@${botUsername} fact to store</code>\n` +
+              `Or reply to a message with <code>/remember@${botUsername}</code>\n` +
+              `Example: <code>/remember I prefer short answers</code>\n\n` +
+              `Saves to your personal memory only.`,
       );
       return;
     }
 
-    const target = resolveRememberTarget(ctx);
+    const target = owner
+      ? resolveRememberTarget(ctx)
+      : resolveCallerRememberTarget(ctx);
     if (!target) {
       await replyToUser(ctx, "Could not determine where to store this memory.");
       return;
@@ -799,6 +806,18 @@ type RememberTarget =
   | { kind: "user"; userId: string; label: string }
   | { kind: "group"; groupId: string }
   | { kind: "general" };
+
+function resolveCallerRememberTarget(ctx: Context): RememberTarget | null {
+  const user = ctx.from;
+  if (!user) return null;
+
+  const userId = String(user.id);
+  const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
+  const label = user.username
+    ? `${name} (@${user.username})`
+    : name || `user ${userId}`;
+  return { kind: "user", userId, label };
+}
 
 function resolveRememberTarget(ctx: Context): RememberTarget | null {
   const replied = ctx.message?.reply_to_message;

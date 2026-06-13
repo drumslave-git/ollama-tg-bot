@@ -2,6 +2,7 @@ import { Bot } from "grammy";
 import { requireBotToken } from "../config.js";
 import { logInfo } from "../logging.js";
 import { setBotIdentity } from "./bot-identity.js";
+import { PUBLIC_BOT_COMMANDS } from "./commands-help.js";
 import { registerHandlers } from "./handlers.js";
 import { syncStickerCatalogFromSettings } from "./sticker-catalog.js";
 
@@ -27,6 +28,10 @@ export async function startBot(): Promise<Bot> {
   setBotIdentity(me, botUsername);
 
   registerHandlers(bot, botUsername);
+
+  void bot.api.setMyCommands(PUBLIC_BOT_COMMANDS).catch((err) => {
+    console.error("Failed to register bot commands:", err);
+  });
 
   void syncStickerCatalogFromSettings(bot.api).catch((err) => {
     console.error("Sticker catalog sync failed:", err);
