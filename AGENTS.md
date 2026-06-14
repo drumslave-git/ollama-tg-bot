@@ -141,6 +141,8 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | HTML replies | `server/src/telegram/html.ts` |
 
 ## Testing
+- **Always run tests after completing a task.**
+- **Maintain test coverage continuously for all new features and bug fixes.**
 
 [Vitest](https://vitest.dev) drives two suites (server workspace):
 
