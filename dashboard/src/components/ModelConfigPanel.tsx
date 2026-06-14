@@ -294,11 +294,10 @@ export function ModelConfigPanel({
         <h4 className="model-config-group-title">Derived chat history</h4>
         <ul className="model-config-derived-list">
           <li>
-            Up to <strong>{analysis.derived.historyMaxMessages}</strong> messages
-          </li>
-          <li>
-            <strong>{analysis.derived.historyMaxChars.toLocaleString()}</strong>{" "}
-            characters of history
+            <strong>
+              {analysis.derived.historyMaxTokens.toLocaleString()}
+            </strong>{" "}
+            tokens of history (compressed when exceeded)
           </li>
           <li>
             Replies stored to{" "}

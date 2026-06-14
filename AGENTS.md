@@ -101,6 +101,7 @@ Model replies use `[REPLY]…[/REPLY]` (Telegram HTML subset). Parser: `server/s
 
 - **ESM** throughout; server imports use `.js` extensions (`"type": "module"`).
 - **Minimal diffs** — match existing style, naming, and patterns in the file you edit.
+- **No migrations / backward compatibility** — do not create migrations or worry about backward compatibility unless explicitly requested; data loss is acceptable, but warn the user in such cases.
 - **No drive-by refactors** or unrelated changes.
 - **Do not commit** unless the user asks. Do not put secrets in git (`.env`, tokens).
 - **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.

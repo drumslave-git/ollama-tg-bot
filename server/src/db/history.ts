@@ -1,11 +1,17 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { ChatMessage } from "../llm/client.js";
-import { stripAssistantHistoryEnvelope } from "../bot/history-format.js";
+import {
+  stripAssistantHistoryEnvelope,
+  parseUserRole,
+} from "../bot/history-format.js";
 import type { Settings } from "./database.js";
-import { getHistoryLimits } from "../settings-limits.js";
+import {
+  APPROX_CHARS_PER_TOKEN,
+  getHistoryLimits,
+} from "../settings-limits.js";
+
 export const ASSISTANT_ROLE = "assistant";
 export const COMPRESSED_ROLE = "compressed";
-const HISTORY_RETENTION_MULTIPLIER = 2;
 
 let readSettings: () => Settings = () => {
   throw new Error("History module not initialized");
@@ -18,6 +24,7 @@ export function configureHistoryAccess(getSettings: () => Settings): void {
 export interface StoredMessage {
   role: string;
   content: string;
+  compressedAt?: number;
 }
 
 export function isCompressedRole(role: string): boolean {
@@ -28,92 +35,75 @@ let db: DatabaseSync;
 
 export function bindHistoryDatabase(database: DatabaseSync): void {
   db = database;
-  const existing = db
-    .prepare(
-      `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'chat_messages'`,
-    )
-    .get() as { sql: string } | undefined;
-
-  const needsReset =
-    existing?.sql.includes("CHECK (role IN ('user', 'assistant'))") ?? false;
-
-  if (needsReset) {
-    db.exec(`DROP TABLE IF EXISTS chat_messages`);
+  // Migration: Add compressed_at column if it doesn't exist
+  const tableInfo = db.prepare("PRAGMA table_info(chat_history)").all() as {
+    name: string;
+  }[];
+  const hasCompressedAt = tableInfo.some((c) => c.name === "compressed_at");
+  if (tableInfo.length > 0 && !hasCompressedAt) {
+    db.exec("ALTER TABLE chat_history ADD COLUMN compressed_at INTEGER");
   }
 
   db.exec(`
-    CREATE TABLE IF NOT EXISTS chat_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      chat_key TEXT NOT NULL,
-      role TEXT NOT NULL,
-      content TEXT NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    CREATE TABLE IF NOT EXISTS chat_history (
+      chat_key TEXT PRIMARY KEY,
+      messages TEXT NOT NULL DEFAULT '[]',
+      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      compressed_at INTEGER
     );
-    CREATE INDEX IF NOT EXISTS idx_chat_messages_key_id
-      ON chat_messages (chat_key, id);
   `);
 }
 
-export interface ConversationKeyOptions {
-  threadId?: number;
-}
-
 /** Chat id for DM or group. Forum topics share the group key (no thread suffix). */
-export function conversationKey(
-  chatId: number,
-  _options?: ConversationKeyOptions,
-): string {
+export function conversationKey(chatId: number): string {
   return String(chatId);
 }
 
-export function threadIdFromChatKey(
-  chatKey: string,
-  chatId: number,
-): number | undefined {
-  const parts = chatKey.split(":");
-  if (parts[0] !== String(chatId) || parts.length < 2) return undefined;
-  const threadId = Number(parts[1]);
-  return Number.isInteger(threadId) && threadId > 0 ? threadId : undefined;
-}
-
 export function getHistory(chatKey: string): StoredMessage[] {
-  const { historyMaxMessages } = getHistoryLimits(readSettings());
-  const rows = selectLatestHistoryRows(chatKey, historyMaxMessages);
-  if (rows.some((m) => isCompressedRole(m.role))) return rows.reverse();
-
-  const compressed = db
-    .prepare(
-      `SELECT role, content FROM chat_messages
-       WHERE chat_key = ? AND role = ?
-       ORDER BY id DESC
-       LIMIT 1`,
-    )
-    .get(chatKey, COMPRESSED_ROLE) as StoredMessage | undefined;
-
-  if (!compressed) return rows.reverse();
-
-  return [
-    compressed,
-    ...rows.slice(0, Math.max(0, historyMaxMessages - 1)).reverse(),
-  ];
+  const row = db
+    .prepare(`SELECT messages FROM chat_history WHERE chat_key = ?`)
+    .get(chatKey) as { messages: string } | undefined;
+  if (!row) return [];
+  try {
+    const parsed = JSON.parse(row.messages) as StoredMessage[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (m): m is StoredMessage =>
+        m != null &&
+        typeof m.role === "string" &&
+        typeof m.content === "string",
+    );
+  } catch {
+    return [];
+  }
 }
 
-export function getHistoryForCompression(chatKey: string): StoredMessage[] {
-  const { historyMaxMessages } = getHistoryLimits(readSettings());
-  const limit = historyMaxMessages * HISTORY_RETENTION_MULTIPLIER;
-  const rows = selectLatestHistoryRows(chatKey, limit);
-  if (rows.some((m) => isCompressedRole(m.role))) return rows.reverse();
-
-  const compressed = db
-    .prepare(
-      `SELECT role, content FROM chat_messages
-       WHERE chat_key = ? AND role = ?
-       ORDER BY id DESC
-       LIMIT 1`,
-    )
-    .get(chatKey, COMPRESSED_ROLE) as StoredMessage | undefined;
-
-  return compressed ? [compressed, ...rows.reverse()] : rows.reverse();
+function writeHistory(
+  chatKey: string,
+  messages: StoredMessage[],
+  isCompression = false,
+): void {
+  if (isCompression) {
+    db.prepare(
+      `INSERT INTO chat_history (chat_key, messages, updated_at, compressed_at)
+       VALUES (?, ?, unixepoch(), unixepoch())
+       ON CONFLICT(chat_key) DO UPDATE SET
+         messages = excluded.messages,
+         updated_at = excluded.updated_at,
+         compressed_at = excluded.compressed_at`,
+    ).run(chatKey, JSON.stringify(messages));
+  } else {
+    db.prepare(
+      `INSERT INTO chat_history (chat_key, messages, updated_at)
+       VALUES (?, ?, unixepoch())
+       ON CONFLICT(chat_key) DO UPDATE SET
+         messages = excluded.messages,
+         updated_at = excluded.updated_at`,
+    ).run(chatKey, JSON.stringify(messages));
+  }
+  void import("../live-events.js").then(({ emitDataUpdated }) => {
+    emitDataUpdated(["chat_history"]);
+  });
 }
 
 export function appendMessage(
@@ -132,99 +122,64 @@ export function appendMessage(
     }
   }
 
-  db.prepare(
-    `INSERT INTO chat_messages (chat_key, role, content) VALUES (?, ?, ?)`,
-  ).run(chatKey, role, stored);
-
-  pruneHistory(chatKey);
-  void import("../live-events.js").then(({ emitDataUpdated }) => {
-    emitDataUpdated(["chat_messages"]);
-  });
+  const messages = getHistory(chatKey);
+  messages.push({ role, content: stored });
+  writeHistory(chatKey, messages);
 }
 
 export function clearHistory(chatKey: string): void {
-  db.prepare(`DELETE FROM chat_messages WHERE chat_key = ?`).run(chatKey);
+  db.prepare(`DELETE FROM chat_history WHERE chat_key = ?`).run(chatKey);
+  void import("../live-events.js").then(({ emitDataUpdated }) => {
+    emitDataUpdated(["chat_history"]);
+  });
+}
+
+export function replaceHistory(
+  chatKey: string,
+  messages: StoredMessage[],
+  isCompression = false,
+): void {
+  const cleaned = messages
+    .map((m) => ({
+      role: m.role,
+      content: m.content.trim(),
+      compressedAt: m.compressedAt,
+    }))
+    .filter((m) => m.content);
+  writeHistory(chatKey, cleaned, isCompression);
 }
 
 export function historyTotalChars(history: StoredMessage[]): number {
   return history.reduce((n, m) => n + m.content.length, 0);
 }
 
-export function replaceHistory(
-  chatKey: string,
-  messages: StoredMessage[],
-): void {
-  db.exec("BEGIN IMMEDIATE");
-  try {
-    clearHistory(chatKey);
-    const insert = db.prepare(
-      `INSERT INTO chat_messages (chat_key, role, content) VALUES (?, ?, ?)`,
-    );
-    for (const msg of messages) {
-      const trimmed = msg.content.trim();
-      if (!trimmed) continue;
-      insert.run(chatKey, msg.role, trimmed);
-    }
-    pruneHistory(chatKey);
-    db.exec("COMMIT");
-  } catch (err) {
-    db.exec("ROLLBACK");
-    throw err;
-  }
-}
-
-function pruneHistory(chatKey: string): void {
-  const { historyMaxMessages } = getHistoryLimits(readSettings());
-  const retentionLimit = historyMaxMessages * HISTORY_RETENTION_MULTIPLIER;
-  db.prepare(
-    `DELETE FROM chat_messages
-     WHERE chat_key = ? AND role != ? AND id NOT IN (
-       SELECT id FROM chat_messages
-       WHERE chat_key = ?
-       ORDER BY id DESC
-       LIMIT ?
-     )`,
-  ).run(chatKey, COMPRESSED_ROLE, chatKey, retentionLimit);
-}
-
-function selectLatestHistoryRows(
-  chatKey: string,
-  limit: number,
-): StoredMessage[] {
-  return db
-    .prepare(
-      `SELECT role, content FROM chat_messages
-       WHERE chat_key = ?
-       ORDER BY id DESC
-       LIMIT ?`,
-    )
-    .all(chatKey, limit) as unknown as StoredMessage[];
-}
-
-export function trimForContext(
-  history: StoredMessage[],
-): StoredMessage[] {
-  const { historyMaxChars } = getHistoryLimits(readSettings());
-  let total = history.reduce((n, m) => n + m.content.length, 0);
-  const kept = [...history];
-
-  while (kept.length > 1 && total > historyMaxChars) {
-    const removed = kept.shift();
-    if (removed) total -= removed.content.length;
-  }
-
-  return kept;
+export function historyTotalTokens(history: StoredMessage[]): number {
+  if (history.length === 0) return 0;
+  return Math.ceil(historyTotalChars(history) / APPROX_CHARS_PER_TOKEN);
 }
 
 export function historyToChatMessages(history: StoredMessage[]): ChatMessage[] {
-  return trimForContext(history).map((m) => ({
-    role: m.role === ASSISTANT_ROLE ? "assistant" : "user",
-    content: isCompressedRole(m.role)
-      ? `[compressed]: ${m.content}`
-      : m.role === ASSISTANT_ROLE
-        ? stripAssistantHistoryEnvelope(m.content)
-        : m.content,
-  }));
+  return history.map((m) => {
+    const role = m.role === ASSISTANT_ROLE ? "assistant" : "user";
+    const isAssistant = role === "assistant";
+    const parsedUser = parseUserRole(m.role);
+
+    let content = m.content;
+    let name: string | undefined;
+
+    if (isCompressedRole(m.role)) {
+      content = m.content;
+      name = "narrative_summary";
+    } else if (isAssistant) {
+      content = stripAssistantHistoryEnvelope(m.content);
+    } else if (parsedUser) {
+      // Use sanitized username for the 'name' field
+      name = parsedUser.username.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
+      content = m.content;
+    }
+
+    return { role, content, name };
+  });
 }
 
 export function appendAssistantMessage(

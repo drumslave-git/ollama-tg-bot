@@ -1,8 +1,7 @@
-import { getSettings } from "./db/database.js";
 import {
   COMPRESSED_ROLE,
-  getHistoryForCompression,
-  historyTotalChars,
+  getHistory,
+  historyTotalTokens,
   replaceHistory,
   type StoredMessage,
 } from "./db/history.js";
@@ -10,6 +9,7 @@ import { logEvent, logEventError } from "./event-log.js";
 import { chatComplete } from "./llm/client.js";
 import type { ChatMessage } from "./llm/client.js";
 import { getResolvedHistoryLimits } from "./settings-runtime.js";
+import { APPROX_CHARS_PER_TOKEN } from "./settings-limits.js";
 
 const HISTORY_COMPRESS_NUM_PREDICT = 512;
 
@@ -19,59 +19,34 @@ Use participant tags exactly like [user:username:id] and [assistant said] for th
 Mention replies ("replied to"), media ("sent an image which depicts..."), and key topics.
 Output ONLY the summary text - no markdown, no labels.`;
 
-const inFlight = new Set<string>();
-let compressionQueue: Promise<void> = Promise.resolve();
+const inFlight = new Map<string, Promise<void>>();
 
-export function historyNeedsCompression(chatKey: string): boolean {
-  const settings = getSettings();
-  const limits = getResolvedHistoryLimits(settings);
-  const history = getHistoryForCompression(chatKey);
-  if (history.length < 2) return false;
-  if (history.length === 1 && history[0].role === COMPRESSED_ROLE) {
-    return historyTotalChars(history) > limits.historyMaxChars;
-  }
+/**
+ * Ensure stored history fits in the token budget. If it overflows, compress the
+ * entire history into one [compressed] row and overwrite. Awaited before history
+ * is injected into a prompt so the caller always sees a fitting transcript.
+ */
+export function ensureHistoryFits(chatKey: string): Promise<void> {
+  const existing = inFlight.get(chatKey);
+  if (existing) return existing;
 
-  const total = historyTotalChars(history);
-  if (total > limits.historyMaxChars) return true;
-
-  return (
-    history.length >= limits.historyMaxMessages * 2 &&
-    total > limits.historyMaxChars * 0.75
-  );
+  const task = compressIfNeeded(chatKey).finally(() => {
+    inFlight.delete(chatKey);
+  });
+  inFlight.set(chatKey, task);
+  return task;
 }
 
-export function scheduleHistoryCompression(chatKey: string): void {
-  const key = `history:${chatKey}`;
-  enqueueCompression(key, () => compressHistoryIfNeeded(chatKey), (err) =>
-    logEventError("history_compression_failed", err, { convKey: chatKey }),
-  );
-}
-
-function enqueueCompression(
-  key: string,
-  task: () => Promise<void>,
-  onError: (err: unknown) => void,
-): void {
-  if (inFlight.has(key)) return;
-  inFlight.add(key);
-  compressionQueue = compressionQueue
-    .catch(() => {})
-    .then(task)
-    .catch(onError)
-    .finally(() => inFlight.delete(key));
-}
-
-async function compressHistoryIfNeeded(chatKey: string): Promise<void> {
-  if (!historyNeedsCompression(chatKey)) return;
-
-  const settings = getSettings();
-  const history = getHistoryForCompression(chatKey);
+async function compressIfNeeded(chatKey: string): Promise<void> {
+  const history = getHistory(chatKey);
   if (history.length === 0) return;
 
-  const limits = getResolvedHistoryLimits(settings);
+  const limits = getResolvedHistoryLimits();
+  if (historyTotalTokens(history) <= limits.historyMaxTokens) return;
+
   const maxSummaryChars = Math.max(
     400,
-    Math.floor(limits.historyMaxChars * 0.85),
+    Math.floor(limits.historyMaxTokens * APPROX_CHARS_PER_TOKEN * 0.85),
   );
 
   const transcript = history.map((m) => m.content.trim()).join("\n");
@@ -85,23 +60,30 @@ async function compressHistoryIfNeeded(chatKey: string): Promise<void> {
     },
   ];
 
-  const raw = await chatComplete(messages, {
-    numPredict: HISTORY_COMPRESS_NUM_PREDICT,
-    auxiliary: true,
-  });
-  const summaryBody = clampSummaryText(raw, maxSummaryChars);
-  if (!summaryBody) return;
+  try {
+    const raw = await chatComplete(messages, {
+      numPredict: HISTORY_COMPRESS_NUM_PREDICT,
+      auxiliary: true,
+    });
+    const summaryBody = clampSummaryText(raw, maxSummaryChars);
+    if (!summaryBody) return;
 
-  const compressed: StoredMessage[] = [
-    { role: COMPRESSED_ROLE, content: summaryBody },
-  ];
-
-  replaceHistory(chatKey, compressed);
-  logEvent("history_compressed", {
-    convKey: chatKey,
-    messageCount: history.length,
-    resultCount: 1,
-  });
+    const compressed: StoredMessage[] = [
+      {
+        role: COMPRESSED_ROLE,
+        content: summaryBody,
+        compressedAt: Math.floor(Date.now() / 1000),
+      },
+    ];
+    replaceHistory(chatKey, compressed, true);
+    logEvent("history_compressed", {
+      convKey: chatKey,
+      messageCount: history.length,
+      resultChars: summaryBody.length,
+    });
+  } catch (err) {
+    logEventError("history_compression_failed", err, { convKey: chatKey });
+  }
 }
 
 function clampSummaryText(raw: string, maxChars: number): string {

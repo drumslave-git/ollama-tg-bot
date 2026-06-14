@@ -61,6 +61,7 @@ export interface ModelShowResult {
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+  name?: string;
   images?: string[];
 }
 
@@ -364,13 +365,22 @@ function chatCompletionBody(
 
 function toOpenAiMessage(msg: ChatMessage): ChatCompletionMessageParam {
   if (!msg.images?.length) {
-    return { role: msg.role, content: msg.content };
+    return {
+      role: msg.role,
+      content: msg.content,
+      ...(msg.name ? { name: msg.name } : {}),
+    } as ChatCompletionMessageParam;
   }
   if (msg.role !== "user") {
-    return { role: msg.role, content: msg.content };
+    return {
+      role: msg.role,
+      content: msg.content,
+      ...(msg.name ? { name: msg.name } : {}),
+    } as ChatCompletionMessageParam;
   }
   return {
     role: "user",
+    name: msg.name,
     content: [
       { type: "text", text: msg.content },
       ...msg.images.map((image) => ({
@@ -378,7 +388,7 @@ function toOpenAiMessage(msg: ChatMessage): ChatCompletionMessageParam {
         image_url: { url: `data:image/jpeg;base64,${image}` },
       })),
     ],
-  };
+  } as ChatCompletionMessageParam;
 }
 
 export interface ChatCompleteResult {

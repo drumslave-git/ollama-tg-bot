@@ -41,7 +41,12 @@ import {
   rollStickerReplyChance,
 } from "./sticker-analyze.js";
 import { resolveStickerFileId } from "./sticker-catalog.js";
-import { getHistory, historyToChatMessages } from "../db/history.js";
+import {
+  getHistory,
+  historyToChatMessages,
+  historyTotalTokens,
+} from "../db/history.js";
+import { ensureHistoryFits } from "../context-compress.js";
 import { getEffectiveMood, saveMoodState } from "../db/mood.js";
 import { evaluateMood } from "../mood-evaluate.js";
 import { sendThinkingMessages } from "./send-thinking.js";
@@ -154,10 +159,15 @@ export async function runChatTurn(
   try {
     logEvent("chat_turn_started", turnLog);
 
+    await ensureHistoryFits(input.convKey);
+
     const storedHistory = getHistory(input.convKey);
     const historyMessages = historyToChatMessages(storedHistory);
     const moodContextText = historyMessages
-      .map((m) => `${m.role}: ${m.content}`)
+      .map((m) => {
+        const namePart = m.name ? ` [name: ${m.name}]` : "";
+        return `[${m.role}${namePart}]: ${m.content}`;
+      })
       .join("\n\n");
     const moodLatestTurnPreview = [
       input.mentionedUsersContext,
@@ -316,23 +326,21 @@ export async function runChatTurn(
       (n, m) => n + m.content.length,
       0,
     );
+    const injectedTokens = historyTotalTokens(storedHistory);
     logEvent("history_injected", {
       ...turnLog,
       injectedMessages: built.historyMessages.length,
       storedMessages: built.storedHistoryCount,
-      maxMessages: historyLimits.historyMaxMessages,
-      maxChars: historyLimits.historyMaxChars,
+      maxTokens: historyLimits.historyMaxTokens,
+      injectedTokens,
       injectedChars,
-      charTrimmed:
-        built.storedHistoryCount > 0 &&
-        built.historyMessages.length < built.storedHistoryCount,
       latestChars: built.latestContent.length,
     });
 
     report?.okPhase(
       "context",
       "Chat context",
-      `${built.historyMessages.length} history messages · ${injectedChars} chars injected`,
+      `${built.historyMessages.length} history messages · ${injectedTokens} tokens injected`,
       undefined,
       {
         type: "fields",
@@ -345,16 +353,9 @@ export async function runChatTurn(
             label: "Injected messages",
             value: String(built.historyMessages.length),
           },
-          { label: "Max messages", value: String(historyLimits.historyMaxMessages) },
-          { label: "Max chars", value: String(historyLimits.historyMaxChars) },
-          {
-            label: "Char trimmed",
-            value:
-              built.storedHistoryCount > 0 &&
-              built.historyMessages.length < built.storedHistoryCount
-                ? "yes"
-                : "no",
-          },
+          { label: "Max tokens", value: String(historyLimits.historyMaxTokens) },
+          { label: "Injected tokens", value: String(injectedTokens) },
+          { label: "Injected chars", value: String(injectedChars) },
           { label: "Latest turn chars", value: String(built.latestContent.length) },
         ],
       },

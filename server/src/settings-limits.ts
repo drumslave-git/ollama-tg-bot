@@ -12,11 +12,11 @@ export const ABSOLUTE_MAX_NUM_CTX = 262144;
 export const MAX_NUM_CTX = ABSOLUTE_MAX_NUM_CTX;
 export const NUM_CTX_STEP = 512;
 export const NUM_PREDICT_STEP = 32;
-const APPROX_CHARS_PER_TOKEN = 3.5;
+export const APPROX_CHARS_PER_TOKEN = 3.5;
 
 export interface HistoryLimits {
-  historyMaxMessages: number;
-  historyMaxChars: number;
+  /** Token budget for chat history injected into prompts. */
+  historyMaxTokens: number;
   historyMaxReplyChars: number;
   numPredict: number;
 }
@@ -101,17 +101,13 @@ export function getHistoryLimits(settings: Settings): HistoryLimits {
   const { numCtx } = settings;
   const normalized = normalizeTokenBudget(settings);
 
-  const historyTokenBudget = Math.max(
+  const historyMaxTokens = Math.max(
     256,
     Math.floor((numCtx - normalized.numPredict) * 0.45),
   );
 
   return {
-    historyMaxChars: Math.min(
-      32000,
-      Math.max(500, Math.floor(historyTokenBudget * 3.5)),
-    ),
-    historyMaxMessages: Math.min(50, Math.max(4, Math.floor(numCtx / 512))),
+    historyMaxTokens,
     historyMaxReplyChars: Math.min(
       4000,
       Math.max(100, Math.floor(normalized.numPredict * APPROX_CHARS_PER_TOKEN)),

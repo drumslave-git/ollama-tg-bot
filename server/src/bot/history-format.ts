@@ -58,7 +58,7 @@ export function extractParticipantUserIds(
 }
 
 export function formatSaidContent(userTag: string, text: string): string {
-  return `[${userTag} said]: ${text.trim()}`;
+  return text.trim();
 }
 
 export function formatRepliedContent(
@@ -66,7 +66,7 @@ export function formatRepliedContent(
   replyToTag: string,
   text: string,
 ): string {
-  return `[${userTag} replied to ${replyToTag}]: ${text.trim()}`;
+  return text.trim();
 }
 
 const ASSISTANT_SAID_PREFIX = /^\[assistant said\]\s*:?\s*/i;
@@ -143,8 +143,8 @@ export function buildMediaHistoryContent(
 
   const replyTo = resolveReplyTargetTag(message, botId);
   const prefix = replyTo
-    ? `[${userTag} replied to ${replyTo} with ${mediaKind}]`
-    : `[${userTag} sent ${mediaKind}]`;
+    ? `[replied to ${replyTo}]`
+    : `[sent ${mediaKind}]`;
   let body = visionDescription.trim();
   if (mediaKind === "sticker" && packEmoji) {
     body = `${body}. it represents emoji ${packEmoji}`;

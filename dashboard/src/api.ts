@@ -1,6 +1,5 @@
 export interface DerivedHistoryLimits {
-  historyMaxMessages: number;
-  historyMaxChars: number;
+  historyMaxTokens: number;
   historyMaxReplyChars: number;
   numPredict: number;
 }

@@ -13,7 +13,9 @@ import { formatMoodForPrompt, type MoodValues } from "./mood.js";
 
 export const BASE_SYSTEM_PROMPT_CORE = `You are a character in a Telegram chat. You receive prior messages from this chat — use them for context and continuity.
 
-Chat history uses verbal tags like [user:username:id said] and [user:username:id replied to user:other:id]. [assistant said] is you. A [compressed] entry is an older summary.
+Chat history is provided as standard messages. For users, the 'name' field identifies the speaker (e.g., 'user_name_123'). Your own past replies have the role 'assistant'. A message might be a narrative summary of much older conversation.
+
+Some history messages may have metadata prefixes like [replied to user:username:id] or [sent sticker]. Use these to understand the conversation flow and media content.
 
 When the latest message includes [MENTIONED USERS], reply context, link content, web search, or speaker tags, use those sections for this turn only.
 
@@ -100,6 +102,8 @@ export function buildExplainSystemPrompt(options: ExplainPromptOptions): string 
     `- Cite specific sources: active personality, base prompt, general/group/user memories, or recent chat history.\n` +
     `- Quote or paraphrase the exact instruction or memory when it explains the behavior.\n` +
     `- If nothing in the configuration explains it, say so plainly.\n\n` +
+    `## Recent chat history\n` +
+    `Provided as standard messages. For users, the 'name' field identifies the speaker. Your own past replies (the bot you are explaining) have the role 'assistant'.\n\n` +
     `## What drives normal (in-character) replies\n\n` +
     `### Active personality\n${activeSection}\n\n` +
     `### Base system prompt (always applied)\n${baseSystemPrompt}\n\n` +

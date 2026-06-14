@@ -13,7 +13,6 @@ import {
   getKnownUsersByIds,
 } from "../db/known-users.js";
 import { getUserFacts } from "../db/user-memory.js";
-import { scheduleHistoryCompression } from "../context-compress.js";
 import { logEvent } from "../event-log.js";
 import type { Settings } from "../db/database.js";
 import { buildSystemPrompt, type ParticipantFacts } from "../prompts.js";
@@ -49,33 +48,23 @@ function buildLatestTurnMessage(options: LatestTurnOptions): string {
 
   const hasReplyThread = isReplyThreadContext(options.replyContext);
 
-  if (options.isGroupChat && options.currentSpeaker && hasReplyThread) {
-    const ownerLine = options.currentSpeakerIsOwner
-      ? "They are the bot owner - prioritize their intent.\n"
-      : "";
-    parts.push(
-      `[CURRENT SPEAKER - reply to this person]\n` +
-        `Name: ${options.currentSpeaker.label}\n` +
-        `Tag: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
-        ownerLine,
-    );
-  }
-
   if (options.isGroupChat && options.currentSpeaker) {
+    const ownerLine = options.currentSpeakerIsOwner
+      ? "They are the bot owner — prioritize their intent.\n"
+      : "";
+    
     if (hasReplyThread) {
-      if (options.currentSpeakerIsOwner) {
-        parts.push(
-          "[CURRENT SPEAKER — bot owner — prioritize their intent]",
-        );
-      }
+      parts.push(
+        `[CURRENT SPEAKER — reply to this person]\n` +
+          `Name: ${options.currentSpeaker.label}\n` +
+          `Tag/ID: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
+          ownerLine,
+      );
     } else {
-      const ownerLine = options.currentSpeakerIsOwner
-        ? "They are the bot owner — prioritize their intent.\n"
-        : "";
       parts.push(
         `[CURRENT SPEAKER — reply to this person only]\n` +
           `Name: ${options.currentSpeaker.label}\n` +
-          `Tag: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
+          `Tag/ID: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
           ownerLine,
       );
     }
@@ -146,7 +135,7 @@ export interface BuiltChatPayload {
   systemContent: string;
   historyMessages: ChatMessage[];
   latestContent: string;
-  /** Rows loaded from DB (already capped by historyMaxMessages). */
+  /** Number of stored history messages used to build the prompt. */
   storedHistoryCount: number;
 }
 
@@ -270,7 +259,6 @@ export function recordExchange(
     appendMessage(chatKey, userRole, userContent);
   }
   appendAssistantMessage(chatKey, assistantText);
-  scheduleHistoryCompression(chatKey);
   logEvent("history_exchange_stored", {
     convKey: chatKey,
     skipUser: Boolean(options?.skipUser),

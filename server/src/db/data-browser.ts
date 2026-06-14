@@ -44,13 +44,13 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     query: "SELECT key, value FROM stats_meta ORDER BY key",
     countQuery: "SELECT COUNT(*) AS n FROM stats_meta",
   },
-  chat_messages: {
+  chat_history: {
     label: "Chat history",
-    columns: ["id", "chat_key", "role", "content", "created_at"],
-    query: `SELECT id, chat_key, role, content, created_at
-            FROM chat_messages ORDER BY id DESC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM chat_messages",
-    timeColumns: ["created_at"],
+    columns: ["chat_key", "messages", "updated_at", "compressed_at"],
+    query: `SELECT chat_key, messages, updated_at, compressed_at
+            FROM chat_history ORDER BY updated_at DESC LIMIT ?`,
+    countQuery: "SELECT COUNT(*) AS n FROM chat_history",
+    timeColumns: ["updated_at", "compressed_at"],
   },
   user_memories: {
     label: "User memories",
@@ -106,7 +106,7 @@ const TABLE_ORDER = [
   "settings",
   "stats",
   "stats_meta",
-  "chat_messages",
+  "chat_history",
   "user_memories",
   "group_memories",
   "general_facts",

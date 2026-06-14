@@ -12,6 +12,7 @@ import {
   resolveActivePersonalityId,
 } from "../db/personalities.js";
 import { getHistory, historyToChatMessages } from "../db/history.js";
+import { ensureHistoryFits } from "../context-compress.js";
 import { extractTelegramReply } from "../response-format.js";
 import {
   escapeHtml,
@@ -112,6 +113,7 @@ export async function runExplainTurn(
       isGroupChat: input.inGroup,
     });
 
+    await ensureHistoryFits(input.convKey);
     const history = historyToChatMessages(getHistory(input.convKey));
     const latestContent = `Question: ${input.question.trim()}`;
     const messages: ChatMessage[] = [
