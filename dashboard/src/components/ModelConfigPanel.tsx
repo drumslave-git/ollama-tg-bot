@@ -172,68 +172,6 @@ export function ModelConfigPanel({
           hint={numPredictHint(analysis.maxNumPredict, contextBudget.effectiveNumCtx)}
           onChange={(numPredict) => update({ numPredict })}
         />
-        <div className="field toggle-row">
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={draft.thinkingEnabled}
-              disabled={disabled}
-              onChange={(e) => update({ thinkingEnabled: e.target.checked })}
-            />
-            Enable thinking
-          </label>
-          <p className="hint">
-            Requests separate model reasoning when the backend supports
-            reasoning_effort.
-          </p>
-        </div>
-        {draft.thinkingEnabled ? (
-          <div className="field toggle-row">
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={draft.sendThinkingEnabled}
-                disabled={disabled}
-                onChange={(e) =>
-                  update({ sendThinkingEnabled: e.target.checked })
-                }
-              />
-            Send reasoning to Telegram
-            </label>
-            <p className="hint">
-              If the API returns a separate reasoning field, post it as a
-              separate message before the reply. It is not saved to chat history.
-            </p>
-          </div>
-        ) : null}
-        {draft.thinkingEnabled ? (
-          <div className="field">
-            <label htmlFor="reasoningEffort">Reasoning effort</label>
-            <select
-              id="reasoningEffort"
-              value={draft.reasoningEffort}
-              disabled={disabled}
-              onChange={(e) =>
-                update({
-                  reasoningEffort: e.target.value as
-                    | "none"
-                    | "low"
-                    | "medium"
-                    | "high",
-                })
-              }
-            >
-              <option value="none">None</option>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-            <p className="hint">
-              Controls how much time/computation the model spends on reasoning
-              (if supported by the backend).
-            </p>
-          </div>
-        ) : null}
       </section>
 
       <section className="model-config-group" aria-labelledby="model-sample">

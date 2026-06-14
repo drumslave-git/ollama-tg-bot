@@ -9,9 +9,9 @@ import { syncStickerCatalogFromSettings } from "./sticker-catalog.js";
 let botInstance: Bot | null = null;
 let botUsername = "";
 
-export function getBot(): Bot {
+export function getBot(): Bot & { token: string } {
   if (!botInstance) throw new Error("Bot not initialized");
-  return botInstance;
+  return botInstance as Bot & { token: string };
 }
 
 export function getBotUsername(): string {

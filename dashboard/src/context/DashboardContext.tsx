@@ -115,17 +115,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshBudget = useCallback(
-    async (model: string, numPredict: number) => {
+    async (model: string, numPredict: number, host?: string) => {
       if (!model || numPredict == null) return null;
       setBudgetLoading(true);
       try {
-        const result = await api.getBudget(model, numPredict);
+        const result = await api.getBudget(model, numPredict, host);
         setContextBudget(result.contextBudget);
         setDerivedHistoryLimits(result.derivedHistoryLimits);
+        setSectionError("models", null);
         return result;
-      } catch {
+      } catch (err) {
         setContextBudget(null);
         setDerivedHistoryLimits(null);
+        setSectionError("models", err);
         return null;
       } finally {
         setBudgetLoading(false);
@@ -182,8 +184,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     let llmReachable = false;
     if (savedHost) {
       try {
-        llmReachable = await api.llmHealth(savedHost);
-        setLlmOk(llmReachable);
+        await api.llmHealth(savedHost);
+        llmReachable = true;
+        setLlmOk(true);
       } catch (err) {
         setLlmOk(false);
         nextErrors.llm = err;
@@ -232,12 +235,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
     if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
     budgetTimerRef.current = setTimeout(() => {
-      void refreshBudget(draft.model, draft.numPredict);
+      void refreshBudget(draft.model, draft.numPredict, draft.apiBaseUrl);
     }, 300);
     return () => {
       if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
     };
-  }, [draft?.model, draft?.numPredict, vramAvailableGb, refreshBudget]);
+  }, [draft?.model, draft?.numPredict, draft?.apiBaseUrl, vramAvailableGb, refreshBudget]);
 
   const handleSocketConnected = useCallback((connected: boolean) => {
     setApiOnline(connected);
@@ -276,7 +279,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         });
         const host = updated.apiBaseUrl.trim();
         if (host && verifiedApiBaseUrl === host) {
-          void api.llmHealth(host).then(setLlmOk).catch(() => setLlmOk(false));
+          void api.llmHealth(host).then(() => setLlmOk(true)).catch(() => setLlmOk(false));
         }
       },
       [saving, verifiedApiBaseUrl],
@@ -318,6 +321,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     if (!draft) return;
     const host = draft.apiBaseUrl.trim();
     setSectionError("llm", null);
+    setSectionError("models", null);
 
     if (!host) {
       setSectionError(
@@ -339,12 +343,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setModels([]);
 
     try {
-      const ok = await api.llmHealth(host);
-      if (!ok) {
-        throw new Error(
-          "No OpenAI-compatible LLM responded at this address.",
-        );
-      }
+      await api.llmHealth(host);
       setVerifiedApiBaseUrl(host);
       setLlmOk(true);
       await fetchModelsForHost(host);
@@ -384,7 +383,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       return;
     }
     // Fetch fresh budget from server (also updates cached state for UI).
-    const budgetResult = await refreshBudget(draft.model, draft.numPredict);
+    const budgetResult = await refreshBudget(draft.model, draft.numPredict, draft.apiBaseUrl);
     if (!budgetResult) {
       setSectionError(
         "save",

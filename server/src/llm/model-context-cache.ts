@@ -39,14 +39,10 @@ async function fetchModelContext(
     name: model,
     size: catalogEntry?.size ?? show?.sizeBytes,
     details: catalogEntry?.details,
-  });
+    parameterSize: (catalogEntry as any)?.parameterSize ?? show?.parameterSize,
+    modelMaxCtx: show?.modelMaxCtx,
+  } as any);
 
-  if (show?.parameterSize && !input.parameterSize) {
-    input.parameterSize = show.parameterSize;
-  }
-  if (show?.modelMaxCtx != null) {
-    input.modelMaxCtx = show.modelMaxCtx;
-  }
   return input;
 }
 

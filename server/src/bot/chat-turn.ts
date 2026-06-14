@@ -52,6 +52,15 @@ import { evaluateMood } from "../mood-evaluate.js";
 import { sendThinkingMessages } from "./send-thinking.js";
 import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";
 
+import {
+  evaluateMoodForTurn,
+  fetchLinksForTurn,
+  searchWebForTurn,
+  analyzeStickerForTurn,
+  buildReplyExtra,
+  splitMessage,
+} from "./chat-turn-steps.js";
+
 export type ChatTurnMemoryInput = Omit<MemoryExtractInput, "assistantReply">;
 
 export interface ChatTurnInput {
@@ -89,22 +98,6 @@ async function replyHtml(
   }
 }
 
-function splitMessage(text: string, maxLen = 4000): string[] {
-  if (text.length <= maxLen) return [text];
-
-  const chunks: string[] = [];
-  let remaining = text;
-
-  while (remaining.length > maxLen) {
-    let splitAt = remaining.lastIndexOf("\n", maxLen);
-    if (splitAt < maxLen * 0.5) splitAt = maxLen;
-    chunks.push(remaining.slice(0, splitAt));
-    remaining = remaining.slice(splitAt).trimStart();
-  }
-  if (remaining) chunks.push(remaining);
-  return chunks;
-}
-
 function formatSourceTitle(title: string): string {
   const trimmed = title.replace(/\s+/g, " ").trim();
   if (trimmed.length <= 100) return trimmed;
@@ -124,20 +117,6 @@ function appendWebSearchSources(
   });
 
   return `${reply.trim()}\n\nSources:\n${lines.join("\n")}`;
-}
-
-function buildReplyExtra(
-  ctx: Context,
-  options?: { messageThreadId?: number },
-): Parameters<Context["reply"]>[1] {
-  const extra: Parameters<Context["reply"]>[1] = {};
-  if (options?.messageThreadId) {
-    const threadParams = messageThreadExtra({ message_thread_id: options.messageThreadId });
-    if (threadParams) extra.message_thread_id = threadParams.message_thread_id;
-  }
-  const replyParams = replyParameters(ctx);
-  if (replyParams) extra.reply_parameters = replyParams;
-  return Object.keys(extra).length > 0 ? extra : undefined;
 }
 
 export async function runChatTurn(
@@ -177,122 +156,11 @@ export async function runChatTurn(
       .filter((part) => part?.trim())
       .join("\n\n");
 
-    logEvent("mood_evaluate_started", turnLog);
-    const moodStarted = performance.now();
-    const decayedMood = getEffectiveMood();
-    const moodPromise = evaluateMood({
-      currentMood: decayedMood,
-      historyText: moodContextText,
-      latestTurn: moodLatestTurnPreview,
-      traceTurnId: input.turnId,
-    });
-
-    let linkFetchContext: string | null = null;
-    const linkFetchStarted = performance.now();
-    const linkFetch = await resolveLinkFetchContext({
-      userMessage: input.latestBody,
-      replyContext: input.replyContext,
-    });
-    if (linkFetch.urlCount > 0) {
-      logEvent("link_fetch_triggered", {
-        ...turnLog,
-        urlCount: linkFetch.urlCount,
-      });
-      report?.okPhase(
-        "links",
-        "Link fetch",
-        `Fetched ${linkFetch.urlCount} URL(s)`,
-        performance.now() - linkFetchStarted,
-      );
-      linkFetchContext = linkFetch.context;
-    } else {
-      logEvent("link_fetch_skipped", turnLog);
-      report?.skipPhase("links", "Link fetch", "No links in message");
-    }
-
-    let webSearchContext: string | null = null;
-    let webSearchSources: TavilySource[] = [];
-    if (isTavilyConfigured() && !linkFetch.resolved) {
-      const searchStarted = performance.now();
-      const decision = await analyzeSearchNeed({
-        userMessage: input.latestBody,
-        replyContext: input.replyContext,
-        traceTurnId: input.turnId,
-      });
-      if (decision.needsSearch && decision.query) {
-        logEvent("web_search_triggered", { ...turnLog, queryLen: decision.query.length });
-        try {
-          const payload = await tavilySearch(decision.query);
-          webSearchContext = formatTavilyContext(decision.query, payload);
-          webSearchSources = tavilySources(payload);
-          logEvent("web_search_done", {
-            ...turnLog,
-            sourceCount: payload.results.length,
-            hasSummary: Boolean(payload.answer),
-          });
-          report?.okPhase(
-            "search",
-            "Web search",
-            `Query "${decision.query}" · ${payload.results.length} source(s)`,
-            performance.now() - searchStarted,
-            {
-              type: "fields",
-              fields: [
-                { label: "Query", value: decision.query },
-                {
-                  label: "Sources",
-                  value: String(payload.results.length),
-                },
-                {
-                  label: "Has summary",
-                  value: payload.answer ? "yes" : "no",
-                },
-              ],
-            },
-          );
-        } catch (err) {
-          logEventError("web_search_failed", err, turnLog);
-          const message = err instanceof Error ? err.message : String(err);
-          report?.failPhase(
-            "search",
-            "Web search",
-            message,
-            performance.now() - searchStarted,
-          );
-          webSearchContext = formatTavilyFailure(decision.query, err);
-        }
-      } else {
-        logEvent("web_search_skipped", turnLog);
-        report?.skipPhase(
-          "search",
-          "Web search",
-          decision.needsSearch ? "No search query from model" : "Not needed",
-        );
-      }
-    } else if (isTavilyConfigured() && linkFetch.resolved) {
-      logEvent("web_search_skipped", { ...turnLog, reason: "link_fetch_resolved" });
-      report?.skipPhase(
-        "search",
-        "Web search",
-        "Skipped because link content was fetched",
-      );
-    } else if (!isTavilyConfigured()) {
-      report?.skipPhase("search", "Web search", "Tavily not configured");
-    }
+    const moodPromise = evaluateMoodForTurn(input, moodContextText, moodLatestTurnPreview);
+    const linkFetch = await fetchLinksForTurn(input);
+    const { webSearchContext, webSearchSources } = await searchWebForTurn(input, linkFetch.resolved, turnLog);
 
     const evaluatedMood = await moodPromise;
-    saveMoodState(evaluatedMood);
-    logEvent("mood_evaluate_done", {
-      ...turnLog,
-      moodSummary: JSON.stringify(evaluatedMood),
-    });
-    report?.okPhase(
-      "mood",
-      "Mood",
-      "Mood state updated for this reply",
-      performance.now() - moodStarted,
-      { type: "mood", traits: evaluatedMood },
-    );
 
     logEvent("llm_reply_started", turnLog);
     const built = buildChatMessages(
@@ -303,7 +171,7 @@ export async function runChatTurn(
         speakerTag: input.userRole,
         mentionedUsersContext: input.mentionedUsersContext,
         replyContext: input.replyContext,
-        linkFetchContext,
+        linkFetchContext: linkFetch.context,
         webSearchContext,
         currentSpeaker: input.currentSpeaker,
         currentSpeakerIsOwner: input.currentSpeakerIsOwner,
@@ -327,15 +195,6 @@ export async function runChatTurn(
       0,
     );
     const injectedTokens = historyTotalTokens(storedHistory);
-    logEvent("history_injected", {
-      ...turnLog,
-      injectedMessages: built.historyMessages.length,
-      storedMessages: built.storedHistoryCount,
-      maxTokens: historyLimits.historyMaxTokens,
-      injectedTokens,
-      injectedChars,
-      latestChars: built.latestContent.length,
-    });
 
     report?.okPhase(
       "context",
@@ -374,75 +233,11 @@ export async function runChatTurn(
         },
       },
     );
-    logEvent("llm_reply_done", {
-      ...turnLog,
-      outputChars: modelOutput.length,
-    });
 
     const replyBody = extractTelegramReply(modelOutput);
     const hasReply = hasVisibleTelegramReply(replyBody);
 
-    let stickerEmoji: string | null = null;
-    const stickerRoll = settings.stickersEnabled
-      ? rollStickerReplyChance(settings.stickerReplyChance)
-      : null;
-    if (stickerRoll) {
-      logEvent("sticker_roll", {
-        ...turnLog,
-        chance: stickerRoll.chance,
-        roll:
-          stickerRoll.roll == null
-            ? undefined
-            : Number(stickerRoll.roll.toFixed(2)),
-        hit: stickerRoll.hit,
-      });
-    }
-    if (settings.stickersEnabled && stickerRoll?.hit) {
-      logEvent("sticker_analyze_started", turnLog);
-      const stickerStarted = performance.now();
-      stickerEmoji = await analyzeStickerForReply({
-        userMessage: input.latestBody,
-        botReply: replyBody,
-        replyContext: input.replyContext,
-        traceTurnId: input.turnId,
-      });
-      logEvent("sticker_analyze_done", {
-        ...turnLog,
-        picked: stickerEmoji ?? undefined,
-      });
-      if (stickerEmoji) {
-        report?.okPhase(
-          "sticker",
-          "Sticker",
-          `Sent ${stickerEmoji}`,
-          performance.now() - stickerStarted,
-        );
-      } else {
-        report?.skipPhase(
-          "sticker",
-          "Sticker",
-          "Chance hit but no sticker selected",
-        );
-      }
-    } else if (settings.stickersEnabled && stickerRoll) {
-      report?.skipPhase(
-        "sticker",
-        "Sticker",
-        `Chance ${stickerRoll.chance}% not hit`,
-      );
-    } else {
-      report?.skipPhase("sticker", "Sticker", "Stickers disabled");
-    }
-
-    const stickerFileId = stickerEmoji
-      ? resolveStickerFileId(stickerEmoji)
-      : null;
-    if (stickerEmoji && settings.stickersEnabled && !stickerFileId) {
-      logEvent("sticker_resolve_failed", {
-        ...turnLog,
-        emoji: stickerEmoji,
-      });
-    }
+    const { stickerEmoji, stickerFileId } = await analyzeStickerForTurn(input, replyBody, turnLog);
 
     if (!hasReply && !stickerFileId) {
       throw new Error("Model response had no [REPLY] content");
@@ -488,11 +283,6 @@ export async function runChatTurn(
       );
       if (thinkingChunks > 0) {
         thinkingSent = true;
-        logEvent("thinking_sent", {
-          ...turnLog,
-          chunkCount: thinkingChunks,
-          thinkingChars: thinking.length,
-        });
         report?.okPhase(
           "thinking",
           "Thinking messages",
@@ -583,9 +373,9 @@ export async function runChatTurn(
     ).catch(async () => {
       await replyHtml(
         ctx,
-        "Sorry, I could not get a response from the LLM.",
+        `Sorry, I could not get a response from the LLM.\n\n${escapeHtml(msg)}`,
         errReplyExtra,
-      ).catch((e) => console.error("Failed to send fallback reply:", e));
+      ).catch((e) => logEventError("error_reply_failed", e, turnLog));
     });
   }
 }

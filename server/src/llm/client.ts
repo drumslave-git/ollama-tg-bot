@@ -505,11 +505,10 @@ function wrapModelListError(err: unknown, hostOverride?: string): Error {
   return new Error(String(err));
 }
 
-export async function checkHealth(hostOverride?: string): Promise<boolean> {
+export async function checkHealth(hostOverride?: string): Promise<void> {
   try {
     await openAiClient(hostOverride).models.list({ timeout: 5000 });
-    return true;
-  } catch {
-    return false;
+  } catch (err) {
+    throw wrapModelListError(err, hostOverride);
   }
 }

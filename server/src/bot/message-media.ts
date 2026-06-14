@@ -78,3 +78,4 @@ export function messageHasUserImage(message: Message): boolean {
   if (message.document?.mime_type?.startsWith("image/")) return true;
   return false;
 }
+

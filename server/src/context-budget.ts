@@ -121,7 +121,7 @@ export function modelContextInputFromTags(
   return {
     name: modelName,
     sizeBytes: entry?.size,
-    parameterSize: entry?.details?.parameter_size,
+    parameterSize: entry?.details?.parameter_size ?? (entry as any)?.parameterSize,
     modelMaxCtx: entry?.modelMaxCtx,
   };
 }

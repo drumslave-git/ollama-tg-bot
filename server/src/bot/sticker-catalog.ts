@@ -53,7 +53,7 @@ export function stickerPromptLabel(index: number): string {
 
 export function getStickerCatalogState(): {
   packName: string;
-  stickers: Pick<CatalogSticker, "index" | "emoji">[];
+  stickers: Pick<CatalogSticker, "index" | "emoji" | "fileId">[];
   loaded: boolean;
   error: string | null;
 } {
@@ -62,6 +62,7 @@ export function getStickerCatalogState(): {
     stickers: (catalog?.stickers ?? []).map((s) => ({
       index: s.index,
       emoji: s.emoji,
+      fileId: s.fileId,
     })),
     loaded: catalog != null && catalog.stickers.length > 0,
     error: lastError,

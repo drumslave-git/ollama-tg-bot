@@ -467,6 +467,7 @@ function withHostQuery(path: string, host?: string): string {
 }
 
 export const api = {
+  stickerPreviewUrl: (index: number) => `/api/settings/stickers/${index}/preview`,
   checkHealth: () => request<{ ok: boolean }>("/api/health"),
   getSettings: () => request<Settings>("/api/settings"),
   updateSettings: (patch: Partial<Settings>) =>
@@ -475,94 +476,99 @@ export const api = {
       body: JSON.stringify(patch),
     }),
   getModels: (host?: string) =>
-    request<{ models: LlmModel[] }>(withHostQuery("/api/models", host)).then(
+    request<{ models: LlmModel[] }>(withHostQuery("/api/settings/models", host)).then(
       (r) => r.models,
     ),
-  getBudget: (model: string, numPredict: number) =>
+  getBudget: (model: string, numPredict: number, host?: string) =>
     request<{
       contextBudget: ContextBudget;
       derivedHistoryLimits: DerivedHistoryLimits;
     }>(
-      `/api/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}`,
+      withHostQuery(
+        `/api/settings/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}`,
+        host,
+      ),
     ),
   getStats: () => request<Stats>("/api/stats"),
   clearErrors: () =>
-    request<{ ok: boolean; deleted: number }>("/api/errors", {
-      method: "DELETE",
+    request<{ ok: boolean }>("/api/stats/errors/clear", {
+      method: "POST",
     }),
   getMemories: () =>
-    request<{ facts: UserMemoryFact[]; total: number }>("/api/memories"),
+    request<{ facts: UserMemoryFact[]; total: number }>("/api/memories/user"),
   createMemory: (userId: string, fact: string) =>
-    request<{ fact: UserMemoryFact }>("/api/memories", {
+    request<{ fact: UserMemoryFact }>("/api/memories/user", {
       method: "POST",
       body: JSON.stringify({ userId, fact }),
     }),
   updateMemory: (id: number, fact: string) =>
-    request<{ fact: UserMemoryFact }>(`/api/memories/${id}`, {
+    request<{ fact: UserMemoryFact }>(`/api/memories/user/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ fact }),
     }),
   deleteMemory: (id: number) =>
-    request<{ ok: boolean }>(`/api/memories/${id}`, { method: "DELETE" }),
+    request<{ ok: boolean }>(`/api/memories/user/${id}`, { method: "DELETE" }),
   clearUserMemories: (userId: string) =>
-    request<{ ok: boolean; deleted: number }>(
-      `/api/memories/user/${encodeURIComponent(userId)}`,
+    request<{ ok: boolean }>(
+      `/api/memories/user/all/${encodeURIComponent(userId)}`,
       { method: "DELETE" },
     ),
   getGroupMemories: () =>
-    request<{ facts: GroupMemoryFact[]; total: number }>("/api/group-memories"),
+    request<{ facts: GroupMemoryFact[]; total: number }>("/api/memories/group"),
   createGroupMemory: (groupId: string, fact: string) =>
-    request<{ fact: GroupMemoryFact }>("/api/group-memories", {
+    request<{ fact: GroupMemoryFact }>("/api/memories/group", {
       method: "POST",
       body: JSON.stringify({ groupId, fact }),
     }),
   updateGroupMemory: (id: number, fact: string) =>
-    request<{ fact: GroupMemoryFact }>(`/api/group-memories/${id}`, {
+    request<{ fact: GroupMemoryFact }>(`/api/memories/group/${id}`, {
       method: "PATCH",
       body: JSON.stringify({ fact }),
     }),
   deleteGroupMemory: (id: number) =>
-    request<{ ok: boolean }>(`/api/group-memories/${id}`, { method: "DELETE" }),
+    request<{ ok: boolean }>(`/api/memories/group/${id}`, { method: "DELETE" }),
   clearGroupMemories: (groupId: string) =>
-    request<{ ok: boolean; deleted: number }>(
-      `/api/group-memories/group/${encodeURIComponent(groupId)}`,
+    request<{ ok: boolean }>(
+      `/api/memories/group/all/${encodeURIComponent(groupId)}`,
       { method: "DELETE" },
     ),
   getGeneralMemories: () =>
     request<{ facts: GeneralMemoryFact[]; total: number }>(
-      "/api/general-memories",
+      "/api/memories/general",
     ),
   createGeneralMemory: (fact: string) =>
-    request<{ fact: GeneralMemoryFact }>("/api/general-memories", {
+    request<{ fact: GeneralMemoryFact }>("/api/memories/general", {
       method: "POST",
-      body: JSON.stringify({ fact }),
+      body: JSON.stringify({ text: fact }),
     }),
   updateGeneralMemory: (id: number, fact: string) =>
-    request<{ fact: GeneralMemoryFact }>(`/api/general-memories/${id}`, {
+    request<{ fact: GeneralMemoryFact }>(`/api/memories/general/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ fact }),
+      body: JSON.stringify({ text: fact }),
     }),
   deleteGeneralMemory: (id: number) =>
-    request<{ ok: boolean }>(`/api/general-memories/${id}`, {
+    request<{ ok: boolean }>(`/api/memories/general/${id}`, {
       method: "DELETE",
     }),
   clearGeneralMemories: () =>
-    request<{ ok: boolean; deleted: number }>("/api/general-memories", {
+    request<{ ok: boolean }>("/api/memories/general", {
       method: "DELETE",
     }),
-  llmHealth: (host?: string) =>
-    request<{ ok: boolean }>(withHostQuery("/api/llm/health", host)).then(
-      (r) => r.ok,
-    ),
+  llmHealth: async (host?: string) => {
+    await request<{ ok: boolean }>("/api/settings/test-llm", {
+      method: "POST",
+      body: JSON.stringify({ host }),
+    });
+  },
   tavilyStatus: () =>
-    request<{ configured: boolean; ok: boolean }>("/api/tavily/status"),
-  getPersonalities: () => request<PersonalitiesPayload>("/api/personalities"),
+    request<{ configured: boolean; ok: boolean }>("/api/settings/tavily-status"),
+  getPersonalities: () => request<PersonalitiesPayload>("/api/mood/personalities"),
   createPersonality: (
     name: string,
     prompt: string,
     moodDefaults?: MoodValues,
   ) =>
-    request<{ personality: Personality }>("/api/personalities", {
+    request<{ personality: Personality }>("/api/mood/personality", {
       method: "POST",
       body: JSON.stringify({ name, prompt, moodDefaults }),
     }),
@@ -570,48 +576,41 @@ export const api = {
     id: number,
     patch: { name?: string; prompt?: string; moodDefaults?: MoodValues },
   ) =>
-    request<{ personality: Personality }>(`/api/personalities/${id}`, {
+    request<{ personality: Personality }>(`/api/mood/personality/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
   deletePersonality: (id: number) =>
     request<{ ok: boolean; activePersonalityId: number }>(
-      `/api/personalities/${id}`,
+      `/api/mood/personality/${id}`,
       { method: "DELETE" },
     ),
-  getStickers: () => request<StickerCatalog>("/api/stickers"),
+  getStickers: () => request<StickerCatalog>("/api/settings/stickers"),
   refreshStickers: () =>
-    request<StickerCatalog>("/api/stickers/refresh", { method: "POST" }),
-  stickerPreviewUrl: (index: number) =>
-    `/api/stickers/${index}/preview`,
-  getDataTables: () =>
-    request<{ tables: DataTableSummary[] }>("/api/data"),
+    request<StickerCatalog>("/api/settings/stickers/refresh", { method: "POST" }),
+  getDataTables: () => request<{ tables: DataTableSummary[] }>("/api/data/tables"),
   getDataTable: (tableId: string) =>
-    request<DataTablePayload>(
-      `/api/data/${encodeURIComponent(tableId)}`,
-    ),
+    request<DataTablePayload>(`/api/data/table/${tableId}`),
   getMood: () => request<MoodPayload>("/api/mood"),
   updateMood: (patch: {
     cooldownMinutes?: number;
-    current?: MoodValues;
+    current?: Partial<MoodValues>;
   }) =>
-    request<MoodPayload>("/api/mood", {
+    request<MoodPayload>("/api/mood/state", {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
-  refreshMood: () =>
-    request<MoodPayload>("/api/mood/refresh", { method: "POST" }),
+  refreshMood: () => request<MoodPayload>("/api/mood/state/tick", { method: "POST" }),
   resetMood: () =>
-    request<MoodPayload & { ok: boolean; deleted: boolean }>(
-      "/api/mood/current",
-      { method: "DELETE" },
-    ),
+    request<MoodPayload>("/api/mood/state/reset", {
+      method: "POST",
+    }),
   getDebugChats: () =>
     request<{ chats: DebugChatSummary[] }>("/api/debug/chats"),
   getDebugTraces: (chatId: string) =>
     request<{ traces: MessageReportListItem[] }>(
-      `/api/debug/traces?chatId=${encodeURIComponent(chatId)}`,
+      `/api/debug/chat/${encodeURIComponent(chatId)}`,
     ),
   getDebugTrace: (id: number) =>
-    request<{ trace: MessageReportDetail }>(`/api/debug/traces/${id}`),
+    request<{ trace: MessageReportDetail }>(`/api/debug/trace/${id}`),
 };
