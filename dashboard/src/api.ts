@@ -31,6 +31,9 @@ export interface Settings {
   sendThinkingEnabled: boolean;
   reasoningEffort: "none" | "low" | "medium" | "high";
   maintenanceModeEnabled: boolean;
+  workflowSteps: string[];
+  workflowNodes: { id: string; x: number; y: number }[];
+  workflowEdges: { id: string; source: string; target: string }[];
   contextBudget?: ContextBudget;
   vramAvailableGb: number;
 }

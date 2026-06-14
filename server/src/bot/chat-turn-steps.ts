@@ -16,9 +16,14 @@ import { prepareTelegramHtml, visibleTelegramText, escapeHtml } from "../telegra
 import { replyParameters } from "./replies.js";
 
 export async function evaluateMoodForTurn(input: ChatTurnInput, moodContextText: string, moodLatestTurnPreview: string) {
+  const settings = getResolvedSettings();
   const report = getMessageReport(input.turnId);
-  const moodStarted = performance.now();
   const decayedMood = getEffectiveMood();
+  if (settings.workflowSteps && !settings.workflowSteps.includes("mood")) {
+    report?.skipPhase("mood", "Mood", "Skipped (Workflow step disabled)");
+    return decayedMood;
+  }
+  const moodStarted = performance.now();
   const evaluatedMood = await evaluateMood({
     currentMood: decayedMood,
     historyText: moodContextText,
@@ -37,7 +42,12 @@ export async function evaluateMoodForTurn(input: ChatTurnInput, moodContextText:
 }
 
 export async function fetchLinksForTurn(input: ChatTurnInput) {
+  const settings = getResolvedSettings();
   const report = getMessageReport(input.turnId);
+  if (settings.workflowSteps && !settings.workflowSteps.includes("links")) {
+    report?.skipPhase("links", "Link fetch", "Skipped (Workflow step disabled)");
+    return { context: null, urlCount: 0, resolved: false };
+  }
   const linkFetchStarted = performance.now();
   const linkFetch = await resolveLinkFetchContext({
     userMessage: input.latestBody,
@@ -57,7 +67,12 @@ export async function fetchLinksForTurn(input: ChatTurnInput) {
 }
 
 export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: boolean, turnLog: any) {
+  const settings = getResolvedSettings();
   const report = getMessageReport(input.turnId);
+  if (settings.workflowSteps && !settings.workflowSteps.includes("search")) {
+    report?.skipPhase("search", "Web search", "Skipped (Workflow step disabled)");
+    return { webSearchContext: null, webSearchSources: [] };
+  }
   let webSearchContext: string | null = null;
   let webSearchSources: TavilySource[] = [];
 
@@ -99,6 +114,10 @@ export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: 
 export async function analyzeStickerForTurn(input: ChatTurnInput, replyBody: string, turnLog: any) {
   const settings = getResolvedSettings();
   const report = getMessageReport(input.turnId);
+  if (settings.workflowSteps && !settings.workflowSteps.includes("sticker")) {
+    report?.skipPhase("sticker", "Sticker", "Skipped (Workflow step disabled)");
+    return { stickerEmoji: null, stickerFileId: null };
+  }
   let stickerEmoji: string | null = null;
 
   const stickerRoll = settings.stickersEnabled ? rollStickerReplyChance(settings.stickerReplyChance) : null;
