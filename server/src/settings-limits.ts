@@ -1,8 +1,13 @@
 import type { Settings } from "./db/database.js";
 
 export const MIN_NUM_PREDICT = 32;
-/** Minimum generation budget for auxiliary side passes (address, search, mood, …). */
-export const AUXILIARY_NUM_PREDICT = 512;
+/**
+ * Minimum generation budget for auxiliary side passes (address, search, mood,
+ * memory, …). Reasoning-capable backends spend tokens on hidden chain-of-thought
+ * before emitting the structured block, so this floor must leave room for both;
+ * too low a budget makes those passes return empty content and silently fail.
+ */
+export const AUXILIARY_NUM_PREDICT = 768;
 /** Hard cap on generated tokens; also limited by context size minus prompt headroom. */
 export const MAX_NUM_PREDICT = 8192;
 export const NUM_CTX_GENERATION_HEADROOM = 512;

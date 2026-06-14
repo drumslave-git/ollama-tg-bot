@@ -1,6 +1,5 @@
 import type { Context } from "grammy";
 import { chatComplete } from "../llm/client.js";
-import type { ChatMessage } from "../llm/client.js";
 import {
   getBotIdentity,
   messageReferencesBotByName,
@@ -9,7 +8,18 @@ import {
 import { isMessageForBot } from "./addressed.js";
 import { stripNonBotMentions } from "./mentions.js";
 import { logEvent, logEventError } from "../event-log.js";
-import { extractLastClosedBlock } from "../response-format.js";
+import {
+  buildAddressAnalyzerMessages,
+  formatBotNamesForAnalyzer,
+  parseAddressDecision,
+} from "./address-analyze-prompt.js";
+
+export {
+  ANALYZER_SYSTEM,
+  buildAddressAnalyzerMessages,
+  formatBotNamesForAnalyzer,
+  parseAddressDecision,
+} from "./address-analyze-prompt.js";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;
 
@@ -23,53 +33,6 @@ export type AddressSource =
 export interface AddressCheckResult {
   addressed: boolean;
   source?: AddressSource;
-}
-
-const ANALYZER_SYSTEM = `You decide whether a group-chat message explicitly names a specific Telegram bot and should receive a reply.
-
-Output ONLY:
-
-[ADDRESS]
-yes
-[/ADDRESS]
-
-or
-
-[ADDRESS]
-no
-[/ADDRESS]
-
-Say yes only when the message contains a reference to the bot identity:
-- The bot's username, first name, full name, nickname, or a clear spelling/case/punctuation variation
-- A clear translation/transliteration of the bot's name into another language
-- A natural-language call to that named bot, such as "<bot name>, what do you think?"
-
-Say no when:
-- Humans are chatting among themselves with no request aimed at the bot
-- The bot is not named, even if the message asks a general question or sounds like it wants an assistant
-- The message says "bot", "assistant", "AI", or similar generic words without the specific bot name
-- It is background banter the bot should not interrupt`;
-
-function parseAddressDecision(raw: string): boolean {
-  let value = extractLastClosedBlock(raw, "ADDRESS")?.toLowerCase() ?? "";
-
-  if (!value) {
-    const unclosed = raw.match(/\[ADDRESS\]\s*(yes|no)\b\s*$/i);
-    value = unclosed?.[1]?.toLowerCase() ?? "";
-  }
-
-  if (!value) return false;
-  if (/^no\b/.test(value) || value === "n") return false;
-  return /^y(es)?\b/.test(value) || value === "y";
-}
-
-function formatBotNamesForAnalyzer(bot: BotIdentity): string {
-  const labels = new Set<string>();
-  labels.add(`@${bot.username}`);
-  for (const alias of bot.aliases) {
-    if (alias.length >= 3) labels.add(alias);
-  }
-  return [...labels].join(", ");
 }
 
 /**
@@ -137,17 +100,12 @@ async function analyzeGroupMessageForBot(
       "Someone"
     : "Someone";
 
-  const messages: ChatMessage[] = [
-    { role: "system", content: ANALYZER_SYSTEM },
-    {
-      role: "user",
-      content:
-        `Bot identity (names users may use): ${formatBotNamesForAnalyzer(bot)}\n` +
-        `Chat type: ${chatType}\n` +
-        `Sender: ${sender}\n\n` +
-        `Message:\n${text.trim() || "(empty or non-text)"}`,
-    },
-  ];
+  const messages = buildAddressAnalyzerMessages({
+    botLabels: formatBotNamesForAnalyzer(bot),
+    chatType,
+    sender,
+    text,
+  });
 
   try {
     const raw = await chatComplete(messages, {

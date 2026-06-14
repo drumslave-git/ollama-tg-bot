@@ -142,9 +142,14 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 
 ## Testing
 
-After server changes: `npm run build -w server`. After dashboard changes: `npm run build -w dashboard`. Manually verify bot commands (`/start`, `/id`, `/reset`) and dashboard save/load.
+[Vitest](https://vitest.dev) drives two suites (server workspace):
 
-Optional live LLM check: `npm run test:llm -w server` — requires `LLM_BASE_URL` and `LLM_MODEL`; optional `OPENAI_API_KEY`.
+- **Mocked unit suite (committable, default):** `npm test` (root) or `npm run test -w server`. Pure logic only — no network, LLM, or Telegram. Lives in `server/test/unit/**`; shared `Settings` fixture in `server/test/helpers/settings.ts`. Config: `server/vitest.config.ts`. Run `npm run test:watch -w server` while developing.
+- **Live LLM suite (opt-in):** `npm run test:llm` (root) or `npm run test:llm -w server`. Hits a real OpenAI-compatible backend through the production prompt-builders and parsers. Covers chat round-trip plus every LLM-backed side pass: address detection (`address-analyze-prompt.ts`), web-search decision (`search-analyze-prompt.ts`), memory extract/dedup/merge (`memory-prompt.ts`), and mood (`mood-prompt.ts`). Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when they are absent. Lives in `server/test/live/**`. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts` so no run can hit Tavily.
+- **Side-pass prompts are DB-free modules:** each LLM-backed side pass keeps its system prompt + `build*Messages()` builder + parser in a pure `*-prompt.ts` module (no DB/LLM imports); the orchestrator module (`address-analyze.ts`, `search-analyze.ts`, `memory-extract.ts`, `mood-evaluate.ts`) re-exports them. Import from the `*-prompt` module in tests so the committable suite never loads `node:sqlite`.
+- **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (settings-limits); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
+
+After server changes: `npm run build -w server`. After dashboard changes: `npm run build -w dashboard`. Manually verify bot commands (`/start`, `/id`, `/reset`) and dashboard save/load.
 
 ## Common pitfalls
 
