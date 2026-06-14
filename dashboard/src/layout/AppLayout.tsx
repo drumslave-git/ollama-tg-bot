@@ -11,6 +11,7 @@ const navItems = [
   { to: "/mood", label: "Mood", end: false },
   { to: "/debug", label: "Debug", end: false },
   { to: "/data", label: "Data", end: false },
+  { to: "/workflow", label: "Workflow", end: false },
 ] as const;
 
 export function AppLayout() {

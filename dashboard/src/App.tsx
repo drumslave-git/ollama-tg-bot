@@ -10,6 +10,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { DataPage } from "./pages/DataPage";
 import { MoodPage } from "./pages/MoodPage";
 import { DebugPage } from "./pages/DebugPage";
+import { WorkflowPage } from "./pages/WorkflowPage";
 import "./App.css";
 
 function DashboardRoutes() {
@@ -57,6 +58,7 @@ function DashboardRoutes() {
         <Route path="mood" element={<MoodPage />} />
         <Route path="debug/*" element={<DebugPage />} />
         <Route path="data" element={<DataPage />} />
+        <Route path="workflow" element={<WorkflowPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
