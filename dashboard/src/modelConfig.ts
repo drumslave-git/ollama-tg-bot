@@ -16,7 +16,8 @@ export type ModelConfigField =
   | "topP"
   | "topK"
   | "repeatPenalty"
-  | "chatTimeoutSec";
+  | "chatTimeoutSec"
+  | "reasoningEffort";
 
 export type ModelConfigIssue = {
   field: ModelConfigField | "model";
@@ -35,6 +36,7 @@ export type ModelConfigPatch = Partial<
     | "topK"
     | "repeatPenalty"
     | "chatTimeoutSec"
+    | "reasoningEffort"
   >
 >;
 

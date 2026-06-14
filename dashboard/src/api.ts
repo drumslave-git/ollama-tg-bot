@@ -29,6 +29,7 @@ export interface Settings {
   moodCooldownMinutes?: number;
   thinkingEnabled: boolean;
   sendThinkingEnabled: boolean;
+  reasoningEffort: "none" | "low" | "medium" | "high";
   maintenanceModeEnabled: boolean;
   contextBudget?: ContextBudget;
   vramAvailableGb: number;

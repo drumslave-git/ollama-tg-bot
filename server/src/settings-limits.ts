@@ -160,6 +160,12 @@ export function validateSettingsFields(settings: Settings): void {
     ["activePersonalityId must be a number", isFiniteNumber(settings.activePersonalityId)],
     ["moodCooldownMinutes must be a number", isFiniteNumber(settings.moodCooldownMinutes)],
     [
+      "reasoningEffort must be none, low, medium, or high",
+      (["none", "low", "medium", "high"] as const).includes(
+        settings.reasoningEffort,
+      ),
+    ],
+    [
       `numPredict must be ${MIN_NUM_PREDICT}–${maxNumPredictForContext(settings.numCtx)} (context headroom)`,
       isFiniteNumber(normalized.numPredict) &&
         normalized.numPredict >= MIN_NUM_PREDICT &&

@@ -333,8 +333,8 @@ function formatTraceSamplingLine(
   auxiliary: boolean,
 ): string {
   const temp = auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature;
-  const reasoningEffort = providerChatExtensions(settings, auxiliary)
-    .reasoning_effort;
+  const extensions = providerChatExtensions(settings, auxiliary);
+  const reasoningEffort = extensions.reasoning_effort ?? "none";
   return [
     `temperature: ${temp}`,
     `top_p: ${settings.topP}`,

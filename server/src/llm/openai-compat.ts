@@ -37,7 +37,8 @@ export type ReasoningEffort = "none" | "low" | "medium" | "high";
 export function providerRequestExtensions(
   settings: Settings,
 ): { options: ProviderChatOptions } {
-  return { options: providerChatExtensions(settings, true).options };
+  const extensions = providerChatExtensions(settings, true);
+  return { options: extensions.options! };
 }
 
 /**
@@ -53,19 +54,24 @@ export function providerRequestExtensions(
 export function providerChatExtensions(
   settings: Settings,
   auxiliary: boolean,
-): ProviderChatExtensions {
-  return {
+): Partial<ProviderChatExtensions> {
+  const extensions: Partial<ProviderChatExtensions> = {
     options: {
       num_ctx: settings.numCtx,
       top_k: settings.topK,
       repeat_penalty: settings.repeatPenalty,
       skip_special_tokens: false,
     },
-    // Side passes ([ADDRESS], [SEARCH], mood, memory, …) need structured output in
-    // `content`. Many backends mis-split when reasoning is on — keep it off there.
-    reasoning_effort:
-      auxiliary || !settings.thinkingEnabled ? "none" : "medium",
   };
+
+  const effort =
+    auxiliary || !settings.thinkingEnabled ? "none" : settings.reasoningEffort;
+
+  if (effort !== "none") {
+    extensions.reasoning_effort = effort;
+  }
+
+  return extensions;
 }
 
 function readStringField(

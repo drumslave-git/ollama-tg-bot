@@ -17,11 +17,6 @@ interface ModelConfigPanelProps {
   onChange: (settings: Settings) => void;
 }
 
-function FieldIssue({ issues }: { issues: ModelConfigIssue[] }) {
-  const error = issues.find((i) => i.severity === "error");
-  if (!error) return null;
-  return <p className="field-error">{error.message}</p>;
-}
 
 function limiterLabel(limitedBy: ContextBudget["limitedBy"]): string {
   switch (limitedBy) {
@@ -209,7 +204,34 @@ export function ModelConfigPanel({
               If the API returns a separate reasoning field, post it as a
               separate message before the reply. It is not saved to chat history.
             </p>
-            <FieldIssue issues={issuesForField(analysis.issues, "sendThinkingEnabled")} />
+          </div>
+        ) : null}
+        {draft.thinkingEnabled ? (
+          <div className="field">
+            <label htmlFor="reasoningEffort">Reasoning effort</label>
+            <select
+              id="reasoningEffort"
+              value={draft.reasoningEffort}
+              disabled={disabled}
+              onChange={(e) =>
+                update({
+                  reasoningEffort: e.target.value as
+                    | "none"
+                    | "low"
+                    | "medium"
+                    | "high",
+                })
+              }
+            >
+              <option value="none">None</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+            <p className="hint">
+              Controls how much time/computation the model spends on reasoning
+              (if supported by the backend).
+            </p>
           </div>
         ) : null}
       </section>

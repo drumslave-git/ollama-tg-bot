@@ -70,6 +70,8 @@ export interface Settings {
   thinkingEnabled: boolean;
   /** Send model reasoning to Telegram as a message before the reply. */
   sendThinkingEnabled: boolean;
+  /** Level of reasoning effort for models that support it (none, low, medium, high). */
+  reasoningEffort: "none" | "low" | "medium" | "high";
   /** When on, only the owner can trigger LLM-backed bot behavior. */
   maintenanceModeEnabled: boolean;
 }
@@ -105,6 +107,7 @@ const DEFAULT_SETTINGS: Settings = {
   moodCooldownMinutes: 120,
   thinkingEnabled: false,
   sendThinkingEnabled: false,
+  reasoningEffort: "medium",
   maintenanceModeEnabled: false,
 };
 
@@ -217,6 +220,7 @@ export function getSettings(): Settings {
     moodCooldownMinutes: getSetting<number>("moodCooldownMinutes"),
     thinkingEnabled: getSetting<boolean>("thinkingEnabled"),
     sendThinkingEnabled: getSetting<boolean>("sendThinkingEnabled"),
+    reasoningEffort: getSetting<Settings["reasoningEffort"]>("reasoningEffort"),
     maintenanceModeEnabled: getSetting<boolean>("maintenanceModeEnabled"),
   };
 }

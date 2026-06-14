@@ -151,6 +151,7 @@ export function createApiRouter(): Router {
         "moodCooldownMinutes",
         "thinkingEnabled",
         "sendThinkingEnabled",
+        "reasoningEffort",
         "maintenanceModeEnabled",
       ];
       const patch: Partial<Settings> = {};
