@@ -20,6 +20,7 @@
     "express": "^4.21.2",
     "grammy": "^1.35.0",
     "@llm-tg-bot/modules-addressing-detection": "*",
+    "@llm-tg-bot/modules-search-decision": "*",
     "@llm-tg-bot/modules-utils": "*",
     "openai": "^6.42.0",
     "playwright": "^1.52.0",
