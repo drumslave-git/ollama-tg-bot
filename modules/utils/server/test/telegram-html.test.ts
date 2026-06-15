@@ -4,7 +4,7 @@ import {
   hasVisibleTelegramReply,
   prepareTelegramHtml,
   visibleTelegramText,
-} from "../../src/telegram/html.js";
+} from "../src/telegram-html.js";
 
 describe("prepareTelegramHtml", () => {
   it("converts markdown bold to <b>", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeModelOutput } from "../../src/llm/sanitize.js";
+import { sanitizeModelOutput } from "../src/sanitize.js";
 
 describe("sanitizeModelOutput", () => {
   it("removes hex byte tokens", () => {

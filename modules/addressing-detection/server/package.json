@@ -12,6 +12,7 @@
     "test:llm": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
+    "@grammyjs/types": "^3.22.2",
     "@llm-tg-bot/modules-utils": "*"
   },
   "devDependencies": {

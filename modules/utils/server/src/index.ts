@@ -20,3 +20,35 @@ export {
   type ChatMessage,
   type LlmConfig,
 } from "./llm.js";
+export { sanitizeModelOutput } from "./sanitize.js";
+export {
+  escapeHtml,
+  hasVisibleTelegramReply,
+  prepareTelegramHtml,
+  visibleTelegramText,
+} from "./telegram-html.js";
+export {
+  ASSISTANT_MESSAGE_FIELDS,
+  parseAssistantMessage,
+  providerChatExtensions,
+  providerRequestExtensions,
+  type ParsedAssistantMessage,
+  type ProviderChatExtensions,
+  type ProviderChatOptions,
+  type ProviderChatSettings,
+  type ReasoningEffort,
+} from "./openai-compat.js";
+export {
+  calculateContextBudget,
+  estimateModelWeightGb,
+  extractModelMaxCtx,
+  minRequiredCtxForPredict,
+  modelContextInputFromTags,
+  parseParameterSizeFromName,
+  parseParameterSizeGb,
+  vramTierContextTokens,
+  type ContextBudget,
+  type ContextBudgetLimiter,
+  type ModelCatalogEntry,
+  type ModelContextInput,
+} from "./context-budget.js";

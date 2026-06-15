@@ -6,7 +6,7 @@ import {
   parseParameterSizeFromName,
   parseParameterSizeGb,
   vramTierContextTokens,
-} from "../../src/context-budget.js";
+} from "../src/context-budget.js";
 
 describe("vramTierContextTokens", () => {
   it("maps VRAM to the right tier", () => {

@@ -3,8 +3,8 @@ import {
   parseAssistantMessage,
   providerChatExtensions,
   providerRequestExtensions,
-} from "../../src/llm/openai-compat.js";
-import { makeSettings } from "../helpers/settings.js";
+} from "../src/openai-compat.js";
+import { makeProviderSettings } from "./helpers/provider-settings.js";
 
 type Choice = Parameters<typeof parseAssistantMessage>[0];
 
@@ -15,7 +15,7 @@ function choice(message: Record<string, unknown>): Choice {
 describe("providerChatExtensions", () => {
   it("maps provider options from settings", () => {
     const ext = providerChatExtensions(
-      makeSettings({ numCtx: 8192, topK: 50, repeatPenalty: 1.2 }),
+      makeProviderSettings({ numCtx: 8192, topK: 50, repeatPenalty: 1.2 }),
       false,
     );
     expect(ext.options).toEqual({
@@ -28,7 +28,7 @@ describe("providerChatExtensions", () => {
 
   it("omits reasoning_effort when thinking is disabled", () => {
     const ext = providerChatExtensions(
-      makeSettings({ thinkingEnabled: false, reasoningEffort: "high" }),
+      makeProviderSettings({ thinkingEnabled: false, reasoningEffort: "high" }),
       false,
     );
     expect(ext.reasoning_effort).toBeUndefined();
@@ -36,7 +36,7 @@ describe("providerChatExtensions", () => {
 
   it("sends reasoning_effort when thinking is enabled", () => {
     const ext = providerChatExtensions(
-      makeSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
+      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
       false,
     );
     expect(ext.reasoning_effort).toBe("high");
@@ -44,7 +44,7 @@ describe("providerChatExtensions", () => {
 
   it("forces reasoning off for auxiliary side passes", () => {
     const ext = providerChatExtensions(
-      makeSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
+      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
       true,
     );
     expect(ext.reasoning_effort).toBeUndefined();
@@ -54,7 +54,7 @@ describe("providerChatExtensions", () => {
 describe("providerRequestExtensions", () => {
   it("returns only the options bag (no reasoning_effort)", () => {
     const ext = providerRequestExtensions(
-      makeSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
+      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
     );
     expect(ext).toEqual({
       options: {
