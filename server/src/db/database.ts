@@ -3,9 +3,6 @@ import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { config } from "../config.js";
 import { bindHistoryDatabase, configureHistoryAccess } from "./history.js";
-import { bindGeneralMemoryDatabase } from "./general-memory.js";
-import { bindGroupMemoryDatabase } from "./group-memory.js";
-import { bindUserMemoryDatabase } from "./user-memory.js";
 import {
   appendErrorLog,
   bindErrorLogDatabase,
@@ -14,11 +11,7 @@ import {
 import { bindDebugTracesDatabase } from "./debug-traces.js";
 import { bindKnownUsersDatabase } from "./known-users.js";
 import { bindDataBrowserDatabase } from "./data-browser.js";
-import {
-  bindPersonalitiesDatabase,
-  configurePersonalityAccess,
-  getPersonalityById,
-} from "./personalities.js";
+import { getPersonalityById } from "./personalities.js";
 import {
   invalidateModelContextCache,
   refreshModelContextCache,
@@ -28,7 +21,11 @@ import {
   normalizeTokenBudget,
   validateSettingsFields,
 } from "../settings-limits.js";
-import { bindMoodDatabase, configureMoodAccess } from "./mood.js";
+import {
+  configureModuleDatabases,
+  initModuleDatabases,
+} from "../module-runtime.js";
+import { buildMoodPayload } from "../dashboard-payloads.js";
 
 export interface Settings {
   apiBaseUrl: string;
@@ -147,7 +144,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 let db: DatabaseSync;
 
-export function initDatabase(): void {
+export async function initDatabase(): Promise<void> {
   const dir = path.dirname(config.databasePath);
   fs.mkdirSync(dir, { recursive: true });
 
@@ -201,19 +198,23 @@ export function initDatabase(): void {
     }
   }
 
-  bindPersonalitiesDatabase(db);
-  configurePersonalityAccess(getSettings);
-  bindHistoryDatabase(db);
-  bindUserMemoryDatabase(db);
-  bindGroupMemoryDatabase(db);
-  bindGeneralMemoryDatabase(db);
+  await initModuleDatabases(db);
+  configureModuleDatabases({
+    getSettings: () => getSettings() as unknown as Record<string, unknown>,
+    updateSettings: (partial) =>
+      updateSettings(partial as Partial<Settings>) as unknown as Record<
+        string,
+        unknown
+      >,
+    buildMoodPayload: () => buildMoodPayload(),
+  });
+
   bindErrorLogDatabase(db);
   bindDebugTracesDatabase(db);
   bindKnownUsersDatabase(db);
+  bindHistoryDatabase(db);
   bindDataBrowserDatabase(db);
-  bindMoodDatabase(db);
   configureHistoryAccess(getResolvedSettings);
-  configureMoodAccess(getSettings);
 }
 
 function getSetting<T>(key: keyof Settings): T {

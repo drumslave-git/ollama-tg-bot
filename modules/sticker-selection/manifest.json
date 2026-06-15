@@ -1,0 +1,7 @@
+{
+  "id": "sticker-selection",
+  "name": "Sticker selection",
+  "description": "LLM pass to pick a sticker from a configured Telegram sticker set.",
+  "serverPackage": "@llm-tg-bot/modules-sticker-selection",
+  "settingsKeys": ["stickersEnabled", "stickerPackName", "stickerReplyChance"]
+}

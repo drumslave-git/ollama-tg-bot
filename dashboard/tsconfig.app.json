@@ -11,7 +11,15 @@
     "moduleDetection": "force",
     "strict": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@llm-tg-bot/dashboard/*": ["src/*"],
+      "@llm-tg-bot/modules-memory-ui": ["../modules/memory/ui/src/index.tsx"],
+      "@llm-tg-bot/modules-mood-evaluation-ui": [
+        "../modules/mood-evaluation/ui/src/index.tsx"
+      ]
+    }
   },
-  "files": ["src/main.tsx", "src/vite-env.d.ts"]
+  "include": ["src", "../modules/*/ui/src"]
 }

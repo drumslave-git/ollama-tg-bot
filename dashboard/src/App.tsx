@@ -2,15 +2,15 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { isApiError } from "./api";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import { AppLayout } from "./layout/AppLayout";
-import { MemoriesPage } from "./pages/MemoriesPage";
 import { OfflinePage } from "./pages/OfflinePage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { CharacterPage } from "./pages/CharacterPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { DataPage } from "./pages/DataPage";
-import { MoodPage } from "./pages/MoodPage";
 import { DebugPage } from "./pages/DebugPage";
 import { WorkflowPage } from "./pages/WorkflowPage";
+import { ModulesPage } from "./pages/ModulesPage";
+import { ModuleDetailPage } from "./pages/ModuleDetailPage";
 import "./App.css";
 
 function DashboardRoutes() {
@@ -54,8 +54,10 @@ function DashboardRoutes() {
         <Route index element={<OverviewPage />} />
         <Route path="character" element={<CharacterPage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="memories" element={<MemoriesPage />} />
-        <Route path="mood" element={<MoodPage />} />
+        <Route path="modules" element={<ModulesPage />} />
+        <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
+        <Route path="memories" element={<Navigate to="/modules/memory" replace />} />
+        <Route path="mood" element={<Navigate to="/modules/mood-evaluation" replace />} />
         <Route path="debug/*" element={<DebugPage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="workflow" element={<WorkflowPage />} />

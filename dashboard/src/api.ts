@@ -98,6 +98,18 @@ export interface MoodPayload {
 
 export type MemoryScope = "user" | "group" | "general";
 
+export interface DashboardModuleSummary {
+  id: string;
+  name: string;
+  description: string;
+  apiBasePath: string | null;
+  settingsKeys: string[];
+  dataTables: string[];
+  dashboard: { label: string; description?: string } | null;
+  hasDb: boolean;
+  hasUi: boolean;
+}
+
 export interface DashboardDebugEvent {
   chatId: string;
   traceId: number;
@@ -493,6 +505,8 @@ export const api = {
       ),
     ),
   getStats: () => request<Stats>("/api/stats"),
+  getModules: () =>
+    request<{ modules: DashboardModuleSummary[] }>("/api/modules"),
   clearErrors: () =>
     request<{ ok: boolean }>("/api/stats/errors/clear", {
       method: "POST",

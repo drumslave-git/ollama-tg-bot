@@ -1,0 +1,14 @@
+{
+  "id": "memory",
+  "name": "Memory",
+  "description": "Per-user, per-group, and general fact extraction, storage, and prompt injection.",
+  "serverPackage": "@llm-tg-bot/modules-memory",
+  "dbPackage": "@llm-tg-bot/modules-memory-db",
+  "uiPackage": "@llm-tg-bot/modules-memory-ui",
+  "apiBasePath": "/memories",
+  "dataTables": ["user_memories", "group_memories", "general_facts"],
+  "dashboard": {
+    "label": "Memory",
+    "description": "View and edit stored facts per user, group, and globally."
+  }
+}

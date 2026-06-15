@@ -14,11 +14,29 @@ import {
   stopMoodCooldownWorker,
 } from "./mood-cooldown.js";
 import { initLiveSocket } from "./socket.js";
+import {
+  createModuleRouters,
+  wireModuleLiveHooks,
+} from "./module-runtime.js";
+import {
+  emitDataUpdated,
+  emitMemoryUpdated,
+  emitMoodUpdated,
+  emitPersonalitiesUpdated,
+} from "./live-events.js";
 
 async function main(): Promise<void> {
   requireStartupEnv();
 
-  initDatabase();
+  wireModuleLiveHooks({
+    emitMemoryUpdated,
+    emitDataUpdated,
+    emitMoodUpdated,
+    emitPersonalitiesUpdated,
+  });
+
+  await initDatabase();
+  const moduleRouters = await createModuleRouters();
   const bootSettings = getSettings();
   void refreshModelContextCache(bootSettings.model, bootSettings.apiBaseUrl);
   startMoodCooldownWorker();
@@ -26,7 +44,7 @@ async function main(): Promise<void> {
   const app = express();
   app.use(cors());
   app.use(express.json());
-  app.use("/api", createApiRouter());
+  app.use("/api", createApiRouter(moduleRouters));
 
   app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) return next(err);

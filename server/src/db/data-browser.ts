@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import { getModuleDataTableConfigs } from "../module-runtime.js";
 
 const MAX_ROWS = 2000;
 
@@ -52,38 +53,6 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     countQuery: "SELECT COUNT(*) AS n FROM chat_history",
     timeColumns: ["updated_at", "compressed_at"],
   },
-  user_memories: {
-    label: "User memories",
-    columns: ["id", "user_id", "content", "created_at", "updated_at"],
-    query: `SELECT id, user_id, content, created_at, updated_at
-            FROM user_memories ORDER BY id DESC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM user_memories",
-    timeColumns: ["created_at", "updated_at"],
-  },
-  group_memories: {
-    label: "Group memories",
-    columns: ["id", "group_id", "content", "created_at", "updated_at"],
-    query: `SELECT id, group_id, content, created_at, updated_at
-            FROM group_memories ORDER BY id DESC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM group_memories",
-    timeColumns: ["created_at", "updated_at"],
-  },
-  general_facts: {
-    label: "General facts",
-    columns: ["id", "fact", "created_at"],
-    query: `SELECT id, fact, created_at
-            FROM general_facts ORDER BY id DESC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM general_facts",
-    timeColumns: ["created_at"],
-  },
-  personalities: {
-    label: "Personalities",
-    columns: ["id", "name", "prompt", "mood_defaults", "created_at", "updated_at"],
-    query: `SELECT id, name, prompt, mood_defaults, created_at, updated_at
-            FROM personalities ORDER BY id ASC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM personalities",
-    timeColumns: ["created_at", "updated_at"],
-  },
   known_users: {
     label: "Known users",
     columns: ["user_id", "username", "first_name", "last_name", "updated_at"],
@@ -101,6 +70,13 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     timeColumns: ["created_at"],
   },
 };
+
+function allTableConfigs(): Record<string, TableConfig> {
+  return {
+    ...TABLE_CONFIGS,
+    ...Object.fromEntries(getModuleDataTableConfigs()),
+  };
+}
 
 const TABLE_ORDER = [
   "settings",
@@ -122,15 +98,16 @@ export function bindDataBrowserDatabase(database: DatabaseSync): void {
 }
 
 export function listDataTables(): DataTableSummary[] {
-  return TABLE_ORDER.map((id) => {
-    const config = TABLE_CONFIGS[id];
+  const configs = allTableConfigs();
+  return TABLE_ORDER.filter((id) => configs[id]).map((id) => {
+    const config = configs[id];
     const row = db.prepare(config.countQuery).get() as { n: number };
     return { id, label: config.label, count: row.n };
   });
 }
 
 export function getDataTable(tableId: string): DataTablePayload | null {
-  const config = TABLE_CONFIGS[tableId];
+  const config = allTableConfigs()[tableId];
   if (!config) return null;
 
   const totalRow = db.prepare(config.countQuery).get() as { n: number };

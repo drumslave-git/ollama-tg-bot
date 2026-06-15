@@ -1,0 +1,6 @@
+{
+  "id": "search-decision",
+  "name": "Search decision",
+  "description": "LLM side pass to decide whether a message needs web search and extract a query.",
+  "serverPackage": "@llm-tg-bot/modules-search-decision"
+}

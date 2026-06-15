@@ -1,0 +1,6 @@
+{
+  "id": "web-search",
+  "name": "Web search",
+  "description": "Execute web search via Tavily and format context for the main reply.",
+  "serverPackage": "@llm-tg-bot/modules-web-search"
+}

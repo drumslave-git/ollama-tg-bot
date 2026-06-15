@@ -1,0 +1,6 @@
+{
+  "id": "link-fetch",
+  "name": "Link fetch",
+  "description": "Fetch linked pages with Playwright and inject readable context into the chat turn.",
+  "serverPackage": "@llm-tg-bot/modules-link-fetch"
+}

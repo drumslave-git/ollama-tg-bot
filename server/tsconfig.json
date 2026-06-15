@@ -11,29 +11,32 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@llm-tg-bot/modules-utils": ["./src/modules/utils/src/index.ts"],
+      "@llm-tg-bot/modules-registry": ["../modules/registry/src/index.ts"],
+      "@llm-tg-bot/modules-utils": ["../modules/utils/server/src/index.ts"],
       "@llm-tg-bot/modules-addressing-detection": [
-        "./src/modules/addressing-detection/src/index.ts"
+        "../modules/addressing-detection/server/src/index.ts"
       ],
       "@llm-tg-bot/modules-search-decision": [
-        "./src/modules/search-decision/src/index.ts"
+        "../modules/search-decision/server/src/index.ts"
       ],
       "@llm-tg-bot/modules-web-search": [
-        "./src/modules/web-search/src/index.ts"
+        "../modules/web-search/server/src/index.ts"
       ],
-      "@llm-tg-bot/modules-memory": [
-        "./src/modules/memory/src/index.ts"
-      ],
+      "@llm-tg-bot/modules-memory": ["../modules/memory/server/src/index.ts"],
+      "@llm-tg-bot/modules-memory-db": ["../modules/memory/db/src/index.ts"],
       "@llm-tg-bot/modules-link-fetch": [
-        "./src/modules/link-fetch/src/index.ts"
+        "../modules/link-fetch/server/src/index.ts"
       ],
       "@llm-tg-bot/modules-sticker-selection": [
-        "./src/modules/sticker-selection/src/index.ts"
+        "../modules/sticker-selection/server/src/index.ts"
       ],
       "@llm-tg-bot/modules-mood-evaluation": [
-        "./src/modules/mood-evaluation/src/index.ts"
+        "../modules/mood-evaluation/server/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-mood-evaluation-db": [
+        "../modules/mood-evaluation/db/src/index.ts"
       ]
     }
   },
-  "files": ["src/index.ts"]
+  "include": ["src"]
 }

@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
+const modulesRoot = path.join(root, "..", "modules");
 
 /**
  * Committable unit/integration suite.
@@ -13,37 +14,49 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
+      "@llm-tg-bot/modules-registry": path.join(
+        modulesRoot,
+        "registry/src/index.ts",
+      ),
       "@llm-tg-bot/modules-utils": path.join(
-        root,
-        "src/modules/utils/src/index.ts",
+        modulesRoot,
+        "utils/server/src/index.ts",
       ),
       "@llm-tg-bot/modules-addressing-detection": path.join(
-        root,
-        "src/modules/addressing-detection/src/index.ts",
+        modulesRoot,
+        "addressing-detection/server/src/index.ts",
       ),
       "@llm-tg-bot/modules-search-decision": path.join(
-        root,
-        "src/modules/search-decision/src/index.ts",
+        modulesRoot,
+        "search-decision/server/src/index.ts",
       ),
       "@llm-tg-bot/modules-web-search": path.join(
-        root,
-        "src/modules/web-search/src/index.ts",
+        modulesRoot,
+        "web-search/server/src/index.ts",
       ),
       "@llm-tg-bot/modules-memory": path.join(
-        root,
-        "src/modules/memory/src/index.ts",
+        modulesRoot,
+        "memory/server/src/index.ts",
+      ),
+      "@llm-tg-bot/modules-memory-db": path.join(
+        modulesRoot,
+        "memory/db/src/index.ts",
       ),
       "@llm-tg-bot/modules-link-fetch": path.join(
-        root,
-        "src/modules/link-fetch/src/index.ts",
+        modulesRoot,
+        "link-fetch/server/src/index.ts",
       ),
       "@llm-tg-bot/modules-sticker-selection": path.join(
-        root,
-        "src/modules/sticker-selection/src/index.ts",
+        modulesRoot,
+        "sticker-selection/server/src/index.ts",
       ),
       "@llm-tg-bot/modules-mood-evaluation": path.join(
-        root,
-        "src/modules/mood-evaluation/src/index.ts",
+        modulesRoot,
+        "mood-evaluation/server/src/index.ts",
+      ),
+      "@llm-tg-bot/modules-mood-evaluation-db": path.join(
+        modulesRoot,
+        "mood-evaluation/db/src/index.ts",
       ),
     },
   },

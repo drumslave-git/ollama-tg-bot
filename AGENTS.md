@@ -9,7 +9,7 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 | Workspace | Role |
 |-----------|------|
 | `server/` | Bot, LLM client, SQLite, REST API |
-| `server/src/modules/*` | Stateless feature packages (`llm-tg-bot/modules/…`) |
+| `modules/*` | Feature packages (`server/`, optional `ui/`, `db/`, `manifest.json`) |
 | `dashboard/` | Vite + React admin UI |
 
 ## Commands
@@ -36,7 +36,16 @@ Docker: `docker compose up -d --build` (see `README.md`).
 
 ### Feature modules
 
-LLM-backed bot features are being extracted into **stateless npm workspace packages** under `server/src/modules/<name>/`. Logical import path: `llm-tg-bot/modules/<name>`; npm package name: `@llm-tg-bot/modules-<name>` (slashes are invalid in unscoped package names).
+LLM-backed bot features live in **npm workspace packages** under `modules/<name>/`. Each feature module has:
+
+| Subfolder | Package | Role |
+|-----------|---------|------|
+| `server/` | `@llm-tg-bot/modules-<name>` | Stateless runtime logic (`run`, prompts, parsers) |
+| `db/` | `@llm-tg-bot/modules-<name>-db` | SQLite tables + REST routes (optional) |
+| `ui/` | `@llm-tg-bot/modules-<name>-ui` | Dashboard React page(s) (optional) |
+| `manifest.json` | — | Discovery metadata for server + dashboard |
+
+Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, registry in `@llm-tg-bot/modules-registry` (`modules/registry/`).
 
 | Package | Purpose |
 |---------|---------|
@@ -72,7 +81,7 @@ Rules:
 - **Shared code** — cross-module helpers live in `@llm-tg-bot/modules-utils`, not in `server/src`.
 - **Prompt-first output** — modules define strict `ANALYZER_SYSTEM` / `build*Messages()` specs; parsers stay strict (see **Structured LLM output**).
 
-To add a module: create `server/src/modules/<name>/` with `package.json` (`name`: `@llm-tg-bot/modules-<name>`), register the path in root `workspaces`, add to `build:modules`, declare it in `server/package.json`, add a `paths` entry in `server/tsconfig.json` (so `npm run dev` loads source without rebuilding), implement `run`, and cover with tests.
+To add a module: create `modules/<name>/` with `manifest.json`, implement `server/` (`package.json` name `@llm-tg-bot/modules-<name>`), optionally `db/` and `ui/`, register workspaces in root `package.json`, add to `build:modules`, declare server deps in `server/package.json`, add dev `paths` in `server/tsconfig.json`, implement `run`, and cover with tests. The server discovers manifests at startup; the dashboard globs `modules/*/ui/src/index.tsx` for UI pages.
 
 
 **Node:** `>=22.13.0` (see `.nvmrc`).
@@ -180,8 +189,8 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 | `/` | Overview, stats, error log |
 | `/character` | Default + custom system prompts |
 | `/settings` | LLM, model, owner, maintenance mode, performance, vision |
-| `/memories` | User / group / general facts |
-| `/mood` | Mood state and defaults |
+| `/modules` | Discovered feature modules list |
+| `/modules/:id` | Per-module config/data UI (from module `ui/`) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
 | `/data` | Raw SQLite table browser |
 
