@@ -26,6 +26,9 @@
       ],
       "@llm-tg-bot/modules-link-fetch": [
         "./src/modules/link-fetch/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-sticker-selection": [
+        "./src/modules/sticker-selection/src/index.ts"
       ]
     }
   },

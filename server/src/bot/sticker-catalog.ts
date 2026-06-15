@@ -1,5 +1,11 @@
 import type { Api } from "grammy";
 import type { Sticker } from "@grammyjs/types";
+import type { StickerCatalog } from "@llm-tg-bot/modules-sticker-selection";
+import {
+  formatStickerCatalogSection,
+  resolveStickerFileId as resolveStickerFileIdFromChoice,
+  stickerPromptLabel,
+} from "@llm-tg-bot/modules-sticker-selection";
 import { getSettings } from "../db/database.js";
 import { logEvent, logEventError } from "../event-log.js";
 
@@ -33,23 +39,7 @@ function previewFileId(sticker: Sticker): string {
   return sticker.thumbnail?.file_id ?? sticker.file_id;
 }
 
-function normalizeEmojiMatch(value: string): string {
-  return value.normalize("NFC").trim().replace(/\uFE0F/g, "");
-}
-
-function emojisMatch(a: string, b: string): boolean {
-  const left = normalizeEmojiMatch(a);
-  const right = normalizeEmojiMatch(b);
-  if (!left || !right) return false;
-  if (left === right) return true;
-  return left.includes(right) || right.includes(left);
-}
-
-export function stickerPromptLabel(index: number): string {
-  const sticker = catalog?.stickers.find((s) => s.index === index);
-  if (sticker?.emoji && sticker.emoji !== "—") return sticker.emoji;
-  return String(index + 1);
-}
+export { stickerPromptLabel };
 
 export function getStickerCatalogState(): {
   packName: string;
@@ -66,6 +56,20 @@ export function getStickerCatalogState(): {
     })),
     loaded: catalog != null && catalog.stickers.length > 0,
     error: lastError,
+  };
+}
+
+export function getStickerCatalogForSelection(): StickerCatalog {
+  if (!catalog) {
+    return { packName: "", stickers: [] };
+  }
+  return {
+    packName: catalog.packName,
+    stickers: catalog.stickers.map((s) => ({
+      index: s.index,
+      emoji: s.emoji,
+      fileId: s.fileId,
+    })),
   };
 }
 
@@ -127,44 +131,14 @@ export async function refreshStickerCatalog(
   }
 }
 
-function pickRandom<T>(items: T[]): T | null {
-  if (items.length === 0) return null;
-  return items[Math.floor(Math.random() * items.length)] ?? null;
-}
-
 export function resolveStickerFileId(raw: string): string | null {
   if (!catalog || catalog.stickers.length === 0) return null;
-  const input = raw.trim();
-  if (!input) return null;
-
-  const indexMatch = input.match(/^#?(\d+)$/);
-  if (indexMatch) {
-    const n = Number(indexMatch[1]);
-    if (Number.isInteger(n) && n >= 1 && n <= catalog.stickers.length) {
-      return catalog.stickers[n - 1]!.fileId;
-    }
-    if (Number.isInteger(n) && n >= 0 && n < catalog.stickers.length) {
-      return catalog.stickers[n]!.fileId;
-    }
-  }
-
-  const byEmoji = catalog.stickers.filter((s) => emojisMatch(s.emoji, input));
-  if (byEmoji.length === 1) return byEmoji[0]!.fileId;
-  if (byEmoji.length > 1) return pickRandom(byEmoji)?.fileId ?? null;
-
-  return null;
+  return resolveStickerFileIdFromChoice(raw, catalog.stickers);
 }
 
 export function formatStickerCatalogForAnalyze(): string | null {
   if (!catalog || catalog.stickers.length === 0) return null;
-  const lines = catalog.stickers.map(
-    (s) => `${s.index + 1}: ${stickerPromptLabel(s.index)}`,
-  );
-
-  return (
-    `Available stickers from pack "${catalog.packName}" (number: pack emoji):\n` +
-    `${lines.join("\n")}`
-  );
+  return formatStickerCatalogSection(catalog.packName, catalog.stickers);
 }
 
 export async function syncStickerCatalogFromSettings(

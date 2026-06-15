@@ -208,6 +208,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Web search | `server/src/modules/web-search/`, adapter `server/src/tavily/client.ts` |
 | Memory extract/inject | `server/src/modules/memory/`, adapter `server/src/memory-extract.ts`; injection via `prompts.ts` |
 | Link fetch | `server/src/modules/link-fetch/`, adapter `server/src/bot/link-fetch.ts` |
+| Sticker selection | `server/src/modules/sticker-selection/`, adapter `server/src/bot/sticker-analyze.ts`; catalog `server/src/bot/sticker-catalog.ts` |
 | HTML replies | `server/src/telegram/html.ts` |
 
 ## Testing

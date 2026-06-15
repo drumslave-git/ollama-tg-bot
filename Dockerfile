@@ -14,6 +14,7 @@ COPY server/src/modules/search-decision/package.json ./server/src/modules/search
 COPY server/src/modules/web-search/package.json ./server/src/modules/web-search/
 COPY server/src/modules/memory/package.json ./server/src/modules/memory/
 COPY server/src/modules/link-fetch/package.json ./server/src/modules/link-fetch/
+COPY server/src/modules/sticker-selection/package.json ./server/src/modules/sticker-selection/
 
 RUN npm ci --include=dev
 
@@ -39,6 +40,7 @@ COPY server/src/modules/search-decision/package.json ./server/src/modules/search
 COPY server/src/modules/web-search/package.json ./server/src/modules/web-search/
 COPY server/src/modules/memory/package.json ./server/src/modules/memory/
 COPY server/src/modules/link-fetch/package.json ./server/src/modules/link-fetch/
+COPY server/src/modules/sticker-selection/package.json ./server/src/modules/sticker-selection/
 
 RUN npm ci --workspace=server --omit=dev 2>/dev/null || \
     npm install --workspace=server --omit=dev
@@ -53,6 +55,7 @@ COPY --from=build /app/server/src/modules/search-decision/dist ./server/src/modu
 COPY --from=build /app/server/src/modules/web-search/dist ./server/src/modules/web-search/dist
 COPY --from=build /app/server/src/modules/memory/dist ./server/src/modules/memory/dist
 COPY --from=build /app/server/src/modules/link-fetch/dist ./server/src/modules/link-fetch/dist
+COPY --from=build /app/server/src/modules/sticker-selection/dist ./server/src/modules/sticker-selection/dist
 COPY --from=build /app/dashboard/dist ./dashboard/dist
 
 ENV NODE_ENV=production

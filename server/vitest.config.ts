@@ -37,6 +37,10 @@ export default defineConfig({
         root,
         "src/modules/link-fetch/src/index.ts",
       ),
+      "@llm-tg-bot/modules-sticker-selection": path.join(
+        root,
+        "src/modules/sticker-selection/src/index.ts",
+      ),
     },
   },
   test: {
