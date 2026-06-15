@@ -1,0 +1,13 @@
+{
+  "id": "history",
+  "name": "Chat history",
+  "description": "Per-chat message storage, formatting, compression, and prompt injection.",
+  "serverPackage": "@llm-tg-bot/modules-history",
+  "dbPackage": "@llm-tg-bot/modules-history-db",
+  "uiPackage": "@llm-tg-bot/modules-history-ui",
+  "dataTables": ["chat_history"],
+  "dashboard": {
+    "label": "History",
+    "description": "Browse stored chat transcripts per Telegram chat."
+  }
+}

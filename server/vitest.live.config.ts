@@ -59,6 +59,14 @@ export default defineConfig({
         modulesRoot,
         "mood-evaluation/db/src/index.ts",
       ),
+      "@llm-tg-bot/modules-history": path.join(
+        modulesRoot,
+        "history/server/src/index.ts",
+      ),
+      "@llm-tg-bot/modules-history-db": path.join(
+        modulesRoot,
+        "history/db/src/index.ts",
+      ),
     },
   },
   test: {

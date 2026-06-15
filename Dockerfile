@@ -18,6 +18,8 @@ COPY modules/link-fetch/server/package.json ./modules/link-fetch/server/
 COPY modules/sticker-selection/server/package.json ./modules/sticker-selection/server/
 COPY modules/mood-evaluation/server/package.json ./modules/mood-evaluation/server/
 COPY modules/mood-evaluation/db/package.json ./modules/mood-evaluation/db/
+COPY modules/history/server/package.json ./modules/history/server/
+COPY modules/history/db/package.json ./modules/history/db/
 
 RUN npm ci --include=dev
 
@@ -49,6 +51,8 @@ COPY modules/link-fetch/server/package.json ./modules/link-fetch/server/
 COPY modules/sticker-selection/server/package.json ./modules/sticker-selection/server/
 COPY modules/mood-evaluation/server/package.json ./modules/mood-evaluation/server/
 COPY modules/mood-evaluation/db/package.json ./modules/mood-evaluation/db/
+COPY modules/history/server/package.json ./modules/history/server/
+COPY modules/history/db/package.json ./modules/history/db/
 
 RUN npm ci --workspace=server --omit=dev 2>/dev/null || \
     npm install --workspace=server --omit=dev
@@ -68,6 +72,8 @@ COPY --from=build /app/modules/link-fetch/server/dist ./modules/link-fetch/serve
 COPY --from=build /app/modules/sticker-selection/server/dist ./modules/sticker-selection/server/dist
 COPY --from=build /app/modules/mood-evaluation/server/dist ./modules/mood-evaluation/server/dist
 COPY --from=build /app/modules/mood-evaluation/db/dist ./modules/mood-evaluation/db/dist
+COPY --from=build /app/modules/history/server/dist ./modules/history/server/dist
+COPY --from=build /app/modules/history/db/dist ./modules/history/db/dist
 COPY --from=build /app/modules ./modules
 COPY --from=build /app/dashboard/dist ./dashboard/dist
 

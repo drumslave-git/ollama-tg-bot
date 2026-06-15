@@ -45,14 +45,6 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     query: "SELECT key, value FROM stats_meta ORDER BY key",
     countQuery: "SELECT COUNT(*) AS n FROM stats_meta",
   },
-  chat_history: {
-    label: "Chat history",
-    columns: ["chat_key", "messages", "updated_at", "compressed_at"],
-    query: `SELECT chat_key, messages, updated_at, compressed_at
-            FROM chat_history ORDER BY updated_at DESC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM chat_history",
-    timeColumns: ["updated_at", "compressed_at"],
-  },
   known_users: {
     label: "Known users",
     columns: ["user_id", "username", "first_name", "last_name", "updated_at"],

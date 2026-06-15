@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { config } from "../config.js";
-import { bindHistoryDatabase, configureHistoryAccess } from "./history.js";
 import {
   appendErrorLog,
   bindErrorLogDatabase,
@@ -20,6 +19,7 @@ import { getResolvedSettings } from "../settings-runtime.js";
 import {
   normalizeTokenBudget,
   validateSettingsFields,
+  getHistoryLimits,
 } from "../settings-limits.js";
 import {
   configureModuleDatabases,
@@ -207,14 +207,13 @@ export async function initDatabase(): Promise<void> {
         unknown
       >,
     buildMoodPayload: () => buildMoodPayload(),
+    getHistoryLimits: () => getHistoryLimits(getResolvedSettings()),
   });
 
   bindErrorLogDatabase(db);
   bindDebugTracesDatabase(db);
   bindKnownUsersDatabase(db);
-  bindHistoryDatabase(db);
   bindDataBrowserDatabase(db);
-  configureHistoryAccess(getResolvedSettings);
 }
 
 function getSetting<T>(key: keyof Settings): T {

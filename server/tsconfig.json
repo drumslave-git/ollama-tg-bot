@@ -35,6 +35,12 @@
       ],
       "@llm-tg-bot/modules-mood-evaluation-db": [
         "../modules/mood-evaluation/db/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-history": [
+        "../modules/history/server/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-history-db": [
+        "../modules/history/db/src/index.ts"
       ]
     }
   },

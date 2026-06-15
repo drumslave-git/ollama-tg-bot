@@ -5,7 +5,7 @@ import {
   stripAssistantHistoryEnvelope,
   stripEchoedHistoryMarkup,
   userRoleTagFromParts,
-} from "../../src/bot/history-format.js";
+} from "../src/format.js";
 
 describe("userRoleTagFromParts", () => {
   it("prefers username, lowercased and sanitized", () => {
