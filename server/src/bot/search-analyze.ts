@@ -28,6 +28,7 @@ const SEARCH_CHECK_NUM_PREDICT = 192;
 export interface SearchDecision {
   needsSearch: boolean;
   query: string | null;
+  reason?: string;
 }
 
 export interface SearchAnalyzeInput {
@@ -57,6 +58,7 @@ function toSearchDecision(output: SearchDecisionOutput): SearchDecision {
   return {
     needsSearch: output.needsSearch,
     query: output.query,
+    reason: output.reason,
   };
 }
 

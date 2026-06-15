@@ -22,6 +22,7 @@
     "@llm-tg-bot/modules-addressing-detection": "*",
     "@llm-tg-bot/modules-search-decision": "*",
     "@llm-tg-bot/modules-utils": "*",
+    "@llm-tg-bot/modules-web-search": "*",
     "openai": "^6.42.0",
     "playwright": "^1.52.0",
     "sharp": "^0.33.5",

@@ -62,6 +62,8 @@ Bot capabilities are being split into small **stateless npm packages** (microser
 |--------|------|
 | `@llm-tg-bot/modules-utils` | Shared contract types and auxiliary LLM helpers |
 | `@llm-tg-bot/modules-addressing-detection` | Decides whether a group message names the bot (LLM name-variant check) |
+| `@llm-tg-bot/modules-search-decision` | Decides whether a message needs web search and extracts the query (LLM) |
+| `@llm-tg-bot/modules-web-search` | Runs web search and formats context/sources for the main reply |
 
 Example (`addressing-detection`):
 

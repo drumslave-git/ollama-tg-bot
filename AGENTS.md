@@ -42,14 +42,26 @@ LLM-backed bot features are being extracted into **stateless npm workspace packa
 |---------|---------|
 | `@llm-tg-bot/modules-utils` | Shared `ModuleDefinition` contract, structured-output helpers, stateless auxiliary LLM client |
 | `@llm-tg-bot/modules-addressing-detection` | Group name-variant address detection (LLM side pass) |
+| `@llm-tg-bot/modules-search-decision` | Whether a message needs web search + query extraction (LLM side pass) |
+| `@llm-tg-bot/modules-web-search` | Execute web search and format context for the main reply |
 
 **Contract** — every module defines typed `input`, `config`, and `output`, and exposes a `run(input, config)` function (plus a `ModuleDefinition` object with `id`):
 
 ```typescript
-// addressing-detection (reference implementation)
+// addressing-detection
 input:  { message: string; sender?: string; chatType?: string }
 config: { baseUrl: string; model: string; botAliases: string[]; apiKey?: string; chatComplete?: … }
 output: { result: boolean; reason: string }
+
+// search-decision
+input:  { message: string; replyContext?: string }
+config: { baseUrl: string; model: string; apiKey?: string; chatComplete?: … }
+output: { needsSearch: boolean; query: string | null; reason: string }
+
+// web-search
+input:  { query: string }
+config: { apiKey: string; maxResults?: number }
+output: { ok: boolean; results: …; sources: …; context: string; answer: string | null; reason: string }
 ```
 
 Rules:
@@ -141,6 +153,7 @@ Parsers may keep **minimal protocol tolerance** that is part of the spec itself 
 Reference implementations:
 
 - **Address detection:** `@llm-tg-bot/modules-addressing-detection` (`ANALYZER_SYSTEM`, `buildAddressAnalyzerMessages`)
+- **Search decision:** `@llm-tg-bot/modules-search-decision` (`SEARCH_ANALYZER_SYSTEM`, `buildSearchAnalyzerMessages`)
 - **Main reply:** `buildReplyFormatSpec()` in `server/src/response-format.ts`
 
 If output is unparseable after a prompt fix, treat it as a failed pass (ignore, error, or retry) — do not silently guess from reasoning or alternate tag shapes.
@@ -191,7 +204,8 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
 | History | `server/src/db/history.ts` |
 | Vision | `server/src/bot/message-media.ts`, `server/src/llm/images.ts` |
-| Search | `server/src/bot/search-analyze.ts`, `server/src/tavily/client.ts` |
+| Search decision | `server/src/modules/search-decision/`, adapter `server/src/bot/search-analyze.ts` |
+| Web search | `server/src/modules/web-search/`, adapter `server/src/tavily/client.ts` |
 | Link fetch | `server/src/bot/link-extract.ts`, `server/src/bot/link-fetch.ts`, `server/src/playwright/client.ts` |
 | HTML replies | `server/src/telegram/html.ts` |
 
@@ -203,7 +217,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 
 - **Feature module suites:** `npm test` runs each `@llm-tg-bot/modules-*` package (unit tests in `<module>/test/`). Live LLM tests: `npm run test:llm -w @llm-tg-bot/modules-addressing-detection` (requires `LLM_BASE_URL`, `LLM_MODEL`).
 - **Mocked server suite (committable, default):** `npm run test -w server`. Pure logic only — no network, LLM, or Telegram. Lives in `server/test/unit/**`; shared `Settings` fixture in `server/test/helpers/settings.ts`. Config: `server/vitest.config.ts`.
-- **Live LLM server suite (opt-in):** `npm run test:llm -w server`. Hits a real OpenAI-compatible backend through production prompt-builders and parsers for chat, web-search decision (`search-analyze-prompt.ts`), memory extract/dedup/merge (`memory-prompt.ts`), and mood (`mood-prompt.ts`). Address detection live tests live in the addressing-detection module. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when absent. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+- **Live LLM server suite (opt-in):** `npm run test:llm -w server`. Hits a real OpenAI-compatible backend through production prompt-builders and parsers for chat, memory extract/dedup/merge (`memory-prompt.ts`), and mood (`mood-prompt.ts`). Address and search-decision live tests live in their modules. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when absent. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
 - **Legacy side-pass prompts:** non-modular LLM side passes still keep system prompt + `build*Messages()` + parser in pure `*-prompt.ts` files (no DB/LLM imports) until migrated to `server/src/modules/`.
 - **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (`settings-limits` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
 

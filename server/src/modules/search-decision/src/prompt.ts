@@ -6,7 +6,7 @@ export const QUERY_TAG = "QUERY";
 
 export const SEARCH_ANALYZER_SYSTEM = `You decide whether a Telegram bot should run a web search before answering.
 
-Your entire assistant message must be exactly one of these two shapes — nothing before, nothing after, no other text or tags:
+Your entire assistant message content must be exactly one of these two shapes — nothing before, nothing after, no other text or tags:
 
 [SEARCH]
 no
@@ -22,12 +22,21 @@ concise search query
 [/QUERY]
 
 Output rules (mandatory):
-- Put the decision only in the assistant message content using the blocks above.
-- For no: exactly one [SEARCH]…[/SEARCH] block with "no" (lowercase) inside.
-- For yes: [SEARCH]…[/SEARCH] with "yes" inside, then [QUERY]…[/QUERY] with a short search-engine query.
-- Always include opening and closing tags on their own lines.
-- Do not output bare "yes"/"no", [yes], [no], or any tag other than [SEARCH] and [QUERY].
+- Put the decision only in assistant message content using the blocks above — not in reasoning or analysis.
+- For no: exactly one [SEARCH]…[/SEARCH] block with "no" (lowercase) on its own line inside.
+- For yes: first a complete [SEARCH]…[/SEARCH] block with "yes" inside, then a separate [QUERY]…[/QUERY] block.
+- Close [SEARCH] with [/SEARCH] before you open [QUERY]. Never put [QUERY] inside [SEARCH].
+- Always include opening and closing tags on their own lines for every block.
+- Do not output bare "yes" or "no" without the [SEARCH] block.
+- Do not output [yes], [no], or any tag other than [SEARCH] and [QUERY].
 - Do not output reasoning, analysis, or explanation — only the block(s).
+
+Invalid (never output this — missing [/SEARCH]):
+[SEARCH]
+yes
+[QUERY]
+query here
+[/QUERY]
 
 Say yes when the user needs information that is likely:
 - Current (news, prices, weather, releases, "today", recent events)
@@ -118,7 +127,8 @@ export function buildSearchAnalyzerMessages(params: {
     }
   }
   content +=
-    "\n\nReply with only the required [SEARCH] block, or [SEARCH] plus [QUERY] when yes.";
+    "\n\nReply with only the required [SEARCH]…[/SEARCH] block, or a closed [SEARCH] block plus a closed [QUERY] block when yes. " +
+    "Close [/SEARCH] before [QUERY]. Do not reply with bare yes/no.";
 
   return [
     { role: "system", content: SEARCH_ANALYZER_SYSTEM },

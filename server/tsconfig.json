@@ -17,6 +17,9 @@
       ],
       "@llm-tg-bot/modules-search-decision": [
         "./src/modules/search-decision/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-web-search": [
+        "./src/modules/web-search/src/index.ts"
       ]
     }
   },

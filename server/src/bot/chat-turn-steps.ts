@@ -6,7 +6,7 @@ import { getMessageReport } from "../message-report.js";
 import { getEffectiveMood, saveMoodState } from "../db/mood.js";
 import { evaluateMood } from "../mood-evaluate.js";
 import { resolveLinkFetchContext } from "./link-fetch.js";
-import { isTavilyConfigured, tavilySearch, formatTavilyContext, tavilySources, formatTavilyFailure, type TavilySource } from "../tavily/client.js";
+import { isTavilyConfigured, executeWebSearch, type TavilySource } from "../tavily/client.js";
 import { analyzeSearchNeed } from "./search-analyze.js";
 import { rollStickerReplyChance, analyzeStickerForReply } from "./sticker-analyze.js";
 import { resolveStickerFileId } from "./sticker-catalog.js";
@@ -77,7 +77,6 @@ export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: 
   let webSearchSources: TavilySource[] = [];
 
   if (isTavilyConfigured() && !linkFetchResolved) {
-    const searchStarted = performance.now();
     const decision = await analyzeSearchNeed({
       userMessage: input.latestBody,
       replyContext: input.replyContext,
@@ -85,23 +84,32 @@ export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: 
     });
     if (decision.needsSearch && decision.query) {
       logEvent("web_search_triggered", { ...turnLog, queryLen: decision.query.length });
-      try {
-        const payload = await tavilySearch(decision.query);
-        webSearchContext = formatTavilyContext(decision.query, payload);
-        webSearchSources = tavilySources(payload);
+      const searchStarted = performance.now();
+      const result = await executeWebSearch(decision.query);
+      webSearchContext = result.context;
+      webSearchSources = result.sources;
+      if (result.ok) {
         report?.okPhase(
           "search",
           "Web search",
-          `Query "${decision.query}" · ${payload.results.length} source(s)`,
+          `Query "${decision.query}" · ${result.results.length} source(s)`,
           performance.now() - searchStarted,
         );
-      } catch (err) {
-        logEventError("web_search_failed", err, turnLog);
-        report?.failPhase("search", "Web search", err instanceof Error ? err.message : String(err), performance.now() - searchStarted);
-        webSearchContext = formatTavilyFailure(decision.query, err);
+      } else {
+        logEventError("web_search_failed", new Error(result.reason), turnLog);
+        report?.failPhase(
+          "search",
+          "Web search",
+          result.reason,
+          performance.now() - searchStarted,
+        );
       }
     } else {
-      report?.skipPhase("search", "Web search", decision.needsSearch ? "No search query from model" : "Not needed");
+      const skipReason =
+        decision.reason && decision.reason !== "LLM decision: no"
+          ? decision.reason
+          : "Not needed";
+      report?.skipPhase("search", "Web search", skipReason);
     }
   } else if (isTavilyConfigured() && linkFetchResolved) {
     report?.skipPhase("search", "Web search", "Skipped because link content was fetched");

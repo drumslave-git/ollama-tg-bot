@@ -42,6 +42,26 @@ describe("parseSearchDecision", () => {
     });
   });
 
+  it("rejects bare yes without blocks", () => {
+    expect(parseSearchDecision("yes")).toEqual({
+      needsSearch: false,
+      query: null,
+      reason: "Could not parse LLM search decision",
+    });
+  });
+
+  it("rejects yes with [QUERY] but no [/SEARCH] closing tag", () => {
+    expect(
+      parseSearchDecision(
+        "[SEARCH]\nyes\n[QUERY]\nThe Finals game\n[/QUERY]",
+      ),
+    ).toEqual({
+      needsSearch: false,
+      query: null,
+      reason: "Could not parse LLM search decision",
+    });
+  });
+
   it("uses the last SEARCH block when the format is quoted in reasoning", () => {
     const raw =
       "Example: [SEARCH]\nyes\n[/SEARCH] then query.\nDecision: [SEARCH]\nno\n[/SEARCH]";
@@ -55,9 +75,11 @@ describe("parseSearchDecision", () => {
 
 describe("SEARCH_ANALYZER_SYSTEM", () => {
   it("forbids alternate tags and bare yes/no", () => {
-    expect(SEARCH_ANALYZER_SYSTEM).toContain("Do not output bare");
+    expect(SEARCH_ANALYZER_SYSTEM).toContain('Do not output bare "yes" or "no"');
     expect(SEARCH_ANALYZER_SYSTEM).toContain("[SEARCH]");
     expect(SEARCH_ANALYZER_SYSTEM).toContain("[QUERY]");
+    expect(SEARCH_ANALYZER_SYSTEM).toContain("Close [SEARCH] with [/SEARCH] before you open [QUERY]");
+    expect(SEARCH_ANALYZER_SYSTEM).toContain("Invalid (never output this");
   });
 });
 

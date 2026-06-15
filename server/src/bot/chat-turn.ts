@@ -15,16 +15,7 @@ import {
   prepareTelegramHtml,
   visibleTelegramText,
 } from "../telegram/html.js";
-import {
-  formatTavilyContext,
-  formatTavilyFailure,
-  isTavilyConfigured,
-  tavilySources,
-  tavilySearch,
-  type TavilySource,
-} from "../tavily/client.js";
-import { resolveLinkFetchContext } from "./link-fetch.js";
-import { analyzeSearchNeed } from "./search-analyze.js";
+import { type TavilySource } from "../tavily/client.js";
 import type { CurrentSpeaker } from "./speaker.js";
 import {
   buildChatMessages,

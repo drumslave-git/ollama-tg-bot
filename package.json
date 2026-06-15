@@ -7,11 +7,11 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build:modules": "npm run build -w @llm-tg-bot/modules-utils && npm run build -w @llm-tg-bot/modules-addressing-detection && npm run build -w @llm-tg-bot/modules-search-decision",
+    "build:modules": "npm run build -w @llm-tg-bot/modules-utils && npm run build -w @llm-tg-bot/modules-addressing-detection && npm run build -w @llm-tg-bot/modules-search-decision && npm run build -w @llm-tg-bot/modules-web-search",
     "dev": "concurrently -n server,dashboard -c blue,green \"npm run dev -w server\" \"npm run dev -w dashboard\"",
     "build": "npm run build:modules && npm run build -w dashboard && npm run build -w server",
     "start": "npm run start -w server",
-    "test": "npm run test -w @llm-tg-bot/modules-utils && npm run test -w @llm-tg-bot/modules-addressing-detection && npm run test -w @llm-tg-bot/modules-search-decision && npm run test -w server",
+    "test": "npm run test -w @llm-tg-bot/modules-utils && npm run test -w @llm-tg-bot/modules-addressing-detection && npm run test -w @llm-tg-bot/modules-search-decision && npm run test -w @llm-tg-bot/modules-web-search && npm run test -w server",
     "test:llm": "npm run test:llm -w @llm-tg-bot/modules-addressing-detection && npm run test:llm -w @llm-tg-bot/modules-search-decision && npm run test:llm -w server",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d"
@@ -21,7 +21,8 @@
     "dashboard",
     "server/src/modules/utils",
     "server/src/modules/addressing-detection",
-    "server/src/modules/search-decision"
+    "server/src/modules/search-decision",
+    "server/src/modules/web-search"
   ],
   "devDependencies": {
     "concurrently": "^9.1.2"
