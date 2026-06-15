@@ -1,21 +1,39 @@
 import { logEvent, logEventError } from "../event-log.js";
 import {
-  fetchPages,
+  runLinkFetch,
+  type LinkFetchInput,
+  type LinkFetchOutput,
+} from "@llm-tg-bot/modules-link-fetch";
+
+export {
+  extractUrls,
+  isSafePublicUrl,
   formatLinkFetchContext,
   formatLinkFetchFailure,
-} from "../playwright/client.js";
-import { extractUrls } from "./link-extract.js";
+  fetchPagesWithPlaywright,
+  closePlaywrightBrowser,
+  runLinkFetch,
+  linkFetchModule,
+  DEFAULT_MAX_URLS_PER_TURN,
+  type FetchedPage,
+  type LinkFetchConfig,
+  type LinkFetchInput,
+  type LinkFetchOutput,
+} from "@llm-tg-bot/modules-link-fetch";
 
-export interface LinkFetchInput {
-  userMessage: string;
-  replyContext?: string | null;
-}
-
+/** Host-facing result shape (legacy name kept for call sites). */
 export interface LinkFetchResult {
   context: string | null;
   urlCount: number;
-  /** At least one detected URL returned page content. */
   resolved: boolean;
+}
+
+function toLinkFetchResult(output: LinkFetchOutput): LinkFetchResult {
+  return {
+    context: output.context,
+    urlCount: output.urlCount,
+    resolved: output.resolved,
+  };
 }
 
 /**
@@ -25,30 +43,33 @@ export interface LinkFetchResult {
 export async function resolveLinkFetchContext(
   input: LinkFetchInput,
 ): Promise<LinkFetchResult> {
-  const urls = extractUrls(input.userMessage, input.replyContext);
-  if (urls.length === 0) {
-    return { context: null, urlCount: 0, resolved: false };
+  const result = await runLinkFetch(input);
+
+  if (result.urlCount === 0) {
+    return toLinkFetchResult(result);
   }
 
-  try {
-    const pages = await fetchPages(urls);
-    const loaded = pages.filter((p) => !p.error).length;
+  if (result.resolved) {
+    const loaded = result.pages.filter((p) => !p.error).length;
     logEvent("link_fetch_done", {
-      urlCount: urls.length,
+      urlCount: result.urlCount,
       loadedCount: loaded,
-      failedCount: pages.length - loaded,
+      failedCount: result.pages.length - loaded,
     });
-    return {
-      context: formatLinkFetchContext(pages),
-      urlCount: urls.length,
-      resolved: loaded > 0,
-    };
-  } catch (err) {
-    logEventError("link_fetch_failed", err, { urlCount: urls.length });
-    return {
-      context: formatLinkFetchFailure(urls, err),
-      urlCount: urls.length,
-      resolved: false,
-    };
+    return toLinkFetchResult(result);
   }
+
+  if (result.pages.length > 0) {
+    logEvent("link_fetch_done", {
+      urlCount: result.urlCount,
+      loadedCount: 0,
+      failedCount: result.pages.length,
+    });
+    return toLinkFetchResult(result);
+  }
+
+  logEventError("link_fetch_failed", new Error(result.reason), {
+    urlCount: result.urlCount,
+  });
+  return toLinkFetchResult(result);
 }

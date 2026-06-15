@@ -1,14 +1,8 @@
 import { chromium, type Browser, type BrowserContext } from "playwright";
-
-export interface FetchedPage {
-  url: string;
-  title: string;
-  text: string;
-  error?: string;
-}
+import type { FetchedPage } from "./types.js";
 
 const NAVIGATION_TIMEOUT_MS = 60_000;
-const MAX_URLS_PER_TURN = 3;
+export const DEFAULT_MAX_URLS_PER_TURN = 3;
 const MAX_PAGE_TEXT_CHARS = 12_000;
 
 const USER_AGENT =
@@ -82,8 +76,11 @@ async function fetchOnePage(
   }
 }
 
-export async function fetchPages(urls: string[]): Promise<FetchedPage[]> {
-  const limited = urls.slice(0, MAX_URLS_PER_TURN);
+export async function fetchPagesWithPlaywright(
+  urls: string[],
+  maxUrls: number = DEFAULT_MAX_URLS_PER_TURN,
+): Promise<FetchedPage[]> {
+  const limited = urls.slice(0, maxUrls);
   if (limited.length === 0) return [];
 
   const browserInstance = await ensureBrowser();
@@ -96,39 +93,4 @@ export async function fetchPages(urls: string[]): Promise<FetchedPage[]> {
   } finally {
     await context.close();
   }
-}
-
-export function formatLinkFetchContext(pages: FetchedPage[]): string {
-  const parts: string[] = [
-    "The user's message included link(s). Page content fetched with Playwright:",
-  ];
-
-  for (const [i, page] of pages.entries()) {
-    const header = `${i + 1}. ${page.url}`;
-    if (page.error) {
-      parts.push(`${header}\nFailed to load: ${page.error}`);
-      continue;
-    }
-    const titleLine = page.title ? `\nTitle: ${page.title}` : "";
-    const bodyLine = page.text
-      ? `\nContent:\n${page.text}`
-      : "\nContent: (page had no readable text)";
-    parts.push(`${header}${titleLine}${bodyLine}`);
-  }
-
-  parts.push(
-    "\nUse the fetched page content above in your reply. " +
-      "Do not tell the user you cannot open links when this block is present.",
-  );
-
-  return parts.join("\n\n");
-}
-
-export function formatLinkFetchFailure(urls: string[], err: unknown): string {
-  const detail = err instanceof Error ? err.message : String(err);
-  const list = urls.join(", ");
-  return (
-    `The message included link(s) (${list}) but Playwright could not fetch them: ${detail}\n\n` +
-    `Tell the user live page fetch failed. Do not pretend you opened the links successfully.`
-  );
 }

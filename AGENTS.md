@@ -207,7 +207,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Search decision | `server/src/modules/search-decision/`, adapter `server/src/bot/search-analyze.ts` |
 | Web search | `server/src/modules/web-search/`, adapter `server/src/tavily/client.ts` |
 | Memory extract/inject | `server/src/modules/memory/`, adapter `server/src/memory-extract.ts`; injection via `prompts.ts` |
-| Link fetch | `server/src/bot/link-extract.ts`, `server/src/bot/link-fetch.ts`, `server/src/playwright/client.ts` |
+| Link fetch | `server/src/modules/link-fetch/`, adapter `server/src/bot/link-fetch.ts` |
 | HTML replies | `server/src/telegram/html.ts` |
 
 ## Testing

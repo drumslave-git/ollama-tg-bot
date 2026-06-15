@@ -13,6 +13,7 @@ COPY server/src/modules/addressing-detection/package.json ./server/src/modules/a
 COPY server/src/modules/search-decision/package.json ./server/src/modules/search-decision/
 COPY server/src/modules/web-search/package.json ./server/src/modules/web-search/
 COPY server/src/modules/memory/package.json ./server/src/modules/memory/
+COPY server/src/modules/link-fetch/package.json ./server/src/modules/link-fetch/
 
 RUN npm ci --include=dev
 
@@ -37,6 +38,7 @@ COPY server/src/modules/addressing-detection/package.json ./server/src/modules/a
 COPY server/src/modules/search-decision/package.json ./server/src/modules/search-decision/
 COPY server/src/modules/web-search/package.json ./server/src/modules/web-search/
 COPY server/src/modules/memory/package.json ./server/src/modules/memory/
+COPY server/src/modules/link-fetch/package.json ./server/src/modules/link-fetch/
 
 RUN npm ci --workspace=server --omit=dev 2>/dev/null || \
     npm install --workspace=server --omit=dev
@@ -50,6 +52,7 @@ COPY --from=build /app/server/src/modules/addressing-detection/dist ./server/src
 COPY --from=build /app/server/src/modules/search-decision/dist ./server/src/modules/search-decision/dist
 COPY --from=build /app/server/src/modules/web-search/dist ./server/src/modules/web-search/dist
 COPY --from=build /app/server/src/modules/memory/dist ./server/src/modules/memory/dist
+COPY --from=build /app/server/src/modules/link-fetch/dist ./server/src/modules/link-fetch/dist
 COPY --from=build /app/dashboard/dist ./dashboard/dist
 
 ENV NODE_ENV=production

@@ -33,6 +33,10 @@ export default defineConfig({
         root,
         "src/modules/memory/src/index.ts",
       ),
+      "@llm-tg-bot/modules-link-fetch": path.join(
+        root,
+        "src/modules/link-fetch/src/index.ts",
+      ),
     },
   },
   test: {

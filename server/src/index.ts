@@ -8,7 +8,7 @@ import { initDatabase, getSettings } from "./db/database.js";
 import { refreshModelContextCache } from "./llm/model-context-cache.js";
 import { createApiRouter } from "./api/routes.js";
 import { startBot, stopBot } from "./bot/index.js";
-import { closePlaywrightBrowser } from "./playwright/client.js";
+import { closePlaywrightBrowser } from "@llm-tg-bot/modules-link-fetch";
 import {
   startMoodCooldownWorker,
   stopMoodCooldownWorker,

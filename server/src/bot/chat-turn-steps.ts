@@ -50,7 +50,7 @@ export async function fetchLinksForTurn(input: ChatTurnInput) {
   }
   const linkFetchStarted = performance.now();
   const linkFetch = await resolveLinkFetchContext({
-    userMessage: input.latestBody,
+    message: input.latestBody,
     replyContext: input.replyContext,
   });
   if (linkFetch.urlCount > 0) {

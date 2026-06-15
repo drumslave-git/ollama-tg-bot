@@ -23,6 +23,9 @@
       ],
       "@llm-tg-bot/modules-memory": [
         "./src/modules/memory/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-link-fetch": [
+        "./src/modules/link-fetch/src/index.ts"
       ]
     }
   },
