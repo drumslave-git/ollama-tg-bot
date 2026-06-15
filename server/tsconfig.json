@@ -20,6 +20,9 @@
       ],
       "@llm-tg-bot/modules-web-search": [
         "./src/modules/web-search/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-memory": [
+        "./src/modules/memory/src/index.ts"
       ]
     }
   },

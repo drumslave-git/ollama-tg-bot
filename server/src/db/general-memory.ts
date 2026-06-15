@@ -158,6 +158,18 @@ export function clearAllGeneralFacts(): number {
   return deleted;
 }
 
+export function replaceGeneralFacts(facts: string[]): void {
+  db.prepare(`DELETE FROM general_facts`).run();
+  const insert = db.prepare(`INSERT INTO general_facts (fact) VALUES (?)`);
+  for (const fact of facts) {
+    const normalized = normalizeFactText(fact);
+    if (!normalized) continue;
+    insert.run(normalized);
+  }
+  pruneGeneralFacts();
+  notifyGeneralMemoryChanged();
+}
+
 function pruneGeneralFacts(): void {
   db.prepare(
     `DELETE FROM general_facts
@@ -169,9 +181,4 @@ function pruneGeneralFacts(): void {
   ).run(MAX_GENERAL_FACTS);
 }
 
-export function formatGeneralMemoryForPrompt(facts: string[]): string {
-  if (facts.length === 0) {
-    return "No general facts stored yet.";
-  }
-  return facts.map((f) => `- ${f}`).join("\n");
-}
+export { formatGeneralMemoryForPrompt } from "@llm-tg-bot/modules-memory";

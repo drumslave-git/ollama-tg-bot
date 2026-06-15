@@ -170,13 +170,7 @@ export function clearGroupMemory(groupId: string): void {
   if (result.changes > 0) notifyGroupMemoryChanged();
 }
 
-export function formatGroupMemoryForPrompt(facts: string[]): string {
-  const content = facts.join("\n").trim();
-  if (!content) {
-    return "No stored facts yet about this group.";
-  }
-  return content;
-}
+export { formatGroupMemoryForPrompt } from "@llm-tg-bot/modules-memory";
 
 export function groupMemoryTotalChars(facts: string[]): number {
   return facts.reduce((n, f) => n + f.length, 0);

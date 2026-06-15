@@ -1,56 +1,80 @@
-import { addGeneralFacts } from "./db/general-memory.js";
+import { replaceGeneralFacts } from "./db/general-memory.js";
 import { replaceGroupFacts } from "./db/group-memory.js";
 import { replaceUserFacts } from "./db/user-memory.js";
 import { logEvent, logEventError } from "./event-log.js";
 import { getMessageReport } from "./message-report.js";
 import { chatComplete } from "./llm/client.js";
-import { parseStructuredResponse } from "./response-format.js";
+import { config } from "./config.js";
+import { getResolvedSettings } from "./settings-runtime.js";
 import {
-  buildMemoryExtractMessages,
-  buildMemoryMergeMessages,
-  newFactsOnly,
-  parseMemoryBlock,
+  extractMemories,
+  mergeMemoryDocument,
+  splitMergedMemoryFacts,
+  MEMORY_EXTRACT_NUM_PREDICT,
+  MEMORY_MERGE_NUM_PREDICT,
   type MemoryExtractInput,
   type MemoryExtractResult,
-} from "./memory-prompt.js";
+  type MemoryLlmConfig,
+} from "@llm-tg-bot/modules-memory";
 
 export {
   EXTRACTOR_SYSTEM,
   MEMORY_MERGE_SYSTEM,
+  MEMORY_TAG,
+  GROUP_MEMORY_TAG,
+  GENERAL_MEMORY_TAG,
   buildMemoryExtractMessages,
   buildMemoryMergeMessages,
-  newFactsOnly,
   parseMemoryBlock,
+  sanitizeMergedMemory,
+  parseMemoryExtract,
+  splitMergedMemoryFacts,
+  extractMemories,
+  mergeMemoryDocument,
+  memoryExtractModule,
+  formatGeneralMemoryForPrompt,
+  formatGroupMemoryForPrompt,
+  formatUserMemoryForPrompt,
+  buildGeneralMemorySection,
+  buildGroupMemorySection,
+  buildParticipantMemoriesSection,
   type MemoryExtractInput,
   type MemoryExtractResult,
   type MemoryMergeInput,
-} from "./memory-prompt.js";
+  type ParticipantMemoryFacts,
+} from "@llm-tg-bot/modules-memory";
 
-const MEMORY_EXTRACT_NUM_PREDICT = 384;
-// Merge reasons over existing + incoming facts, so reasoning backends need a
-// larger budget than the extract pass before the [MEMORY] block is emitted.
-const MEMORY_MERGE_NUM_PREDICT = 1024;
+function buildMemoryLlmConfig(
+  traceTurnId: number | undefined,
+  traceLabel: string,
+  numPredict: number,
+): MemoryLlmConfig {
+  const settings = getResolvedSettings();
+  return {
+    baseUrl: settings.apiBaseUrl,
+    model: settings.model,
+    apiKey: config.openAiApiKey || undefined,
+    numPredict,
+    chatComplete: (messages) =>
+      chatComplete(messages, {
+        numPredict,
+        auxiliary: true,
+        think: true,
+        traceTurnId,
+        traceLabel,
+      }),
+  };
+}
 
 export async function extractMemoriesFromTurn(
   input: MemoryExtractInput,
   traceTurnId?: number,
 ): Promise<MemoryExtractResult> {
-  const messages = buildMemoryExtractMessages(input);
-
   try {
-    const raw = await chatComplete(messages, {
-      numPredict: MEMORY_EXTRACT_NUM_PREDICT,
-      auxiliary: true,
-      think: true,
-      traceTurnId,
-      traceLabel: "memory extract",
-    });
-    const parsed = parseStructuredResponse(raw);
-    return {
-      userFacts: parsed.memoryFacts,
-      groupFacts: input.isGroupChat ? parsed.groupMemoryFacts : [],
-      generalFacts: parsed.generalMemoryFacts,
-    };
+    return await extractMemories(
+      input,
+      buildMemoryLlmConfig(traceTurnId, "memory extract", MEMORY_EXTRACT_NUM_PREDICT),
+    );
   } catch (err) {
     logEventError("memory_extract_failed", err, {
       isGroupChat: input.isGroupChat,
@@ -100,12 +124,18 @@ async function persistMemories(ctx: MemoryPersistContext): Promise<void> {
   const updatedScopes: string[] = [];
 
   if (ctx.userId && extracted.userFacts.length > 0) {
-    const merged = await mergeMemoryDocument({
-      kind: "user",
-      existing: ctx.input.existingUserFacts,
-      incoming: extracted.userFacts,
-      traceTurnId: ctx.turnId,
-    });
+    const merged = await mergeMemoryDocument(
+      {
+        kind: "user",
+        existing: ctx.input.existingUserFacts,
+        incoming: extracted.userFacts,
+      },
+      buildMemoryLlmConfig(
+        ctx.turnId,
+        "user memory merge",
+        MEMORY_MERGE_NUM_PREDICT,
+      ),
+    );
     replaceUserFacts(ctx.userId, merged ? [merged] : []);
     logEvent("memory_updated", {
       scope: "user",
@@ -117,12 +147,18 @@ async function persistMemories(ctx: MemoryPersistContext): Promise<void> {
   }
 
   if (ctx.groupChatId && extracted.groupFacts.length > 0) {
-    const merged = await mergeMemoryDocument({
-      kind: "group",
-      existing: ctx.input.existingGroupFacts,
-      incoming: extracted.groupFacts,
-      traceTurnId: ctx.turnId,
-    });
+    const merged = await mergeMemoryDocument(
+      {
+        kind: "group",
+        existing: ctx.input.existingGroupFacts,
+        incoming: extracted.groupFacts,
+      },
+      buildMemoryLlmConfig(
+        ctx.turnId,
+        "group memory merge",
+        MEMORY_MERGE_NUM_PREDICT,
+      ),
+    );
     replaceGroupFacts(ctx.groupChatId, merged ? [merged] : []);
     logEvent("memory_updated", {
       scope: "group",
@@ -133,12 +169,23 @@ async function persistMemories(ctx: MemoryPersistContext): Promise<void> {
     updatedScopes.push("group");
   }
 
-  const generalNew = newFactsOnly(
-    ctx.input.existingGeneralFacts,
-    extracted.generalFacts,
-  );
+  const generalNew = extracted.generalFacts;
   if (generalNew.length > 0) {
-    addGeneralFacts(generalNew);
+    const merged = await mergeMemoryDocument(
+      {
+        kind: "general",
+        existing: ctx.input.existingGeneralFacts,
+        incoming: generalNew,
+      },
+      buildMemoryLlmConfig(
+        ctx.turnId,
+        "general memory merge",
+        MEMORY_MERGE_NUM_PREDICT,
+      ),
+    );
+    if (merged) {
+      replaceGeneralFacts(splitMergedMemoryFacts(merged));
+    }
     logEvent("memory_updated", {
       scope: "general",
       factCount: generalNew.length,
@@ -160,23 +207,4 @@ async function persistMemories(ctx: MemoryPersistContext): Promise<void> {
       groupId: ctx.groupChatId,
     });
   }
-}
-
-async function mergeMemoryDocument(input: {
-  kind: "user" | "group";
-  existing: string[];
-  incoming: string[];
-  traceTurnId?: number;
-}): Promise<string> {
-  const messages = buildMemoryMergeMessages(input);
-
-  const raw = await chatComplete(messages, {
-    numPredict: MEMORY_MERGE_NUM_PREDICT,
-    auxiliary: true,
-    think: true,
-    traceTurnId: input.traceTurnId,
-    traceLabel: `${input.kind} memory merge`,
-  });
-
-  return parseMemoryBlock(raw);
 }

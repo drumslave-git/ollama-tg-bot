@@ -1,12 +1,13 @@
-import type { ChatMessage } from "./llm/client.js";
+import type { ChatMessage } from "@llm-tg-bot/modules-utils";
+import { extractLastClosedBlock } from "@llm-tg-bot/modules-utils";
 
-/**
- * Pure prompt + parsing helpers for the background memory passes (extract + merge).
- * No DB/LLM imports so they can be unit-tested and driven by live tests.
- */
+export const MEMORY_TAG = "MEMORY";
+export const GROUP_MEMORY_TAG = "GROUP_MEMORY";
+export const GENERAL_MEMORY_TAG = "GENERAL_MEMORY";
+
 export const EXTRACTOR_SYSTEM = `You extract durable facts, terms, and useful long-term information from one addressed Telegram bot turn.
 
-Output ONLY these blocks (no other text):
+Your entire assistant message content must be exactly these three blocks — nothing before, nothing after, no other text or tags:
 
 [MEMORY]
 none
@@ -17,6 +18,13 @@ none
 [GENERAL_MEMORY]
 none
 [/GENERAL_MEMORY]
+
+Output rules (mandatory):
+- Put extracted facts only in assistant message content using the blocks above — not in reasoning or analysis.
+- Always include all three blocks with opening and closing tags on their own lines.
+- The only content inside each block is one fact per line, or exactly "none" (lowercase) when nothing new.
+- Do not output bare facts without blocks, or tags other than [MEMORY], [GROUP_MEMORY], and [GENERAL_MEMORY].
+- Do not output reasoning, analysis, or explanation — only the three blocks.
 
 [MEMORY] = new information about the current speaker only: identity, preferences, role, timezone, standing instructions, how they want to be addressed. One item per line. "none" if nothing new. In group chats, never store other members' traits here.
 
@@ -39,26 +47,6 @@ Do NOT store:
 - duplicates rephrased slightly
 - user-specific traits in [GENERAL_MEMORY] or group-only context in [GENERAL_MEMORY]`;
 
-export const MEMORY_MERGE_SYSTEM = `You update one long-term memory document for an entity.
-
-Inputs:
-- Existing memory for this entity
-- Newly extracted durable information
-
-Task:
-- Merge new information into the existing memory.
-- Preserve all durable details. This must be lossless unless an old detail is a duplicate, contradicted by newer information, or clearly ephemeral.
-- Compact wording where possible.
-- Keep the result readable as short lines or compact paragraphs.
-- Do not invent facts.
-- If there is no useful memory left, write "none".
-
-Output ONLY:
-
-[MEMORY]
-updated memory text
-[/MEMORY]`;
-
 export interface MemoryExtractInput {
   userMessage: string;
   replyContext: string | null;
@@ -75,16 +63,34 @@ export interface MemoryExtractResult {
   generalFacts: string[];
 }
 
-export interface MemoryMergeInput {
-  kind: "user" | "group";
-  existing: string[];
-  incoming: string[];
-}
-
 function formatStored(kind: string, facts: string[]): string {
   const content = facts.join("\n").trim();
   if (!content) return `(none yet for this ${kind})`;
   return content;
+}
+
+function parseMemoryLines(block: string): string[] {
+  const trimmed = block.trim();
+  if (!trimmed || /^none$/i.test(trimmed)) return [];
+
+  return trimmed
+    .split("\n")
+    .map((line) => line.replace(/^[-*•]\s*/, "").trim())
+    .filter((line) => line.length > 0 && !/^none$/i.test(line));
+}
+
+export function parseMemoryExtract(raw: string): MemoryExtractResult {
+  return {
+    userFacts: parseMemoryLines(
+      extractLastClosedBlock(raw, MEMORY_TAG) ?? "",
+    ),
+    groupFacts: parseMemoryLines(
+      extractLastClosedBlock(raw, GROUP_MEMORY_TAG) ?? "",
+    ),
+    generalFacts: parseMemoryLines(
+      extractLastClosedBlock(raw, GENERAL_MEMORY_TAG) ?? "",
+    ),
+  };
 }
 
 /** Build the memory-extraction prompt (system + user) for one addressed turn. */
@@ -119,53 +125,8 @@ export function buildMemoryExtractMessages(
         `Already stored about this user:\n${userBlock}\n\n` +
         `Already stored about this group:\n${groupBlock}\n\n` +
         `Already stored general knowledge:\n${generalBlock}\n\n` +
-        `---\n${turn}`,
+        `---\n${turn}\n\n` +
+        `Reply with only the three required [MEMORY], [GROUP_MEMORY], and [GENERAL_MEMORY] blocks.`,
     },
   ];
-}
-
-/** Build the memory-merge prompt (system + user) that folds new facts into the entity doc. */
-export function buildMemoryMergeMessages(input: MemoryMergeInput): ChatMessage[] {
-  const existing = input.existing.join("\n").trim() || "(none yet)";
-  const incoming = input.incoming.map((f) => `- ${f}`).join("\n");
-  return [
-    { role: "system", content: MEMORY_MERGE_SYSTEM },
-    {
-      role: "user",
-      content:
-        `Entity kind: ${input.kind}\n\n` +
-        `Existing memory:\n${existing}\n\n` +
-        `Newly extracted information:\n${incoming}`,
-    },
-  ];
-}
-
-const MEMORY_BLOCK = /\[MEMORY\]\s*([\s\S]*?)\s*\[\/MEMORY\]/i;
-
-export function parseMemoryBlock(raw: string): string {
-  const block = (raw.match(MEMORY_BLOCK)?.[1] ?? raw).trim();
-  if (!block || /^none$/i.test(block)) return "";
-  return block
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .join("\n");
-}
-
-/** Facts in incoming that are not already stored (case-insensitive). */
-export function newFactsOnly(
-  existing: string[],
-  incoming: string[],
-): string[] {
-  const keys = new Set(existing.map((f) => f.toLowerCase()));
-  const out: string[] = [];
-  for (const fact of incoming) {
-    const normalized = fact.trim();
-    if (normalized.length < 2) continue;
-    const key = normalized.toLowerCase();
-    if (keys.has(key)) continue;
-    keys.add(key);
-    out.push(normalized);
-  }
-  return out;
 }

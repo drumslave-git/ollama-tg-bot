@@ -170,13 +170,7 @@ export function clearUserMemory(userId: string): void {
   if (result.changes > 0) notifyUserMemoryChanged();
 }
 
-export function formatUserMemoryForPrompt(facts: string[]): string {
-  const content = facts.join("\n").trim();
-  if (!content) {
-    return "No stored facts yet about this user.";
-  }
-  return content;
-}
+export { formatUserMemoryForPrompt } from "@llm-tg-bot/modules-memory";
 
 export function userMemoryTotalChars(facts: string[]): number {
   return facts.reduce((n, f) => n + f.length, 0);
