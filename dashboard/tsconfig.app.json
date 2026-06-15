@@ -21,6 +21,9 @@
       ],
       "@llm-tg-bot/modules-sticker-selection-ui": [
         "../modules/sticker-selection/ui/src/index.tsx"
+      ],
+      "@llm-tg-bot/modules-history-ui": [
+        "../modules/history/ui/src/index.tsx"
       ]
     }
   },

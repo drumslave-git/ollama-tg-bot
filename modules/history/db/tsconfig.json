@@ -1,14 +1,18 @@
 {
+  "extends": "./tsconfig.build.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "outDir": "dist",
-    "rootDir": "src",
-    "strict": true,
-    "declaration": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true
+    "baseUrl": ".",
+    "paths": {
+      "@llm-tg-bot/modules-history": [
+        "../server/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-registry": [
+        "../../registry/src/index.ts"
+      ]
+    }
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "test"
+  ]
 }
