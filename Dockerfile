@@ -8,6 +8,8 @@ ENV NODE_ENV=development
 COPY package.json package-lock.json* ./
 COPY server/package.json ./server/
 COPY dashboard/package.json ./dashboard/
+COPY server/src/modules/utils/package.json ./server/src/modules/utils/
+COPY server/src/modules/addressing-detection/package.json ./server/src/modules/addressing-detection/
 
 RUN npm ci --include=dev
 
@@ -15,7 +17,7 @@ RUN rm -rf server dashboard
 COPY server ./server
 COPY dashboard ./dashboard
 
-RUN npm run build -w dashboard && npm run build -w server
+RUN npm run build
 
 FROM node:24-bookworm-slim
 
@@ -27,6 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY package.json package-lock.json* ./
 COPY server/package.json ./server/
+COPY server/src/modules/utils/package.json ./server/src/modules/utils/
+COPY server/src/modules/addressing-detection/package.json ./server/src/modules/addressing-detection/
 
 RUN npm ci --workspace=server --omit=dev 2>/dev/null || \
     npm install --workspace=server --omit=dev
@@ -35,6 +39,8 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN npx playwright install --with-deps chromium
 
 COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/server/src/modules/utils/dist ./server/src/modules/utils/dist
+COPY --from=build /app/server/src/modules/addressing-detection/dist ./server/src/modules/addressing-detection/dist
 COPY --from=build /app/dashboard/dist ./dashboard/dist
 
 ENV NODE_ENV=production

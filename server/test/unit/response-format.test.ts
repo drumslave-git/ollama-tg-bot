@@ -121,10 +121,12 @@ describe("extractClosedBlock / extractLastClosedBlock", () => {
 });
 
 describe("buildReplyFormatSpec", () => {
-  it("embeds the format hint inside a REPLY block", () => {
+  it("describes the REPLY block without nesting the hint inside an example block", () => {
     const spec = buildReplyFormatSpec("HINT-TEXT");
     expect(spec).toContain("[REPLY]");
     expect(spec).toContain("[/REPLY]");
     expect(spec).toContain("HINT-TEXT");
+    expect(spec).toContain("do not output a second [REPLY] tag");
+    expect(spec).not.toMatch(/\[REPLY\]\s*\nHINT-TEXT\s*\n\[\/REPLY\]/);
   });
 });

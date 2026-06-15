@@ -8,7 +8,14 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": {
+      "@llm-tg-bot/modules-utils": ["./src/modules/utils/src/index.ts"],
+      "@llm-tg-bot/modules-addressing-detection": [
+        "./src/modules/addressing-detection/src/index.ts"
+      ]
+    }
   },
   "files": ["src/index.ts"]
 }

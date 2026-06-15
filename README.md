@@ -52,6 +52,24 @@ When an addressed message contains `http(s)` links, the bot detects them, opens 
 - Opens links in addressed messages via Playwright (auto-detected URLs)
 - **Maintenance mode** — dashboard toggle; when on, only the configured owner can trigger LLM-backed behavior (others are ignored silently)
 - Dashboard: API base URL, model, owner, prompts, stats
+- **Modular features** — LLM side passes packaged as stateless workspace modules under `server/src/modules/` (see [Feature modules](#feature-modules))
+
+## Feature modules
+
+Bot capabilities are being split into small **stateless npm packages** (microservice-style contracts, same Node process). Each module lives in `server/src/modules/<name>/`, is imported as `@llm-tg-bot/modules-<name>` (logical path `llm-tg-bot/modules/<name>`), and defines typed **input**, **config**, and **output**.
+
+| Module | Role |
+|--------|------|
+| `@llm-tg-bot/modules-utils` | Shared contract types and auxiliary LLM helpers |
+| `@llm-tg-bot/modules-addressing-detection` | Decides whether a group message names the bot (LLM name-variant check) |
+
+Example (`addressing-detection`):
+
+- **Input:** `{ message: string }` (+ optional `sender`, `chatType`)
+- **Config:** `{ baseUrl, model, botAliases }`
+- **Output:** `{ result: boolean, reason: string }`
+
+The Telegram bot host (`server/`) wires modules to Grammy handlers, SQLite settings, and debug tracing. In dev, `tsx` resolves modules from `src/` via `server/tsconfig.json` paths (no rebuild). Production uses `npm run build:modules` before `npm run build`.
 
 ## Stack
 

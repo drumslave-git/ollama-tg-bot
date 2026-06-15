@@ -58,7 +58,8 @@ describe("buildSystemPrompt", () => {
 
   it("always ends with the reply format spec", () => {
     const prompt = buildSystemPrompt({ settings: makeSettings(), customPrompt: "" });
-    expect(prompt.trimEnd().endsWith("(e.g. <b></b>).")).toBe(true);
+    expect(prompt).toContain("do not output a second [REPLY] tag");
+    expect(prompt.trimEnd().endsWith("you do not have to use tags at all.")).toBe(true);
   });
 });
 

@@ -1,5 +1,10 @@
 import type { Context } from "grammy";
 import { chatComplete } from "../llm/client.js";
+import { config } from "../config.js";
+import {
+  detectAddressing,
+  type AddressingDetectionConfig,
+} from "@llm-tg-bot/modules-addressing-detection";
 import {
   getBotIdentity,
   messageReferencesBotByName,
@@ -8,18 +13,19 @@ import {
 import { isMessageForBot } from "./addressed.js";
 import { stripNonBotMentions } from "./mentions.js";
 import { logEvent, logEventError } from "../event-log.js";
-import {
-  buildAddressAnalyzerMessages,
-  formatBotNamesForAnalyzer,
-  parseAddressDecision,
-} from "./address-analyze-prompt.js";
+import { getResolvedSettings } from "../settings-runtime.js";
 
 export {
   ANALYZER_SYSTEM,
   buildAddressAnalyzerMessages,
-  formatBotNamesForAnalyzer,
+  formatBotLabels,
   parseAddressDecision,
-} from "./address-analyze-prompt.js";
+  addressingDetectionModule,
+  detectAddressing,
+  type AddressingDetectionConfig,
+  type AddressingDetectionInput,
+  type AddressingDetectionOutput,
+} from "@llm-tg-bot/modules-addressing-detection";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;
 
@@ -33,6 +39,27 @@ export type AddressSource =
 export interface AddressCheckResult {
   addressed: boolean;
   source?: AddressSource;
+}
+
+function buildAddressingConfig(
+  bot: BotIdentity,
+  turnId?: number,
+): AddressingDetectionConfig {
+  const settings = getResolvedSettings();
+  return {
+    baseUrl: settings.apiBaseUrl,
+    model: settings.model,
+    botAliases: [bot.username, ...bot.aliases],
+    apiKey: config.openAiApiKey || undefined,
+    numPredict: ADDRESS_CHECK_NUM_PREDICT,
+    chatComplete: (messages) =>
+      chatComplete(messages, {
+        numPredict: ADDRESS_CHECK_NUM_PREDICT,
+        auxiliary: true,
+        traceTurnId: turnId,
+        traceLabel: "address detection",
+      }),
+  };
 }
 
 /**
@@ -100,28 +127,19 @@ async function analyzeGroupMessageForBot(
       "Someone"
     : "Someone";
 
-  const messages = buildAddressAnalyzerMessages({
-    botLabels: formatBotNamesForAnalyzer(bot),
-    chatType,
-    sender,
-    text,
-  });
-
   try {
-    const raw = await chatComplete(messages, {
-      numPredict: ADDRESS_CHECK_NUM_PREDICT,
-      auxiliary: true,
-      traceTurnId: turnId,
-      traceLabel: "address detection",
-    });
-    const yes = parseAddressDecision(raw);
-    if (yes) {
+    const { result, reason } = await detectAddressing(
+      { message: text, sender, chatType },
+      buildAddressingConfig(bot, turnId),
+    );
+    if (result) {
       logEvent("message_addressed", {
         chatId: ctx.chat?.id,
         userId: ctx.from?.id,
         turnId,
         chatType,
         source: "analyzer",
+        reason,
       });
       return { addressed: true, source: "analyzer" };
     }
@@ -132,6 +150,7 @@ async function analyzeGroupMessageForBot(
       chatType,
       addressed: false,
       source: "analyzer",
+      reason,
     });
     return { addressed: false, source: "analyzer" };
   } catch (err) {

@@ -9,6 +9,7 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 | Workspace | Role |
 |-----------|------|
 | `server/` | Bot, LLM client, SQLite, REST API |
+| `server/src/modules/*` | Stateless feature packages (`llm-tg-bot/modules/…`) |
 | `dashboard/` | Vite + React admin UI |
 
 ## Commands
@@ -16,8 +17,9 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 ```bash
 npm install
 cp .env.example .env          # BOT_TOKEN required
-npm run dev                   # server :3000 + dashboard :5173 (API proxied)
-npm run build                 # dashboard dist + server tsc
+npm run dev                   # server :3000 + dashboard :5173 (modules watched from src)
+npm run build                 # modules + dashboard dist + server tsc
+npm run build:modules         # compile feature packages (production / start only)
 npm run start                 # production server only
 ```
 
@@ -27,9 +29,39 @@ Per-workspace:
 npm run dev -w server
 npm run build -w server
 npm run build -w dashboard
+npm run test -w @llm-tg-bot/modules-addressing-detection
 ```
 
 Docker: `docker compose up -d --build` (see `README.md`).
+
+### Feature modules
+
+LLM-backed bot features are being extracted into **stateless npm workspace packages** under `server/src/modules/<name>/`. Logical import path: `llm-tg-bot/modules/<name>`; npm package name: `@llm-tg-bot/modules-<name>` (slashes are invalid in unscoped package names).
+
+| Package | Purpose |
+|---------|---------|
+| `@llm-tg-bot/modules-utils` | Shared `ModuleDefinition` contract, structured-output helpers, stateless auxiliary LLM client |
+| `@llm-tg-bot/modules-addressing-detection` | Group name-variant address detection (LLM side pass) |
+
+**Contract** — every module defines typed `input`, `config`, and `output`, and exposes a `run(input, config)` function (plus a `ModuleDefinition` object with `id`):
+
+```typescript
+// addressing-detection (reference implementation)
+input:  { message: string; sender?: string; chatType?: string }
+config: { baseUrl: string; model: string; botAliases: string[]; apiKey?: string; chatComplete?: … }
+output: { result: boolean; reason: string }
+```
+
+Rules:
+
+- **Stateless** — no SQLite, no Grammy `Context`, no global mutable state inside the package.
+- **Own tests** — unit tests in `<module>/test/`; optional live LLM tests in `<module>/test/live/`.
+- **Host adapter** — Telegram routing, settings, debug traces, and maintenance gates stay in `server/src/bot/*`; the host builds `config` from dashboard settings and may inject `chatComplete` for tracing.
+- **Shared code** — cross-module helpers live in `@llm-tg-bot/modules-utils`, not in `server/src`.
+- **Prompt-first output** — modules define strict `ANALYZER_SYSTEM` / `build*Messages()` specs; parsers stay strict (see **Structured LLM output**).
+
+To add a module: create `server/src/modules/<name>/` with `package.json` (`name`: `@llm-tg-bot/modules-<name>`), register the path in root `workspaces`, add to `build:modules`, declare it in `server/package.json`, add a `paths` entry in `server/tsconfig.json` (so `npm run dev` loads source without rebuilding), implement `run`, and cover with tests.
+
 
 **Node:** `>=22.13.0` (see `.nvmrc`).
 
@@ -86,16 +118,38 @@ Three layers, extracted in a **background pass** (`server/src/memory-extract.ts`
 
 ### Group behavior
 
-- Bot responds when @mentioned, replied to, named (LLM check), or on random/image toggles.
+- Bot responds when @mentioned, replied to, named (regex or LLM name-variant module), or on random/image toggles.
 - Per-member history in groups (`conversationKey` includes `userId`).
 - Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain`, `/remember`.
 - **Maintenance mode** (`maintenanceModeEnabled`): non-owner events must not reach the LLM — gate in `handlers.ts` before `isMessageAddressedToBot` and in `history-record.ts` for passive history/vision/compression triggers.
 
+### Structured LLM output (prompt-first)
+
+Side passes and the main reply use **fixed structured blocks** (`[ADDRESS]`, `[REPLY]`, `[SEARCH]`, `[MOOD]`, etc.). Parsers in `*-prompt.ts`, `response-format.ts`, and feature modules implement the **contract only** — they must not be loosened to accept model mistakes.
+
+**When the model misbehaves, fix the prompt — not the parser.**
+
+| Do | Don't |
+|----|-------|
+| Tighten system/user prompts so the model emits the exact block | Add fallbacks for wrong tags (e.g. `[yes]` instead of `[ADDRESS]`) |
+| State mandatory output rules and forbidden alternatives | Fall back to `reasoning` when `content` is malformed |
+| Use placeholders in format examples (`your reply here`), not literal filled blocks the model copies | Nest real instructions inside an example `[REPLY]…[/REPLY]` block in the system prompt |
+| Repeat the required block shape in the user message tail when helpful | “Helpfully” accept bare `yes`/`no`, loose `[yes]`, or other shorthand |
+
+Parsers may keep **minimal protocol tolerance** that is part of the spec itself (e.g. last closed `[ADDRESS]` block when the model quotes the format in reasoning, or unclosed `[REPLY]` when the closing tag is omitted). That is not the same as adopting new formats the model invents.
+
+Reference implementations:
+
+- **Address detection:** `@llm-tg-bot/modules-addressing-detection` (`ANALYZER_SYSTEM`, `buildAddressAnalyzerMessages`)
+- **Main reply:** `buildReplyFormatSpec()` in `server/src/response-format.ts`
+
+If output is unparseable after a prompt fix, treat it as a failed pass (ignore, error, or retry) — do not silently guess from reasoning or alternate tag shapes.
+
 ### Response format
 
-Model replies use `[REPLY]…[/REPLY]` (Telegram HTML subset). Parser: `server/src/response-format.ts` — accepts closed blocks, unclosed `[REPLY]` (Gemma often omits `[/REPLY]`), or spoken text before a trailing empty `[REPLY]` tag when the model echoes `[assistant said]`.
+Model replies use `[REPLY]…[/REPLY]` (Telegram HTML subset). Parser: `server/src/response-format.ts` — see **Structured LLM output (prompt-first)** above; do not expand the parser for new model quirks.
 
-**LLM response fields:** User-facing text comes from the API `content` field. Chain-of-thought / reasoning comes from the separate `reasoning` (or `reasoning_content`) field — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body.
+**LLM response fields:** User-facing text comes from the API `content` field. Chain-of-thought / reasoning comes from the separate `reasoning` (or `reasoning_content`) field — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover a malformed structured block.
 
 ## Code conventions
 
@@ -132,6 +186,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Area | Files |
 |------|-------|
 | Bot entry | `server/src/bot/index.ts`, `handlers.ts` |
+| Address detection | `server/src/modules/addressing-detection/`, adapter `server/src/bot/address-analyze.ts` |
 | Maintenance | `server/src/bot/maintenance.ts`, `owner.ts` |
 | Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
 | History | `server/src/db/history.ts` |
@@ -144,14 +199,15 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 - **Always run tests after completing a task.**
 - **Maintain test coverage continuously for all new features and bug fixes.**
 
-[Vitest](https://vitest.dev) drives two suites (server workspace):
+[Vitest](https://vitest.dev) drives three areas:
 
-- **Mocked unit suite (committable, default):** `npm test` (root) or `npm run test -w server`. Pure logic only — no network, LLM, or Telegram. Lives in `server/test/unit/**`; shared `Settings` fixture in `server/test/helpers/settings.ts`. Config: `server/vitest.config.ts`. Run `npm run test:watch -w server` while developing.
-- **Live LLM suite (opt-in):** `npm run test:llm` (root) or `npm run test:llm -w server`. Hits a real OpenAI-compatible backend through the production prompt-builders and parsers. Covers chat round-trip plus every LLM-backed side pass: address detection (`address-analyze-prompt.ts`), web-search decision (`search-analyze-prompt.ts`), memory extract/dedup/merge (`memory-prompt.ts`), and mood (`mood-prompt.ts`). Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when they are absent. Lives in `server/test/live/**`. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts` so no run can hit Tavily.
-- **Side-pass prompts are DB-free modules:** each LLM-backed side pass keeps its system prompt + `build*Messages()` builder + parser in a pure `*-prompt.ts` module (no DB/LLM imports); the orchestrator module (`address-analyze.ts`, `search-analyze.ts`, `memory-extract.ts`, `mood-evaluate.ts`) re-exports them. Import from the `*-prompt` module in tests so the committable suite never loads `node:sqlite`.
-- **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (settings-limits); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
+- **Feature module suites:** `npm test` runs each `@llm-tg-bot/modules-*` package (unit tests in `<module>/test/`). Live LLM tests: `npm run test:llm -w @llm-tg-bot/modules-addressing-detection` (requires `LLM_BASE_URL`, `LLM_MODEL`).
+- **Mocked server suite (committable, default):** `npm run test -w server`. Pure logic only — no network, LLM, or Telegram. Lives in `server/test/unit/**`; shared `Settings` fixture in `server/test/helpers/settings.ts`. Config: `server/vitest.config.ts`.
+- **Live LLM server suite (opt-in):** `npm run test:llm -w server`. Hits a real OpenAI-compatible backend through production prompt-builders and parsers for chat, web-search decision (`search-analyze-prompt.ts`), memory extract/dedup/merge (`memory-prompt.ts`), and mood (`mood-prompt.ts`). Address detection live tests live in the addressing-detection module. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when absent. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+- **Legacy side-pass prompts:** non-modular LLM side passes still keep system prompt + `build*Messages()` + parser in pure `*-prompt.ts` files (no DB/LLM imports) until migrated to `server/src/modules/`.
+- **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (`settings-limits` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
 
-After server changes: `npm run build -w server`. After dashboard changes: `npm run build -w dashboard`. Manually verify bot commands (`/start`, `/id`, `/reset`) and dashboard save/load.
+After server or module changes: `npm run build:modules` then `npm run build -w server`. After dashboard changes: `npm run build -w dashboard`. Manually verify bot commands (`/start`, `/id`, `/reset`) and dashboard save/load.
 
 ## Common pitfalls
 
@@ -161,3 +217,4 @@ After server changes: `npm run build -w server`. After dashboard changes: `npm r
 4. Editing only server or only dashboard types when adding a setting — update both + PATCH allowlist.
 5. New LLM entry points must respect maintenance mode (`isMaintenanceBlocked`) — not only the main message handler.
 6. Naming LLM integration after a single vendor (especially Ollama) — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints.
+7. **Loosening structured-output parsers** when a model returns the wrong tags or puts the answer in `reasoning` — improve the prompt instead (see **Structured LLM output (prompt-first)**).

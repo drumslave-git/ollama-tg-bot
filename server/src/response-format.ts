@@ -11,16 +11,23 @@ export const GENERAL_MEMORY_TAG = "GENERAL_MEMORY";
  * Stickers are chosen in a separate model pass; memory blocks come from a dedicated extract pass.
  */
 export function buildReplyFormatSpec(formatHint: string): string {
-  return `Reply ONLY using this block (no text outside it):
+  return `Your entire assistant message must be exactly one [REPLY] block — nothing before, nothing after, no other tags:
 
-[${REPLY_TAG}]
-${formatHint}
-[/${REPLY_TAG}]
+[REPLY]
+your spoken reply to the user
+[/REPLY]
 
-Rules: always include [${REPLY_TAG}] and [/${REPLY_TAG}] on their own lines. Do not output [${MEMORY_TAG}], [${GROUP_MEMORY_TAG}], or [${GENERAL_MEMORY_TAG}] in your reply — memory is handled separately.
-Never include internal chat-history tags in [${REPLY_TAG}] (e.g. [assistant said], [user:… said], [sticker: …], [compressed]) — those are metadata, not spoken text.
-Do not copy broken formatting, garbled markup, or error-like phrasing from chat history into [${REPLY_TAG}].
-Formatting: HTML tags are optional — reply in plain text unless a tag genuinely adds emphasis. Never send empty tags (e.g. <b></b>).`;
+Output rules (mandatory):
+- Put only your spoken reply inside [REPLY]…[/REPLY].
+- Use exactly one [REPLY] opening tag and one [/REPLY] closing tag.
+- The line immediately after [REPLY] must be your reply text — do not output a second [REPLY] tag.
+- Do not output [${MEMORY_TAG}], [${GROUP_MEMORY_TAG}], or [${GENERAL_MEMORY_TAG}] — memory is handled separately.
+- Never include internal chat-history tags in [${REPLY_TAG}] (e.g. [assistant said], [user:… said], [sticker: …], [compressed]) — those are metadata, not spoken text.
+- Do not copy broken formatting, garbled markup, or error-like phrasing from chat history into [${REPLY_TAG}].
+- Formatting: HTML tags are optional — reply in plain text unless a tag genuinely adds emphasis. Never send empty tags (e.g. <b></b>).
+
+Reply length and style (apply inside the block, not as tags):
+${formatHint}`;
 }
 
 

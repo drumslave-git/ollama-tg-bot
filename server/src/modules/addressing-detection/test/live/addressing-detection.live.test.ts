@@ -1,29 +1,42 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildAddressAnalyzerMessages,
-  parseAddressDecision,
-} from "../../src/bot/address-analyze-prompt.js";
-import { liveClient, liveConfig, runAuxiliary } from "./helpers.js";
+import { detectAddressing } from "../src/detect.js";
 
-const cfg = liveConfig();
-
-const BOT_LABELS = "@arguella_bot, Arguella, Аргуэлла";
-
-async function decide(text: string): Promise<boolean> {
-  const client = liveClient(cfg!);
-  const messages = buildAddressAnalyzerMessages({
-    botLabels: BOT_LABELS,
-    chatType: "group",
-    sender: "Georg",
-    text,
-  });
-  const { content } = await runAuxiliary(client, cfg!.model, messages, {
-    numPredict: 192,
-  });
-  return parseAddressDecision(content);
+interface LiveConfig {
+  baseURL: string;
+  model: string;
+  apiKey: string;
 }
 
-describe.skipIf(!cfg)("live: address detection (group name-variant analyzer)", () => {
+function liveConfig(): LiveConfig | null {
+  const rawBase = process.env.LLM_BASE_URL?.trim();
+  const model = process.env.LLM_MODEL?.trim();
+  if (!rawBase || !model) return null;
+  const baseURL = rawBase.endsWith("/v1") ? rawBase : `${rawBase}/v1`;
+  return {
+    baseURL,
+    model,
+    apiKey: (process.env.OPENAI_API_KEY ?? "").trim() || "not-needed",
+  };
+}
+
+const cfg = liveConfig();
+const BOT_ALIASES = ["arguella_bot", "Arguella", "Аргуэлла"];
+
+async function decide(text: string): Promise<boolean> {
+  const result = await detectAddressing(
+    { message: text, sender: "Georg", chatType: "group" },
+    {
+      baseUrl: cfg!.baseURL.replace(/\/v1$/, ""),
+      model: cfg!.model,
+      apiKey: cfg!.apiKey,
+      botAliases: BOT_ALIASES,
+      numPredict: 192,
+    },
+  );
+  return result.result;
+}
+
+describe.skipIf(!cfg)("live: addressing-detection module", () => {
   it("says yes for an unambiguous @username mention", async () => {
     expect(await decide("@arguella_bot ping, you there?")).toBe(true);
   });
@@ -40,8 +53,6 @@ describe.skipIf(!cfg)("live: address detection (group name-variant analyzer)", (
     );
   });
 
-  // LLM output is non-deterministic, so the broader behavioural cases are
-  // judged on aggregate accuracy rather than every single classification.
   it("classifies positive (named) cases with high accuracy", async () => {
     const positives = [
       "Arguella, what do you think about this?",
