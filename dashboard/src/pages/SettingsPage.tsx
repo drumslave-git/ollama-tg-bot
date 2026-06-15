@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useDashboard } from "../context/DashboardContext";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { ModelConfigPanel } from "../components/ModelConfigPanel";
@@ -6,11 +6,9 @@ import {
   analyzeModelConfig,
   hasModelConfigErrors,
 } from "../modelConfig";
-import { api, type StickerCatalog } from "../api";
 import LlmConnectionSection from "../components/settings/LlmConnectionSection";
 import OwnerSection from "../components/settings/OwnerSection";
 import BotBehaviorSection from "../components/settings/BotBehaviorSection";
-import StickersSection from "../components/settings/StickersSection";
 import VisionSection from "../components/settings/VisionSection";
 
 export function SettingsPage() {
@@ -45,36 +43,6 @@ export function SettingsPage() {
   const modelConfigInvalid =
     vramAvailableGb == null || hasModelConfigErrors(modelConfigIssues);
 
-  const [stickerCatalog, setStickerCatalog] = useState<StickerCatalog | null>(
-    null,
-  );
-  const [stickersLoading, setStickersLoading] = useState(false);
-  const [stickersError, setStickersError] = useState<unknown | null>(null);
-
-  async function loadStickers() {
-    setStickersLoading(true);
-    setStickersError(null);
-    try {
-      setStickerCatalog(await api.getStickers());
-    } catch (err) {
-      setStickersError(err);
-    } finally {
-      setStickersLoading(false);
-    }
-  }
-
-  async function refreshStickers() {
-    setStickersLoading(true);
-    setStickersError(null);
-    try {
-      setStickerCatalog(await api.refreshStickers());
-    } catch (err) {
-      setStickersError(err);
-    } finally {
-      setStickersLoading(false);
-    }
-  }
-
   if (!draft) {
     return (
       <div className="page">
@@ -98,7 +66,8 @@ export function SettingsPage() {
       <header className="page-header">
         <h2>Settings</h2>
         <p className="page-desc">
-          LLM connection, model, owner account, and performance limits.
+          LLM connection, model, owner account, and performance limits. Module
+          features (memory, mood, stickers, etc.) are configured under Modules.
         </p>
       </header>
 
@@ -148,22 +117,6 @@ export function SettingsPage() {
             onThinkingEnabledChange={(thinkingEnabled) => setDraft({ ...draft, thinkingEnabled, sendThinkingEnabled: thinkingEnabled ? draft.sendThinkingEnabled : false })}
             onSendThinkingEnabledChange={(sendThinkingEnabled) => setDraft({ ...draft, sendThinkingEnabled })}
             onReasoningEffortChange={(reasoningEffort) => setDraft({ ...draft, reasoningEffort })}
-          />
-
-          <StickersSection
-            stickersEnabled={draft.stickersEnabled}
-            stickerReplyChance={draft.stickerReplyChance}
-            stickerPackName={draft.stickerPackName}
-            stickersLoading={stickersLoading}
-            configBlocked={configBlocked}
-            stickersError={stickersError == null ? null : String(stickersError)}
-            stickerCatalog={stickerCatalog}
-            onStickersEnabledChange={(stickersEnabled) => setDraft({ ...draft, stickersEnabled })}
-            onStickerReplyChanceChange={(stickerReplyChance) => setDraft({ ...draft, stickerReplyChance })}
-            onStickerPackNameChange={(stickerPackName) => setDraft({ ...draft, stickerPackName })}
-            onRefreshStickers={() => void refreshStickers()}
-            onLoadStickers={() => void loadStickers()}
-            onDismissStickersError={() => setStickersError(null)}
           />
 
           <ModelConfigPanel

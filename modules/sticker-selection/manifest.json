@@ -3,5 +3,10 @@
   "name": "Sticker selection",
   "description": "LLM pass to pick a sticker from a configured Telegram sticker set.",
   "serverPackage": "@llm-tg-bot/modules-sticker-selection",
-  "settingsKeys": ["stickersEnabled", "stickerPackName", "stickerReplyChance"]
+  "uiPackage": "@llm-tg-bot/modules-sticker-selection-ui",
+  "settingsKeys": ["stickersEnabled", "stickerPackName", "stickerReplyChance"],
+  "dashboard": {
+    "label": "Stickers",
+    "description": "Enable sticker replies, set frequency, and manage the Telegram sticker pack."
+  }
 }

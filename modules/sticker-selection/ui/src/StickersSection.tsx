@@ -1,6 +1,5 @@
-import React from "react";
-import { ErrorBanner } from "../ErrorBanner";
-import { api } from "../../api";
+import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
+import { api, type StickerCatalog } from "@llm-tg-bot/dashboard/api";
 
 interface StickersSectionProps {
   stickersEnabled: boolean;
@@ -9,7 +8,7 @@ interface StickersSectionProps {
   stickersLoading: boolean;
   configBlocked: boolean;
   stickersError: string | null;
-  stickerCatalog: any;
+  stickerCatalog: StickerCatalog | null;
   onStickersEnabledChange: (value: boolean) => void;
   onStickerReplyChanceChange: (value: number) => void;
   onStickerPackNameChange: (value: string) => void;
@@ -18,7 +17,7 @@ interface StickersSectionProps {
   onDismissStickersError: () => void;
 }
 
-const StickersSection: React.FC<StickersSectionProps> = ({
+export function StickersSection({
   stickersEnabled,
   stickerReplyChance,
   stickerPackName,
@@ -32,10 +31,9 @@ const StickersSection: React.FC<StickersSectionProps> = ({
   onRefreshStickers,
   onLoadStickers,
   onDismissStickersError,
-}) => {
+}: StickersSectionProps) {
   return (
     <>
-      <h3 className="section-title">Outgoing stickers</h3>
       <div className="field toggle-row">
         <label className="checkbox">
           <input
@@ -46,9 +44,9 @@ const StickersSection: React.FC<StickersSectionProps> = ({
           Let the bot send stickers from a pack
         </label>
         <p className="hint">
-          After a text reply, a separate pass picks the best-matching
-          sticker from your pack. Whether that pass runs is rolled
-          locally from the frequency setting.
+          After a text reply, a separate pass picks the best-matching sticker
+          from your pack. Whether that pass runs is rolled locally from the
+          frequency setting.
         </p>
       </div>
 
@@ -64,11 +62,13 @@ const StickersSection: React.FC<StickersSectionProps> = ({
               min={0}
               max={100}
               value={stickerReplyChance}
-              onChange={(e) => onStickerReplyChanceChange(Number(e.target.value))}
+              onChange={(e) =>
+                onStickerReplyChanceChange(Number(e.target.value))
+              }
             />
             <p className="hint">
-              How often the bot should add a sticker after replying.
-              Higher = stickers on most messages.
+              How often the bot should add a sticker after replying. Higher =
+              stickers on most messages.
             </p>
           </div>
 
@@ -79,21 +79,25 @@ const StickersSection: React.FC<StickersSectionProps> = ({
                 id="stickerPackName"
                 className="grow"
                 value={stickerPackName}
-                onChange={(e) => onStickerPackNameChange(e.target.value.replace(/^@/, ""))}
+                onChange={(e) =>
+                  onStickerPackNameChange(e.target.value.replace(/^@/, ""))
+                }
                 placeholder="HotCherry or MyPack_by_botname"
               />
               <button
                 type="button"
                 className="secondary"
                 onClick={onRefreshStickers}
-                disabled={stickersLoading || configBlocked || !stickerPackName.trim()}
+                disabled={
+                  stickersLoading || configBlocked || !stickerPackName.trim()
+                }
               >
                 {stickersLoading ? "Loading…" : "Load pack"}
               </button>
             </div>
             <p className="hint">
               Public set name from Telegram (the part after{" "}
-              <code>t.me/addstickers/</code>). Save settings after
+              <code>t.me/addstickers/</code>). Save configuration after
               changing the name, then load the pack to preview stickers.
             </p>
           </div>
@@ -113,11 +117,11 @@ const StickersSection: React.FC<StickersSectionProps> = ({
                 Stickers in pack ({stickerCatalog.stickers.length})
               </label>
               <p className="hint">
-                Emojis are loaded from your sticker pack in Telegram.
-                Reload the pack after you change them in @Stickers.
+                Emojis are loaded from your sticker pack in Telegram. Reload
+                the pack after you change them in @Stickers.
               </p>
               <div className="sticker-preview-grid">
-                {stickerCatalog.stickers.map((s: any) => (
+                {stickerCatalog.stickers.map((s) => (
                   <div
                     key={s.index}
                     className="sticker-preview-card"
@@ -161,6 +165,4 @@ const StickersSection: React.FC<StickersSectionProps> = ({
       ) : null}
     </>
   );
-};
-
-export default StickersSection;
+}

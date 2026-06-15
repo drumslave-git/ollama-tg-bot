@@ -29,6 +29,7 @@
     "modules/memory/ui",
     "modules/link-fetch/server",
     "modules/sticker-selection/server",
+    "modules/sticker-selection/ui",
     "modules/mood-evaluation/server",
     "modules/mood-evaluation/db",
     "modules/mood-evaluation/ui"

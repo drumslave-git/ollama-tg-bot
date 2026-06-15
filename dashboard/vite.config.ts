@@ -19,6 +19,10 @@ export default defineConfig({
         __dirname,
         "../modules/mood-evaluation/ui/src/index.tsx",
       ),
+      "@llm-tg-bot/modules-sticker-selection-ui": path.resolve(
+        __dirname,
+        "../modules/sticker-selection/ui/src/index.tsx",
+      ),
     },
   },
   server: {
