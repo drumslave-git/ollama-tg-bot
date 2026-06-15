@@ -41,6 +41,10 @@ export default defineConfig({
         root,
         "src/modules/sticker-selection/src/index.ts",
       ),
+      "@llm-tg-bot/modules-mood-evaluation": path.join(
+        root,
+        "src/modules/mood-evaluation/src/index.ts",
+      ),
     },
   },
   test: {

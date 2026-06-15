@@ -1,39 +1,70 @@
 import { chatComplete } from "./llm/client.js";
+import { config } from "./config.js";
 import { logEvent, logEventError } from "./event-log.js";
-import { normalizeMoodValues, type MoodValues } from "./mood.js";
+import { getResolvedSettings } from "./settings-runtime.js";
 import {
-  buildMoodEvaluateMessages,
-  parseMoodBlock,
+  evaluateMood as runMoodEvaluation,
+  MOOD_EVAL_NUM_PREDICT,
+  normalizeMoodValues,
+  type MoodEvaluateConfig,
   type MoodEvaluateInput,
-} from "./mood-prompt.js";
+  type MoodValues,
+} from "@llm-tg-bot/modules-mood-evaluation";
 
 export {
+  MOOD_TAG,
   MOOD_EVALUATOR_SYSTEM,
+  MOOD_KEYS,
+  MOOD_TRAIT_HINTS,
+  DEFAULT_MOOD_VALUES,
+  moodValuesEqual,
+  clampMoodLevel,
+  normalizeMoodValues,
+  applyMoodCooldown,
+  formatMoodForPrompt,
   buildMoodEvaluateMessages,
   parseMoodBlock,
+  moodEvaluationModule,
+  MOOD_EVAL_NUM_PREDICT,
   type MoodEvaluateInput,
-} from "./mood-prompt.js";
+  type MoodEvaluateConfig,
+  type MoodEvaluateOutput,
+  type MoodParseResult,
+  type MoodKey,
+  type MoodValues,
+} from "@llm-tg-bot/modules-mood-evaluation";
 
-const MOOD_EVAL_NUM_PREDICT = 192;
+export interface HostMoodEvaluateInput extends MoodEvaluateInput {
+  traceTurnId?: number;
+}
 
-export async function evaluateMood(
-  input: MoodEvaluateInput,
-): Promise<MoodValues> {
+function buildMoodConfig(traceTurnId?: number): MoodEvaluateConfig {
+  const settings = getResolvedSettings();
+  return {
+    baseUrl: settings.apiBaseUrl,
+    model: settings.model,
+    apiKey: config.openAiApiKey || undefined,
+    numPredict: MOOD_EVAL_NUM_PREDICT,
+    chatComplete: (messages) =>
+      chatComplete(messages, {
+        numPredict: MOOD_EVAL_NUM_PREDICT,
+        auxiliary: true,
+        traceTurnId,
+        traceLabel: "mood evaluate",
+      }),
+  };
+}
+
+export async function evaluateMood(input: HostMoodEvaluateInput): Promise<MoodValues> {
   const fallback = normalizeMoodValues(input.currentMood);
-  const messages = buildMoodEvaluateMessages(input);
 
   try {
-    const raw = await chatComplete(messages, {
-      numPredict: MOOD_EVAL_NUM_PREDICT,
-      auxiliary: true,
-      traceTurnId: input.traceTurnId,
-      traceLabel: "mood evaluate",
-    });
-    const evaluated = parseMoodBlock(raw, fallback);
+    const result = await runMoodEvaluation(input, buildMoodConfig(input.traceTurnId));
     logEvent("mood_evaluated", {
-      moodSummary: JSON.stringify(evaluated),
+      moodSummary: JSON.stringify(result.mood),
+      reason: result.reason,
     });
-    return evaluated;
+    return result.mood;
   } catch (err) {
     logEventError("mood_evaluate_failed", err);
     return fallback;

@@ -209,6 +209,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Memory extract/inject | `server/src/modules/memory/`, adapter `server/src/memory-extract.ts`; injection via `prompts.ts` |
 | Link fetch | `server/src/modules/link-fetch/`, adapter `server/src/bot/link-fetch.ts` |
 | Sticker selection | `server/src/modules/sticker-selection/`, adapter `server/src/bot/sticker-analyze.ts`; catalog `server/src/bot/sticker-catalog.ts` |
+| Mood evaluation | `server/src/modules/mood-evaluation/`, adapter `server/src/mood-evaluate.ts`; injection via `formatMoodForPrompt` in `prompts.ts` |
 | HTML replies | `server/src/telegram/html.ts` |
 
 ## Testing
@@ -217,10 +218,10 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 
 [Vitest](https://vitest.dev) drives three areas:
 
-- **Feature module suites:** `npm test` runs each `@llm-tg-bot/modules-*` package (unit tests in `<module>/test/`). Live LLM tests: `npm run test:llm -w @llm-tg-bot/modules-addressing-detection` (and search-decision, memory; requires `LLM_BASE_URL`, `LLM_MODEL`).
+- **Feature module suites:** `npm test` runs each `@llm-tg-bot/modules-*` package (unit tests in `<module>/test/`). Live LLM tests: `npm run test:llm -w @llm-tg-bot/modules-addressing-detection` (and search-decision, memory, mood-evaluation; requires `LLM_BASE_URL`, `LLM_MODEL`).
 - **Mocked server suite (committable, default):** `npm run test -w server`. Pure logic only — no network, LLM, or Telegram. Lives in `server/test/unit/**`; shared `Settings` fixture in `server/test/helpers/settings.ts`. Config: `server/vitest.config.ts`.
-- **Live LLM server suite (opt-in):** `npm run test:llm -w server`. Hits a real OpenAI-compatible backend for chat and mood (`mood-prompt.ts`). Address, search-decision, and memory live tests live in their modules. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when absent. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
-- **Legacy side-pass prompts:** non-modular LLM side passes still keep system prompt + `build*Messages()` + parser in pure `*-prompt.ts` files (no DB/LLM imports) until migrated to `server/src/modules/`.
+- **Live LLM server suite (opt-in):** `npm run test:llm -w server`. Hits a real OpenAI-compatible backend for chat. Address, search-decision, memory, and mood-evaluation live tests live in their modules. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when absent. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+- **Legacy side-pass prompts:** non-modular LLM side passes (if any remain) still keep system prompt + `build*Messages()` + parser in pure `*-prompt.ts` files until migrated to `server/src/modules/`.
 - **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (`settings-limits` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
 
 After server or module changes: `npm run build:modules` then `npm run build -w server`. After dashboard changes: `npm run build -w dashboard`. Manually verify bot commands (`/start`, `/id`, `/reset`) and dashboard save/load.

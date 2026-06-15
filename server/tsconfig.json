@@ -29,6 +29,9 @@
       ],
       "@llm-tg-bot/modules-sticker-selection": [
         "./src/modules/sticker-selection/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-mood-evaluation": [
+        "./src/modules/mood-evaluation/src/index.ts"
       ]
     }
   },
