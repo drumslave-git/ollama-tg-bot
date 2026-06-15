@@ -70,15 +70,11 @@ function allTableConfigs(): Record<string, TableConfig> {
   };
 }
 
+/** Core SQLite tables only — module-owned tables are browsed on module pages. */
 const TABLE_ORDER = [
   "settings",
   "stats",
   "stats_meta",
-  "chat_history",
-  "user_memories",
-  "group_memories",
-  "general_facts",
-  "personalities",
   "known_users",
   "error_log",
 ] as const;
@@ -90,9 +86,8 @@ export function bindDataBrowserDatabase(database: DatabaseSync): void {
 }
 
 export function listDataTables(): DataTableSummary[] {
-  const configs = allTableConfigs();
-  return TABLE_ORDER.filter((id) => configs[id]).map((id) => {
-    const config = configs[id];
+  return TABLE_ORDER.filter((id) => TABLE_CONFIGS[id]).map((id) => {
+    const config = TABLE_CONFIGS[id];
     const row = db.prepare(config.countQuery).get() as { n: number };
     return { id, label: config.label, count: row.n };
   });
