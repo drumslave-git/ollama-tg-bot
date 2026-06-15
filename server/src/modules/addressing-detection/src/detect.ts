@@ -4,6 +4,7 @@ import {
   type ModuleDefinition,
 } from "@llm-tg-bot/modules-utils";
 import {
+  ADDRESS_RESPONSE_FORMAT,
   buildAddressAnalyzerMessages,
   formatBotLabels,
   parseAddressDecision,
@@ -64,7 +65,10 @@ export async function detectAddressing(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? DEFAULT_NUM_PREDICT },
+          {
+            numPredict: config.numPredict ?? DEFAULT_NUM_PREDICT,
+            responseFormat: ADDRESS_RESPONSE_FORMAT,
+          },
         );
     return parseAddressDecision(raw);
   } catch (err) {

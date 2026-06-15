@@ -11,7 +11,7 @@ describe("buildBaseSystemPrompt", () => {
   it("includes the core prompt, a length hint, and the reply format", () => {
     const prompt = buildBaseSystemPrompt(makeSettings({ numPredict: 512 }));
     expect(prompt).toContain(BASE_SYSTEM_PROMPT_CORE);
-    expect(prompt).toContain("[REPLY]");
+    expect(prompt).toContain("reply (string)");
     expect(prompt).toContain("512");
   });
 });
@@ -58,7 +58,8 @@ describe("buildSystemPrompt", () => {
 
   it("always ends with the reply format spec", () => {
     const prompt = buildSystemPrompt({ settings: makeSettings(), customPrompt: "" });
-    expect(prompt).toContain("do not output a second [REPLY] tag");
+    expect(prompt).toContain("reply (string)");
+    expect(prompt).toContain("Respond with JSON only");
     expect(prompt.trimEnd().endsWith("you do not have to use tags at all.")).toBe(true);
   });
 });

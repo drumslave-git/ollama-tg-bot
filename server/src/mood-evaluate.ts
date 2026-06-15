@@ -5,6 +5,7 @@ import { getResolvedSettings } from "./settings-runtime.js";
 import {
   evaluateMood as runMoodEvaluation,
   MOOD_EVAL_NUM_PREDICT,
+  MOOD_RESPONSE_FORMAT,
   normalizeMoodValues,
   type MoodEvaluateConfig,
   type MoodEvaluateInput,
@@ -12,7 +13,7 @@ import {
 } from "@llm-tg-bot/modules-mood-evaluation";
 
 export {
-  MOOD_TAG,
+  MOOD_RESPONSE_FORMAT,
   MOOD_EVALUATOR_SYSTEM,
   MOOD_KEYS,
   MOOD_TRAIT_HINTS,
@@ -49,6 +50,7 @@ function buildMoodConfig(traceTurnId?: number): MoodEvaluateConfig {
       chatComplete(messages, {
         numPredict: MOOD_EVAL_NUM_PREDICT,
         auxiliary: true,
+        responseFormat: MOOD_RESPONSE_FORMAT,
         traceTurnId,
         traceLabel: "mood evaluate",
       }),

@@ -8,9 +8,7 @@ export {
 } from "./extract.js";
 export {
   EXTRACTOR_SYSTEM,
-  MEMORY_TAG,
-  GROUP_MEMORY_TAG,
-  GENERAL_MEMORY_TAG,
+  MEMORY_EXTRACT_RESPONSE_FORMAT,
   buildMemoryExtractMessages,
   parseMemoryExtract,
   type MemoryExtractInput,
@@ -18,6 +16,7 @@ export {
 } from "./extract-prompt.js";
 export {
   MEMORY_MERGE_SYSTEM,
+  MEMORY_MERGE_RESPONSE_FORMAT,
   buildMemoryMergeMessages,
   parseMemoryBlock,
   sanitizeMergedMemory,

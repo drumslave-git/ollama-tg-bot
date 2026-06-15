@@ -19,7 +19,7 @@ function input(over: Partial<MemoryExtractInput>): MemoryExtractInput {
   return {
     userMessage: "",
     replyContext: null,
-    assistantReply: "[REPLY]ok[/REPLY]",
+    assistantReply: '{"reply":"ok"}',
     existingUserFacts: [],
     existingGroupFacts: [],
     existingGeneralFacts: [],
@@ -29,12 +29,14 @@ function input(over: Partial<MemoryExtractInput>): MemoryExtractInput {
 }
 
 describe("parseMemoryExtract", () => {
-  it("parses all three memory scopes from closed blocks", () => {
+  it("parses all three memory scopes from JSON", () => {
     expect(
       parseMemoryExtract(
-        "[MEMORY]\nLives in Lisbon.\n[/MEMORY]\n" +
-          "[GROUP_MEMORY]\nnone\n[/GROUP_MEMORY]\n" +
-          "[GENERAL_MEMORY]\nMTTR means mean time to recovery.\n[/GENERAL_MEMORY]",
+        JSON.stringify({
+          user_facts: ["Lives in Lisbon."],
+          group_facts: [],
+          general_facts: ["MTTR means mean time to recovery."],
+        }),
       ),
     ).toEqual({
       userFacts: ["Lives in Lisbon."],
@@ -43,16 +45,17 @@ describe("parseMemoryExtract", () => {
     });
   });
 
-  it("uses the last closed block when reasoning quotes the format", () => {
+  it("filters none entries from arrays", () => {
     expect(
       parseMemoryExtract(
-        "Example: [MEMORY]\nold\n[/MEMORY]\n" +
-          "[MEMORY]\nLikes tea.\n[/MEMORY]\n" +
-          "[GROUP_MEMORY]\nnone\n[/GROUP_MEMORY]\n" +
-          "[GENERAL_MEMORY]\nnone\n[/GENERAL_MEMORY]",
+        JSON.stringify({
+          user_facts: ["none"],
+          group_facts: [],
+          general_facts: [],
+        }),
       ),
     ).toEqual({
-      userFacts: ["Likes tea."],
+      userFacts: [],
       groupFacts: [],
       generalFacts: [],
     });
@@ -61,35 +64,37 @@ describe("parseMemoryExtract", () => {
 
 describe("parseMemoryBlock", () => {
   it("extracts a merged memory document", () => {
-    expect(parseMemoryBlock("[MEMORY]\nLives in Lisbon.\nLikes tea.\n[/MEMORY]")).toBe(
-      "Lives in Lisbon.\nLikes tea.",
-    );
+    expect(
+      parseMemoryBlock(
+        '{"memory":"Lives in Lisbon.\\nLikes tea."}',
+      ),
+    ).toBe("Lives in Lisbon.\nLikes tea.");
   });
 
   it("returns empty string for none", () => {
-    expect(parseMemoryBlock("[MEMORY]\nnone\n[/MEMORY]")).toBe("");
+    expect(parseMemoryBlock('{"memory":"none"}')).toBe("");
   });
 
-  it("falls back to raw text without tags", () => {
+  it("falls back to raw text without JSON", () => {
     expect(parseMemoryBlock("Lives in Lisbon.")).toBe("Lives in Lisbon.");
   });
 
   it("strips echoed Entity metadata from merged memory", () => {
     expect(
       parseMemoryBlock(
-        "[MEMORY]\nEntity: user Profession: frontend developer.\n[/MEMORY]",
+        '{"memory":"Entity: user Profession: frontend developer."}',
       ),
     ).toBe("Profession: frontend developer.");
   });
 });
 
 describe("buildMemoryExtractMessages", () => {
-  it("marks a non-group chat to force none in [GROUP_MEMORY]", () => {
+  it("marks a non-group chat to force empty group_facts", () => {
     const messages = buildMemoryExtractMessages(
       input({ userMessage: "hi", isGroupChat: false }),
     );
     expect(messages[1].content).toContain("Not a group chat");
-    expect(messages[1].content).toContain("three required");
+    expect(messages[1].content).toContain("user_facts, group_facts");
   });
 
   it("lists already-stored facts", () => {
@@ -155,20 +160,18 @@ describe("memory injection", () => {
 });
 
 describe("EXTRACTOR_SYSTEM", () => {
-  it("requires all three memory blocks", () => {
-    expect(EXTRACTOR_SYSTEM).toContain("[MEMORY]");
-    expect(EXTRACTOR_SYSTEM).toContain("[GROUP_MEMORY]");
-    expect(EXTRACTOR_SYSTEM).toContain("[GENERAL_MEMORY]");
-    expect(EXTRACTOR_SYSTEM).toContain("three blocks");
+  it("requires JSON with three fact arrays", () => {
+    expect(EXTRACTOR_SYSTEM).toContain("user_facts");
+    expect(EXTRACTOR_SYSTEM).toContain("group_facts");
+    expect(EXTRACTOR_SYSTEM).toContain("general_facts");
+    expect(EXTRACTOR_SYSTEM).toContain("Respond with JSON only");
   });
 });
 
 describe("MEMORY_MERGE_SYSTEM", () => {
-  it("requires a single [MEMORY] block and forbids scope labels", () => {
-    expect(MEMORY_MERGE_SYSTEM).toContain("[MEMORY]");
-    expect(MEMORY_MERGE_SYSTEM).toContain("exactly one block");
+  it("requires a memory string and forbids scope labels", () => {
+    expect(MEMORY_MERGE_SYSTEM).toContain("memory (string)");
     expect(MEMORY_MERGE_SYSTEM).toContain('no "Entity"');
     expect(MEMORY_MERGE_SYSTEM).toContain("Drop duplicates");
   });
 });
-

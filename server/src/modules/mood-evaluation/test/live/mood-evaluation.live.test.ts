@@ -6,7 +6,7 @@ import {
   DEFAULT_MOOD_VALUES,
   MOOD_KEYS,
   type MoodValues,
-} from "../src/index.js";
+} from "../../src/index.js";
 
 interface LiveConfig {
   baseUrl: string;
@@ -87,18 +87,28 @@ describe.skipIf(!cfg)("live: mood-evaluation module", () => {
     ).toBeGreaterThanOrEqual(baseHostility);
   });
 
-  it("builds messages with the tightened format reminder", () => {
+  it("builds messages with the JSON format reminder", () => {
     const messages = buildMoodEvaluateMessages({
       currentMood: DEFAULT_MOOD_VALUES,
       historyText: "",
       latestTurn: "hi",
     });
-    expect(messages[1].content).toContain("[MOOD]");
+    expect(messages[1].content).toContain("Return JSON");
   });
 
-  it("parses a well-formed block from content field shape", async () => {
+  it("parses well-formed JSON from content field shape", async () => {
     const parsed = parseMoodBlock(
-      "[MOOD]\nirritated: 2\nexhausted: 0\namused: 1\ncurious: 1\ncontemptuous: 1\ngloomy: 0\nimpatient: 1\npleased: 0\nsuspicious: 1\n[/MOOD]",
+      JSON.stringify({
+        irritated: 2,
+        exhausted: 0,
+        amused: 1,
+        curious: 1,
+        contemptuous: 1,
+        gloomy: 0,
+        impatient: 1,
+        pleased: 0,
+        suspicious: 1,
+      }),
       DEFAULT_MOOD_VALUES,
     );
     expect(parsed.reason).toBe("Mood updated");

@@ -6,8 +6,7 @@ export {
 } from "./detect.js";
 export {
   SEARCH_ANALYZER_SYSTEM,
-  SEARCH_TAG,
-  QUERY_TAG,
+  SEARCH_RESPONSE_FORMAT,
   buildSearchAnalyzerMessages,
   parseSearchDecision,
   type SearchDecisionOutput,

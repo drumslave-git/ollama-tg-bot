@@ -5,11 +5,16 @@ import type {
 } from "openai/resources/chat/completions";
 import type { ChatMessage } from "../../src/llm/client.js";
 import { parseAssistantMessage, providerChatExtensions } from "../../src/llm/openai-compat.js";
-import { extractTelegramReply } from "../../src/response-format.js";
+import {
+  extractTelegramReply,
+  MAIN_REPLY_RESPONSE_FORMAT,
+} from "../../src/response-format.js";
 import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,
 } from "../../src/settings-limits.js";
+import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
+import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
 import { makeSettings } from "../helpers/settings.js";
 
 export interface LiveConfig {
@@ -68,6 +73,7 @@ export async function runTurn(
     temperature: settings.temperature,
     top_p: settings.topP,
     ...ext,
+    response_format: toOpenAiResponseFormat(MAIN_REPLY_RESPONSE_FORMAT),
   });
 
   const choice = completion.choices[0];
@@ -108,7 +114,7 @@ export async function runAuxiliary(
   client: OpenAI,
   model: string,
   messages: ChatMessage[],
-  opts: { numPredict?: number } = {},
+  opts: { numPredict?: number; responseFormat?: JsonSchemaResponseFormat } = {},
 ): Promise<AuxResult> {
   const settings = makeSettings({ numCtx: 8192, thinkingEnabled: false });
   const ext = providerChatExtensions(settings, true);
@@ -123,6 +129,9 @@ export async function runAuxiliary(
     temperature: AUXILIARY_TEMPERATURE,
     top_p: settings.topP,
     ...ext,
+    ...(opts.responseFormat
+      ? { response_format: toOpenAiResponseFormat(opts.responseFormat) }
+      : {}),
   });
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);

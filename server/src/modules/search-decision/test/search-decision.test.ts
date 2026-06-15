@@ -9,7 +9,7 @@ describe("parseSearchDecision", () => {
   it("parses a yes decision with a query", () => {
     expect(
       parseSearchDecision(
-        "[SEARCH]\nyes\n[/SEARCH]\n[QUERY]\nbitcoin price today\n[/QUERY]",
+        '{"needs_search":true,"query":"bitcoin price today"}',
       ),
     ).toEqual({
       needsSearch: true,
@@ -19,7 +19,7 @@ describe("parseSearchDecision", () => {
   });
 
   it("parses a no decision", () => {
-    expect(parseSearchDecision("[SEARCH]\nno\n[/SEARCH]")).toEqual({
+    expect(parseSearchDecision('{"needs_search":false,"query":null}')).toEqual({
       needsSearch: false,
       query: null,
       reason: "LLM decision: no",
@@ -27,14 +27,14 @@ describe("parseSearchDecision", () => {
   });
 
   it("treats yes without a usable query as no", () => {
-    expect(parseSearchDecision("[SEARCH]\nyes\n[/SEARCH]")).toEqual({
+    expect(parseSearchDecision('{"needs_search":true,"query":null}')).toEqual({
       needsSearch: false,
       query: null,
-      reason: "LLM said yes but no [QUERY] block",
+      reason: "LLM said yes but query was missing",
     });
   });
 
-  it("rejects bare no outside the block", () => {
+  it("rejects bare no outside JSON", () => {
     expect(parseSearchDecision("no")).toEqual({
       needsSearch: false,
       query: null,
@@ -42,44 +42,20 @@ describe("parseSearchDecision", () => {
     });
   });
 
-  it("rejects bare yes without blocks", () => {
+  it("rejects bare yes without JSON", () => {
     expect(parseSearchDecision("yes")).toEqual({
       needsSearch: false,
       query: null,
       reason: "Could not parse LLM search decision",
     });
   });
-
-  it("rejects yes with [QUERY] but no [/SEARCH] closing tag", () => {
-    expect(
-      parseSearchDecision(
-        "[SEARCH]\nyes\n[QUERY]\nThe Finals game\n[/QUERY]",
-      ),
-    ).toEqual({
-      needsSearch: false,
-      query: null,
-      reason: "Could not parse LLM search decision",
-    });
-  });
-
-  it("uses the last SEARCH block when the format is quoted in reasoning", () => {
-    const raw =
-      "Example: [SEARCH]\nyes\n[/SEARCH] then query.\nDecision: [SEARCH]\nno\n[/SEARCH]";
-    expect(parseSearchDecision(raw)).toEqual({
-      needsSearch: false,
-      query: null,
-      reason: "LLM decision: no",
-    });
-  });
 });
 
 describe("SEARCH_ANALYZER_SYSTEM", () => {
-  it("forbids alternate tags and bare yes/no", () => {
-    expect(SEARCH_ANALYZER_SYSTEM).toContain('Do not output bare "yes" or "no"');
-    expect(SEARCH_ANALYZER_SYSTEM).toContain("[SEARCH]");
-    expect(SEARCH_ANALYZER_SYSTEM).toContain("[QUERY]");
-    expect(SEARCH_ANALYZER_SYSTEM).toContain("Close [SEARCH] with [/SEARCH] before you open [QUERY]");
-    expect(SEARCH_ANALYZER_SYSTEM).toContain("Invalid (never output this");
+  it("requires JSON with needs_search and query", () => {
+    expect(SEARCH_ANALYZER_SYSTEM).toContain("needs_search (boolean)");
+    expect(SEARCH_ANALYZER_SYSTEM).toContain("query (string or null)");
+    expect(SEARCH_ANALYZER_SYSTEM).toContain("Respond with JSON only");
   });
 });
 
@@ -90,7 +66,7 @@ describe("buildSearchAnalyzerMessages", () => {
     });
     expect(messages[0].role).toBe("system");
     expect(messages[1].content).toContain("what's the weather today?");
-    expect(messages[1].content).toContain("[SEARCH]");
+    expect(messages[1].content).toContain("needs_search");
   });
 
   it("appends quoted reply context when present", () => {

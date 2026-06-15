@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectAddressing } from "../src/detect.js";
+import { detectAddressing } from "../../src/detect.js";
 
 interface LiveConfig {
   baseURL: string;

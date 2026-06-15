@@ -6,6 +6,7 @@ import {
 import {
   buildStickerAnalyzerMessages,
   parseStickerChoice,
+  STICKER_RESPONSE_FORMAT,
 } from "./prompt.js";
 import { resolveStickerFileId } from "./resolve.js";
 import type {
@@ -77,7 +78,9 @@ export async function pickSticker(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? STICKER_CHECK_NUM_PREDICT },
+          { numPredict: config.numPredict ?? STICKER_CHECK_NUM_PREDICT,
+            responseFormat: STICKER_RESPONSE_FORMAT,
+          },
         );
     const parsed = parseStickerChoice(raw);
     if (!parsed.choice) {

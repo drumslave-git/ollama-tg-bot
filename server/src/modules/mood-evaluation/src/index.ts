@@ -6,7 +6,7 @@ export {
   type MoodEvaluateOutput,
 } from "./evaluate.js";
 export {
-  MOOD_TAG,
+  MOOD_RESPONSE_FORMAT,
   MOOD_EVALUATOR_SYSTEM,
   buildMoodEvaluateMessages,
   parseMoodBlock,

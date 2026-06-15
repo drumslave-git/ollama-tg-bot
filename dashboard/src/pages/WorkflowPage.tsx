@@ -189,7 +189,7 @@ export function WorkflowPage() {
         position: getPosition("parse", { x: 240, y: 880 }),
         data: {
           label: "Parse Response",
-          sublabel: "Extract [REPLY]…[/REPLY]",
+          sublabel: 'Extract {"reply":"…"} JSON',
           phase: "process",
           enabled: true,
         },
@@ -198,7 +198,7 @@ export function WorkflowPage() {
         id: "reply",
         type: "workflow",
         position: getPosition("reply", { x: 240, y: 990 }),
-        data: { label: "REPLY", sublabel: "Telegram message", phase: "output", enabled: true },
+        data: { label: "Reply", sublabel: "Telegram message", phase: "output", enabled: true },
       },
       {
         id: "history",
@@ -517,11 +517,11 @@ export function WorkflowPage() {
             OpenAI-compatible API and receives the response.
           </li>
           <li>
-            <strong>Parse Response</strong> — Extracts <code>[REPLY]</code>{" "}
-            tags from the model output and strips chain-of-thought.
+            <strong>Parse Response</strong> — Parses the JSON reply object from
+            model output and strips chain-of-thought.
           </li>
           <li>
-            <strong>REPLY</strong> — The parsed response is sent back to
+            <strong>Reply</strong> — The parsed response is sent back to
             Telegram.
           </li>
           <li>

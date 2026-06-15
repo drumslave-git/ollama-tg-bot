@@ -17,7 +17,7 @@ function userTurn(text: string): ChatCompletionMessageParam[] {
 }
 
 describe.skipIf(!cfg)("live: chat round-trip", () => {
-  it("returns a usable [REPLY] in message.content for a greeting", async () => {
+  it("returns a usable JSON reply in message.content for a greeting", async () => {
     const client = liveClient(cfg!);
     const result = await runTurn(client, cfg!.model, userTurn("hello there!"));
 
@@ -53,7 +53,7 @@ describe.skipIf(!cfg)("live: chat round-trip", () => {
     const messages: ChatCompletionMessageParam[] = [
       { role: "system", content: SYSTEM },
       { role: "user", content: "[user:georg:123 said] my name is Georg" },
-      { role: "assistant", content: "[REPLY]Nice to meet you, Georg![/REPLY]" },
+      { role: "assistant", content: '{"reply":"Nice to meet you, Georg!"}' },
       { role: "user", content: "[user:georg:123 said] what is my name?" },
     ];
     const result = await runTurn(client, cfg!.model, messages);

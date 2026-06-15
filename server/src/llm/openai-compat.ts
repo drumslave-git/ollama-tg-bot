@@ -20,7 +20,7 @@ export interface ProviderChatOptions {
 }
 
 export interface ParsedAssistantMessage {
-  /** Final answer: parse [REPLY] and side-pass blocks from this only. */
+  /** Final answer: parse JSON reply and side-pass objects from this only. */
   content: string;
   /** Reasoning: never merge into user-facing reply text. */
   reasoning: string;

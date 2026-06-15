@@ -2,6 +2,7 @@ import type { Context } from "grammy";
 import { chatComplete } from "../llm/client.js";
 import { config } from "../config.js";
 import {
+  ADDRESS_RESPONSE_FORMAT,
   detectAddressing,
   type AddressingDetectionConfig,
 } from "@llm-tg-bot/modules-addressing-detection";
@@ -56,6 +57,7 @@ function buildAddressingConfig(
       chatComplete(messages, {
         numPredict: ADDRESS_CHECK_NUM_PREDICT,
         auxiliary: true,
+        responseFormat: ADDRESS_RESPONSE_FORMAT,
         traceTurnId: turnId,
         traceLabel: "address detection",
       }),

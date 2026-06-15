@@ -7,7 +7,7 @@ export {
 } from "./detect.js";
 export {
   ANALYZER_SYSTEM,
-  ADDRESS_TAG,
+  ADDRESS_RESPONSE_FORMAT,
   buildAddressAnalyzerMessages,
   formatBotLabels,
   parseAddressDecision,

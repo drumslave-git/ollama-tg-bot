@@ -1,35 +1,35 @@
-import type { ChatMessage } from "@llm-tg-bot/modules-utils";
-import { extractLastClosedBlock } from "@llm-tg-bot/modules-utils";
+import type { ChatMessage, JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+import {
+  asObject,
+  parseJsonContent,
+  readBoolean,
+  strictObjectSchema,
+} from "@llm-tg-bot/modules-utils";
 
-export const ADDRESS_TAG = "ADDRESS";
+export const ADDRESS_RESPONSE_FORMAT: JsonSchemaResponseFormat =
+  strictObjectSchema(
+    "address_decision",
+    {
+      addressed: {
+        type: "boolean",
+        description:
+          "True when the message explicitly names this bot and should receive a reply.",
+      },
+    },
+    ["addressed"],
+  );
 
 export const ANALYZER_SYSTEM = `You decide whether a group-chat message explicitly names a specific Telegram bot and should receive a reply.
 
-Your entire assistant message must be exactly one of these two blocks — nothing before, nothing after, no other text or tags:
+Respond with JSON only, matching the provided schema. The object has one field:
+- addressed (boolean): true when the bot should reply, false otherwise.
 
-[ADDRESS]
-yes
-[/ADDRESS]
-
-or
-
-[ADDRESS]
-no
-[/ADDRESS]
-
-Output rules (mandatory):
-- Put the decision only in the assistant message content using the [ADDRESS]…[/ADDRESS] block above.
-- The only line inside the block must be exactly "yes" or "no" (lowercase).
-- Always include both [ADDRESS] and [/ADDRESS] on their own lines.
-- Do not output [yes], [no], or any tag other than [ADDRESS].
-- Do not output reasoning, analysis, or explanation — only the block.
-
-Say yes only when the message contains a reference to the bot identity:
+Say addressed=true only when the message contains a reference to the bot identity:
 - The bot's username, first name, full name, nickname, or a clear spelling/case/punctuation variation
 - A clear translation/transliteration of the bot's name into another language
 - A natural-language call to that named bot, such as "<bot name>, what do you think?"
 
-Say no when:
+Say addressed=false when:
 - Humans are chatting among themselves with no request aimed at the bot
 - The bot is not named, even if the message asks a general question or sounds like it wants an assistant
 - The message says "bot", "assistant", "AI", or similar generic words without the specific bot name
@@ -39,23 +39,18 @@ export function parseAddressDecision(raw: string): {
   result: boolean;
   reason: string;
 } {
-  let value = extractLastClosedBlock(raw, ADDRESS_TAG)?.toLowerCase() ?? "";
-
-  if (!value) {
-    const unclosed = raw.match(/\[ADDRESS\]\s*(yes|no)\b\s*$/i);
-    value = unclosed?.[1]?.toLowerCase() ?? "";
-  }
-
-  if (!value) {
+  const parsed = asObject(parseJsonContent(raw));
+  if (!parsed) {
     return { result: false, reason: "Could not parse LLM address decision" };
   }
-  if (/^no\b/.test(value) || value === "n") {
-    return { result: false, reason: "LLM decision: no" };
+  const addressed = readBoolean(parsed, "addressed");
+  if (addressed === null) {
+    return { result: false, reason: "Could not parse LLM address decision" };
   }
-  if (/^y(es)?\b/.test(value) || value === "y") {
-    return { result: true, reason: "LLM decision: yes" };
-  }
-  return { result: false, reason: "Could not parse LLM address decision" };
+  return {
+    result: addressed,
+    reason: addressed ? "LLM decision: yes" : "LLM decision: no",
+  };
 }
 
 export function formatBotLabels(botAliases: string[]): string {
@@ -86,7 +81,7 @@ export function buildAddressAnalyzerMessages(params: {
         `Chat type: ${params.chatType}\n` +
         `Sender: ${params.sender}\n\n` +
         `Message:\n${params.text.trim() || "(empty or non-text)"}\n\n` +
-        `Reply with only one [ADDRESS]…[/ADDRESS] block containing yes or no.`,
+        `Return JSON with addressed true or false.`,
     },
   ];
 }

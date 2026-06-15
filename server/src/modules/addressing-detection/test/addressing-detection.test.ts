@@ -7,40 +7,17 @@ import {
 } from "../src/prompt.js";
 
 describe("parseAddressDecision", () => {
-  it("parses a closed yes block", () => {
-    expect(parseAddressDecision("[ADDRESS]\nyes\n[/ADDRESS]")).toEqual({
+  it("parses addressed=true", () => {
+    expect(parseAddressDecision('{"addressed":true}')).toEqual({
       result: true,
       reason: "LLM decision: yes",
     });
   });
 
-  it("parses a closed no block", () => {
-    expect(parseAddressDecision("[ADDRESS]\nno\n[/ADDRESS]")).toEqual({
+  it("parses addressed=false", () => {
+    expect(parseAddressDecision('{"addressed":false}')).toEqual({
       result: false,
       reason: "LLM decision: no",
-    });
-  });
-
-  it("uses the last closed block when reasoning echoes the format", () => {
-    const raw =
-      "Format is [ADDRESS]\nyes\n[/ADDRESS] or no.\nDecision: [ADDRESS]\nno\n[/ADDRESS]";
-    expect(parseAddressDecision(raw)).toEqual({
-      result: false,
-      reason: "LLM decision: no",
-    });
-  });
-
-  it("accepts an unclosed trailing yes", () => {
-    expect(parseAddressDecision("thinking...\n[ADDRESS] yes")).toEqual({
-      result: true,
-      reason: "LLM decision: yes",
-    });
-  });
-
-  it("rejects malformed [yes] output", () => {
-    expect(parseAddressDecision("[yes]")).toEqual({
-      result: false,
-      reason: "Could not parse LLM address decision",
     });
   });
 
@@ -54,13 +31,19 @@ describe("parseAddressDecision", () => {
       reason: "Could not parse LLM address decision",
     });
   });
+
+  it("rejects missing addressed field", () => {
+    expect(parseAddressDecision('{"other":true}')).toEqual({
+      result: false,
+      reason: "Could not parse LLM address decision",
+    });
+  });
 });
 
 describe("ANALYZER_SYSTEM", () => {
-  it("forbids alternate tags like [yes]", () => {
-    expect(ANALYZER_SYSTEM).toContain("Do not output [yes], [no]");
-    expect(ANALYZER_SYSTEM).toContain("[ADDRESS]");
-    expect(ANALYZER_SYSTEM).toContain("[/ADDRESS]");
+  it("requires JSON with addressed boolean", () => {
+    expect(ANALYZER_SYSTEM).toContain("addressed (boolean)");
+    expect(ANALYZER_SYSTEM).toContain("Respond with JSON only");
   });
 });
 
@@ -88,16 +71,14 @@ describe("buildAddressAnalyzerMessages", () => {
     expect(messages[1].content).toContain("Arguella, hi");
   });
 
-  it("reminds the model to reply with only the ADDRESS block", () => {
+  it("reminds the model to return JSON", () => {
     const messages = buildAddressAnalyzerMessages({
       botLabels: "@bot",
       chatType: "group",
       sender: "X",
       text: "hi",
     });
-    expect(messages[1].content).toContain(
-      "Reply with only one [ADDRESS]…[/ADDRESS] block",
-    );
+    expect(messages[1].content).toContain("Return JSON with addressed");
   });
 
   it("substitutes a placeholder for empty text", () => {

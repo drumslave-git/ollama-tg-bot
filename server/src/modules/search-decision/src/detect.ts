@@ -4,6 +4,7 @@ import {
   type ModuleDefinition,
 } from "@llm-tg-bot/modules-utils";
 import {
+  SEARCH_RESPONSE_FORMAT,
   buildSearchAnalyzerMessages,
   parseSearchDecision,
   type SearchDecisionOutput,
@@ -52,7 +53,9 @@ export async function decideSearch(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? DEFAULT_NUM_PREDICT },
+          { numPredict: config.numPredict ?? DEFAULT_NUM_PREDICT,
+            responseFormat: SEARCH_RESPONSE_FORMAT,
+          },
         );
     return parseSearchDecision(raw);
   } catch (err) {

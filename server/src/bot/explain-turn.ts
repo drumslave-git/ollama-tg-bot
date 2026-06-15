@@ -13,7 +13,7 @@ import {
 } from "../db/personalities.js";
 import { getHistory, historyToChatMessages } from "../db/history.js";
 import { ensureHistoryFits } from "../context-compress.js";
-import { extractTelegramReply } from "../response-format.js";
+import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../response-format.js";
 import {
   escapeHtml,
   hasVisibleTelegramReply,
@@ -125,6 +125,7 @@ export async function runExplainTurn(
     logEvent("llm_reply_started", { ...turnLog, mode: "explain" });
     const { raw: modelOutput, thinking } = await chatCompleteDetailed(messages, {
       think: true,
+      responseFormat: MAIN_REPLY_RESPONSE_FORMAT,
     });
     logEvent("llm_reply_done", {
       ...turnLog,
@@ -134,7 +135,7 @@ export async function runExplainTurn(
 
     const replyBody = extractTelegramReply(modelOutput);
     if (!hasVisibleTelegramReply(replyBody)) {
-      throw new Error("Model response had no [REPLY] content");
+      throw new Error("Model response had no reply content");
     }
 
     const userHistoryContent = `[explain] ${input.question.trim()}`;

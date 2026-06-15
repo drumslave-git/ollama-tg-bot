@@ -1,3 +1,5 @@
+import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
 import OpenAI, {
   APIConnectionError,
   APIConnectionTimeoutError,
@@ -138,11 +140,11 @@ function emptyResponseError(
   let hint =
     "The owner can send /reset to shorten context, or raise generation tokens in Settings.";
   if (reason === "length") {
-    hint = `Generation used all ${numPredict} tokens before a usable [REPLY]. Raise generation tokens in Settings (try 512+), or the owner can send /reset.`;
+    hint = `Generation used all ${numPredict} tokens before a usable JSON reply. Raise generation tokens in Settings (try 512+), or the owner can send /reset.`;
   } else if (hadReasoning) {
     hint =
       "The API returned reasoning but left content empty. " +
-      "The [REPLY] answer must be in content, not only in reasoning. " +
+      "The JSON reply must be in content, not only in reasoning. " +
       "Disable thinking, check the selected model/provider reasoning configuration, or the owner can send /reset.";
   }
 
@@ -272,6 +274,8 @@ export interface ChatCompleteOptions {
   traceLabel?: string;
   /** Split main-reply prompt into system / history / latest sections for debug trace. */
   traceLayout?: VerbosePromptLayout;
+  /** Force JSON output via OpenAI-compatible response_format. */
+  responseFormat?: JsonSchemaResponseFormat;
 }
 
 async function requestChat(
@@ -282,12 +286,13 @@ async function requestChat(
   traceTurnId?: number,
   traceLayout?: VerbosePromptLayout,
   traceLabel?: string,
+  responseFormat?: JsonSchemaResponseFormat,
 ): Promise<ChatResponse> {
   const settings = getResolvedSettings();
   let response: ChatCompletion;
   try {
     response = await openAiClient().chat.completions.create(
-      chatCompletionBody(model, prepared, numPredict, auxiliary),
+      chatCompletionBody(model, prepared, numPredict, auxiliary, responseFormat),
       { timeout: getChatTimeoutMs(settings) },
     );
   } catch (err) {
@@ -350,6 +355,7 @@ function chatCompletionBody(
   messages: ChatMessage[],
   numPredict: number,
   auxiliary: boolean,
+  responseFormat?: JsonSchemaResponseFormat,
 ): ChatCompletionCreateParamsNonStreaming {
   const settings = getResolvedSettings();
   return {
@@ -360,6 +366,9 @@ function chatCompletionBody(
     temperature: auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature,
     top_p: settings.topP,
     ...providerChatExtensions(settings, auxiliary),
+    ...(responseFormat
+      ? { response_format: toOpenAiResponseFormat(responseFormat) }
+      : {}),
   } as ChatCompletionCreateParamsNonStreaming;
 }
 
@@ -398,7 +407,7 @@ export interface ChatCompleteResult {
   thinking: string;
 }
 
-/** Full model output (includes [MEMORY] / [GROUP_MEMORY] blocks when present). */
+/** Full model output (JSON reply object in content when responseFormat is set). */
 export async function chatCompleteDetailed(
   messages: ChatMessage[],
   options?: ChatCompleteOptions,
@@ -425,6 +434,7 @@ export async function chatCompleteDetailed(
       traceTurnId,
       traceLayout,
       traceLabel,
+      options?.responseFormat,
     );
     const content = pickAssistantContent(data);
     const thinking = pickReasoning(data);

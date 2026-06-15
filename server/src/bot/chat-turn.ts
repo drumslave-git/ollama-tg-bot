@@ -8,7 +8,7 @@ import {
 } from "../db/database.js";
 import { getActivePersonalityPrompt } from "../db/personalities.js";
 import { getResolvedHistoryLimits, getResolvedSettings } from "../settings-runtime.js";
-import { extractTelegramReply } from "../response-format.js";
+import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../response-format.js";
 import {
   escapeHtml,
   hasVisibleTelegramReply,
@@ -215,6 +215,7 @@ export async function runChatTurn(
       built.messages,
       {
         think: true,
+        responseFormat: MAIN_REPLY_RESPONSE_FORMAT,
         traceTurnId: input.turnId,
         traceLabel: "main reply",
         traceLayout: {
@@ -231,7 +232,7 @@ export async function runChatTurn(
     const { stickerEmoji, stickerFileId } = await analyzeStickerForTurn(input, replyBody, turnLog);
 
     if (!hasReply && !stickerFileId) {
-      throw new Error("Model response had no [REPLY] content");
+      throw new Error("Model response had no reply content");
     }
 
     const replyWithSources = hasReply

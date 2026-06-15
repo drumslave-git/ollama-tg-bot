@@ -1,6 +1,23 @@
-import type { ChatMessage } from "@llm-tg-bot/modules-utils";
-import { extractLastClosedBlock } from "@llm-tg-bot/modules-utils";
-import { MEMORY_TAG } from "./extract-prompt.js";
+import type { ChatMessage, JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+import {
+  asObject,
+  parseJsonContent,
+  readString,
+  strictObjectSchema,
+} from "@llm-tg-bot/modules-utils";
+
+export const MEMORY_MERGE_RESPONSE_FORMAT: JsonSchemaResponseFormat =
+  strictObjectSchema(
+    "memory_merge",
+    {
+      memory: {
+        type: "string",
+        description:
+          "Merged durable memory text, one fact per line when possible, or none when empty.",
+      },
+    },
+    ["memory"],
+  );
 
 export const MEMORY_MERGE_SYSTEM = `You update one long-term memory document.
 
@@ -15,20 +32,14 @@ Task:
 - Compact wording where possible.
 - Keep the result readable as short lines or compact paragraphs.
 - Do not invent facts.
-- If there is no useful memory left, write "none".
+- If there is no useful memory left, set memory to "none".
 
-Your entire assistant message content must be exactly one block — nothing before, nothing after, no other text or tags:
-
-[MEMORY]
-updated memory text
-[/MEMORY]
+Respond with JSON only, matching the provided schema:
+- memory (string): durable facts only — one fact per line when possible.
 
 Output rules (mandatory):
-- Put only durable facts inside [MEMORY]…[/MEMORY] — one fact per line when possible.
-- Do not copy prompt metadata into the document: no "Entity", "Entity kind", "Memory scope", "user", or "group" as labels.
-- Do not prefix facts with scope/type headers — write the facts directly (e.g. "Frontend developer." not "Entity: user Profession: frontend developer.").
-- Always include opening and closing tags on their own lines.
-- Do not output reasoning, analysis, or explanation — only the block.`;
+- Do not copy prompt metadata into memory: no "Entity", "Entity kind", "Memory scope", "user", or "group" as labels.
+- Do not prefix facts with scope/type headers — write the facts directly (e.g. "Frontend developer." not "Entity: user Profession: frontend developer.").`;
 
 export interface MemoryMergeInput {
   kind: "user" | "group" | "general";
@@ -73,13 +84,15 @@ export function buildMemoryMergeMessages(input: MemoryMergeInput): ChatMessage[]
         `${mergeScopeHint(input.kind)}\n\n` +
         `Existing memory:\n${existing}\n\n` +
         `Newly extracted information:\n${incoming}\n\n` +
-        `Reply with only one [MEMORY]…[/MEMORY] block containing durable facts — no scope labels.`,
+        `Return JSON with a memory field containing durable facts — no scope labels.`,
     },
   ];
 }
 
 export function parseMemoryBlock(raw: string): string {
-  const block = extractLastClosedBlock(raw, MEMORY_TAG)?.trim() ?? raw.trim();
+  const parsed = asObject(parseJsonContent(raw));
+  const block =
+    (parsed ? readString(parsed, "memory") : null) ?? raw.trim();
   if (!block || /^none$/i.test(block)) return "";
   const cleaned = sanitizeMergedMemory(
     block

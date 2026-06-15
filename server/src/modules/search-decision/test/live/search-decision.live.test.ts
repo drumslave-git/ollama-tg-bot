@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideSearch } from "../src/detect.js";
+import { decideSearch } from "../../src/detect.js";
 
 interface LiveConfig {
   baseURL: string;

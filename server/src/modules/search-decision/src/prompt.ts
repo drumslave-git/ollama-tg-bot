@@ -1,56 +1,48 @@
-import type { ChatMessage } from "@llm-tg-bot/modules-utils";
-import { extractLastClosedBlock } from "@llm-tg-bot/modules-utils";
+import type { ChatMessage, JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+import {
+  asObject,
+  parseJsonContent,
+  readBoolean,
+  readNullableString,
+  strictObjectSchema,
+} from "@llm-tg-bot/modules-utils";
 
-export const SEARCH_TAG = "SEARCH";
-export const QUERY_TAG = "QUERY";
+export const SEARCH_RESPONSE_FORMAT: JsonSchemaResponseFormat =
+  strictObjectSchema(
+    "search_decision",
+    {
+      needs_search: {
+        type: "boolean",
+        description: "True when a web search should run before answering.",
+      },
+      query: {
+        type: ["string", "null"],
+        description:
+          "Short search-engine query when needs_search is true; otherwise null.",
+      },
+    },
+    ["needs_search", "query"],
+  );
 
 export const SEARCH_ANALYZER_SYSTEM = `You decide whether a Telegram bot should run a web search before answering.
 
-Your entire assistant message content must be exactly one of these two shapes — nothing before, nothing after, no other text or tags:
+Respond with JSON only, matching the provided schema:
+- needs_search (boolean): true when the open web is needed before answering
+- query (string or null): a short search-engine query when needs_search is true; null when false
 
-[SEARCH]
-no
-[/SEARCH]
-
-or
-
-[SEARCH]
-yes
-[/SEARCH]
-[QUERY]
-concise search query
-[/QUERY]
-
-Output rules (mandatory):
-- Put the decision only in assistant message content using the blocks above — not in reasoning or analysis.
-- For no: exactly one [SEARCH]…[/SEARCH] block with "no" (lowercase) on its own line inside.
-- For yes: first a complete [SEARCH]…[/SEARCH] block with "yes" inside, then a separate [QUERY]…[/QUERY] block.
-- Close [SEARCH] with [/SEARCH] before you open [QUERY]. Never put [QUERY] inside [SEARCH].
-- Always include opening and closing tags on their own lines for every block.
-- Do not output bare "yes" or "no" without the [SEARCH] block.
-- Do not output [yes], [no], or any tag other than [SEARCH] and [QUERY].
-- Do not output reasoning, analysis, or explanation — only the block(s).
-
-Invalid (never output this — missing [/SEARCH]):
-[SEARCH]
-yes
-[QUERY]
-query here
-[/QUERY]
-
-Say yes when the user needs information that is likely:
+Say needs_search=true when the user needs information that is likely:
 - Current (news, prices, weather, releases, "today", recent events)
 - Specific factual lookup (who is X now, when did Y happen, statistics, laws)
 - About a product, company, person, or place you would not reliably know from training alone
 
-Say no when:
+Say needs_search=false when:
 - Casual chat, opinions, creativity, jokes, roleplay
 - Explaining general concepts that do not need up-to-date data
 - Discussing the attached image/sticker only
 - The answer is clearly in the message or quoted reply alone
 - Memory/personal context questions with no need for the open web
 
-When yes, [QUERY] must be a short search-engine query (few keywords), in the user's language when obvious.`;
+When needs_search is true, query must be a short search-engine query (few keywords), in the user's language when obvious.`;
 
 export interface SearchDecisionOutput {
   needsSearch: boolean;
@@ -59,15 +51,8 @@ export interface SearchDecisionOutput {
 }
 
 export function parseSearchDecision(raw: string): SearchDecisionOutput {
-  let searchValue =
-    extractLastClosedBlock(raw, SEARCH_TAG)?.toLowerCase() ?? "";
-
-  if (!searchValue) {
-    const unclosed = raw.match(/\[SEARCH\]\s*(yes|no)\b\s*$/i);
-    searchValue = unclosed?.[1]?.toLowerCase() ?? "";
-  }
-
-  if (!searchValue) {
+  const parsed = asObject(parseJsonContent(raw));
+  if (!parsed) {
     return {
       needsSearch: false,
       query: null,
@@ -75,7 +60,16 @@ export function parseSearchDecision(raw: string): SearchDecisionOutput {
     };
   }
 
-  if (/^no\b/.test(searchValue) || searchValue === "n") {
+  const needsSearch = readBoolean(parsed, "needs_search");
+  if (needsSearch === null) {
+    return {
+      needsSearch: false,
+      query: null,
+      reason: "Could not parse LLM search decision",
+    };
+  }
+
+  if (!needsSearch) {
     return {
       needsSearch: false,
       query: null,
@@ -83,20 +77,12 @@ export function parseSearchDecision(raw: string): SearchDecisionOutput {
     };
   }
 
-  if (!(/^y(es)?\b/.test(searchValue) || searchValue === "y")) {
-    return {
-      needsSearch: false,
-      query: null,
-      reason: "Could not parse LLM search decision",
-    };
-  }
-
-  const query = extractLastClosedBlock(raw, QUERY_TAG)?.trim() ?? "";
+  const query = readNullableString(parsed, "query");
   if (!query) {
     return {
       needsSearch: false,
       query: null,
-      reason: "LLM said yes but no [QUERY] block",
+      reason: "LLM said yes but query was missing",
     };
   }
 
@@ -127,8 +113,7 @@ export function buildSearchAnalyzerMessages(params: {
     }
   }
   content +=
-    "\n\nReply with only the required [SEARCH]…[/SEARCH] block, or a closed [SEARCH] block plus a closed [QUERY] block when yes. " +
-    "Close [/SEARCH] before [QUERY]. Do not reply with bare yes/no.";
+    "\n\nReturn JSON with needs_search and query (null when needs_search is false).";
 
   return [
     { role: "system", content: SEARCH_ANALYZER_SYSTEM },

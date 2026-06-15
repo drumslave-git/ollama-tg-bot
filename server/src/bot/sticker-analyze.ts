@@ -6,6 +6,7 @@ import {
   pickSticker,
   rollStickerReplyChance,
   STICKER_CHECK_NUM_PREDICT,
+  STICKER_RESPONSE_FORMAT,
   type StickerReplyRoll,
   type StickerSelectionConfig,
   type StickerSelectionInput,
@@ -13,7 +14,7 @@ import {
 import { getStickerCatalogForSelection } from "./sticker-catalog.js";
 
 export {
-  STICKER_TAG,
+  STICKER_RESPONSE_FORMAT,
   buildStickerAnalyzerSystem,
   buildStickerAnalyzerMessages,
   parseStickerChoice,
@@ -50,6 +51,7 @@ function buildStickerConfig(traceTurnId?: number): StickerSelectionConfig {
       chatComplete(messages, {
         numPredict: STICKER_CHECK_NUM_PREDICT,
         auxiliary: true,
+        responseFormat: STICKER_RESPONSE_FORMAT,
         traceTurnId,
         traceLabel: "sticker pick",
       }),

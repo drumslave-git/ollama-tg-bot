@@ -1,5 +1,10 @@
-import type { ChatMessage } from "@llm-tg-bot/modules-utils";
-import { extractLastClosedBlock } from "@llm-tg-bot/modules-utils";
+import type { ChatMessage, JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+import {
+  asObject,
+  parseJsonContent,
+  readInt,
+  strictObjectSchema,
+} from "@llm-tg-bot/modules-utils";
 import {
   MOOD_KEYS,
   MOOD_TRAIT_HINTS,
@@ -7,30 +12,28 @@ import {
   type MoodValues,
 } from "./values.js";
 
-export const MOOD_TAG = "MOOD";
+const moodProperties = Object.fromEntries(
+  MOOD_KEYS.map((key) => [
+    key,
+    {
+      type: "integer",
+      minimum: 0,
+      maximum: 5,
+      description: MOOD_TRAIT_HINTS[key],
+    },
+  ]),
+);
+
+export const MOOD_RESPONSE_FORMAT: JsonSchemaResponseFormat = strictObjectSchema(
+  "mood_traits",
+  moodProperties,
+  [...MOOD_KEYS],
+);
 
 export const MOOD_EVALUATOR_SYSTEM = `You evaluate the bot character's emotional mood for the next reply in a Telegram chat.
 
-Your entire assistant message content must be exactly one block — nothing before, nothing after, no other text or tags:
-
-[MOOD]
-irritated: 0
-exhausted: 0
-amused: 0
-curious: 0
-contemptuous: 0
-gloomy: 0
-impatient: 0
-pleased: 0
-suspicious: 0
-[/MOOD]
-
-Output rules (mandatory):
-- Put all nine trait lines only inside [MOOD]…[/MOOD] — not in reasoning or analysis.
-- Each trait line must be exactly "name: N" where N is an integer 0–5.
-- Always include all nine traits and both opening/closing tags on their own lines.
-- Do not output bare trait lines, [irritated: 5], or any tag other than [MOOD].
-- Do not output reasoning, analysis, or explanation — only the block.
+Respond with JSON only, matching the provided schema. The object has nine integer traits (0–5 each):
+${MOOD_KEYS.map((key) => `- ${key}`).join("\n")}
 
 Each trait is an integer 0–5. Start from the "Current mood" values and adjust based on the latest conversation context.
 
@@ -70,25 +73,23 @@ function formatCurrentMood(mood: MoodValues): string {
   return MOOD_KEYS.map((key) => `${key}: ${mood[key]}`).join("\n");
 }
 
-function parseTraitsFromBody(
-  body: string,
+function parseTraitsFromObject(
+  obj: Record<string, unknown>,
   fallback: MoodValues,
 ): MoodParseResult {
   const partial: Partial<Record<string, number>> = {};
 
   for (const key of MOOD_KEYS) {
-    const lineMatch = body.match(
-      new RegExp(`^\\s*${key}\\s*[:=]\\s*(\\d+)`, "im"),
-    );
-    if (lineMatch) {
-      partial[key] = Number.parseInt(lineMatch[1], 10);
+    const value = readInt(obj, key, 0, 5);
+    if (value !== null) {
+      partial[key] = value;
     }
   }
 
   if (Object.keys(partial).length === 0) {
     return {
       mood: fallback,
-      reason: "No traits in mood block",
+      reason: "No traits in mood JSON",
     };
   }
 
@@ -100,14 +101,14 @@ function parseTraitsFromBody(
 
 export function parseMoodBlock(raw: string, fallback: MoodValues): MoodParseResult {
   const normalizedFallback = normalizeMoodValues(fallback);
-  const body = extractLastClosedBlock(raw, MOOD_TAG);
-  if (!body) {
+  const parsed = asObject(parseJsonContent(raw));
+  if (!parsed) {
     return {
       mood: normalizedFallback,
-      reason: "Could not parse LLM mood block",
+      reason: "Could not parse LLM mood JSON",
     };
   }
-  return parseTraitsFromBody(body, normalizedFallback);
+  return parseTraitsFromObject(parsed, normalizedFallback);
 }
 
 /** Build the mood-evaluation prompt (system + user). Mood values are normalized first. */
@@ -123,7 +124,7 @@ export function buildMoodEvaluateMessages(input: MoodEvaluateInput): ChatMessage
     `Trait guide:\n${traitGuide}\n\n` +
     `---\nRecent chat:\n${input.historyText.trim() || "(no prior messages)"}\n\n` +
     `Latest turn:\n${input.latestTurn.trim() || "(empty)"}\n\n` +
-    `Reply with only one [MOOD]…[/MOOD] block containing all nine traits.`;
+    `Return JSON with all nine mood traits as integers 0–5.`;
 
   return [
     { role: "system", content: MOOD_EVALUATOR_SYSTEM },

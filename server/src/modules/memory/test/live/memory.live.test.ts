@@ -6,7 +6,7 @@ import {
   mergeMemoryDocument,
   parseMemoryBlock,
   type MemoryExtractInput,
-} from "../src/index.js";
+} from "../../src/index.js";
 
 interface LiveConfig {
   baseUrl: string;
@@ -32,7 +32,7 @@ function extractInput(over: Partial<MemoryExtractInput>): MemoryExtractInput {
   return {
     userMessage: "",
     replyContext: null,
-    assistantReply: "[REPLY]Noted.[/REPLY]",
+    assistantReply: '{"reply":"Noted."}',
     existingUserFacts: [],
     existingGroupFacts: [],
     existingGeneralFacts: [],
@@ -136,19 +136,19 @@ describe.skipIf(!cfg)("live: memory module", () => {
     expect(lower, "merge must include the new nickname fact").toMatch(/doc/);
   });
 
-  it("builds extract messages with the tightened format reminder", () => {
+  it("builds extract messages with the JSON format reminder", () => {
     const messages = buildMemoryExtractMessages(
       extractInput({ userMessage: "remember this" }),
     );
-    expect(messages[1].content).toContain("three required");
+    expect(messages[1].content).toContain("user_facts, group_facts, and general_facts");
   });
 
-  it("builds merge messages with the tightened format reminder", () => {
+  it("builds merge messages with the JSON format reminder", () => {
     const messages = buildMemoryMergeMessages({
       kind: "user",
       existing: ["Lives in Lisbon."],
       incoming: ["Prefers Doc."],
     });
-    expect(messages[1].content).toContain("[MEMORY]");
+    expect(messages[1].content).toContain("Return JSON with a memory field");
   });
 });

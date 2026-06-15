@@ -1,5 +1,9 @@
 import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
+import {
+  toOpenAiResponseFormat,
+  type JsonSchemaResponseFormat,
+} from "./json-schema.js";
 
 /** Floor for auxiliary side-pass generation budget (reasoning backends need headroom). */
 export const AUXILIARY_NUM_PREDICT = 768;
@@ -20,6 +24,7 @@ export interface LlmConfig {
 export interface AuxiliaryChatOptions {
   numPredict?: number;
   timeoutMs?: number;
+  responseFormat?: JsonSchemaResponseFormat;
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -44,7 +49,6 @@ function pickAssistantContent(
 /**
  * Stateless auxiliary chat completion for side-pass modules.
  * Uses low temperature and `reasoning_effort: none` when supported.
- * Returns assistant content only — callers parse structured blocks from it.
  */
 export async function auxiliaryChatComplete(
   llm: LlmConfig,
@@ -73,6 +77,9 @@ export async function auxiliaryChatComplete(
     options: {
       skip_special_tokens: false,
     },
+    ...(options.responseFormat
+      ? { response_format: toOpenAiResponseFormat(options.responseFormat) }
+      : {}),
   } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
 
   const text = pickAssistantContent(

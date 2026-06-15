@@ -5,6 +5,7 @@ import {
 } from "@llm-tg-bot/modules-utils";
 import {
   buildMoodEvaluateMessages,
+  MOOD_RESPONSE_FORMAT,
   parseMoodBlock,
   type MoodEvaluateInput,
 } from "./prompt.js";
@@ -46,7 +47,9 @@ export async function evaluateMood(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? MOOD_EVAL_NUM_PREDICT },
+          { numPredict: config.numPredict ?? MOOD_EVAL_NUM_PREDICT,
+            responseFormat: MOOD_RESPONSE_FORMAT,
+          },
         );
     return parseMoodBlock(raw, fallback);
   } catch (err) {

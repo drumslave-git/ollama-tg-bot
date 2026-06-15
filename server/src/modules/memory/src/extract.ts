@@ -5,12 +5,14 @@ import {
 } from "@llm-tg-bot/modules-utils";
 import {
   buildMemoryExtractMessages,
+  MEMORY_EXTRACT_RESPONSE_FORMAT,
   parseMemoryExtract,
   type MemoryExtractInput,
   type MemoryExtractResult,
 } from "./extract-prompt.js";
 import {
   buildMemoryMergeMessages,
+  MEMORY_MERGE_RESPONSE_FORMAT,
   parseMemoryBlock,
   type MemoryMergeInput,
 } from "./merge-prompt.js";
@@ -46,7 +48,9 @@ export async function extractMemories(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? MEMORY_EXTRACT_NUM_PREDICT },
+          { numPredict: config.numPredict ?? MEMORY_EXTRACT_NUM_PREDICT,
+            responseFormat: MEMORY_EXTRACT_RESPONSE_FORMAT,
+          },
         );
     const parsed = parseMemoryExtract(raw);
     return {
@@ -75,8 +79,11 @@ export async function mergeMemoryDocument(
           apiKey: config.apiKey,
         },
         messages,
-        { numPredict: config.numPredict ?? MEMORY_MERGE_NUM_PREDICT },
-        );
+        {
+          numPredict: config.numPredict ?? MEMORY_MERGE_NUM_PREDICT,
+          responseFormat: MEMORY_MERGE_RESPONSE_FORMAT,
+        },
+      );
 
   return parseMemoryBlock(raw);
 }

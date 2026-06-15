@@ -2,6 +2,7 @@ import { chatComplete } from "../llm/client.js";
 import { config } from "../config.js";
 import {
   decideSearch,
+  SEARCH_RESPONSE_FORMAT,
   type SearchDecisionConfig,
   type SearchDecisionOutput,
 } from "@llm-tg-bot/modules-search-decision";
@@ -11,8 +12,7 @@ import { getResolvedSettings } from "../settings-runtime.js";
 
 export {
   SEARCH_ANALYZER_SYSTEM,
-  SEARCH_TAG,
-  QUERY_TAG,
+  SEARCH_RESPONSE_FORMAT,
   buildSearchAnalyzerMessages,
   parseSearchDecision,
   searchDecisionModule,
@@ -48,6 +48,7 @@ function buildSearchConfig(traceTurnId?: number): SearchDecisionConfig {
       chatComplete(messages, {
         numPredict: SEARCH_CHECK_NUM_PREDICT,
         auxiliary: true,
+        responseFormat: SEARCH_RESPONSE_FORMAT,
         traceTurnId,
         traceLabel: "web search decision",
       }),

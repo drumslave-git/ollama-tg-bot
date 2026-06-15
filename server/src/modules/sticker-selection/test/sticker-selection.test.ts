@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  STICKER_TAG,
+  STICKER_RESPONSE_FORMAT,
   buildStickerAnalyzerMessages,
   formatStickerCatalogSection,
   parseStickerChoice,
@@ -36,22 +36,22 @@ describe("formatStickerCatalogSection", () => {
 });
 
 describe("parseStickerChoice", () => {
-  it("parses a closed sticker block", () => {
-    expect(parseStickerChoice("[STICKER]\n13\n[/STICKER]")).toEqual({
+  it("parses a JSON sticker choice", () => {
+    expect(parseStickerChoice('{"choice":"13"}')).toEqual({
       choice: "13",
       reason: "LLM sticker selected",
     });
   });
 
-  it("rejects unclosed blocks", () => {
-    expect(parseStickerChoice("[STICKER]\n13\n[/")).toEqual({
+  it("rejects invalid JSON", () => {
+    expect(parseStickerChoice("not json")).toEqual({
       choice: null,
       reason: "Could not parse LLM sticker choice",
     });
   });
 
   it("treats none as skip", () => {
-    expect(parseStickerChoice("[STICKER]\nnone\n[/STICKER]")).toEqual({
+    expect(parseStickerChoice('{"choice":"none"}')).toEqual({
       choice: null,
       reason: "LLM decision: skip",
     });
@@ -77,7 +77,8 @@ describe("buildStickerAnalyzerMessages", () => {
     });
     expect(messages?.[0].content).toContain("TestPack");
     expect(messages?.[1].content).toContain("Hello there");
-    expect(messages?.[1].content).toContain(`[${STICKER_TAG}]`);
+    expect(messages?.[1].content).toContain("Return JSON");
+    expect(STICKER_RESPONSE_FORMAT.name).toBe("sticker_choice");
   });
 });
 
@@ -91,7 +92,7 @@ describe("pickSticker", () => {
       {
         baseUrl: "http://localhost",
         model: "test",
-        chatComplete: async () => "[STICKER]\n1\n[/STICKER]",
+        chatComplete: async () => '{"choice":"1"}',
       },
     );
     expect(result.choice).toBeNull();
@@ -107,7 +108,7 @@ describe("pickSticker", () => {
       {
         baseUrl: "http://localhost",
         model: "test",
-        chatComplete: async () => "[STICKER]\n2\n[/STICKER]",
+        chatComplete: async () => '{"choice":"2"}',
       },
     );
     expect(result.choice).toBe("2");

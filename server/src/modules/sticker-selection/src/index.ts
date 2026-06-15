@@ -5,7 +5,7 @@ export {
   type StickerSelectionConfig,
 } from "./select.js";
 export {
-  STICKER_TAG,
+  STICKER_RESPONSE_FORMAT,
   buildStickerAnalyzerSystem,
   buildStickerAnalyzerMessages,
   parseStickerChoice,

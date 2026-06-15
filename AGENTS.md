@@ -117,7 +117,7 @@ Telegram → Grammy handlers → chat-turn → LLM
 - Chat options: `server/src/settings-limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
-**OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (`"medium"` when `thinkingEnabled` is on, `"none"` when off). Some models/backends mis-split when thinking is enabled via API (`content` empty, answer in `reasoning`); structured `[REPLY]` replies require the full answer in `message.content`. Parse **`message.content`** for `[REPLY]` (Telegram reply). Parse **`message.reasoning_content`** / **`reasoning`** as chain-of-thought only — never for replies. Extensions: `providerChatExtensions()` in `openai-compat.ts`.
+**OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (`"medium"` when `thinkingEnabled` is on, `"none"` when off). Some models/backends mis-split when thinking is enabled via API (`content` empty, answer in `reasoning`); JSON replies require the full answer in `message.content`. Parse **`message.content`** as JSON for the Telegram reply (`reply` field). Parse **`message.reasoning_content`** / **`reasoning`** as chain-of-thought only — never for replies. Extensions: `providerChatExtensions()` in `openai-compat.ts`. All structured passes also send `response_format: { type: "json_schema", json_schema: { strict: true, ... } }` via `@llm-tg-bot/modules-utils` (`strictObjectSchema`, `toOpenAiResponseFormat`).
 
 **Terminology — OpenAI-compatible only:** This project targets **any OpenAI-compatible API** (LocalAI, vLLM, llama.cpp server, cloud providers, etc.). Do **not** use vendor-specific names in code, comments, docs, or agent replies — especially **“Ollama”**. Describe behavior in neutral terms: “OpenAI-compatible API”, “provider”, “backend”, “optional model metadata endpoints”. Some servers expose non-standard routes such as `POST /api/show` or `GET /api/tags` for context length and model size; treat these as **optional provider extensions** (best-effort, fail silently if absent). Primary integration is always `/v1/models` and `/v1/chat/completions`.
 
@@ -135,34 +135,33 @@ Three layers, extracted in a **background pass** (adapter `server/src/memory-ext
 - Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain`, `/remember`.
 - **Maintenance mode** (`maintenanceModeEnabled`): non-owner events must not reach the LLM — gate in `handlers.ts` before `isMessageAddressedToBot` and in `history-record.ts` for passive history/vision/compression triggers.
 
-### Structured LLM output (prompt-first)
+### Structured LLM output (JSON schema)
 
-Side passes and the main reply use **fixed structured blocks** (`[ADDRESS]`, `[REPLY]`, `[SEARCH]`, `[MOOD]`, etc.). Parsers in `*-prompt.ts`, `response-format.ts`, and feature modules implement the **contract only** — they must not be loosened to accept model mistakes.
+Side passes and the main reply use **strict JSON schemas** enforced via OpenAI-compatible `response_format`. Each module exports a `*_RESPONSE_FORMAT` constant; prompts describe the same fields in prose. Parsers in `*-prompt.ts`, `response-format.ts`, and feature modules validate JSON only — they must not be loosened to accept model mistakes.
 
-**When the model misbehaves, fix the prompt — not the parser.**
+**When the model misbehaves, fix the prompt or schema — not the parser.**
 
 | Do | Don't |
 |----|-------|
-| Tighten system/user prompts so the model emits the exact block | Add fallbacks for wrong tags (e.g. `[yes]` instead of `[ADDRESS]`) |
-| State mandatory output rules and forbidden alternatives | Fall back to `reasoning` when `content` is malformed |
-| Use placeholders in format examples (`your reply here`), not literal filled blocks the model copies | Nest real instructions inside an example `[REPLY]…[/REPLY]` block in the system prompt |
-| Repeat the required block shape in the user message tail when helpful | “Helpfully” accept bare `yes`/`no`, loose `[yes]`, or other shorthand |
+| Tighten system/user prompts so the model fills every required JSON field | Add fallbacks for alternate shapes (tags, bare yes/no, reasoning text) |
+| State mandatory output rules and forbidden extras | Fall back to `reasoning` when `content` is malformed |
+| Keep schema field names aligned with prompt prose | Invent new fields outside the schema |
+| Repeat the required JSON shape in the user message tail when helpful | “Helpfully” accept partial or non-JSON output |
 
-Parsers may keep **minimal protocol tolerance** that is part of the spec itself (e.g. last closed `[ADDRESS]` block when the model quotes the format in reasoning, or unclosed `[REPLY]` when the closing tag is omitted). That is not the same as adopting new formats the model invents.
+If output is unparseable after a prompt fix, treat it as a failed pass (ignore, error, or retry) — do not silently guess from reasoning or alternate formats.
 
 Reference implementations:
 
-- **Address detection:** `@llm-tg-bot/modules-addressing-detection` (`ANALYZER_SYSTEM`, `buildAddressAnalyzerMessages`)
-- **Search decision:** `@llm-tg-bot/modules-search-decision` (`SEARCH_ANALYZER_SYSTEM`, `buildSearchAnalyzerMessages`)
-- **Main reply:** `buildReplyFormatSpec()` in `server/src/response-format.ts`
-
-If output is unparseable after a prompt fix, treat it as a failed pass (ignore, error, or retry) — do not silently guess from reasoning or alternate tag shapes.
+- **Schema helpers:** `@llm-tg-bot/modules-utils` (`json-schema.ts`: `strictObjectSchema`, `parseJsonContent`, typed readers)
+- **Address detection:** `@llm-tg-bot/modules-addressing-detection` (`ADDRESS_RESPONSE_FORMAT`, `{ addressed: boolean }`)
+- **Search decision:** `@llm-tg-bot/modules-search-decision` (`SEARCH_RESPONSE_FORMAT`, `{ needs_search, query }`)
+- **Main reply:** `MAIN_REPLY_RESPONSE_FORMAT` + `buildReplyFormatSpec()` in `server/src/response-format.ts` (`{ reply: string }`)
 
 ### Response format
 
-Model replies use `[REPLY]…[/REPLY]` (Telegram HTML subset). Parser: `server/src/response-format.ts` — see **Structured LLM output (prompt-first)** above; do not expand the parser for new model quirks.
+Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `server/src/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
 
-**LLM response fields:** User-facing text comes from the API `content` field. Chain-of-thought / reasoning comes from the separate `reasoning` (or `reasoning_content`) field — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover a malformed structured block.
+**LLM response fields:** User-facing text comes from the API `content` field (JSON). Chain-of-thought / reasoning comes from the separate `reasoning` (or `reasoning_content`) field — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
 
 ## Code conventions
 
@@ -234,4 +233,4 @@ After server or module changes: `npm run build:modules` then `npm run build -w s
 4. Editing only server or only dashboard types when adding a setting — update both + PATCH allowlist.
 5. New LLM entry points must respect maintenance mode (`isMaintenanceBlocked`) — not only the main message handler.
 6. Naming LLM integration after a single vendor (especially Ollama) — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints.
-7. **Loosening structured-output parsers** when a model returns the wrong tags or puts the answer in `reasoning` — improve the prompt instead (see **Structured LLM output (prompt-first)**).
+7. **Loosening JSON parsers** when a model returns the wrong shape or puts the answer in `reasoning` — improve the prompt/schema instead (see **Structured LLM output (JSON schema)**).

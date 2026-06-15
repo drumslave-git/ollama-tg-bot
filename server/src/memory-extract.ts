@@ -9,6 +9,8 @@ import { getResolvedSettings } from "./settings-runtime.js";
 import {
   extractMemories,
   mergeMemoryDocument,
+  MEMORY_EXTRACT_RESPONSE_FORMAT,
+  MEMORY_MERGE_RESPONSE_FORMAT,
   splitMergedMemoryFacts,
   MEMORY_EXTRACT_NUM_PREDICT,
   MEMORY_MERGE_NUM_PREDICT,
@@ -20,9 +22,8 @@ import {
 export {
   EXTRACTOR_SYSTEM,
   MEMORY_MERGE_SYSTEM,
-  MEMORY_TAG,
-  GROUP_MEMORY_TAG,
-  GENERAL_MEMORY_TAG,
+  MEMORY_EXTRACT_RESPONSE_FORMAT,
+  MEMORY_MERGE_RESPONSE_FORMAT,
   buildMemoryExtractMessages,
   buildMemoryMergeMessages,
   parseMemoryBlock,
@@ -48,6 +49,7 @@ function buildMemoryLlmConfig(
   traceTurnId: number | undefined,
   traceLabel: string,
   numPredict: number,
+  responseFormat: typeof MEMORY_EXTRACT_RESPONSE_FORMAT | typeof MEMORY_MERGE_RESPONSE_FORMAT,
 ): MemoryLlmConfig {
   const settings = getResolvedSettings();
   return {
@@ -60,6 +62,7 @@ function buildMemoryLlmConfig(
         numPredict,
         auxiliary: true,
         think: true,
+        responseFormat,
         traceTurnId,
         traceLabel,
       }),
@@ -73,7 +76,7 @@ export async function extractMemoriesFromTurn(
   try {
     return await extractMemories(
       input,
-      buildMemoryLlmConfig(traceTurnId, "memory extract", MEMORY_EXTRACT_NUM_PREDICT),
+      buildMemoryLlmConfig(traceTurnId, "memory extract", MEMORY_EXTRACT_NUM_PREDICT, MEMORY_EXTRACT_RESPONSE_FORMAT),
     );
   } catch (err) {
     logEventError("memory_extract_failed", err, {
@@ -134,6 +137,7 @@ async function persistMemories(ctx: MemoryPersistContext): Promise<void> {
         ctx.turnId,
         "user memory merge",
         MEMORY_MERGE_NUM_PREDICT,
+        MEMORY_MERGE_RESPONSE_FORMAT,
       ),
     );
     replaceUserFacts(ctx.userId, merged ? [merged] : []);
@@ -157,6 +161,7 @@ async function persistMemories(ctx: MemoryPersistContext): Promise<void> {
         ctx.turnId,
         "group memory merge",
         MEMORY_MERGE_NUM_PREDICT,
+        MEMORY_MERGE_RESPONSE_FORMAT,
       ),
     );
     replaceGroupFacts(ctx.groupChatId, merged ? [merged] : []);
@@ -181,6 +186,7 @@ async function persistMemories(ctx: MemoryPersistContext): Promise<void> {
         ctx.turnId,
         "general memory merge",
         MEMORY_MERGE_NUM_PREDICT,
+        MEMORY_MERGE_RESPONSE_FORMAT,
       ),
     );
     if (merged) {
