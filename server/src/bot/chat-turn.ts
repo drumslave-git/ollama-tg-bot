@@ -226,6 +226,22 @@ export async function runChatTurn(
       },
     );
 
+    if (settings.thinkingEnabled) {
+      if (thinking) {
+        report?.okPhase(
+          "reasoning",
+          "Model reasoning",
+          `${thinking.length} chars returned`,
+        );
+      } else {
+        report?.skipPhase(
+          "reasoning",
+          "Model reasoning",
+          "No separate reasoning field in API response",
+        );
+      }
+    }
+
     const replyBody = extractTelegramReply(modelOutput);
     const hasReply = hasVisibleTelegramReply(replyBody);
 

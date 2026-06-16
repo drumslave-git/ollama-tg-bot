@@ -4,7 +4,7 @@ import type {
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 import type { ChatMessage } from "../../src/llm/client.js";
-import { parseAssistantMessage, providerChatExtensions } from "../../src/llm/openai-compat.js";
+import { parseAssistantMessage, providerChatExtensions, shouldUseResponseFormat } from "../../src/llm/openai-compat.js";
 import {
   extractTelegramReply,
   MAIN_REPLY_RESPONSE_FORMAT,
@@ -36,6 +36,12 @@ export function liveConfig(): LiveConfig | null {
   };
 }
 
+/** True when the live reasoning suite (`test:llm:reasoning`) is active. */
+export function liveReasoningMode(): boolean {
+  const raw = process.env.LLM_THINKING_ENABLED?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
 export function liveClient(cfg: LiveConfig): OpenAI {
   return new OpenAI({ apiKey: cfg.apiKey, baseURL: cfg.baseURL, maxRetries: 0 });
 }
@@ -62,7 +68,7 @@ export async function runTurn(
 ): Promise<TurnResult> {
   const settings = makeSettings({
     numCtx: 8192,
-    thinkingEnabled: opts.thinkingEnabled ?? false,
+    thinkingEnabled: opts.thinkingEnabled ?? liveReasoningMode(),
   });
   const ext = providerChatExtensions(settings, false);
   const completion: ChatCompletion = await client.chat.completions.create({
@@ -73,7 +79,9 @@ export async function runTurn(
     temperature: settings.temperature,
     top_p: settings.topP,
     ...ext,
-    response_format: toOpenAiResponseFormat(MAIN_REPLY_RESPONSE_FORMAT),
+    ...(shouldUseResponseFormat(settings, false, MAIN_REPLY_RESPONSE_FORMAT)
+      ? { response_format: toOpenAiResponseFormat(MAIN_REPLY_RESPONSE_FORMAT) }
+      : {}),
   });
 
   const choice = completion.choices[0];

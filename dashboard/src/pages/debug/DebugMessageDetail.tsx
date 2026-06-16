@@ -206,6 +206,11 @@ export function DebugMessageDetail() {
                     <dt>Thinking sent</dt>
                     <dd>Yes</dd>
                   </div>
+                ) : report.phases.some((p) => p.id === "reasoning") ? (
+                  <div>
+                    <dt>Thinking sent</dt>
+                    <dd>No (reasoning not returned or send disabled)</dd>
+                  </div>
                 ) : null}
                 {report.result.memory ? (
                   <div>

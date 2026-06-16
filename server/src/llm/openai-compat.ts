@@ -3,6 +3,7 @@ export {
   parseAssistantMessage,
   providerChatExtensions,
   providerRequestExtensions,
+  shouldUseResponseFormat,
   type ParsedAssistantMessage,
   type ProviderChatExtensions,
   type ProviderChatOptions,

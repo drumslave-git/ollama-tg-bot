@@ -74,6 +74,7 @@ export async function auxiliaryChatComplete(
     max_completion_tokens: numPredict,
     temperature: AUXILIARY_TEMPERATURE,
     reasoning_effort: "none",
+    chat_template_kwargs: { enable_thinking: false },
     options: {
       skip_special_tokens: false,
     },

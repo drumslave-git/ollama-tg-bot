@@ -3,6 +3,7 @@ import {
   parseAssistantMessage,
   providerChatExtensions,
   providerRequestExtensions,
+  shouldUseResponseFormat,
 } from "../src/openai-compat.js";
 import { makeProviderSettings } from "./helpers/provider-settings.js";
 
@@ -40,6 +41,19 @@ describe("providerChatExtensions", () => {
       false,
     );
     expect(ext.reasoning_effort).toBe("high");
+    expect(ext.chat_template_kwargs).toEqual({
+      enable_thinking: true,
+      reasoning_effort: "high",
+    });
+  });
+
+  it("sends enable_thinking without reasoning_effort when effort is none", () => {
+    const ext = providerChatExtensions(
+      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "none" }),
+      false,
+    );
+    expect(ext.reasoning_effort).toBeUndefined();
+    expect(ext.chat_template_kwargs).toEqual({ enable_thinking: true });
   });
 
   it("forces reasoning off for auxiliary side passes", () => {
@@ -48,6 +62,63 @@ describe("providerChatExtensions", () => {
       true,
     );
     expect(ext.reasoning_effort).toBeUndefined();
+    expect(ext.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+
+  it("disables chat template thinking when thinking is off", () => {
+    const ext = providerChatExtensions(
+      makeProviderSettings({ thinkingEnabled: false, reasoningEffort: "high" }),
+      false,
+    );
+    expect(ext.reasoning_effort).toBeUndefined();
+    expect(ext.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
+});
+
+describe("shouldUseResponseFormat", () => {
+  const format = {
+    name: "test",
+    schema: { type: "object", properties: {}, required: [] },
+  };
+
+  it("uses schema for auxiliary passes even when thinking is on", () => {
+    expect(
+      shouldUseResponseFormat(
+        makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
+        true,
+        format,
+      ),
+    ).toBe(true);
+  });
+
+  it("omits schema for main reply when thinking is on", () => {
+    expect(
+      shouldUseResponseFormat(
+        makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "medium" }),
+        false,
+        format,
+      ),
+    ).toBe(false);
+  });
+
+  it("uses schema for main reply when thinking is off", () => {
+    expect(
+      shouldUseResponseFormat(
+        makeProviderSettings({ thinkingEnabled: false }),
+        false,
+        format,
+      ),
+    ).toBe(true);
+  });
+
+  it("returns false when no format is provided", () => {
+    expect(
+      shouldUseResponseFormat(
+        makeProviderSettings({ thinkingEnabled: false }),
+        false,
+        undefined,
+      ),
+    ).toBe(false);
   });
 });
 
@@ -99,6 +170,16 @@ describe("parseAssistantMessage", () => {
       choice({ content: "answer", reasoning: "r" }),
     );
     expect(result.reasoning).toBe("r");
+  });
+
+  it("joins array reasoning_content parts", () => {
+    const result = parseAssistantMessage(
+      choice({
+        content: "answer",
+        reasoning_content: [{ text: "step one" }, { text: "step two" }],
+      }),
+    );
+    expect(result.reasoning).toBe("step one\nstep two");
   });
 
   it("falls back to refusal text when content is empty", () => {

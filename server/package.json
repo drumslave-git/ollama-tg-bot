@@ -12,7 +12,8 @@
     "start": "node dist/index.js",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
-    "test:llm": "vitest run --config vitest.live.config.ts"
+    "test:llm": "vitest run --config vitest.live.config.ts",
+    "test:llm:reasoning": "vitest run --config vitest.live.reasoning.config.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -25,6 +25,7 @@ import { normalizeImageForChat } from "./images.js";
 import {
   parseAssistantMessage,
   providerChatExtensions,
+  shouldUseResponseFormat,
 } from "./openai-compat.js";
 import { getMessageReport } from "../message-report.js";
 import { extractModelMaxCtx } from "../context-budget.js";
@@ -327,7 +328,7 @@ async function requestChat(
         prepared,
         data,
         traceLayout,
-        formatTraceSamplingLine(settings, auxiliary),
+        formatTraceSamplingLine(settings, auxiliary, responseFormat),
       );
     }
   }
@@ -336,18 +337,30 @@ async function requestChat(
 function formatTraceSamplingLine(
   settings: Settings,
   auxiliary: boolean,
+  responseFormat?: JsonSchemaResponseFormat,
 ): string {
   const temp = auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature;
   const extensions = providerChatExtensions(settings, auxiliary);
   const reasoningEffort = extensions.reasoning_effort ?? "none";
+  const enableThinking =
+    extensions.chat_template_kwargs?.enable_thinking === true;
+  const responseFormatLine = responseFormat
+    ? shouldUseResponseFormat(settings, auxiliary, responseFormat)
+      ? "response_format: json_schema"
+      : "response_format: omitted (thinking)"
+    : null;
   return [
     `temperature: ${temp}`,
     `top_p: ${settings.topP}`,
     `top_k: ${settings.topK}`,
     `repeat_penalty: ${settings.repeatPenalty}`,
     `num_ctx: ${settings.numCtx}`,
+    `enable_thinking: ${enableThinking}`,
     `reasoning_effort: ${reasoningEffort}`,
-  ].join(", ");
+    responseFormatLine,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 function chatCompletionBody(
@@ -366,7 +379,7 @@ function chatCompletionBody(
     temperature: auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature,
     top_p: settings.topP,
     ...providerChatExtensions(settings, auxiliary),
-    ...(responseFormat
+    ...(shouldUseResponseFormat(settings, auxiliary, responseFormat)
       ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
   } as ChatCompletionCreateParamsNonStreaming;

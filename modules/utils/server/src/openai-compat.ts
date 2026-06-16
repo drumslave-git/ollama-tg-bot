@@ -1,4 +1,5 @@
 import type { ChatCompletion } from "openai/resources/chat/completions";
+import type { JsonSchemaResponseFormat } from "./json-schema.js";
 
 /** OpenAI-compatible assistant message fields used by common reasoning backends. */
 export const ASSISTANT_MESSAGE_FIELDS = {
@@ -25,9 +26,16 @@ export interface ParsedAssistantMessage {
   reasoning: string;
 }
 
+export interface ChatTemplateKwargs {
+  enable_thinking?: boolean;
+  reasoning_effort?: ReasoningEffort;
+}
+
 export interface ProviderChatExtensions {
   options: ProviderChatOptions;
-  reasoning_effort: ReasoningEffort;
+  reasoning_effort?: ReasoningEffort;
+  /** llama.cpp and similar backends read thinking flags from the chat template. */
+  chat_template_kwargs?: ChatTemplateKwargs;
 }
 
 export type ReasoningEffort = "none" | "low" | "medium" | "high";
@@ -71,8 +79,17 @@ export function providerChatExtensions(
     },
   };
 
+  const thinkingOn = !auxiliary && settings.thinkingEnabled;
   const effort =
     auxiliary || !settings.thinkingEnabled ? "none" : settings.reasoningEffort;
+
+  const templateKwargs: ChatTemplateKwargs = {
+    enable_thinking: thinkingOn,
+  };
+  if (thinkingOn && effort !== "none") {
+    templateKwargs.reasoning_effort = effort;
+  }
+  extensions.chat_template_kwargs = templateKwargs;
 
   if (effort !== "none") {
     extensions.reasoning_effort = effort;
@@ -81,12 +98,46 @@ export function providerChatExtensions(
   return extensions;
 }
 
-function readStringField(
+/**
+ * Whether to attach OpenAI `response_format` for this call.
+ *
+ * Many reasoning backends stop populating a separate `reasoning` /
+ * `reasoning_content` field when structured output is forced. Side passes always
+ * keep the schema; main replies omit it while thinking is enabled and rely on
+ * prompt + strict JSON parsing instead.
+ */
+export function shouldUseResponseFormat(
+  settings: ProviderChatSettings,
+  auxiliary: boolean,
+  responseFormat?: JsonSchemaResponseFormat,
+): responseFormat is JsonSchemaResponseFormat {
+  return Boolean(responseFormat && (auxiliary || !settings.thinkingEnabled));
+}
+
+function readReasoningField(
   record: Record<string, unknown>,
   key: string,
 ): string {
   const value = record[key];
-  return typeof value === "string" ? value.trim() : "";
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    return value
+      .map((part) => {
+        if (typeof part === "string") return part.trim();
+        if (part && typeof part === "object") {
+          if ("text" in part && typeof part.text === "string") {
+            return part.text.trim();
+          }
+          if ("content" in part && typeof part.content === "string") {
+            return part.content.trim();
+          }
+        }
+        return "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  return "";
 }
 
 function readTextContent(
@@ -124,8 +175,8 @@ export function parseAssistantMessage(
     (typeof message.refusal === "string" ? message.refusal.trim() : "");
 
   const reasoning =
-    readStringField(message, ASSISTANT_MESSAGE_FIELDS.reasoningContent) ||
-    readStringField(message, ASSISTANT_MESSAGE_FIELDS.reasoning);
+    readReasoningField(message, ASSISTANT_MESSAGE_FIELDS.reasoningContent) ||
+    readReasoningField(message, ASSISTANT_MESSAGE_FIELDS.reasoning);
 
   return { content, reasoning };
 }

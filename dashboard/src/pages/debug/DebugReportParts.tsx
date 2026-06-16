@@ -99,12 +99,12 @@ function PhaseDetail({ detail }: { detail: ReportDetail }) {
         <summary>Output</summary>
         <pre className="report-pre">{detail.output.content || "(empty)"}</pre>
       </details>
-      {detail.output.reasoning ? (
-        <details className="report-section">
-          <summary>Reasoning</summary>
-          <pre className="report-pre">{detail.output.reasoning}</pre>
-        </details>
-      ) : null}
+      <details className="report-section" open={Boolean(detail.output.reasoning)}>
+        <summary>
+          Reasoning{detail.output.reasoning ? "" : " (none)"}
+        </summary>
+        <pre className="report-pre">{detail.output.reasoning || "(empty)"}</pre>
+      </details>
     </div>
   );
 }
