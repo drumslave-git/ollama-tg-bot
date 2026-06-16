@@ -7,8 +7,8 @@ import {
   type ErrorLogInput,
 } from "../db/database.js";
 import { getActivePersonalityPrompt } from "../db/personalities.js";
-import { getResolvedHistoryLimits, getResolvedSettings } from "../settings-runtime.js";
-import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../response-format.js";
+import { getResolvedHistoryLimits, getResolvedSettings } from "../settings/runtime.js";
+import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../prompts/response-format.js";
 import {
   escapeHtml,
   hasVisibleTelegramReply,
@@ -17,7 +17,7 @@ import {
 } from "../telegram/html.js";
 import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
 import type { MemoryExtractInput } from "@llm-tg-bot/modules-memory";
-import type { MoodValues } from "../mood.js";
+import type { MoodValues } from "../mood/index.js";
 import type { CurrentSpeaker } from "./speaker.js";
 import {
   buildChatMessages,
@@ -25,14 +25,14 @@ import {
 } from "./conversation.js";
 import { getOwnerUserId, getOwnerUsername } from "./owner.js";
 import { replyParameters } from "./replies.js";
-import { logEvent, logEventError } from "../event-log.js";
-import { getMessageReport } from "../message-report.js";
+import { logEvent, logEventError } from "../logging/event-log.js";
+import { getMessageReport } from "../debug/message-report.js";
 import {
   getHistory,
   historyToChatMessages,
   historyTotalTokens,
 } from "../db/history.js";
-import { ensureHistoryFits } from "../context-compress.js";
+import { ensureHistoryFits } from "../debug/context-compress.js";
 import { getEffectiveMood } from "../db/mood.js";
 import { sendThinkingMessages } from "./send-thinking.js";
 import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";

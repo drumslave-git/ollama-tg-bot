@@ -8,9 +8,9 @@ import {
   type BotModuleHost,
   type ModuleManifest,
 } from "@llm-tg-bot/modules-registry";
-import { resolveModulesRoot } from "../module-runtime.js";
+import { resolveModulesRoot } from "../runtime/modules.js";
 import { getSettings } from "../db/database.js";
-import { logEvent, logEventError } from "../event-log.js";
+import { logEvent, logEventError } from "../logging/event-log.js";
 import { resolveConversationKey } from "./conversation.js";
 import { isMaintenanceBlocked } from "./maintenance.js";
 import { isSlashCommandMessage } from "./slash-command.js";

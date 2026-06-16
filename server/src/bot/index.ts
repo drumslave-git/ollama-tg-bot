@@ -1,6 +1,6 @@
 import { Bot } from "grammy";
-import { requireBotToken } from "../config.js";
-import { logInfo } from "../logging.js";
+import { requireBotToken } from "../config/index.js";
+import { logInfo } from "../logging/index.js";
 import { setBotIdentity } from "./bot-identity.js";
 import { PUBLIC_BOT_COMMANDS } from "./commands-help.js";
 import { registerHandlers } from "./handlers/index.js";

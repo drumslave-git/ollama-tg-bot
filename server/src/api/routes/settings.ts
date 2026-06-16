@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getSettings, updateSettings, type Settings } from "../../db/database.js";
-import { buildSettingsPayload } from "../../dashboard-payloads.js";
+import { buildSettingsPayload } from "../../dashboard/payloads.js";
 import { getBot } from "../../bot/index.js";
 import { resolveOwnerUsername } from "../../bot/resolve-owner.js";
 import { ensureModelContextCache } from "../../llm/model-context-cache.js";
@@ -9,14 +9,14 @@ import {
   getStickerCatalogState,
   refreshStickerCatalog,
 } from "@llm-tg-bot/modules-sticker-selection";
-import { logEvent, logEventError, type EventFields } from "../../event-log.js";
+import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
 import type { BotHostLogging } from "@llm-tg-bot/modules-registry";
-import { getResolvedSettings, getResolvedHistoryLimits, getContextBudgetForSettings } from "../../settings-runtime.js";
-import { buildBaseSystemPrompt } from "../../prompts.js";
-import { getVramAvailableGb, config } from "../../config.js";
+import { getResolvedSettings, getResolvedHistoryLimits, getContextBudgetForSettings } from "../../settings/runtime.js";
+import { buildBaseSystemPrompt } from "../../prompts/index.js";
+import { getVramAvailableGb, config } from "../../config/index.js";
 import { listModels, checkHealth } from "../../llm/client.js";
-import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings-limits.js";
-import { calculateContextBudget, modelContextInputFromTags } from "../../context-budget.js";
+import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings/limits.js";
+import { calculateContextBudget, modelContextInputFromTags } from "../../settings/context-budget.js";
 import { runWebSearch } from "@llm-tg-bot/modules-web-search";
 
 const stickerCatalogLog: BotHostLogging = {

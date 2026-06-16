@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { config } from "../config.js";
+import { config } from "../config/index.js";
 import {
   appendErrorLog,
   bindErrorLogDatabase,
@@ -15,17 +15,17 @@ import {
   invalidateModelContextCache,
   refreshModelContextCache,
 } from "../llm/model-context-cache.js";
-import { getResolvedSettings } from "../settings-runtime.js";
+import { getResolvedSettings } from "../settings/runtime.js";
 import {
   normalizeTokenBudget,
   validateSettingsFields,
   getHistoryLimits,
-} from "../settings-limits.js";
+} from "../settings/limits.js";
 import {
   configureModuleDatabases,
   initModuleDatabases,
-} from "../module-runtime.js";
-import { buildMoodPayload } from "../dashboard-payloads.js";
+} from "../runtime/modules.js";
+import { buildMoodPayload } from "../dashboard/payloads.js";
 
 export interface Settings {
   apiBaseUrl: string;
@@ -300,7 +300,7 @@ export function updateSettings(partial: Partial<Settings>): Settings {
   }
 
   void refreshModelContextCache(resolved.model, resolved.apiBaseUrl);
-  void import("../live-events.js").then(({ emitDataUpdated, emitMoodUpdated, emitSettingsUpdated }) => {
+  void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitMoodUpdated, emitSettingsUpdated }) => {
     void emitSettingsUpdated();
     emitMoodUpdated();
     emitDataUpdated(["settings"]);
@@ -334,7 +334,7 @@ export function getStats(): Stats {
 }
 
 function notifyStatsChanged(): void {
-  void import("../live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
+  void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
     emitStatsUpdated();
     emitDataUpdated(["stats", "stats_meta"]);
   });
@@ -366,7 +366,7 @@ export function recordError(detail?: ErrorLogInput): void {
   if (detail) {
     appendErrorLog(detail);
   }
-  void import("../live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
+  void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
     emitStatsUpdated();
     emitDataUpdated(["stats", "error_log"]);
   });
@@ -375,7 +375,7 @@ export function recordError(detail?: ErrorLogInput): void {
 export function clearErrors(): number {
   const deleted = clearErrorLog();
   db.prepare("UPDATE stats SET value = 0 WHERE key = 'errors'").run();
-  void import("../live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
+  void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
     emitStatsUpdated();
     emitDataUpdated(["stats", "error_log"]);
   });

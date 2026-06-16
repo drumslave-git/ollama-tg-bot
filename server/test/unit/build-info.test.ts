@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCommit, buildCommitShort } from "../../src/build-info.js";
+import { buildCommit, buildCommitShort } from "../../src/config/build-info.js";
 
 describe("build-info", () => {
   it("exports commit identifiers", () => {

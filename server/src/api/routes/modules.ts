@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getLoadedModuleManifests } from "../../module-runtime.js";
+import { getLoadedModuleManifests } from "../../runtime/modules.js";
 
 export const modulesRouter = Router();
 

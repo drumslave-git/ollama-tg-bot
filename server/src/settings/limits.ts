@@ -1,4 +1,4 @@
-import type { Settings } from "./db/database.js";
+import type { Settings } from "../db/database.js";
 
 export const MIN_NUM_PREDICT = 32;
 /**
@@ -129,7 +129,7 @@ export function getChatTimeoutMs(settings: Settings): number {
 }
 
 /** Provider-specific request extensions for OpenAI-compatible backends. */
-export { providerRequestExtensions as getProviderExtensions } from "./llm/openai-compat.js";
+export { providerRequestExtensions as getProviderExtensions } from "../llm/openai-compat.js";
 
 export function validateSettingsFields(settings: Settings): void {
   const normalized = normalizeTokenBudget(settings);

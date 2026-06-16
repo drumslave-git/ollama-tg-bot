@@ -4,12 +4,12 @@ import {
   historyTotalTokens,
   replaceHistory,
   type StoredMessage,
-} from "./db/history.js";
-import { logEvent, logEventError } from "./event-log.js";
-import { chatComplete } from "./llm/client.js";
-import type { ChatMessage } from "./llm/client.js";
-import { getResolvedHistoryLimits } from "./settings-runtime.js";
-import { APPROX_CHARS_PER_TOKEN } from "./settings-limits.js";
+} from "../db/history.js";
+import { logEvent, logEventError } from "../logging/event-log.js";
+import { chatComplete } from "../llm/client.js";
+import type { ChatMessage } from "../llm/client.js";
+import { getResolvedHistoryLimits } from "../settings/runtime.js";
+import { APPROX_CHARS_PER_TOKEN } from "../settings/limits.js";
 
 const HISTORY_COMPRESS_NUM_PREDICT = 512;
 

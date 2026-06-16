@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import { getModuleDataTableConfigs } from "../module-runtime.js";
+import { getModuleDataTableConfigs } from "../runtime/modules.js";
 
 const MAX_ROWS = 2000;
 

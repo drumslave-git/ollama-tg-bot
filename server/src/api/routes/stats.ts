@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { buildStatsPayload } from "../../dashboard-payloads.js";
+import { buildStatsPayload } from "../../dashboard/payloads.js";
 import { clearErrors } from "../../db/database.js";
 
 export const statsRouter = Router();

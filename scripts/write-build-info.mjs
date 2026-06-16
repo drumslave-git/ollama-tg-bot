@@ -23,4 +23,4 @@ export const buildCommit = ${JSON.stringify(commit)};
 export const buildCommitShort = ${JSON.stringify(commitShort)};
 `;
 
-writeFileSync(join(root, "server/src/build-info.ts"), serverTs);
+writeFileSync(join(root, "server/src/config/build-info.ts"), serverTs);

@@ -1,13 +1,13 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { describe, expect, it } from "vitest";
 import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
-import { buildBaseSystemPrompt } from "../../src/prompts.js";
+import { buildBaseSystemPrompt } from "../../src/prompts/index.js";
 import {
   parseAssistantMessage,
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "../../src/llm/openai-compat.js";
-import { MAIN_REPLY_RESPONSE_FORMAT } from "../../src/response-format.js";
+import { MAIN_REPLY_RESPONSE_FORMAT } from "../../src/prompts/response-format.js";
 import { hasVisibleTelegramReply, prepareTelegramHtml } from "../../src/telegram/html.js";
 import { makeSettings } from "../helpers/settings.js";
 import { liveClient, liveConfig, liveReasoningMode, runTurn } from "./helpers.js";

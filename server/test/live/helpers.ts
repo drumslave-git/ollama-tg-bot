@@ -8,11 +8,11 @@ import { parseAssistantMessage, providerChatExtensions, shouldUseResponseFormat 
 import {
   extractTelegramReply,
   MAIN_REPLY_RESPONSE_FORMAT,
-} from "../../src/response-format.js";
+} from "../../src/prompts/response-format.js";
 import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,
-} from "../../src/settings-limits.js";
+} from "../../src/settings/limits.js";
 import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
 import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
 import { makeSettings } from "../helpers/settings.js";

@@ -1,6 +1,6 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { describe, expect, it } from "vitest";
-import { buildBaseSystemPrompt } from "../../src/prompts.js";
+import { buildBaseSystemPrompt } from "../../src/prompts/index.js";
 import { hasVisibleTelegramReply, prepareTelegramHtml } from "../../src/telegram/html.js";
 import { makeSettings } from "../helpers/settings.js";
 import { liveClient, liveConfig, runTurn } from "./helpers.js";

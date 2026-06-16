@@ -3,7 +3,7 @@ import {
   discoverModuleManifests,
   type ModuleManifest,
 } from "@llm-tg-bot/modules-registry";
-import { resolveModulesRoot } from "../module-runtime.js";
+import { resolveModulesRoot } from "../runtime/modules.js";
 
 let pipelineHosts: PipelineModuleHost[] | null = null;
 

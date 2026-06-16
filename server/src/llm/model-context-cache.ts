@@ -1,9 +1,9 @@
-import { logEventError } from "../event-log.js";
+import { logEventError } from "../logging/event-log.js";
 import {
   extractModelMaxCtx,
   modelContextInputFromTags,
   type ModelContextInput,
-} from "../context-budget.js";
+} from "../settings/context-budget.js";
 import { fetchOptionalModelCatalogEntry, showModel } from "./client.js";
 
 const CACHE_TTL_MS = 5 * 60_000;

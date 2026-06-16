@@ -4,7 +4,7 @@ import {
   extractTelegramReply,
   MAIN_REPLY_RESPONSE_FORMAT,
   stripStructuredMarkup,
-} from "../../src/response-format.js";
+} from "../../src/prompts/response-format.js";
 
 describe("extractTelegramReply", () => {
   const cases: { name: string; in: string; want: string }[] = [

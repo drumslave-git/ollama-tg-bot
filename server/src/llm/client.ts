@@ -11,7 +11,7 @@ import type {
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 import type { Model } from "openai/resources/models";
-import { config } from "../config.js";
+import { config } from "../config/index.js";
 import { getSettings } from "../db/database.js";
 import type { Settings } from "../db/database.js";
 import {
@@ -19,17 +19,17 @@ import {
   getAuxiliaryNumPredict,
   getChatTimeoutMs,
   getEffectiveNumPredict,
-} from "../settings-limits.js";
-import { getResolvedSettings } from "../settings-runtime.js";
+} from "../settings/limits.js";
+import { getResolvedSettings } from "../settings/runtime.js";
 import { normalizeImageForChat } from "./images.js";
 import {
   parseAssistantMessage,
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "./openai-compat.js";
-import { getMessageReport } from "../message-report.js";
+import { getMessageReport } from "../debug/message-report.js";
 import { sanitizeLlmPayloadForDebug } from "./debug-payload.js";
-import { extractModelMaxCtx } from "../context-budget.js";
+import { extractModelMaxCtx } from "../settings/context-budget.js";
 
 const LIST_MODELS_TIMEOUT_MS = 60_000;
 

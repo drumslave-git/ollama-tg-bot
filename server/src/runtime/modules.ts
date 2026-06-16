@@ -15,6 +15,7 @@ const rootDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
   "..",
+  "..",
 );
 
 /** Project-root modules directory. */

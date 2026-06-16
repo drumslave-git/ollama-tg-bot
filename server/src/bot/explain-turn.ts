@@ -12,17 +12,17 @@ import {
   resolveActivePersonalityId,
 } from "../db/personalities.js";
 import { getHistory, historyToChatMessages } from "../db/history.js";
-import { ensureHistoryFits } from "../context-compress.js";
-import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../response-format.js";
+import { ensureHistoryFits } from "../debug/context-compress.js";
+import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../prompts/response-format.js";
 import {
   escapeHtml,
   hasVisibleTelegramReply,
   prepareTelegramHtml,
 } from "../telegram/html.js";
-import { buildExplainSystemPrompt } from "../prompts.js";
+import { buildExplainSystemPrompt } from "../prompts/index.js";
 import { recordExchange } from "./conversation.js";
 import { replyParameters } from "./replies.js";
-import { logEvent, logEventError } from "../event-log.js";
+import { logEvent, logEventError } from "../logging/event-log.js";
 import { sendThinkingMessages } from "./send-thinking.js";
 import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";
 import { replyHtml } from "./replies-helpers.js";

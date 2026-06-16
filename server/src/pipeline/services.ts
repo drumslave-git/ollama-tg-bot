@@ -6,10 +6,10 @@ import type {
   PipelineReportWriter,
 } from "@llm-tg-bot/modules-registry";
 import { chatComplete } from "../llm/client.js";
-import { config } from "../config.js";
-import { logEvent, logEventError } from "../event-log.js";
-import { getMessageReport } from "../message-report.js";
-import { getResolvedSettings } from "../settings-runtime.js";
+import { config } from "../config/index.js";
+import { logEvent, logEventError } from "../logging/event-log.js";
+import { getMessageReport } from "../debug/message-report.js";
+import { getResolvedSettings } from "../settings/runtime.js";
 import { getBotIdentity } from "../bot/bot-identity.js";
 import { getStickerCatalogForSelection } from "@llm-tg-bot/modules-sticker-selection";
 import { getEffectiveMood, saveMoodState } from "../db/mood.js";

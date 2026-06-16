@@ -1,6 +1,6 @@
 import { chatComplete } from "../llm/client.js";
 import type { ChatMessage } from "../llm/client.js";
-import { logEvent, logEventError, type EventFields } from "../event-log.js";
+import { logEvent, logEventError, type EventFields } from "../logging/event-log.js";
 import type { ImagePayload } from "./files.js";
 
 /** Enough tokens for dense transcription + scene/object detail. */

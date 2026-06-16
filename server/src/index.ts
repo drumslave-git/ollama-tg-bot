@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import express from "express";
 import cors from "cors";
-import { config, requireStartupEnv } from "./config.js";
-import { logInfo } from "./logging.js";
+import { config, requireStartupEnv } from "./config/index.js";
+import { logInfo } from "./logging/index.js";
 import { initDatabase, getSettings } from "./db/database.js";
 import { refreshModelContextCache } from "./llm/model-context-cache.js";
 import { createApiRouter } from "./api/routes.js";
@@ -12,12 +12,12 @@ import { closePlaywrightBrowser } from "@llm-tg-bot/modules-link-fetch";
 import {
   startMoodCooldownWorker,
   stopMoodCooldownWorker,
-} from "./mood-cooldown.js";
-import { initLiveSocket } from "./socket.js";
+} from "./mood/cooldown.js";
+import { initLiveSocket } from "./dashboard/socket.js";
 import {
   createModuleRouters,
   wireModuleLiveHooks,
-} from "./module-runtime.js";
+} from "./runtime/modules.js";
 import { loadPipelineHosts } from "./pipeline/index.js";
 import { loadBotHosts } from "./bot/module-hosts.js";
 import {
@@ -25,7 +25,7 @@ import {
   emitMemoryUpdated,
   emitMoodUpdated,
   emitPersonalitiesUpdated,
-} from "./live-events.js";
+} from "./dashboard/live-events.js";
 
 async function main(): Promise<void> {
   requireStartupEnv();

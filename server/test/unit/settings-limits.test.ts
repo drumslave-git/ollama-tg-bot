@@ -15,7 +15,7 @@ import {
   snapNumCtx,
   snapNumPredict,
   validateSettingsFields,
-} from "../../src/settings-limits.js";
+} from "../../src/settings/limits.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("snapNumPredict", () => {

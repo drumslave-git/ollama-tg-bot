@@ -1,4 +1,4 @@
-import { isDebugLogging } from "./logging.js";
+import { isDebugLogging } from "./index.js";
 
 export type EventFields = Record<
   string,

@@ -3,11 +3,11 @@ import {
   buildMoodPayload,
   buildSettingsPayload,
   buildStatsPayload,
-} from "./dashboard-payloads.js";
+} from "./payloads.js";
 import type {
   MessageReportDetail,
   MessageReportListItem,
-} from "./db/debug-traces.js";
+} from "../db/debug-traces.js";
 
 export type MemoryScope = "user" | "group" | "general";
 

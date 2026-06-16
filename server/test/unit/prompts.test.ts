@@ -4,7 +4,7 @@ import {
   buildBaseSystemPrompt,
   buildExplainSystemPrompt,
   buildSystemPrompt,
-} from "../../src/prompts.js";
+} from "../../src/prompts/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("buildBaseSystemPrompt", () => {

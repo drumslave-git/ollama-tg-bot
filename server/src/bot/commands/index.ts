@@ -1,7 +1,7 @@
 import type { Bot, Context } from "grammy";
 import { isGroupChat, resolveConversationKey, resolveGroupChatId, resolveUserId } from "../conversation.js";
 import { getSettings, recordMessageReceived, recordReply } from "../../db/database.js";
-import { config } from "../../config.js";
+import { config } from "../../config/index.js";
 import { groupSetupMessage } from "../group-setup.js";
 import { isOwner, getOwnerUserId, getOwnerUsername } from "../owner.js";
 import { escapeHtml } from "../../telegram/html.js";
@@ -12,7 +12,7 @@ import { clearUserMemory, createUserFact, getUserFacts } from "../../db/user-mem
 import { clearGroupMemory, createGroupFact, getGroupFacts } from "../../db/group-memory.js";
 import { createGeneralFact, getGeneralFacts } from "../../db/general-memory.js";
 import { MAX_FACT_LENGTH, MIN_FACT_LENGTH } from "../../db/memory-facts.js";
-import { logEvent } from "../../event-log.js";
+import { logEvent } from "../../logging/event-log.js";
 import { runExplainTurn } from "../explain-turn.js";
 import { replyToUser } from "../replies-helpers.js";
 import { resolveCallerRememberTarget, resolveCommandInlineOrReplyText, resolveRememberTarget } from "./command-utils.js";

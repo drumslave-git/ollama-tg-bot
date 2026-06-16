@@ -1,23 +1,23 @@
-import { buildCommit, buildCommitShort } from "./build-info.js";
-import { getBot, getBotUsername } from "./bot/index.js";
-import { getVramAvailableGb } from "./config.js";
-import { getSettings, getStats } from "./db/database.js";
-import { listRecentErrors } from "./db/error-log.js";
-import { getMoodStateView } from "./db/mood.js";
+import { buildCommit, buildCommitShort } from "../config/build-info.js";
+import { getBot, getBotUsername } from "../bot/index.js";
+import { getVramAvailableGb } from "../config/index.js";
+import { getSettings, getStats } from "../db/database.js";
+import { listRecentErrors } from "../db/error-log.js";
+import { getMoodStateView } from "../db/mood.js";
 import {
   getActivePersonalityMoodDefaults,
   getPersonalityById,
   resolveActivePersonalityId,
-} from "./db/personalities.js";
-import { ensureModelContextCache } from "./llm/model-context-cache.js";
-import { MOOD_TRAIT_HINTS } from "./mood.js";
-import { buildBaseSystemPrompt } from "./prompts.js";
-import { processStartedAt } from "./process-info.js";
+} from "../db/personalities.js";
+import { ensureModelContextCache } from "../llm/model-context-cache.js";
+import { MOOD_TRAIT_HINTS } from "../mood/index.js";
+import { buildBaseSystemPrompt } from "../prompts/index.js";
+import { processStartedAt } from "../config/process-info.js";
 import {
   getContextBudgetForSettings,
   getResolvedHistoryLimits,
   getResolvedSettings,
-} from "./settings-runtime.js";
+} from "../settings/runtime.js";
 
 export function buildStatsPayload() {
   const stats = getStats();

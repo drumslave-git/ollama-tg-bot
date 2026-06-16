@@ -1,5 +1,5 @@
-import type { Settings } from "./db/database.js";
-import { getVramAvailableGb } from "./config.js";
+import type { Settings } from "../db/database.js";
+import { getVramAvailableGb } from "../config/index.js";
 import {
   calculateContextBudget,
   estimateModelWeightGb,

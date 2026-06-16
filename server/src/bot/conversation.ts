@@ -13,10 +13,10 @@ import {
   getKnownUsersByIds,
 } from "../db/known-users.js";
 import { getUserFacts } from "../db/user-memory.js";
-import { logEvent } from "../event-log.js";
+import { logEvent } from "../logging/event-log.js";
 import type { Settings } from "../db/database.js";
-import { buildSystemPrompt, type ParticipantFacts } from "../prompts.js";
-import type { MoodValues } from "../mood.js";
+import { buildSystemPrompt, type ParticipantFacts } from "../prompts/index.js";
+import type { MoodValues } from "../mood/index.js";
 import {
   extractParticipantUserIds,
   userRoleTag,

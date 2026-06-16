@@ -1,7 +1,7 @@
 import type { Context } from "grammy";
-import { logEvent, logEventError, type EventFields } from "../../event-log.js";
+import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
 import { getMaxDebugTraceId } from "../../db/debug-traces.js";
-import { beginMessageReport, getMessageReport } from "../../message-report.js";
+import { beginMessageReport, getMessageReport } from "../../debug/message-report.js";
 import { resolveConversationKey, resolveGroupChatId, resolveUserId, isGroupChat, currentSpeakerFromUser } from "../conversation.js";
 import { extractText } from "../message-content.js";
 import { summarizeMessageContent, formatReplyContext, isReplyInBotThread, isReplyToBot } from "../replies.js";

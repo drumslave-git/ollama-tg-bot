@@ -1,4 +1,4 @@
-/** Keep in sync with server/src/settings-limits.ts */
+/** Keep in sync with server/src/settings/limits.ts */
 
 export const MIN_NUM_PREDICT = 32;
 export const MAX_NUM_PREDICT = 8192;
