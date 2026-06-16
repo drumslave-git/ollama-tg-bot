@@ -12,6 +12,7 @@
     "test:llm": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
+    "@llm-tg-bot/modules-registry": "*",
     "@llm-tg-bot/modules-utils": "*"
   },
   "devDependencies": {

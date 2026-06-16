@@ -11,7 +11,32 @@ import { getVramAvailableGb } from "../../config.js";
 import { listModels, checkHealth } from "../../llm/client.js";
 import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings-limits.js";
 import { calculateContextBudget, modelContextInputFromTags } from "../../context-budget.js";
-import { isTavilyConfigured, checkTavilyHealth } from "../../tavily/client.js";
+import { config } from "../../config.js";
+import { logEventError } from "../../event-log.js";
+import { runWebSearch } from "@llm-tg-bot/modules-web-search";
+
+function isTavilyConfigured(): boolean {
+  return config.tavilyApiKey.length > 0;
+}
+
+async function checkTavilyHealth(): Promise<boolean> {
+  if (!isTavilyConfigured()) return false;
+  const result = await runWebSearch(
+    { query: "test" },
+    {
+      apiKey: config.tavilyApiKey,
+      maxResults: 1,
+      log: {
+        logEventError: (event, err, fields) =>
+          logEventError(event, err, fields as never),
+      },
+    },
+  );
+  if (!result.ok) {
+    throw new Error(result.reason);
+  }
+  return true;
+}
 
 function stickerCatalogResponse() {
   const settings = getSettings();

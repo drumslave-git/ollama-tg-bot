@@ -12,7 +12,9 @@
     "test:llm": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
-    "@llm-tg-bot/modules-utils": "*"
+    "@llm-tg-bot/modules-registry": "*",
+    "@llm-tg-bot/modules-utils": "*",
+    "@llm-tg-bot/modules-web-search": "*"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

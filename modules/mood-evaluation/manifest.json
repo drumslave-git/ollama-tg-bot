@@ -3,6 +3,11 @@
   "name": "Mood",
   "description": "Mood evaluation side pass, personality mood defaults, and runtime mood state.",
   "serverPackage": "@llm-tg-bot/modules-mood-evaluation",
+  "pipeline": {
+    "stepId": "mood",
+    "phase": "pre-reply",
+    "order": 10
+  },
   "dbPackage": "@llm-tg-bot/modules-mood-evaluation-db",
   "uiPackage": "@llm-tg-bot/modules-mood-evaluation-ui",
   "apiBasePath": "/mood",

@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@grammyjs/types": "^3.22.2",
+    "@llm-tg-bot/modules-registry": "*",
     "@llm-tg-bot/modules-utils": "*"
   },
   "devDependencies": {

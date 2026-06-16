@@ -44,3 +44,4 @@ export {
   type MemoryPersistContext,
   type MemoryPersistReport,
 } from "./persist.js";
+export { pipelineHost } from "./pipeline.js";

@@ -25,3 +25,4 @@ export {
   type MoodKey,
   type MoodValues,
 } from "./values.js";
+export { pipelineHost } from "./pipeline.js";

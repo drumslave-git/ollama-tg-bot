@@ -175,12 +175,14 @@ describe("validateSettingsFields", () => {
         makeSettings({ workflowSteps: "invalid" as never }),
       ),
     ).toThrow(/workflowSteps/);
+  });
 
+  it("accepts custom workflow step ids", () => {
     expect(() =>
       validateSettingsFields(
-        makeSettings({ workflowSteps: ["invalid-step"] as never }),
+        makeSettings({ workflowSteps: ["custom-step", "any-module-id"] }),
       ),
-    ).toThrow(/workflowSteps/);
+    ).not.toThrow();
   });
 
   it("rejects invalid workflowNodes", () => {

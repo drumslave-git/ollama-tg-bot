@@ -150,9 +150,9 @@ export function validateSettingsFields(settings: Settings): void {
     ["sendThinkingEnabled must be true or false", isBoolean(settings.sendThinkingEnabled)],
     ["maintenanceModeEnabled must be true or false", isBoolean(settings.maintenanceModeEnabled)],
     [
-      "workflowSteps must be an array of valid steps (mood, links, search, sticker)",
+      "workflowSteps must be an array of step ids",
       Array.isArray(settings.workflowSteps) &&
-        settings.workflowSteps.every((s) => ["mood", "links", "search", "sticker"].includes(s)),
+        settings.workflowSteps.every((s) => typeof s === "string"),
     ],
     [
       "workflowNodes must be an array of node coordinates",

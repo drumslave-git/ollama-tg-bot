@@ -3,6 +3,8 @@ export interface ModuleDashboardMeta {
   description?: string;
 }
 
+import type { ModulePipelineMeta } from "./pipeline.js";
+
 export interface ModuleManifest {
   id: string;
   name: string;
@@ -15,4 +17,6 @@ export interface ModuleManifest {
   settingsKeys?: string[];
   dataTables?: string[];
   dashboard?: ModuleDashboardMeta | null;
+  /** When set, the server package must export `pipelineHost`. */
+  pipeline?: ModulePipelineMeta;
 }

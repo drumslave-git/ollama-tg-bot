@@ -18,6 +18,7 @@ import {
   createModuleRouters,
   wireModuleLiveHooks,
 } from "./module-runtime.js";
+import { loadPipelineHosts } from "./pipeline/index.js";
 import {
   emitDataUpdated,
   emitMemoryUpdated,
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
   });
 
   await initDatabase();
+  await loadPipelineHosts();
   const moduleRouters = await createModuleRouters();
   const bootSettings = getSettings();
   void refreshModelContextCache(bootSettings.model, bootSettings.apiBaseUrl);

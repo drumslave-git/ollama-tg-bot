@@ -17,3 +17,4 @@ export {
   parseSearchDecision,
   type SearchDecisionOutput,
 } from "./prompt.js";
+export { pipelineHost } from "./pipeline.js";

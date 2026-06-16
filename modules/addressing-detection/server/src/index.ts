@@ -33,3 +33,4 @@ export {
   formatBotLabels,
   parseAddressDecision,
 } from "./prompt.js";
+export { pipelineHost } from "./pipeline.js";

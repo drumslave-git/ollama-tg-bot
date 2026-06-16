@@ -15,38 +15,33 @@ import {
   prepareTelegramHtml,
   visibleTelegramText,
 } from "../telegram/html.js";
-import { type TavilySource } from "../tavily/client.js";
+import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
+import type { MemoryExtractInput } from "@llm-tg-bot/modules-memory";
+import type { MoodValues } from "../mood.js";
 import type { CurrentSpeaker } from "./speaker.js";
 import {
   buildChatMessages,
   recordExchange,
 } from "./conversation.js";
-import { scheduleMemoryPersistence } from "../memory-extract.js";
-import type { MemoryExtractInput } from "../memory-extract.js";
 import { getOwnerUserId, getOwnerUsername } from "./owner.js";
 import { replyParameters } from "./replies.js";
 import { logEvent, logEventError } from "../event-log.js";
 import { getMessageReport } from "../message-report.js";
-import { resolveStickerFileId } from "./sticker-catalog.js";
 import {
   getHistory,
   historyToChatMessages,
   historyTotalTokens,
 } from "../db/history.js";
 import { ensureHistoryFits } from "../context-compress.js";
-import { getEffectiveMood, saveMoodState } from "../db/mood.js";
-import { evaluateMood } from "../mood-evaluate.js";
+import { getEffectiveMood } from "../db/mood.js";
 import { sendThinkingMessages } from "./send-thinking.js";
 import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";
-
+import type { PipelineTurnState } from "@llm-tg-bot/modules-registry";
 import {
-  evaluateMoodForTurn,
-  fetchLinksForTurn,
-  searchWebForTurn,
-  analyzeStickerForTurn,
-  buildReplyExtra,
-  splitMessage,
-} from "./chat-turn-steps.js";
+  createPipelineServices,
+  runPipelinePhase,
+  runPipelinePhaseBackground,
+} from "../pipeline/index.js";
 
 export type ChatTurnMemoryInput = Omit<MemoryExtractInput, "assistantReply">;
 
@@ -93,7 +88,7 @@ function formatSourceTitle(title: string): string {
 
 function appendWebSearchSources(
   reply: string,
-  sources: TavilySource[],
+  sources: WebSearchSource[],
 ): string {
   if (sources.length === 0) return reply;
 
@@ -106,12 +101,69 @@ function appendWebSearchSources(
   return `${reply.trim()}\n\nSources:\n${lines.join("\n")}`;
 }
 
+function buildReplyExtra(ctx: Context, options?: { messageThreadId?: number }) {
+  const extra: Parameters<Context["reply"]>[1] = {};
+  if (options?.messageThreadId) {
+    const threadParams = messageThreadExtra({ message_thread_id: options.messageThreadId });
+    if (threadParams) extra.message_thread_id = threadParams.message_thread_id;
+  }
+  const replyParams = replyParameters(ctx);
+  if (replyParams) extra.reply_parameters = replyParams;
+  return Object.keys(extra).length > 0 ? extra : undefined;
+}
+
+function splitMessage(text: string, maxLen = 4000): string[] {
+  if (text.length <= maxLen) return [text];
+  const chunks: string[] = [];
+  let curr = text;
+  while (curr.length > maxLen) {
+    let splitAt = curr.lastIndexOf("\n", maxLen);
+    if (splitAt === -1) splitAt = curr.lastIndexOf(" ", maxLen);
+    if (splitAt === -1) splitAt = maxLen;
+    chunks.push(curr.slice(0, splitAt));
+    curr = curr.slice(splitAt).trimStart();
+  }
+  if (curr) chunks.push(curr);
+  return chunks;
+}
+
+function buildPipelineState(input: ChatTurnInput): PipelineTurnState {
+  const storedHistory = getHistory(input.convKey);
+  const historyMessages = historyToChatMessages(storedHistory);
+  const moodContextText = historyMessages
+    .map((m: ChatMessage) => {
+      const namePart = m.name ? ` [name: ${m.name}]` : "";
+      return `[${m.role}${namePart}]: ${m.content}`;
+    })
+    .join("\n\n");
+  const moodLatestTurnPreview = [
+    input.mentionedUsersContext,
+    input.replyContext,
+    input.latestBody,
+  ]
+    .filter((part) => part?.trim())
+    .join("\n\n");
+
+  return {
+    turnId: input.turnId,
+    latestBody: input.latestBody,
+    replyContext: input.replyContext,
+    moodContextText,
+    moodLatestTurnPreview,
+    userId: input.userId,
+    groupChatId: input.groupChatId,
+    memoryInput: input.memoryInput,
+  };
+}
+
 export async function runChatTurn(
   ctx: Context,
   input: ChatTurnInput,
 ): Promise<void> {
   const settings = getResolvedSettings();
   const report = getMessageReport(input.turnId);
+  const pipelineServices = createPipelineServices();
+  const pipelineState = buildPipelineState(input);
 
   const turnLog = {
     turnId: input.turnId,
@@ -127,27 +179,12 @@ export async function runChatTurn(
 
     await ensureHistoryFits(input.convKey);
 
-    const storedHistory = getHistory(input.convKey);
-    const historyMessages = historyToChatMessages(storedHistory);
-    const moodContextText = historyMessages
-      .map((m) => {
-        const namePart = m.name ? ` [name: ${m.name}]` : "";
-        return `[${m.role}${namePart}]: ${m.content}`;
-      })
-      .join("\n\n");
-    const moodLatestTurnPreview = [
-      input.mentionedUsersContext,
-      input.replyContext,
-      input.latestBody,
-    ]
-      .filter((part) => part?.trim())
-      .join("\n\n");
+    await runPipelinePhase("pre-reply", pipelineState, pipelineServices);
 
-    const moodPromise = evaluateMoodForTurn(input, moodContextText, moodLatestTurnPreview);
-    const linkFetch = await fetchLinksForTurn(input);
-    const { webSearchContext, webSearchSources } = await searchWebForTurn(input, linkFetch.resolved);
-
-    const evaluatedMood = await moodPromise;
+    const evaluatedMood = (pipelineState.mood ?? getEffectiveMood()) as MoodValues;
+    const linkFetchContext = pipelineState.linkFetchContext ?? null;
+    const webSearchContext = pipelineState.webSearchContext ?? null;
+    const webSearchSources = (pipelineState.webSearchSources ?? []) as WebSearchSource[];
 
     logEvent("llm_reply_started", turnLog);
     const built = buildChatMessages(
@@ -158,7 +195,7 @@ export async function runChatTurn(
         speakerTag: input.userRole,
         mentionedUsersContext: input.mentionedUsersContext,
         replyContext: input.replyContext,
-        linkFetchContext: linkFetch.context,
+        linkFetchContext,
         webSearchContext,
         currentSpeaker: input.currentSpeaker,
         currentSpeakerIsOwner: input.currentSpeakerIsOwner,
@@ -176,6 +213,7 @@ export async function runChatTurn(
       },
     );
 
+    const storedHistory = getHistory(input.convKey);
     const historyLimits = getResolvedHistoryLimits(settings);
     const injectedChars = built.historyMessages.reduce(
       (n, m) => n + m.content.length,
@@ -241,7 +279,11 @@ export async function runChatTurn(
     const replyBody = extractTelegramReply(modelOutput);
     const hasReply = hasVisibleTelegramReply(replyBody);
 
-    const { stickerEmoji, stickerFileId } = await analyzeStickerForTurn(input, replyBody);
+    pipelineState.replyBody = replyBody;
+    await runPipelinePhase("post-reply", pipelineState, pipelineServices);
+
+    const stickerEmoji = pipelineState.stickerEmoji ?? null;
+    const stickerFileId = pipelineState.stickerFileId ?? null;
 
     if (!hasReply && !stickerFileId) {
       throw new Error("Model response had no reply content");
@@ -256,6 +298,8 @@ export async function runChatTurn(
         : stickerEmoji
           ? `[sticker: ${stickerEmoji}]`
           : replyWithSources;
+
+    pipelineState.assistantReply = historyText;
 
     const reply = hasReply ? prepareTelegramHtml(replyWithSources) : "";
     recordExchange(
@@ -349,12 +393,7 @@ export async function runChatTurn(
       awaitMemory: true,
     });
 
-    scheduleMemoryPersistence({
-      userId: input.userId,
-      groupChatId: input.groupChatId,
-      turnId: input.turnId,
-      input: { ...input.memoryInput, assistantReply: historyText },
-    });
+    runPipelinePhaseBackground(pipelineState, pipelineServices);
   } catch (err) {
     logEventError("reply_failed", err, turnLog);
     report?.finalizeError(err instanceof Error ? err.message : String(err));

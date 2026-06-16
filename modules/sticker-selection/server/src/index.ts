@@ -29,3 +29,4 @@ export type {
   StickerSelectionInput,
   StickerSelectionOutput,
 } from "./types.js";
+export { pipelineHost } from "./pipeline.js";

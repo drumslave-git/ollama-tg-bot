@@ -4,12 +4,11 @@ import { getMaxDebugTraceId } from "../../db/debug-traces.js";
 import { beginMessageReport, getMessageReport } from "../../message-report.js";
 import { resolveConversationKey, resolveGroupChatId, resolveUserId, isGroupChat, currentSpeakerFromUser } from "../conversation.js";
 import { extractText } from "../message-content.js";
-import { summarizeMessageContent, formatReplyContext } from "../replies.js";
+import { summarizeMessageContent, formatReplyContext, isReplyInBotThread, isReplyToBot } from "../replies.js";
 import { isSlashCommandMessage } from "../addressed.js";
 import { messageHasVisionMedia, messageHasUserImage, loadVisionFromMessage, findReplyMediaMessage } from "../message-media.js";
 import { getSettings, recordMessageReceived, recordReply } from "../../db/database.js";
 import { isMaintenanceBlocked } from "../maintenance.js";
-import { isMessageAddressedToBot } from "../address-analyze.js";
 import { startTypingForMessage } from "../typing.js";
 import { getUserFacts } from "../../db/user-memory.js";
 import { getGroupFacts } from "../../db/group-memory.js";
@@ -22,8 +21,22 @@ import { describeVisionImages } from "../vision-describe.js";
 import { replyToUser } from "../replies-helpers.js";
 import { runChatTurn } from "../chat-turn.js";
 import { isOwner } from "../owner.js";
+import type { PipelineTurnState } from "@llm-tg-bot/modules-registry";
+import {
+  createPipelineServices,
+  runPipelinePhase,
+} from "../../pipeline/index.js";
 
 let nextTurnId: number | null = null;
+
+function senderLabel(ctx: Context): string {
+  if (!ctx.from) return "Someone";
+  return (
+    [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") ||
+    ctx.from.username ||
+    "Someone"
+  );
+}
 
 function allocateTurnId(): number {
   if (nextTurnId == null) {
@@ -126,11 +139,33 @@ export async function messageHandler(ctx: Context, botToken: string) {
       inGroup &&
       !randomHit &&
       messageHasUserImage(ctx.message);
-    const addressCheck =
-      randomHit || imageHit
-        ? { addressed: false as const, source: undefined }
-        : await isMessageAddressedToBot(ctx, turnId);
-    const addressed = addressCheck.addressed;
+    let addressed = false;
+    let addressSource: string | undefined;
+
+    if (randomHit || imageHit) {
+      addressed = false;
+    } else {
+      const bot = getBotIdentity();
+      const pipelineState: PipelineTurnState = {
+        turnId,
+        latestBody: text ?? "",
+        moduleInput: {
+          address: {
+            chatType: ctx.chat?.type,
+            chatId: ctx.chat?.id,
+            userId: ctx.from?.id,
+            message: ctx.message,
+            bot,
+            isReplyToBot: isReplyToBot(ctx, bot.username),
+            isReplyInBotThread: isReplyInBotThread(ctx, bot.username),
+            sender: senderLabel(ctx),
+          },
+        },
+      };
+      await runPipelinePhase("gate", pipelineState, createPipelineServices());
+      addressed = Boolean(pipelineState.addressed);
+      addressSource = pipelineState.addressSource;
+    }
 
     logEvent("message_address_gate", {
       ...msgLog,
@@ -145,7 +180,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
 
     if (!addressed && !randomHit && !imageHit) {
       logEvent("message_ignored", { ...msgLog, reason: "not_addressed" });
-      report?.finishIgnored("not_addressed", addressCheck.source);
+      report?.finishIgnored("not_addressed", addressSource);
       return;
     }
 
@@ -157,7 +192,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
     logEvent("message_accepted", { ...msgLog, trigger });
     report?.setAccepted({
       trigger,
-      addressSource: addressCheck.source,
+      addressSource: addressSource,
     });
 
     recordMessageReceived();

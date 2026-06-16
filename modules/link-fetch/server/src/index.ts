@@ -18,3 +18,4 @@ export type {
   LinkFetchInput,
   LinkFetchOutput,
 } from "./types.js";
+export { pipelineHost } from "./pipeline.js";

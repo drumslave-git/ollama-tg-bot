@@ -2,5 +2,11 @@
   "id": "addressing-detection",
   "name": "Address detection",
   "description": "LLM side pass to detect when the bot is addressed by name variant in groups.",
-  "serverPackage": "@llm-tg-bot/modules-addressing-detection"
+  "serverPackage": "@llm-tg-bot/modules-addressing-detection",
+  "pipeline": {
+    "stepId": "address",
+    "phase": "gate",
+    "order": 0,
+    "alwaysOn": true
+  }
 }
