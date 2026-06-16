@@ -43,6 +43,15 @@ function senderLabel(ctx: Context): string {
   );
 }
 
+function buildVisionTurnBody(
+  messageText: string,
+  mediaKind: string,
+  visionDescription: string,
+): string {
+  const mediaNote = `The user sent a ${mediaKind}: ${visionDescription}`;
+  return [messageText, mediaNote].filter(Boolean).join("\n\n");
+}
+
 function allocateTurnId(): number {
   if (nextTurnId == null) {
     nextTurnId = getMaxDebugTraceId() + 1;
@@ -301,8 +310,11 @@ export async function messageHandler(ctx: Context, botToken: string) {
                 `Stored ${mediaKind} description (${visionDescription.length} chars)`,
               );
             }
-            const mediaNote = `The user sent a ${mediaKind}: ${visionDescription}`;
-            latestBody = [messageText, mediaNote].filter(Boolean).join("\n\n");
+            latestBody = buildVisionTurnBody(
+              messageText,
+              mediaKind,
+              visionDescription,
+            );
           }
         }
         if (!latestBody.trim() || latestBody === "(non-text message)") {
@@ -407,7 +419,11 @@ export async function messageHandler(ctx: Context, botToken: string) {
               `Stored ${mediaKind} description (${visionDescription.length} chars)`,
             );
           }
-          latestBody = messageText || "What do you think?";
+          latestBody = buildVisionTurnBody(
+            messageText,
+            mediaKind,
+            visionDescription,
+          );
         } else if (visionDescription && visionFromReply) {
           const mediaNote = `The user is asking about an ${mediaKind} they replied to: ${visionDescription}`;
           latestBody = [messageText, mediaNote].filter(Boolean).join("\n\n");
