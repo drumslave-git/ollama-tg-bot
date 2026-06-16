@@ -1,13 +1,13 @@
 import { Bot } from "grammy";
 import { requireBotToken } from "../config/index.js";
 import { logInfo } from "../logging/index.js";
-import { setBotIdentity } from "./bot-identity.js";
-import { PUBLIC_BOT_COMMANDS } from "./commands-help.js";
+import { setBotIdentity } from "./identity/bot-identity.js";
+import { PUBLIC_BOT_COMMANDS } from "./commands/commands-help.js";
 import { registerHandlers } from "./handlers/index.js";
 import {
   collectModuleBotCommands,
   runBotHostStartupHooks,
-} from "./module-hosts.js";
+} from "./host/module-hosts.js";
 
 let botInstance: Bot | null = null;
 let botUsername = "";

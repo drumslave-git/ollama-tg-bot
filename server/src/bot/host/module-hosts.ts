@@ -8,20 +8,20 @@ import {
   type BotModuleHost,
   type ModuleManifest,
 } from "@llm-tg-bot/modules-registry";
-import { resolveModulesRoot } from "../runtime/modules.js";
-import { getSettings } from "../db/database.js";
-import { logEvent, logEventError } from "../logging/event-log.js";
-import { resolveConversationKey } from "./conversation.js";
-import { isMaintenanceBlocked } from "./maintenance.js";
-import { isSlashCommandMessage } from "./slash-command.js";
-import { enrichTextWithUserMentions } from "./mentions.js";
+import { resolveModulesRoot } from "../../runtime/modules.js";
+import { getSettings } from "../../db/index.js";
+import { logEvent, logEventError } from "../../logging/event-log.js";
+import { resolveConversationKey } from "../turn/conversation.js";
+import { isMaintenanceBlocked } from "../maintenance/maintenance.js";
+import { isSlashCommandMessage } from "../commands/slash-command.js";
+import { enrichTextWithUserMentions } from "../messages/mentions.js";
 import {
   loadVisionFromMessage,
   messageHasVisionMedia,
-} from "./message-media.js";
-import { describeVisionImages } from "./vision-describe.js";
-import { stickerPackEmoji } from "./stickers.js";
-import { replyToUser } from "./replies-helpers.js";
+} from "../messages/message-media.js";
+import { describeVisionImages } from "../media/vision-describe.js";
+import { stickerPackEmoji } from "../media/stickers.js";
+import { replyToUser } from "../replies/replies-helpers.js";
 
 let botHosts: BotModuleHost[] | null = null;
 

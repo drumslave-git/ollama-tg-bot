@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listDebugChats, listDebugTracesForChat, getDebugTraceById } from "../../db/debug-traces.js";
+import { listDebugChats, listDebugTracesForChat, getDebugTraceById } from "../../db/debug/traces.js";
 
 export const debugRouter = Router();
 

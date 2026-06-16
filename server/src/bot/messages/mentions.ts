@@ -5,8 +5,8 @@ import {
   formatKnownUserLabel,
   getKnownUserById,
   type KnownUserRecord,
-} from "../db/known-users.js";
-import { getUserFacts } from "../db/user-memory.js";
+} from "../../db/users/known-users.js";
+import { getUserFacts } from "../../db/memory/user.js";
 import { userRoleTagFromKnown } from "@llm-tg-bot/modules-history";
 import { formatSpeakerLabel } from "./speaker.js";
 import { sliceEntity } from "@llm-tg-bot/modules-addressing-detection";

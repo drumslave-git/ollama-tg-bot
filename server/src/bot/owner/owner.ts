@@ -1,6 +1,6 @@
 import type { Context } from "grammy";
-import { getSettings } from "../db/database.js";
-import { resolveUserId } from "./conversation.js";
+import { getSettings } from "../../db/index.js";
+import { resolveUserId } from "../turn/conversation.js";
 
 export function getOwnerUserId(): string | null {
   const id = getSettings().ownerUserId.trim();

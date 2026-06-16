@@ -1,7 +1,7 @@
 import type { Context } from "grammy";
 import type { Message, User } from "grammy/types";
-import type { CurrentSpeaker } from "./speaker.js";
-import { stickerHistoryLabel } from "./stickers.js";
+import type { CurrentSpeaker } from "../messages/speaker.js";
+import { stickerHistoryLabel } from "../media/stickers.js";
 
 export function isReplyToBot(ctx: Context, botUsername: string): boolean {
   const msg = ctx.message;

@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { getSettings } from "../db/database.js";
+import { getSettings } from "../db/index.js";
 
 const MAX_BYTES = 900_000;
 

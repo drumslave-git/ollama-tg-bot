@@ -1,6 +1,6 @@
 import type { Context } from "grammy";
-import { rememberTelegramUser } from "../../db/known-users.js";
-import { tryResolveOwnerFromUser } from "../owner-sync.js";
+import { rememberTelegramUser } from "../../db/users/known-users.js";
+import { tryResolveOwnerFromUser } from "../owner/owner-sync.js";
 
 export function trackTelegramUser(ctx: Context): void {
   rememberTelegramUser(ctx.from);

@@ -1,48 +1,48 @@
 import type { Context } from "grammy";
-import type { ChatMessage } from "../llm/client.js";
-import { chatCompleteDetailed } from "../llm/client.js";
+import type { ChatMessage } from "../../llm/client.js";
+import { chatCompleteDetailed } from "../../llm/client.js";
 import {
   recordError,
   recordReply,
   type ErrorLogInput,
-} from "../db/database.js";
-import { getActivePersonalityPrompt } from "../db/personalities.js";
-import { getResolvedHistoryLimits, getResolvedSettings } from "../settings/runtime.js";
-import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../prompts/response-format.js";
+} from "../../db/index.js";
+import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
+import { getResolvedHistoryLimits, getResolvedSettings } from "../../settings/runtime.js";
+import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../../prompts/response-format.js";
 import {
   escapeHtml,
   hasVisibleTelegramReply,
   prepareTelegramHtml,
   visibleTelegramText,
-} from "../telegram/html.js";
+} from "../../telegram/html.js";
 import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
 import type { MemoryExtractInput } from "@llm-tg-bot/modules-memory";
-import type { MoodValues } from "../mood/index.js";
-import type { CurrentSpeaker } from "./speaker.js";
+import type { MoodValues } from "../../mood/index.js";
+import type { CurrentSpeaker } from "../messages/speaker.js";
 import {
   buildChatMessages,
   recordExchange,
 } from "./conversation.js";
-import { getOwnerUserId, getOwnerUsername } from "./owner.js";
-import { replyParameters } from "./replies.js";
-import { logEvent, logEventError } from "../logging/event-log.js";
-import { getMessageReport } from "../debug/message-report.js";
+import { getOwnerUserId, getOwnerUsername } from "../owner/owner.js";
+import { replyParameters } from "../replies/replies.js";
+import { logEvent, logEventError } from "../../logging/event-log.js";
+import { getMessageReport } from "../../debug/message-report.js";
 import {
   getHistory,
   historyToChatMessages,
   historyTotalTokens,
-} from "../db/history.js";
-import { ensureHistoryFits } from "../debug/context-compress.js";
-import { getEffectiveMood } from "../db/mood.js";
-import { sendThinkingMessages } from "./send-thinking.js";
-import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";
-import { replyHtml } from "./replies-helpers.js";
+} from "../../db/history/index.js";
+import { ensureHistoryFits } from "../../debug/context-compress.js";
+import { getEffectiveMood } from "../../db/mood/index.js";
+import { sendThinkingMessages } from "../replies/send-thinking.js";
+import { messageThreadExtra, resolveTypingThreadParams } from "../replies/typing.js";
+import { replyHtml } from "../replies/replies-helpers.js";
 import type { PipelineTurnState } from "@llm-tg-bot/modules-registry";
 import {
   createPipelineServices,
   runPipelinePhase,
   runPipelinePhaseBackground,
-} from "../pipeline/index.js";
+} from "../../pipeline/index.js";
 
 export type ChatTurnMemoryInput = Omit<MemoryExtractInput, "assistantReply">;
 

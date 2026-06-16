@@ -1,5 +1,5 @@
-import type { Settings } from "../db/database.js";
-import { getSettings } from "../db/database.js";
+import type { Settings } from "../db/index.js";
+import { getSettings } from "../db/index.js";
 import {
   buildContextBudget,
   getEffectiveNumCtx,

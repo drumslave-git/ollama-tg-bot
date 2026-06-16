@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { getSettings, updateSettings, type Settings } from "../../db/database.js";
+import { getSettings, updateSettings, type Settings } from "../../db/index.js";
 import { buildSettingsPayload } from "../../dashboard/payloads.js";
 import { getBot } from "../../bot/index.js";
-import { resolveOwnerUsername } from "../../bot/resolve-owner.js";
+import { resolveOwnerUsername } from "../../bot/owner/resolve-owner.js";
 import { ensureModelContextCache } from "../../llm/model-context-cache.js";
 import {
   syncStickerCatalogFromSettings,

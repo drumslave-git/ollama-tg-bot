@@ -1,4 +1,4 @@
-import type { Settings } from "../db/database.js";
+import type { Settings } from "../db/index.js";
 import { getVramAvailableGb } from "../config/index.js";
 import {
   calculateContextBudget,

@@ -1,5 +1,5 @@
 import type { Context } from "grammy";
-import { escapeHtml } from "../telegram/html.js";
+import { escapeHtml } from "../../telegram/html.js";
 
 type SendMessageExtra = Exclude<
   Parameters<Context["api"]["sendMessage"]>[2],

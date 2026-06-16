@@ -236,7 +236,7 @@ export function upsertMessageReport(input: {
     input.durationMs,
   );
   trimTracesForChat(input.chatId);
-  void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitDebugUpdated }) => {
+  void import("../../dashboard/live-events.js").then(({ emitDataUpdated, emitDebugUpdated }) => {
     emitDebugUpdated(buildDebugLivePayload(input.id));
     emitDataUpdated(["debug_traces"]);
   });

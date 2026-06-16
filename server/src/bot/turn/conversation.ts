@@ -1,28 +1,28 @@
 import type { Context } from "grammy";
-import type { ChatMessage } from "../llm/client.js";
+import type { ChatMessage } from "../../llm/client.js";
 import {
   appendAssistantMessage,
   appendMessage,
   conversationKey,
   getHistory,
   historyToChatMessages,
-} from "../db/history.js";
+} from "../../db/history/index.js";
 import {
   formatKnownUserLabel,
   getKnownUserById,
   getKnownUsersByIds,
-} from "../db/known-users.js";
-import { getUserFacts } from "../db/user-memory.js";
-import { logEvent } from "../logging/event-log.js";
-import type { Settings } from "../db/database.js";
-import { buildSystemPrompt, type ParticipantFacts } from "../prompts/index.js";
-import type { MoodValues } from "../mood/index.js";
+} from "../../db/users/known-users.js";
+import { getUserFacts } from "../../db/memory/user.js";
+import { logEvent } from "../../logging/event-log.js";
+import type { Settings } from "../../db/index.js";
+import { buildSystemPrompt, type ParticipantFacts } from "../../prompts/index.js";
+import type { MoodValues } from "../../mood/index.js";
 import {
   extractParticipantUserIds,
   userRoleTag,
 } from "@llm-tg-bot/modules-history";
-import { isReplyThreadContext } from "./replies.js";
-import { currentSpeakerFromUser, type CurrentSpeaker } from "./speaker.js";
+import { isReplyThreadContext } from "../replies/replies.js";
+import { currentSpeakerFromUser, type CurrentSpeaker } from "../messages/speaker.js";
 
 export function resolveConversationKey(ctx: Context): string | null {
   const chatId = ctx.chat?.id;

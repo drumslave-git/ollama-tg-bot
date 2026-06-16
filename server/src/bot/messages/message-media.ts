@@ -3,7 +3,7 @@ import { downloadTelegramFile, type ImagePayload } from "./files.js";
 import {
   loadStickerForVision,
   stickerUnavailableText,
-} from "./stickers.js";
+} from "../media/stickers.js";
 
 export interface LoadedVisionMedia {
   images: ImagePayload[];

@@ -4,7 +4,7 @@ import express from "express";
 import cors from "cors";
 import { config, requireStartupEnv } from "./config/index.js";
 import { logInfo } from "./logging/index.js";
-import { initDatabase, getSettings } from "./db/database.js";
+import { initDatabase, getSettings } from "./db/index.js";
 import { refreshModelContextCache } from "./llm/model-context-cache.js";
 import { createApiRouter } from "./api/routes.js";
 import { startBot, stopBot } from "./bot/index.js";
@@ -19,7 +19,7 @@ import {
   wireModuleLiveHooks,
 } from "./runtime/modules.js";
 import { loadPipelineHosts } from "./pipeline/index.js";
-import { loadBotHosts } from "./bot/module-hosts.js";
+import { loadBotHosts } from "./bot/host/module-hosts.js";
 import {
   emitDataUpdated,
   emitMemoryUpdated,

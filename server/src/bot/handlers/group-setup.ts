@@ -1,5 +1,5 @@
 import type { Context } from "grammy";
-import { wasBotAddedToChat, groupSetupMessage } from "../group-setup.js";
+import { wasBotAddedToChat, groupSetupMessage } from "../group/setup.js";
 
 export async function groupSetupHandler(ctx: Context, botUsername: string) {
   const chat = ctx.chat;

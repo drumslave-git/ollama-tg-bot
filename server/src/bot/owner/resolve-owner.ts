@@ -1,5 +1,5 @@
 import type { Api } from "grammy";
-import { findKnownUserByUsername } from "../db/known-users.js";
+import { findKnownUserByUsername } from "../../db/users/known-users.js";
 
 const USERNAME_RE = /^[a-z0-9_]{5,32}$/i;
 

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { listDataTables, getDataTable } from "../../db/data-browser.js";
+import { listDataTables, getDataTable } from "../../db/data/browser.js";
 
 export const dataRouter = Router();
 

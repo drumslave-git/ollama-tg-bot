@@ -1,4 +1,4 @@
-import { tickMoodCooldown } from "../db/mood.js";
+import { tickMoodCooldown } from "../db/mood/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { logInfo } from "../logging/index.js";
 

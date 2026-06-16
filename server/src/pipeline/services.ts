@@ -10,13 +10,13 @@ import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { getResolvedSettings } from "../settings/runtime.js";
-import { getBotIdentity } from "../bot/bot-identity.js";
+import { getBotIdentity } from "../bot/identity/bot-identity.js";
 import { getStickerCatalogForSelection } from "@llm-tg-bot/modules-sticker-selection";
-import { getEffectiveMood, saveMoodState } from "../db/mood.js";
-import { replaceGeneralFacts } from "../db/general-memory.js";
-import { replaceGroupFacts } from "../db/group-memory.js";
-import { replaceUserFacts } from "../db/user-memory.js";
-import { getSettings } from "../db/database.js";
+import { getEffectiveMood, saveMoodState } from "../db/mood/index.js";
+import { replaceGeneralFacts } from "../db/memory/general.js";
+import { replaceGroupFacts } from "../db/memory/group.js";
+import { replaceUserFacts } from "../db/memory/user.js";
+import { getSettings } from "../db/index.js";
 
 function toReportWriter(turnId: number): PipelineReportWriter | null {
   const report = getMessageReport(turnId);

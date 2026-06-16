@@ -6,11 +6,11 @@ import {
   appendErrorLog,
   bindErrorLogDatabase,
   clearErrorLog,
-} from "./error-log.js";
-import { bindDebugTracesDatabase } from "./debug-traces.js";
-import { bindKnownUsersDatabase } from "./known-users.js";
-import { bindDataBrowserDatabase } from "./data-browser.js";
-import { getPersonalityById } from "./personalities.js";
+} from "./debug/error-log.js";
+import { bindDebugTracesDatabase } from "./debug/traces.js";
+import { bindKnownUsersDatabase } from "./users/known-users.js";
+import { bindDataBrowserDatabase } from "./data/browser.js";
+import { getPersonalityById } from "./personalities/index.js";
 import {
   invalidateModelContextCache,
   refreshModelContextCache,

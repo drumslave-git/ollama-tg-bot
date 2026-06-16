@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSlashCommandMessage } from "../../src/bot/slash-command.js";
+import { isSlashCommandMessage } from "../../src/bot/commands/slash-command.js";
 
 function ctxWithText(text: string | undefined) {
   return { message: text != null ? { text } : undefined };

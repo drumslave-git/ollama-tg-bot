@@ -1,22 +1,22 @@
 import type { Bot, Context } from "grammy";
-import { isGroupChat, resolveConversationKey, resolveGroupChatId, resolveUserId } from "../conversation.js";
-import { getSettings, recordMessageReceived, recordReply } from "../../db/database.js";
+import { isGroupChat, resolveConversationKey, resolveGroupChatId, resolveUserId } from "../turn/conversation.js";
+import { getSettings, recordMessageReceived, recordReply } from "../../db/index.js";
 import { config } from "../../config/index.js";
-import { groupSetupMessage } from "../group-setup.js";
-import { isOwner, getOwnerUserId, getOwnerUsername } from "../owner.js";
+import { groupSetupMessage } from "../group/setup.js";
+import { isOwner, getOwnerUserId, getOwnerUsername } from "../owner/owner.js";
 import { escapeHtml } from "../../telegram/html.js";
-import { buildPublicCommandsHelp } from "../commands-help.js";
-import { collectModuleBotCommands } from "../module-hosts.js";
-import { clearHistory } from "../../db/history.js";
-import { clearUserMemory, createUserFact, getUserFacts } from "../../db/user-memory.js";
-import { clearGroupMemory, createGroupFact, getGroupFacts } from "../../db/group-memory.js";
-import { createGeneralFact, getGeneralFacts } from "../../db/general-memory.js";
-import { MAX_FACT_LENGTH, MIN_FACT_LENGTH } from "../../db/memory-facts.js";
+import { buildPublicCommandsHelp } from "./commands-help.js";
+import { collectModuleBotCommands } from "../host/module-hosts.js";
+import { clearHistory } from "../../db/history/index.js";
+import { clearUserMemory, createUserFact, getUserFacts } from "../../db/memory/user.js";
+import { clearGroupMemory, createGroupFact, getGroupFacts } from "../../db/memory/group.js";
+import { createGeneralFact, getGeneralFacts } from "../../db/memory/general.js";
+import { MAX_FACT_LENGTH, MIN_FACT_LENGTH } from "../../db/memory/facts.js";
 import { logEvent } from "../../logging/event-log.js";
-import { runExplainTurn } from "../explain-turn.js";
-import { replyToUser } from "../replies-helpers.js";
+import { runExplainTurn } from "../turn/explain-turn.js";
+import { replyToUser } from "../replies/replies-helpers.js";
 import { resolveCallerRememberTarget, resolveCommandInlineOrReplyText, resolveRememberTarget } from "./command-utils.js";
-import { startTypingForMessage } from "../typing.js";
+import { startTypingForMessage } from "../replies/typing.js";
 import { userRoleTag } from "@llm-tg-bot/modules-history";
 
 export function registerBotCommands(bot: Bot, botUsername: string): void {

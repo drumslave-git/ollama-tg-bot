@@ -7,7 +7,7 @@ import {
   type ReportPhase,
   type ReportStatus,
   upsertMessageReport,
-} from "../db/debug-traces.js";
+} from "../db/debug/traces.js";
 
 export type {
   MessageReportListSummary,
@@ -16,7 +16,7 @@ export type {
   MessageReport,
   ReportPhase,
   ReportStatus,
-} from "../db/debug-traces.js";
+} from "../db/debug/traces.js";
 
 const IGNORE_LABELS: Record<string, string> = {
   from_bot: "Sender is a bot",

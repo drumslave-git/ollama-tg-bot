@@ -1,31 +1,31 @@
 import type { Context } from "grammy";
-import type { ChatMessage } from "../llm/client.js";
-import { chatCompleteDetailed } from "../llm/client.js";
+import type { ChatMessage } from "../../llm/client.js";
+import { chatCompleteDetailed } from "../../llm/client.js";
 import {
   getSettings,
   recordError,
   recordReply,
   type ErrorLogInput,
-} from "../db/database.js";
+} from "../../db/index.js";
 import {
   getPersonalityById,
   resolveActivePersonalityId,
-} from "../db/personalities.js";
-import { getHistory, historyToChatMessages } from "../db/history.js";
-import { ensureHistoryFits } from "../debug/context-compress.js";
-import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../prompts/response-format.js";
+} from "../../db/personalities/index.js";
+import { getHistory, historyToChatMessages } from "../../db/history/index.js";
+import { ensureHistoryFits } from "../../debug/context-compress.js";
+import { extractTelegramReply, MAIN_REPLY_RESPONSE_FORMAT } from "../../prompts/response-format.js";
 import {
   escapeHtml,
   hasVisibleTelegramReply,
   prepareTelegramHtml,
-} from "../telegram/html.js";
-import { buildExplainSystemPrompt } from "../prompts/index.js";
+} from "../../telegram/html.js";
+import { buildExplainSystemPrompt } from "../../prompts/index.js";
 import { recordExchange } from "./conversation.js";
-import { replyParameters } from "./replies.js";
-import { logEvent, logEventError } from "../logging/event-log.js";
-import { sendThinkingMessages } from "./send-thinking.js";
-import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";
-import { replyHtml } from "./replies-helpers.js";
+import { replyParameters } from "../replies/replies.js";
+import { logEvent, logEventError } from "../../logging/event-log.js";
+import { sendThinkingMessages } from "../replies/send-thinking.js";
+import { messageThreadExtra, resolveTypingThreadParams } from "../replies/typing.js";
+import { replyHtml } from "../replies/replies-helpers.js";
 
 export interface ExplainTurnInput {
   convKey: string;

@@ -7,7 +7,7 @@ import {
   createBotHostServices,
   registerModuleCommands,
   registerModuleMiddlewares,
-} from "../module-hosts.js";
+} from "../host/module-hosts.js";
 
 export function registerHandlers(bot: Bot, botUsername: string): void {
   const services = createBotHostServices(bot.api, botUsername, bot.token);

@@ -1,5 +1,5 @@
 import type { User } from "@grammyjs/types";
-import { getSettings, updateSettings } from "../db/database.js";
+import { getSettings, updateSettings } from "../../db/index.js";
 import { normalizeTelegramUsername } from "./resolve-owner.js";
 
 /** Persist owner user id once the configured @username messages the bot. */

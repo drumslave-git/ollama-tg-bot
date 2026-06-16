@@ -12,8 +12,8 @@ import type {
 } from "openai/resources/chat/completions";
 import type { Model } from "openai/resources/models";
 import { config } from "../config/index.js";
-import { getSettings } from "../db/database.js";
-import type { Settings } from "../db/database.js";
+import { getSettings } from "../db/index.js";
+import type { Settings } from "../db/index.js";
 import {
   AUXILIARY_TEMPERATURE,
   getAuxiliaryNumPredict,

@@ -4,7 +4,7 @@ import {
   historyTotalTokens,
   replaceHistory,
   type StoredMessage,
-} from "../db/history.js";
+} from "../db/history/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { chatComplete } from "../llm/client.js";
 import type { ChatMessage } from "../llm/client.js";

@@ -1,10 +1,10 @@
-import type { Settings } from "../../src/db/database.js";
+import type { Settings } from "../../src/db/index.js";
 
 /**
  * Build a valid {@link Settings} object for tests.
  *
  * Mirrors the production `DEFAULT_SETTINGS` so unit tests never need to import
- * `db/database.ts` (which pulls in `node:sqlite` and the dotenv-backed config).
+ * `db/index.ts` (which pulls in `node:sqlite` and the dotenv-backed config).
  * Pass a partial override to exercise a specific field.
  */
 export function makeSettings(overrides: Partial<Settings> = {}): Settings {

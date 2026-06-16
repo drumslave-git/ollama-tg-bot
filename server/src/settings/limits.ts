@@ -1,4 +1,4 @@
-import type { Settings } from "../db/database.js";
+import type { Settings } from "../db/index.js";
 
 export const MIN_NUM_PREDICT = 32;
 /**

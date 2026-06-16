@@ -4,7 +4,7 @@ import {
   getTelegramFilePath,
   isRasterImagePath,
   type ImagePayload,
-} from "./files.js";
+} from "../messages/files.js";
 
 export type StickerVisionResult = {
   payload: ImagePayload;

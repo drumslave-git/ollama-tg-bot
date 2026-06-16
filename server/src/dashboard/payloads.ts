@@ -1,14 +1,14 @@
 import { buildCommit, buildCommitShort } from "../config/build-info.js";
 import { getBot, getBotUsername } from "../bot/index.js";
 import { getVramAvailableGb } from "../config/index.js";
-import { getSettings, getStats } from "../db/database.js";
-import { listRecentErrors } from "../db/error-log.js";
-import { getMoodStateView } from "../db/mood.js";
+import { getSettings, getStats } from "../db/index.js";
+import { listRecentErrors } from "../db/debug/error-log.js";
+import { getMoodStateView } from "../db/mood/index.js";
 import {
   getActivePersonalityMoodDefaults,
   getPersonalityById,
   resolveActivePersonalityId,
-} from "../db/personalities.js";
+} from "../db/personalities/index.js";
 import { ensureModelContextCache } from "../llm/model-context-cache.js";
 import { MOOD_TRAIT_HINTS } from "../mood/index.js";
 import { buildBaseSystemPrompt } from "../prompts/index.js";
