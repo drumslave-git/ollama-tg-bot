@@ -2,8 +2,8 @@ import type { Message } from "@grammyjs/types";
 import type {
   PipelineModuleHost,
   PipelineStepResult,
-  PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
+import { stripCurrentBotAddressing } from "@llm-tg-bot/modules-addressing-detection";
 import { appendMessage } from "@llm-tg-bot/modules-history-db";
 import {
   buildMediaHistoryContent,
@@ -44,7 +44,7 @@ export const turnSetupHost: PipelineModuleHost = {
     state.skipUserHistory = state.inGroup;
 
     const rawText = state.rawText ?? "";
-    const promptText = cb.stripBotAddressing?.(rawText) || rawText;
+    const promptText = stripCurrentBotAddressing(rawText) || rawText;
     state.latestBody = promptText || "(non-text message)";
     state.replyContext =
       cb.formatReplyContext?.(state.telegram, state.currentSpeaker) ?? null;

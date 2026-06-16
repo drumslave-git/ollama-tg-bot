@@ -5,7 +5,7 @@ import { beginMessageReport, getMessageReport } from "../../debug/message-report
 import { extractText } from "../messages/message-content.js";
 import { summarizeMessageContent } from "../replies/replies.js";
 import { isSlashCommandMessage } from "../commands/slash-command.js";
-import { messageHasVisionMedia } from "../media/vision-adapter.js";
+import { messageHasVisionMedia } from "@llm-tg-bot/modules-vision";
 import { mediaKindForMessage } from "@llm-tg-bot/modules-history";
 import { recordMessageReceived } from "../../db/index.js";
 import { isMaintenanceBlocked } from "../maintenance/maintenance.js";
@@ -16,6 +16,7 @@ import {
   runMessagePipeline,
   runPipelinePhaseBackground,
 } from "../../pipeline/index.js";
+import { buildTelegramContext } from "../../pipeline/telegram.js";
 import {
   deliverEarlyReply,
   deliverPipelineError,
@@ -118,19 +119,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
     const state = createInitialPipelineState({
       turnId,
       rawText: text ?? "",
-      telegram: {
-        message: ctx.message,
-        chat: ctx.chat
-          ? {
-              id: ctx.chat.id,
-              type: ctx.chat.type,
-              is_forum: ctx.chat.is_forum,
-            }
-          : undefined,
-        from: ctx.from,
-        me: ctx.me ? { id: ctx.me.id, username: ctx.me.username } : undefined,
-        botToken,
-      },
+      telegram: buildTelegramContext(ctx, botToken),
     });
 
     let endTyping: (() => void) | undefined;

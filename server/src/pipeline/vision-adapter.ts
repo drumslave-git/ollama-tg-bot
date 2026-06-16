@@ -2,19 +2,8 @@ import {
   describeVisionImages as runVisionDescribe,
   type ImagePayload,
 } from "@llm-tg-bot/modules-vision";
-import { chatComplete } from "../../llm/client.js";
-import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
-
-export {
-  findReplyMediaMessage,
-  loadVisionFromMessage,
-  messageHasUserImage,
-  messageHasVisionMedia,
-  stickerHistoryLabel,
-  stickerPackEmoji,
-  type ImagePayload,
-  type LoadedVisionMedia,
-} from "@llm-tg-bot/modules-vision";
+import { chatComplete } from "../llm/client.js";
+import { logEvent, logEventError, type EventFields } from "../logging/event-log.js";
 
 const visionDescribeConfig = {
   chatComplete: (
@@ -43,7 +32,7 @@ const visionDescribeConfig = {
   },
 };
 
-/** Host adapter for the vision describe side pass (tracing + provider settings). */
+/** Pipeline host adapter for vision describe (tracing + provider settings). */
 export async function describeVisionImages(
   images: ImagePayload[],
   logContext: EventFields = {},

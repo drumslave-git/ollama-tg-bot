@@ -1,5 +1,8 @@
 export { createPipelineServices, createInitialPipelineState } from "./services.js";
-export { loadPipelineHosts, getPipelineHosts } from "./loader.js";
+export {
+  loadPipelineHosts,
+  getPipelineHosts,
+} from "../runtime/module-hosts.js";
 export {
   runMessagePipeline,
   runPipelinePhase,

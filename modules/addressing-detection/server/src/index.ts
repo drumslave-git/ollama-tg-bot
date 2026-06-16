@@ -15,8 +15,11 @@ export {
 } from "./check-addressed.js";
 export {
   buildBotAddressIdentity,
+  getBotIdentity,
   messageReferencesBotByName,
+  setBotIdentity,
   stripBotAddressing,
+  stripCurrentBotAddressing,
   type BotAddressIdentity,
 } from "./bot-identity.js";
 export { stripNonBotMentions } from "./strip-non-bot-mentions.js";

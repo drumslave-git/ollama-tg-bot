@@ -4,38 +4,89 @@ import type { Context } from "grammy";
 import {
   discoverModuleManifests,
   type BotHostServices,
-  type BotMiddlewareRegistration,
   type BotModuleHost,
   type ModuleManifest,
+  type PipelineModuleHost,
 } from "@llm-tg-bot/modules-registry";
-import { resolveModulesRoot } from "../../runtime/modules.js";
-import { getSettings } from "../../db/index.js";
-import { logEvent, logEventError } from "../../logging/event-log.js";
-import { resolveConversationKey } from "../turn/conversation.js";
-import { isMaintenanceBlocked } from "../maintenance/maintenance.js";
-import { isSlashCommandMessage } from "../commands/slash-command.js";
-import { enrichTextWithUserMentions } from "../messages/mentions.js";
-import {
-  loadVisionFromMessage,
-  messageHasVisionMedia,
-  describeVisionImages,
-  stickerPackEmoji,
-} from "../media/vision-adapter.js";
-import { replyToUser } from "../replies/replies-helpers.js";
+import { resolveModulesRoot } from "./modules.js";
+import { getSettings } from "../db/index.js";
+import { logEvent, logEventError } from "../logging/event-log.js";
+import { replyToUser } from "../bot/replies/replies-helpers.js";
+import { createExplainExtensions } from "./explain-host.js";
 
+type ServerManifest = ModuleManifest & { serverPackage: string };
+
+const PHASE_ORDER: Record<string, number> = {
+  preprocess: 0,
+  gate: 1,
+  "not-addressed": 2,
+  "pre-reply": 3,
+  reply: 4,
+  "post-reply": 5,
+  background: 6,
+};
+
+function serverManifests(): ServerManifest[] {
+  return discoverModuleManifests(resolveModulesRoot()).filter(
+    (manifest): manifest is ServerManifest => Boolean(manifest.serverPackage),
+  );
+}
+
+function sortPipelineHosts(hosts: PipelineModuleHost[]): PipelineModuleHost[] {
+  return hosts.sort((a, b) => {
+    const phaseDiff = (PHASE_ORDER[a.phase] ?? 99) - (PHASE_ORDER[b.phase] ?? 99);
+    if (phaseDiff !== 0) return phaseDiff;
+    return a.order - b.order;
+  });
+}
+
+let pipelineHosts: PipelineModuleHost[] | null = null;
 let botHosts: BotModuleHost[] | null = null;
+
+export async function loadPipelineHosts(): Promise<PipelineModuleHost[]> {
+  if (pipelineHosts) return pipelineHosts;
+
+  const loaded: PipelineModuleHost[] = [];
+
+  for (const manifest of serverManifests()) {
+    const mod = (await import(manifest.serverPackage)) as {
+      pipelineHost?: PipelineModuleHost;
+      pipelineHosts?: PipelineModuleHost[];
+    };
+
+    const hosts = mod.pipelineHosts
+      ? mod.pipelineHosts
+      : mod.pipelineHost
+        ? [mod.pipelineHost]
+        : [];
+
+    for (const host of hosts) {
+      if (host.id !== manifest.id) {
+        throw new Error(
+          `Module ${manifest.id} pipelineHost.id mismatch: ${host.id}`,
+        );
+      }
+      loaded.push(host);
+    }
+  }
+
+  pipelineHosts = sortPipelineHosts(loaded);
+  return pipelineHosts;
+}
+
+export function getPipelineHosts(): PipelineModuleHost[] {
+  if (!pipelineHosts) {
+    throw new Error("Pipeline hosts not loaded — call loadPipelineHosts() at startup");
+  }
+  return pipelineHosts;
+}
 
 export async function loadBotHosts(): Promise<BotModuleHost[]> {
   if (botHosts) return botHosts;
 
-  const manifests = discoverModuleManifests(resolveModulesRoot()).filter(
-    (manifest): manifest is ModuleManifest & { serverPackage: string } =>
-      Boolean(manifest.serverPackage),
-  );
-
   const loaded: BotModuleHost[] = [];
 
-  for (const manifest of manifests) {
+  for (const manifest of serverManifests()) {
     const mod = (await import(manifest.serverPackage)) as {
       botHost?: BotModuleHost;
     };
@@ -74,37 +125,9 @@ export function createBotHostServices(
         logEventError(event, err, fields as never),
     },
     getSettings: () => getSettings() as unknown as Record<string, unknown>,
-    callbacks: {
-      resolveConversationKey: (ctx) =>
-        resolveConversationKey(ctx as Context),
-      isMaintenanceBlocked: (ctx) => isMaintenanceBlocked(ctx as Context),
-      isSlashCommandMessage: (ctx) => isSlashCommandMessage(ctx as Context),
-      enrichTextWithUserMentions: (text, message, options) =>
-        enrichTextWithUserMentions(text, message as never, options),
-      loadVisionFromMessage: (token, message) =>
-        loadVisionFromMessage(token, message as never),
-      messageHasVisionMedia: (message) => messageHasVisionMedia(message as never),
-      describeVisionImages: (images, msgLog, visionHint) =>
-        describeVisionImages(images as never, msgLog as never, visionHint),
-      stickerPackEmoji: (sticker) => stickerPackEmoji(sticker as never),
-      replyToUser: (ctx, text) => replyToUser(ctx as Context, text),
-    },
+    replyToUser: (ctx, text) => replyToUser(ctx as Context, text),
+    extensions: createExplainExtensions(),
   };
-}
-
-function collectMiddlewares(): BotMiddlewareRegistration[] {
-  return getBotHosts()
-    .flatMap((host) => host.middlewares ?? [])
-    .sort((a, b) => a.order - b.order);
-}
-
-export function registerModuleMiddlewares(
-  bot: Bot,
-  services: BotHostServices,
-): void {
-  for (const middleware of collectMiddlewares()) {
-    bot.use((ctx, next) => middleware.handler(ctx, next, services));
-  }
 }
 
 export function registerModuleCommands(

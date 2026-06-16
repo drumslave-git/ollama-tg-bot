@@ -6,8 +6,7 @@ import { registerBotCommands } from "../commands/index.js";
 import {
   createBotHostServices,
   registerModuleCommands,
-  registerModuleMiddlewares,
-} from "../host/module-hosts.js";
+} from "../../runtime/module-hosts.js";
 
 export function registerHandlers(bot: Bot, botUsername: string): void {
   const services = createBotHostServices(bot.api, botUsername, bot.token);
@@ -16,8 +15,6 @@ export function registerHandlers(bot: Bot, botUsername: string): void {
 
   registerBotCommands(bot, botUsername);
   registerModuleCommands(bot, services);
-
-  registerModuleMiddlewares(bot, services);
 
   bot.on("message", (ctx) => messageHandler(ctx, bot.token));
 

@@ -203,7 +203,6 @@ export interface PipelineLlmServices {
 }
 
 export interface PipelineHostCallbacks {
-  getBotIdentity?: () => unknown;
   resolveConversationKey?: (telegram: PipelineTelegramContext) => string | null;
   resolveUserId?: (telegram: PipelineTelegramContext) => string | null;
   resolveGroupChatId?: (telegram: PipelineTelegramContext) => string | null;
@@ -245,7 +244,6 @@ export interface PipelineHostCallbacks {
     telegram: PipelineTelegramContext,
     currentSpeaker?: unknown,
   ) => string | null;
-  stripBotAddressing?: (text: string) => string;
   resolveMentionedUsersContext?: (
     text: string,
     telegram: PipelineTelegramContext,

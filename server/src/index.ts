@@ -18,8 +18,7 @@ import {
   createModuleRouters,
   wireModuleLiveHooks,
 } from "./runtime/modules.js";
-import { loadPipelineHosts } from "./pipeline/index.js";
-import { loadBotHosts } from "./bot/host/module-hosts.js";
+import { loadBotHosts, loadPipelineHosts } from "./runtime/module-hosts.js";
 import {
   emitDataUpdated,
   emitMemoryUpdated,

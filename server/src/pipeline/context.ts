@@ -13,9 +13,8 @@ import { getGeneralFacts } from "../db/memory/general.js";
 import { buildSystemPrompt } from "../prompts/index.js";
 import {
   buildChatMessages,
-  recordExchange,
   type LatestTurnOptions,
-} from "../bot/turn/conversation.js";
+} from "./chat-messages.js";
 import { ensureHistoryFits } from "../debug/context-compress.js";
 import {
   escapeHtml,
@@ -145,16 +144,6 @@ export function preparePipelineDelivery(
 
 export async function ensureHistoryFitsForTurn(convKey: string): Promise<void> {
   await ensureHistoryFits(convKey);
-}
-
-export function recordPipelineExchange(
-  convKey: string,
-  userRole: string | null,
-  userContent: string | null,
-  assistantText: string,
-  options?: { skipUser?: boolean },
-): void {
-  recordExchange(convKey, userRole, userContent, assistantText, options);
 }
 
 export function loadMemoryFactsForUser(userId: string): string[] {

@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBotAddressIdentity,
+  getBotIdentity,
   messageReferencesBotByName,
+  setBotIdentity,
   stripBotAddressing,
+  stripCurrentBotAddressing,
 } from "../src/bot-identity.js";
+
+describe("runtime bot identity", () => {
+  it("setBotIdentity and getBotIdentity share the same runtime state", () => {
+    setBotIdentity({ id: 42, first_name: "Test" }, "testbot");
+    expect(getBotIdentity().id).toBe(42);
+    expect(getBotIdentity().username).toBe("testbot");
+  });
+
+  it("stripCurrentBotAddressing uses runtime identity", () => {
+    setBotIdentity({ id: 1 }, "mybot");
+    expect(stripCurrentBotAddressing("@mybot hello")).toBe("hello");
+  });
+});
 
 describe("buildBotAddressIdentity", () => {
   it("includes username and derived aliases", () => {

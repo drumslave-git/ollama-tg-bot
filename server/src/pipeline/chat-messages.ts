@@ -1,35 +1,23 @@
-import type { Context } from "grammy";
-import type { ChatMessage } from "../../llm/client.js";
+import type { ChatMessage } from "../llm/client.js";
 import {
   appendAssistantMessage,
   appendMessage,
-  conversationKey,
   getHistory,
   historyToChatMessages,
-} from "../../db/history/index.js";
+} from "../db/history/index.js";
 import {
   formatKnownUserLabel,
   getKnownUserById,
   getKnownUsersByIds,
-} from "../../db/users/known-users.js";
-import { getUserFacts } from "../../db/memory/user.js";
-import { logEvent } from "../../logging/event-log.js";
-import type { Settings } from "../../db/index.js";
-import { buildSystemPrompt, type ParticipantFacts } from "../../prompts/index.js";
-import type { MoodValues } from "../../mood/index.js";
-import {
-  extractParticipantUserIds,
-  userRoleTag,
-} from "@llm-tg-bot/modules-history";
-import { isReplyThreadContext } from "../replies/replies.js";
-import { currentSpeakerFromUser, type CurrentSpeaker } from "../messages/speaker.js";
-
-export function resolveConversationKey(ctx: Context): string | null {
-  const chatId = ctx.chat?.id;
-  if (chatId == null) return null;
-  // Groups share one history per chat — not per forum topic.
-  return conversationKey(chatId);
-}
+} from "../db/users/known-users.js";
+import { getUserFacts } from "../db/memory/user.js";
+import { logEvent } from "../logging/event-log.js";
+import type { Settings } from "../db/index.js";
+import { buildSystemPrompt, type ParticipantFacts } from "../prompts/index.js";
+import type { MoodValues } from "../mood/index.js";
+import { extractParticipantUserIds } from "@llm-tg-bot/modules-history";
+import { isReplyThreadContext } from "../bot/replies/replies.js";
+import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 
 export interface LatestTurnOptions {
   body: string;
@@ -45,14 +33,13 @@ export interface LatestTurnOptions {
 
 function buildLatestTurnMessage(options: LatestTurnOptions): string {
   const parts: string[] = [];
-
   const hasReplyThread = isReplyThreadContext(options.replyContext);
 
   if (options.isGroupChat && options.currentSpeaker) {
     const ownerLine = options.currentSpeakerIsOwner
       ? "They are the bot owner — prioritize their intent.\n"
       : "";
-    
+
     if (hasReplyThread) {
       parts.push(
         `[CURRENT SPEAKER — reply to this person]\n` +
@@ -75,9 +62,7 @@ function buildLatestTurnMessage(options: LatestTurnOptions): string {
   }
 
   if (options.replyContext?.trim()) {
-    parts.push(
-      `[REPLY CONTEXT]\n${options.replyContext.trim()}`,
-    );
+    parts.push(`[REPLY CONTEXT]\n${options.replyContext.trim()}`);
   }
 
   if (options.linkFetchContext?.trim()) {
@@ -135,7 +120,6 @@ export interface BuiltChatPayload {
   systemContent: string;
   historyMessages: ChatMessage[];
   latestContent: string;
-  /** Number of stored history messages used to build the prompt. */
   storedHistoryCount: number;
 }
 
@@ -215,37 +199,15 @@ export function buildChatMessages(
     speakerTag: latestTurn.speakerTag ?? null,
   });
 
-  const historyMessages = history;
   const latestMessage: ChatMessage = { role: "user", content: latest };
 
   return {
     systemContent: system,
-    historyMessages,
+    historyMessages: history,
     latestContent: latest,
     storedHistoryCount: storedHistory.length,
-    messages: [
-      { role: "system", content: system },
-      ...historyMessages,
-      latestMessage,
-    ],
+    messages: [{ role: "system", content: system }, ...history, latestMessage],
   };
-}
-
-export function resolveUserId(ctx: Context): string | null {
-  const id = ctx.from?.id;
-  return id != null ? String(id) : null;
-}
-
-export function resolveGroupChatId(ctx: Context): string | null {
-  const chat = ctx.chat;
-  if (!chat || (chat.type !== "group" && chat.type !== "supergroup")) {
-    return null;
-  }
-  return String(chat.id);
-}
-
-export function isGroupChat(ctx: Context): boolean {
-  return resolveGroupChatId(ctx) != null;
 }
 
 export function recordExchange(
@@ -265,5 +227,3 @@ export function recordExchange(
     hasUserRow: !options?.skipUser && Boolean(userRole && userContent?.trim()),
   });
 }
-
-export { currentSpeakerFromUser };

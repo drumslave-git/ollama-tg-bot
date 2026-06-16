@@ -11,17 +11,15 @@ export const botHost: BotModuleHost = {
       description: "Current mood traits and defaults",
       handler: async (ctx, services) => {
         const grammyCtx = ctx as Context;
-        const reply = services.callbacks.replyToUser;
-        if (!reply) return;
         try {
-          await reply(
+          await services.replyToUser(
             grammyCtx,
             buildMoodCommandReply(services.getSettings()),
           );
         } catch (err) {
           console.error("/mood command error:", err);
-          await reply(grammyCtx, "Sorry, I could not load mood.").catch((e) =>
-            console.error("Failed to send /mood error reply:", e),
+          await services.replyToUser(grammyCtx, "Sorry, I could not load mood.").catch(
+            (e) => console.error("Failed to send /mood error reply:", e),
           );
         }
       },

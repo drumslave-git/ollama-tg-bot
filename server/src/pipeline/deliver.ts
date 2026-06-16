@@ -4,49 +4,14 @@ import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
 import { recordReply } from "../db/index.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
-import { replyParameters } from "../bot/replies/replies.js";
 import {
-  messageThreadExtra,
-  resolveTypingThreadParams,
-} from "../bot/replies/typing.js";
+  buildReplyExtra,
+  deliverHtmlErrorReply,
+  sendChunkedHtmlReply,
+} from "../bot/replies/delivery.js";
 import { replyHtml } from "../bot/replies/replies-helpers.js";
-import { sendThinkingMessages } from "../bot/replies/send-thinking.js";
 import { getResolvedSettings } from "../settings/runtime.js";
-import {
-  escapeHtml,
-  visibleTelegramText,
-} from "../telegram/html.js";
-
-function splitMessage(text: string, maxLen = 4000): string[] {
-  if (text.length <= maxLen) return [text];
-  const chunks: string[] = [];
-  let curr = text;
-  while (curr.length > maxLen) {
-    let splitAt = curr.lastIndexOf("\n", maxLen);
-    if (splitAt === -1) splitAt = curr.lastIndexOf(" ", maxLen);
-    if (splitAt === -1) splitAt = maxLen;
-    chunks.push(curr.slice(0, splitAt));
-    curr = curr.slice(splitAt).trimStart();
-  }
-  if (curr) chunks.push(curr);
-  return chunks;
-}
-
-function buildReplyExtra(
-  ctx: Context,
-  options?: { messageThreadId?: number },
-) {
-  const extra: Parameters<Context["reply"]>[1] = {};
-  if (options?.messageThreadId) {
-    const threadParams = messageThreadExtra({
-      message_thread_id: options.messageThreadId,
-    });
-    if (threadParams) extra.message_thread_id = threadParams.message_thread_id;
-  }
-  const replyParams = replyParameters(ctx);
-  if (replyParams) extra.reply_parameters = replyParams;
-  return Object.keys(extra).length > 0 ? extra : undefined;
-}
+import { visibleTelegramText } from "../telegram/html.js";
 
 export async function deliverPipelineReply(
   ctx: Context,
@@ -75,40 +40,24 @@ export async function deliverPipelineReply(
   const replyExtra = buildReplyExtra(ctx, {
     messageThreadId: options.messageThreadId,
   });
-  const typingThreadParams = resolveTypingThreadParams(
-    options.inGroup
-      ? { type: "supergroup", is_forum: options.isForum }
-      : undefined,
-    options.messageThreadId,
-  );
 
-  const chunks = hasReply ? splitMessage(replyBody) : [];
+  const { chunkCount, thinkingSent } = await sendChunkedHtmlReply(ctx, {
+    chatId: options.chatId,
+    html: hasReply ? replyBody : "",
+    thinking,
+    sendThinking:
+      settings.thinkingEnabled && settings.sendThinkingEnabled,
+    messageThreadId: options.messageThreadId,
+    inGroup: options.inGroup,
+    isForum: options.isForum,
+  });
 
-  let thinkingSent = false;
-  if (settings.thinkingEnabled && settings.sendThinkingEnabled && thinking) {
-    const thinkingChunks = await sendThinkingMessages(
-      ctx,
-      options.chatId,
-      thinking,
-      typingThreadParams,
+  if (thinkingSent && thinking) {
+    report?.okPhase(
+      "thinking",
+      "Thinking messages",
+      `${thinking.length} chars`,
     );
-    if (thinkingChunks > 0) {
-      thinkingSent = true;
-      report?.okPhase(
-        "thinking",
-        "Thinking messages",
-        `${thinkingChunks} chunk(s) · ${thinking.length} chars`,
-      );
-    }
-  }
-
-  for (let i = 0; i < chunks.length; i++) {
-    if (i > 0) {
-      await ctx.api
-        .sendChatAction(options.chatId, "typing", typingThreadParams)
-        .catch(() => {});
-    }
-    await replyHtml(ctx, chunks[i], replyExtra);
   }
 
   if (stickerFileId) {
@@ -116,7 +65,7 @@ export async function deliverPipelineReply(
     if (options.messageThreadId) {
       stickerExtra.message_thread_id = options.messageThreadId;
     }
-    if (chunks.length === 0 && replyExtra?.reply_parameters) {
+    if (chunkCount === 0 && replyExtra?.reply_parameters) {
       stickerExtra.reply_parameters = replyExtra.reply_parameters;
     }
     await ctx.api.sendSticker(
@@ -133,7 +82,7 @@ export async function deliverPipelineReply(
   logEvent("reply_sent", {
     turnId: options.turnId,
     chatId: options.chatId,
-    chunkCount: chunks.length,
+    chunkCount,
     replyChars,
     sticker: stickerEmoji ?? undefined,
     skipUserHistory: Boolean(delivery.skipUserHistory),
@@ -144,7 +93,7 @@ export async function deliverPipelineReply(
     "delivery",
     "Delivery",
     [
-      chunks.length > 0 ? `${chunks.length} text chunk(s)` : null,
+      chunkCount > 0 ? `${chunkCount} text chunk(s)` : null,
       replyChars > 0 ? `${replyChars} chars` : null,
       stickerEmoji ? `sticker ${stickerEmoji}` : null,
     ]
@@ -154,7 +103,7 @@ export async function deliverPipelineReply(
 
   report?.finalizeProcessed({
     replyChars,
-    chunks: chunks.length,
+    chunks: chunkCount,
     sticker: stickerEmoji ?? undefined,
     thinkingSent,
     awaitMemory: true,
@@ -181,18 +130,10 @@ export async function deliverPipelineError(
   logEventError("reply_failed", err, { turnId: options.turnId });
   getMessageReport(options.turnId)?.finalizeError(msg);
 
-  const errReplyExtra = buildReplyExtra(ctx, {
+  await deliverHtmlErrorReply(ctx, {
     messageThreadId: options.messageThreadId,
-  });
-  await replyHtml(
-    ctx,
-    `Sorry, I could not get a response from the LLM.\n\n<code>${escapeHtml(msg)}</code>`,
-    errReplyExtra,
-  ).catch(async () => {
-    await replyHtml(
-      ctx,
-      `Sorry, I could not get a response from the LLM.\n\n${escapeHtml(msg)}`,
-      errReplyExtra,
-    );
+    prefix: "Sorry, I could not get a response from the LLM.",
+    detail: msg,
+    plainFallback: `Sorry, I could not get a response from the LLM.\n\n${msg}`,
   });
 }

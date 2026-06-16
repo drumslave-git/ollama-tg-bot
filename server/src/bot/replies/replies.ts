@@ -1,60 +1,7 @@
 import type { Context } from "grammy";
 import type { Message, User } from "grammy/types";
 import type { CurrentSpeaker } from "../messages/speaker.js";
-import { stickerHistoryLabel } from "../media/vision-adapter.js";
-
-export function isReplyToBot(ctx: Context, botUsername: string): boolean {
-  const msg = ctx.message;
-  if (!msg) return false;
-
-  const botId = ctx.me?.id;
-  const replied = msg.reply_to_message;
-  if (replied) {
-    if (botId != null && replied.from?.id === botId) return true;
-    const username = replied.from?.username;
-    if (
-      username &&
-      username.toLowerCase() === botUsername.toLowerCase()
-    ) {
-      return true;
-    }
-    if (botId != null && isMessageFromBot(replied, botId, botUsername)) {
-      return true;
-    }
-  }
-
-  const external = msg.external_reply;
-  if (external && botId != null) {
-    const origin = external.origin;
-    if (origin.type === "user" && origin.sender_user.id === botId) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/** True when the user is continuing a thread (reply chain includes the bot). */
-export function isReplyInBotThread(
-  ctx: Context,
-  botUsername: string,
-): boolean {
-  if (isReplyToBot(ctx, botUsername)) return true;
-
-  const botId = ctx.me?.id;
-  let current = ctx.message?.reply_to_message;
-  let depth = 0;
-
-  while (current && depth < 8) {
-    if (botId != null && isMessageFromBot(current, botId, botUsername)) {
-      return true;
-    }
-    current = current.reply_to_message;
-    depth++;
-  }
-
-  return false;
-}
+import { stickerHistoryLabel } from "@llm-tg-bot/modules-vision";
 
 export function formatReplyContext(
   ctx: Context,
@@ -196,18 +143,6 @@ function describeMessage(message: Message, options: ReplyThreadOptions): string 
   }
 
   return summary;
-}
-
-function isMessageFromBot(
-  message: Message,
-  botId: number,
-  botUsername: string,
-): boolean {
-  if (message.from?.id === botId) return true;
-  const username = message.from?.username;
-  return (
-    !!username && username.toLowerCase() === botUsername.toLowerCase()
-  );
 }
 
 function formatSenderLabel(message: Message, botId?: number): string {

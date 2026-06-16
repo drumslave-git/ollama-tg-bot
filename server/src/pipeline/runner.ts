@@ -6,7 +6,7 @@ import type {
   PipelineStepResult,
   PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
-import { getPipelineHosts } from "./loader.js";
+import { getPipelineHosts } from "../runtime/module-hosts.js";
 
 const PHASE_SEQUENCE: PipelinePhase[] = [
   "preprocess",

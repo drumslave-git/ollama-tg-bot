@@ -1,6 +1,6 @@
 import type { Context } from "grammy";
 import { summarizeMessageContent } from "../replies/replies.js";
-import { resolveGroupChatId } from "../turn/conversation.js";
+import { resolveGroupChatId } from "../telegram/keys.js";
 
 export type RememberTarget =
   | { kind: "user"; userId: string; label: string }

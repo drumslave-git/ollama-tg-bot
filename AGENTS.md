@@ -53,6 +53,9 @@ Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, r
 | `@llm-tg-bot/modules-addressing-detection` | Group name-variant address detection (LLM side pass) |
 | `@llm-tg-bot/modules-search-decision` | Whether a message needs web search + query extraction (LLM side pass) |
 | `@llm-tg-bot/modules-vision` | Telegram media download, sticker previews, and vision-model image description |
+| `@llm-tg-bot/modules-completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` bot command |
+| `@llm-tg-bot/modules-history` | Turn setup, passive history, history inject/record (pipeline hosts) |
+| `@llm-tg-bot/modules-mood-evaluation` | Personality + mood injection; `/mood` bot command |
 
 **Contract** — every module defines typed `input`, `config`, and `output`, and exposes a `run(input, config)` function (plus a `ModuleDefinition` object with `id`):
 
@@ -103,7 +106,7 @@ API base URL, model, prompts, owner, maintenance mode, and performance limits li
 ## Architecture
 
 ```
-Telegram → Grammy handlers → chat-turn → LLM
+Telegram → Grammy handlers → message pipeline (module hosts) → delivery
                 ↓
          SQLite (settings, history, memories, stats)
                 ↑
@@ -112,11 +115,12 @@ Telegram → Grammy handlers → chat-turn → LLM
 
 ### Message flow
 
-1. **`server/src/bot/handlers.ts`** — Register **commands before** the catch-all `bot.on("message")`. Generic message handlers must not block command handlers (Grammy middleware order).
-2. **`server/src/bot/maintenance.ts`** — When `maintenanceModeEnabled` is on, non-owner messages are dropped before any LLM work (address check, vision, chat turn). Also gates passive group history in `history-record.ts`.
-3. **`server/src/bot/chat-turn.ts`** — One user turn: optional link fetch (Playwright), optional Tavily search, build messages, LLM chat, Telegram reply, history + memory scheduling.
-4. **`server/src/bot/conversation.ts`** — Assembles system prompt, history, reply context, group speaker wrapping.
-5. **`server/src/prompts.ts`** — Base system prompt; custom prompt from settings appended.
+1. **`server/src/bot/handlers/index.ts`** — Register **commands before** the catch-all `bot.on("message")`. Module commands via `registerModuleCommands()` from `server/src/runtime/module-hosts.ts`.
+2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then `runMessagePipeline()`; delivery via `server/src/pipeline/deliver.ts`.
+3. **`server/src/pipeline/runner.ts`** — Runs phased module hosts (`preprocess` → `gate` → `not-addressed` → `pre-reply` → `reply` → `post-reply` → `background`). Server does not hard-code which modules run — hosts are discovered from manifests.
+4. **`server/src/runtime/module-hosts.ts`** — Loads `pipelineHosts` and optional `botHost` from each module package at startup.
+5. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
+6. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, non-owner messages are dropped before the pipeline. History module gates passive recording the same way.
 
 ### LLM
 
@@ -132,7 +136,7 @@ Telegram → Grammy handlers → chat-turn → LLM
 
 ### Memory
 
-Three layers, extracted in a **background pass** (adapter `server/src/memory-extract.ts` → `@llm-tg-bot/modules-memory`), not in the main reply:
+Three layers, extracted in a **background pass** by the memory module's pipeline host (`modules/memory/server/`), not in the main reply:
 
 - Per-user, per-group, general — see `server/src/db/*-memory.ts`
 - User/group memories are merged into one entity document during persistence.
@@ -141,8 +145,8 @@ Three layers, extracted in a **background pass** (adapter `server/src/memory-ext
 
 - Bot responds when @mentioned, replied to, named (regex or LLM name-variant module), or on random/image toggles.
 - Per-member history in groups (`conversationKey` includes `userId`).
-- Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain`, `/remember`.
-- **Maintenance mode** (`maintenanceModeEnabled`): non-owner events must not reach the LLM — gate in `handlers.ts` before `isMessageAddressedToBot` and in `history-record.ts` for passive history/vision/compression triggers.
+- Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain` (completions module), `/remember`.
+- **Maintenance mode** (`maintenanceModeEnabled`): non-owner events must not reach the pipeline — gate in `handlers/message.ts` and in the history module's passive-record host.
 
 ### Structured LLM output (JSON schema)
 
@@ -198,27 +202,29 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 
 ## Telegram specifics
 
-- Entity offsets are **UTF-16 code units** (same as JS strings) — see `sliceEntity` in `server/src/bot/addressed.ts`.
+- Entity offsets are **UTF-16 code units** (same as JS strings) — see `sliceEntity` in `@llm-tg-bot/modules-addressing-detection`.
 - Group commands often need `/cmd@BotUsername` when privacy mode is on.
-- Mention handling: `server/src/bot/mentions.ts` (skip self-mentions and bot mention for address detection).
+- Mention handling: `server/src/bot/messages/mentions.ts` (skip self-mentions and bot mention for address detection).
 
 ## Key files
 
 | Area | Files |
 |------|-------|
-| Bot entry | `server/src/bot/index.ts`, `handlers.ts` |
-| Address detection | `server/src/modules/addressing-detection/`, adapter `server/src/bot/address-analyze.ts` |
-| Maintenance | `server/src/bot/maintenance.ts`, `owner.ts` |
+| Bot entry | `server/src/bot/index.ts`, `handlers/index.ts`, `handlers/message.ts` |
+| Pipeline | `server/src/pipeline/runner.ts`, `services.ts`, `deliver.ts`, `context.ts`, `runtime/module-hosts.ts` |
+| Address detection | `modules/addressing-detection/server/` (pipeline hosts + `bot-identity.ts`) |
+| Maintenance | `server/src/bot/maintenance/maintenance.ts`, `owner/owner.ts` |
 | Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
-| History | `server/src/db/history.ts` |
-| Vision | `modules/vision/server/`, adapter `server/src/bot/media/vision-adapter.js`; image resize `server/src/llm/images.js` |
-| Search decision | `server/src/modules/search-decision/`, adapter `server/src/bot/search-analyze.ts` |
-| Web search | `server/src/modules/web-search/`, adapter `server/src/tavily/client.ts` |
-| Memory extract/inject | `server/src/modules/memory/`, adapter `server/src/memory-extract.ts`; injection via `prompts.ts` |
-| Link fetch | `server/src/modules/link-fetch/`, adapter `server/src/bot/link-fetch.ts` |
-| Sticker selection | `server/src/modules/sticker-selection/`, adapter `server/src/bot/sticker-analyze.ts`; catalog `server/src/bot/sticker-catalog.ts` |
-| Mood evaluation | `server/src/modules/mood-evaluation/`, adapter `server/src/mood-evaluate.ts`; injection via `formatMoodForPrompt` in `prompts.ts` |
-| HTML replies | `server/src/telegram/html.ts` |
+| History | `modules/history/server/` (pipeline hosts); SQLite in `server/src/db/history/` |
+| Vision | `modules/vision/server/`; adapter `server/src/pipeline/vision-adapter.ts`; image resize `server/src/llm/images.js` |
+| Completions | `modules/completions/server/` (system-prompt + LLM reply pipeline hosts, `/explain` bot host) |
+| Search decision | `modules/search-decision/server/` |
+| Web search | `modules/web-search/server/`; Tavily adapter in pipeline callbacks |
+| Memory | `modules/memory/server/` (pipeline hosts); extract logic in module |
+| Link fetch | `modules/link-fetch/server/` |
+| Sticker selection | `modules/sticker-selection/server/` |
+| Mood evaluation | `modules/mood-evaluation/server/` (personality + mood pipeline hosts, `/mood` bot host) |
+| HTML replies | `server/src/telegram/html.ts`, `server/src/bot/replies/delivery.ts` |
 
 ## Testing
 - **Always run tests after completing a task.**

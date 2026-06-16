@@ -11,7 +11,8 @@ import {
   isReplyInBotThreadMessage,
   isReplyToBotMessage,
 } from "./telegram-reply.js";
-import { readBotIdentity, replyTriggersHost, senderLabel } from "./reply-triggers.js";
+import { getBotIdentity } from "./bot-identity.js";
+import { replyTriggersHost, senderLabel } from "./reply-triggers.js";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;
 
@@ -40,16 +41,8 @@ export const addressingHost: PipelineModuleHost = {
   },
 
   async run(state, services): Promise<PipelineStepResult> {
-    const bot = readBotIdentity(services);
+    const bot = getBotIdentity();
     const message = state.telegram.message as Message | undefined;
-    if (!bot) {
-      return {
-        status: "failed",
-        phaseId: "address",
-        phaseTitle: "Address check",
-        summary: "Bot identity not available",
-      };
-    }
 
     const started = performance.now();
     const result = await checkMessageAddressed(

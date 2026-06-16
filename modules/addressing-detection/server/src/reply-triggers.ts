@@ -1,11 +1,7 @@
-import type { Message } from "@grammyjs/types";
 import type {
-  PipelineHostServices,
   PipelineModuleHost,
   PipelineStepResult,
-  PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
-import type { BotAddressIdentity } from "./bot-identity.js";
 
 function senderLabel(from: unknown): string {
   if (!from || typeof from !== "object") return "Someone";
@@ -93,14 +89,4 @@ export const replyTriggersHost: PipelineModuleHost = {
   },
 };
 
-function readMessage(state: PipelineTurnState): Message | undefined {
-  return state.telegram.message as Message | undefined;
-}
-
-function readBotIdentity(services: PipelineHostServices): BotAddressIdentity | null {
-  const raw = services.callbacks.getBotIdentity?.();
-  if (!raw || typeof raw !== "object") return null;
-  return raw as BotAddressIdentity;
-}
-
-export { readMessage, readBotIdentity, senderLabel };
+export { senderLabel };

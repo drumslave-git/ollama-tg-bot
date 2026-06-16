@@ -7,6 +7,28 @@ export interface BotAddressIdentity {
   aliases: string[];
 }
 
+let runtimeIdentity: BotAddressIdentity | null = null;
+
+/** Called once at bot startup after Telegram getMe. */
+export function setBotIdentity(
+  me: { id: number; first_name?: string; last_name?: string },
+  username: string,
+): void {
+  runtimeIdentity = buildBotAddressIdentity(me, username);
+}
+
+export function getBotIdentity(): BotAddressIdentity {
+  if (!runtimeIdentity) {
+    throw new Error("Bot identity not initialized — call setBotIdentity at startup");
+  }
+  return runtimeIdentity;
+}
+
+/** Strip @username and spoken aliases using the runtime bot identity. */
+export function stripCurrentBotAddressing(text: string): string {
+  return stripBotAddressing(text, getBotIdentity());
+}
+
 export function buildBotAddressIdentity(
   me: { id: number; first_name?: string; last_name?: string },
   username: string,

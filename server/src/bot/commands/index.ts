@@ -1,23 +1,20 @@
 import type { Bot, Context } from "grammy";
-import { isGroupChat, resolveConversationKey, resolveGroupChatId, resolveUserId } from "../turn/conversation.js";
-import { getSettings, recordMessageReceived, recordReply } from "../../db/index.js";
+import { isGroupChat, resolveConversationKey, resolveGroupChatId, resolveUserId } from "../telegram/keys.js";
+import { getSettings } from "../../db/index.js";
 import { config } from "../../config/index.js";
-import { groupSetupMessage } from "../group/setup.js";
+import { groupSetupMessage } from "../handlers/group-setup.js";
 import { isOwner, getOwnerUserId, getOwnerUsername } from "../owner/owner.js";
 import { escapeHtml } from "../../telegram/html.js";
 import { buildPublicCommandsHelp } from "./commands-help.js";
-import { collectModuleBotCommands } from "../host/module-hosts.js";
+import { collectModuleBotCommands } from "../../runtime/module-hosts.js";
 import { clearHistory } from "../../db/history/index.js";
-import { clearUserMemory, createUserFact, getUserFacts } from "../../db/memory/user.js";
-import { clearGroupMemory, createGroupFact, getGroupFacts } from "../../db/memory/group.js";
-import { createGeneralFact, getGeneralFacts } from "../../db/memory/general.js";
+import { clearUserMemory, createUserFact } from "../../db/memory/user.js";
+import { clearGroupMemory, createGroupFact } from "../../db/memory/group.js";
+import { createGeneralFact } from "../../db/memory/general.js";
 import { MAX_FACT_LENGTH, MIN_FACT_LENGTH } from "../../db/memory/facts.js";
 import { logEvent } from "../../logging/event-log.js";
-import { runExplainTurn } from "../turn/explain-turn.js";
 import { replyToUser } from "../replies/replies-helpers.js";
 import { resolveCallerRememberTarget, resolveCommandInlineOrReplyText, resolveRememberTarget } from "./command-utils.js";
-import { startTypingForMessage } from "../replies/typing.js";
-import { userRoleTag } from "@llm-tg-bot/modules-history";
 
 export function registerBotCommands(bot: Bot, botUsername: string): void {
   bot.command("start", async (ctx) => {
@@ -126,56 +123,6 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
     }
     clearGroupMemory(groupChatId);
     await replyToUser(ctx, "This group's stored memory has been cleared.");
-  });
-
-  bot.command("explain", async (ctx) => {
-    if (!isOwner(ctx)) {
-      await replyToUser(ctx, "Only the bot owner can use /explain.");
-      return;
-    }
-
-    const question = resolveCommandInlineOrReplyText(ctx, String(ctx.match ?? ""));
-    if (!question) {
-      await replyToUser(
-        ctx,
-        `Usage: <code>/explain@${botUsername} your question</code>\n` +
-          `Or reply to a message with <code>/explain@${botUsername}</code>\n` +
-          `Example: <code>/explain why are you so aggressive?</code>\n\n` +
-          `Answers honestly about configuration and memories — not in character.`,
-      );
-      return;
-    }
-
-    const chatId = ctx.chat?.id;
-    if (!chatId) return;
-
-    const chatKey = resolveConversationKey(ctx);
-    if (!chatKey) return;
-
-    try {
-      const userId = resolveUserId(ctx);
-      const groupChatId = resolveGroupChatId(ctx);
-      const inGroupChat = isGroupChat(ctx);
-      await runExplainTurn(ctx, {
-        convKey: chatKey,
-        chatId,
-        userId,
-        groupChatId,
-        inGroup: inGroupChat,
-        question,
-        userRole: userRoleTag(ctx.from),
-        userMemoryFacts: userId ? getUserFacts(userId) : [],
-        groupMemoryFacts: groupChatId ? getGroupFacts(groupChatId) : [],
-        generalMemoryFacts: getGeneralFacts(),
-        messageThreadId: ctx.message?.message_thread_id,
-        isForum: ctx.chat?.is_forum === true,
-      });
-    } catch (err) {
-      console.error("/explain command error:", err);
-      await replyToUser(ctx, "Sorry, I could not explain.").catch((e) =>
-        console.error("Failed to send /explain error reply:", e),
-      );
-    }
   });
 
   bot.command("remember", async (ctx) => {
