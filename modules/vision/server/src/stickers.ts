@@ -3,19 +3,14 @@ import {
   downloadTelegramFile,
   getTelegramFilePath,
   isRasterImagePath,
-  type ImagePayload,
-} from "../messages/files.js";
+} from "./telegram-files.js";
+import type { ImagePayload } from "./types.js";
 
 export type StickerVisionResult = {
   payload: ImagePayload;
   /** Extra context for the vision model when the image is only a preview frame. */
   visionHint?: string;
 };
-
-const STICKER_VISION_INSTRUCTION =
-  "The sticker artwork is attached as an image. Base your answer on what you see in that image " +
-  "(characters, scene, text, colors, mood). The pack emoji is only supplementary tone — do not " +
-  "reply from the emoji alone when you can see the sticker.";
 
 function stickerEmoji(sticker: Sticker): string | null {
   const emoji = sticker.emoji?.trim();

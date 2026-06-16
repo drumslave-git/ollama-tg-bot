@@ -1,7 +1,7 @@
+import type { ImagePayload } from "./types.js";
+
 const TELEGRAM_FILE = "https://api.telegram.org/file/bot";
 const TELEGRAM_FILE_TIMEOUT_MS = 120_000;
-
-export type ImagePayload = { base64: string; mimeHint: string };
 
 const RASTER_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 

@@ -52,7 +52,7 @@ Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, r
 | `@llm-tg-bot/modules-utils` | Shared `ModuleDefinition` contract, structured-output helpers, stateless auxiliary LLM client |
 | `@llm-tg-bot/modules-addressing-detection` | Group name-variant address detection (LLM side pass) |
 | `@llm-tg-bot/modules-search-decision` | Whether a message needs web search + query extraction (LLM side pass) |
-| `@llm-tg-bot/modules-web-search` | Execute web search and format context for the main reply |
+| `@llm-tg-bot/modules-vision` | Telegram media download, sticker previews, and vision-model image description |
 
 **Contract** — every module defines typed `input`, `config`, and `output`, and exposes a `run(input, config)` function (plus a `ModuleDefinition` object with `id`):
 
@@ -211,7 +211,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Maintenance | `server/src/bot/maintenance.ts`, `owner.ts` |
 | Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
 | History | `server/src/db/history.ts` |
-| Vision | `server/src/bot/message-media.ts`, `server/src/llm/images.ts` |
+| Vision | `modules/vision/server/`, adapter `server/src/bot/media/vision-adapter.js`; image resize `server/src/llm/images.js` |
 | Search decision | `server/src/modules/search-decision/`, adapter `server/src/bot/search-analyze.ts` |
 | Web search | `server/src/modules/web-search/`, adapter `server/src/tavily/client.ts` |
 | Memory extract/inject | `server/src/modules/memory/`, adapter `server/src/memory-extract.ts`; injection via `prompts.ts` |

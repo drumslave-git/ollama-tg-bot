@@ -41,6 +41,9 @@
       ],
       "@llm-tg-bot/modules-history-db": [
         "../modules/history/db/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-vision": [
+        "../modules/vision/server/src/index.ts"
       ]
     }
   },

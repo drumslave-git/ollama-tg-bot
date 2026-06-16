@@ -28,6 +28,7 @@
     "@llm-tg-bot/modules-mood-evaluation-db": "*",
     "@llm-tg-bot/modules-history": "*",
     "@llm-tg-bot/modules-history-db": "*",
+    "@llm-tg-bot/modules-vision": "*",
     "@llm-tg-bot/modules-sticker-selection": "*",
     "@llm-tg-bot/modules-link-fetch": "*",
     "@llm-tg-bot/modules-memory": "*",

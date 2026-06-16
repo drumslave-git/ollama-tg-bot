@@ -7,11 +7,11 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build:modules": "npm run build -w @llm-tg-bot/modules-registry && npm run build -w @llm-tg-bot/modules-utils && npm run build -w @llm-tg-bot/modules-addressing-detection && npm run build -w @llm-tg-bot/modules-search-decision && npm run build -w @llm-tg-bot/modules-web-search && npm run build -w @llm-tg-bot/modules-memory && npm run build -w @llm-tg-bot/modules-memory-db && npm run build -w @llm-tg-bot/modules-link-fetch && npm run build -w @llm-tg-bot/modules-sticker-selection && npm run build -w @llm-tg-bot/modules-mood-evaluation && npm run build -w @llm-tg-bot/modules-mood-evaluation-db && npm run build -w @llm-tg-bot/modules-history && npm run build -w @llm-tg-bot/modules-history-db",
+    "build:modules": "npm run build -w @llm-tg-bot/modules-registry && npm run build -w @llm-tg-bot/modules-utils && npm run build -w @llm-tg-bot/modules-addressing-detection && npm run build -w @llm-tg-bot/modules-search-decision && npm run build -w @llm-tg-bot/modules-web-search && npm run build -w @llm-tg-bot/modules-memory && npm run build -w @llm-tg-bot/modules-memory-db && npm run build -w @llm-tg-bot/modules-link-fetch && npm run build -w @llm-tg-bot/modules-sticker-selection && npm run build -w @llm-tg-bot/modules-mood-evaluation && npm run build -w @llm-tg-bot/modules-mood-evaluation-db && npm run build -w @llm-tg-bot/modules-history && npm run build -w @llm-tg-bot/modules-history-db && npm run build -w @llm-tg-bot/modules-vision",
     "dev": "node scripts/write-build-info.mjs && concurrently -n server,dashboard -c blue,green \"npm run dev -w server\" \"npm run dev -w dashboard\"",
     "build": "node scripts/write-build-info.mjs && npm run build:modules && npm run build -w dashboard && npm run build -w server",
     "start": "npm run start -w server",
-    "test": "npm run test -w @llm-tg-bot/modules-registry && npm run test -w @llm-tg-bot/modules-utils && npm run test -w @llm-tg-bot/modules-addressing-detection && npm run test -w @llm-tg-bot/modules-search-decision && npm run test -w @llm-tg-bot/modules-web-search && npm run test -w @llm-tg-bot/modules-memory && npm run test -w @llm-tg-bot/modules-link-fetch && npm run test -w @llm-tg-bot/modules-sticker-selection && npm run test -w @llm-tg-bot/modules-mood-evaluation && npm run test -w @llm-tg-bot/modules-history && npm run test -w server",
+    "test": "npm run test -w @llm-tg-bot/modules-registry && npm run test -w @llm-tg-bot/modules-utils && npm run test -w @llm-tg-bot/modules-addressing-detection && npm run test -w @llm-tg-bot/modules-search-decision && npm run test -w @llm-tg-bot/modules-web-search && npm run test -w @llm-tg-bot/modules-memory && npm run test -w @llm-tg-bot/modules-link-fetch && npm run test -w @llm-tg-bot/modules-sticker-selection && npm run test -w @llm-tg-bot/modules-mood-evaluation && npm run test -w @llm-tg-bot/modules-history && npm run test -w @llm-tg-bot/modules-vision && npm run test -w server",
     "test:llm": "npm run test:llm -w @llm-tg-bot/modules-addressing-detection && npm run test:llm -w @llm-tg-bot/modules-search-decision && npm run test:llm -w @llm-tg-bot/modules-memory && npm run test:llm -w @llm-tg-bot/modules-mood-evaluation && npm run test:llm -w server",
     "test:llm:reasoning": "npm run test:llm:reasoning -w server",
     "docker:build": "docker compose build",
@@ -36,7 +36,8 @@
     "modules/mood-evaluation/ui",
     "modules/history/server",
     "modules/history/db",
-    "modules/history/ui"
+    "modules/history/ui",
+    "modules/vision/server"
   ],
   "devDependencies": {
     "concurrently": "^9.1.2"

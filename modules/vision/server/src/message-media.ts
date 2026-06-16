@@ -1,18 +1,10 @@
-import type { Message, Sticker } from "@grammyjs/types";
-import { downloadTelegramFile, type ImagePayload } from "./files.js";
+import type { Message } from "@grammyjs/types";
+import { downloadTelegramFile } from "./telegram-files.js";
 import {
   loadStickerForVision,
   stickerUnavailableText,
-} from "../media/stickers.js";
-
-export interface LoadedVisionMedia {
-  images: ImagePayload[];
-  /** Present when vision input came from a sticker message. */
-  sourceSticker?: Sticker;
-  visionHint?: string;
-  /** Set when a sticker could not be loaded for vision. */
-  unavailableText?: string;
-}
+} from "./stickers.js";
+import type { LoadedVisionMedia } from "./types.js";
 
 /** Download photo, image document, or sticker from a Telegram message for LLM vision. */
 export async function loadVisionFromMessage(
@@ -78,4 +70,3 @@ export function messageHasUserImage(message: Message): boolean {
   if (message.document?.mime_type?.startsWith("image/")) return true;
   return false;
 }
-

@@ -6,7 +6,14 @@ import { resolveConversationKey, resolveGroupChatId, resolveUserId, isGroupChat,
 import { extractText } from "../messages/message-content.js";
 import { summarizeMessageContent, formatReplyContext, isReplyInBotThread, isReplyToBot } from "../replies/replies.js";
 import { isSlashCommandMessage } from "../commands/slash-command.js";
-import { messageHasVisionMedia, messageHasUserImage, loadVisionFromMessage, findReplyMediaMessage } from "../messages/message-media.js";
+import {
+  messageHasVisionMedia,
+  messageHasUserImage,
+  loadVisionFromMessage,
+  findReplyMediaMessage,
+  stickerPackEmoji,
+  describeVisionImages,
+} from "../media/vision-adapter.js";
 import { getSettings, recordMessageReceived, recordReply } from "../../db/index.js";
 import { isMaintenanceBlocked } from "../maintenance/maintenance.js";
 import { startTypingForMessage } from "../replies/typing.js";
@@ -16,8 +23,6 @@ import { getGeneralFacts } from "../../db/memory/general.js";
 import { mediaKindForMessage, userRoleTag, buildMediaHistoryContent, buildTextHistoryContent } from "@llm-tg-bot/modules-history";
 import { getBotIdentity, stripBotAddressing } from "../identity/bot-identity.js";
 import { resolveMentionedKnownUsers, formatMentionedUsersContext } from "../messages/mentions.js";
-import { stickerPackEmoji } from "../media/stickers.js";
-import { describeVisionImages } from "../media/vision-describe.js";
 import { replyToUser } from "../replies/replies-helpers.js";
 import { runChatTurn } from "../turn/chat-turn.js";
 import { isOwner } from "../owner/owner.js";

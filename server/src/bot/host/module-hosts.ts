@@ -18,9 +18,9 @@ import { enrichTextWithUserMentions } from "../messages/mentions.js";
 import {
   loadVisionFromMessage,
   messageHasVisionMedia,
-} from "../messages/message-media.js";
-import { describeVisionImages } from "../media/vision-describe.js";
-import { stickerPackEmoji } from "../media/stickers.js";
+  describeVisionImages,
+  stickerPackEmoji,
+} from "../media/vision-adapter.js";
 import { replyToUser } from "../replies/replies-helpers.js";
 
 let botHosts: BotModuleHost[] | null = null;
