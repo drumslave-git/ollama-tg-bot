@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@llm-tg-bot/modules-registry": "*",
-    "@llm-tg-bot/modules-utils": "*"
+    "@llm-tg-bot/modules-utils": "*",
+    "grammy": "^1.35.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

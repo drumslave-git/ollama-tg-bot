@@ -1,3 +1,11 @@
+export type {
+  BotCommandRegistration,
+  BotHostCallbacks,
+  BotHostLogging,
+  BotHostServices,
+  BotMiddlewareRegistration,
+  BotModuleHost,
+} from "./bot.js";
 export type { ModuleManifest, ModuleDashboardMeta } from "./manifest.js";
 export type {
   ModulePipelineMeta,

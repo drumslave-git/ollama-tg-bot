@@ -37,10 +37,6 @@ export function isMessageForBot(input: MessageForBotInput): boolean {
   return false;
 }
 
-export function isSlashCommandText(text: string | undefined): boolean {
-  return (text?.trim() ?? "").startsWith("/");
-}
-
 function messageMentionsBot(
   msg: Message,
   botId: number,

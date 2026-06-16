@@ -22,7 +22,7 @@ export function resolveModulesRoot(): string {
   return path.join(rootDir, "modules");
 }
 
-export interface LoadedModuleDb {
+interface LoadedModuleDb {
   manifest: ModuleManifest;
   exports: ModuleDbExports;
 }
@@ -34,7 +34,7 @@ export function getLoadedModuleManifests(): ModuleManifest[] {
   return discoverModuleManifests(resolveModulesRoot());
 }
 
-export async function loadModuleDbExports(
+async function loadModuleDbExports(
   manifest: ModuleManifest,
 ): Promise<ModuleDbExports | null> {
   if (!manifest.dbPackage) return null;

@@ -1,12 +1,13 @@
-import { getSettings } from "../db/database.js";
-import { getEffectiveMood, getMoodStateView, tickMoodCooldown } from "../db/mood.js";
 import {
+  getEffectiveMood,
+  getMoodStateView,
+  tickMoodCooldown,
   getActivePersonalityMoodDefaults,
   getPersonalityById,
   resolveActivePersonalityId,
-} from "../db/personalities.js";
-import { MOOD_KEYS } from "../mood.js";
-import { escapeHtml } from "../telegram/html.js";
+} from "@llm-tg-bot/modules-mood-evaluation-db";
+import { escapeHtml } from "@llm-tg-bot/modules-utils";
+import { MOOD_KEYS } from "./values.js";
 
 function formatTraitLine(
   key: string,
@@ -17,14 +18,17 @@ function formatTraitLine(
   return `${marker} <code>${key}</code>: ${current}/5 <i>(default ${defaultValue})</i>`;
 }
 
-export function buildMoodCommandReply(): string {
+export function buildMoodCommandReply(
+  settings: Record<string, unknown>,
+): string {
   tickMoodCooldown();
 
-  const settings = getSettings();
   const defaults = getActivePersonalityMoodDefaults();
   const current = getEffectiveMood();
   const state = getMoodStateView();
-  const activeId = resolveActivePersonalityId(settings.activePersonalityId);
+  const activeId = resolveActivePersonalityId(
+    Number(settings.activePersonalityId ?? 0),
+  );
   const activeName = activeId ? getPersonalityById(activeId)?.name : null;
 
   const lines = ["<b>Mood</b> (global)"];
@@ -51,7 +55,7 @@ export function buildMoodCommandReply(): string {
   }
 
   lines.push(
-    `Cooldown: ${settings.moodCooldownMinutes} min to full default drift`,
+    `Cooldown: ${Number(settings.moodCooldownMinutes ?? 120)} min to full default drift`,
   );
 
   return lines.join("\n");

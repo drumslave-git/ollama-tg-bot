@@ -4,7 +4,7 @@ import {
   parseJsonContent,
   strictObjectSchema,
 } from "@llm-tg-bot/modules-utils";
-import { stripEchoedHistoryMarkup } from "./bot/history-format.js";
+import { stripEchoedHistoryMarkup } from "@llm-tg-bot/modules-history";
 
 export const MAIN_REPLY_RESPONSE_FORMAT: JsonSchemaResponseFormat =
   strictObjectSchema(

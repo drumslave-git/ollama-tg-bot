@@ -6,11 +6,7 @@ import {
 
 export type { BotAddressIdentity };
 
-export {
-  buildBotAddressIdentity,
-  messageReferencesBotByName,
-  stripBotAddressing,
-} from "@llm-tg-bot/modules-addressing-detection";
+export { stripBotAddressing } from "@llm-tg-bot/modules-addressing-detection";
 
 let identity: BotAddressIdentity | null = null;
 

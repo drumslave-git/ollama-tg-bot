@@ -30,3 +30,11 @@ export type {
   StickerSelectionOutput,
 } from "./types.js";
 export { pipelineHost } from "./pipeline.js";
+export { botHost } from "./bot-host.js";
+export {
+  getStickerCatalogState,
+  getStickerCatalogForSelection,
+  clearStickerCatalog,
+  refreshStickerCatalog,
+  syncStickerCatalogFromSettings,
+} from "./sticker-catalog.js";

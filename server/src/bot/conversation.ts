@@ -20,7 +20,7 @@ import type { MoodValues } from "../mood.js";
 import {
   extractParticipantUserIds,
   userRoleTag,
-} from "./history-format.js";
+} from "@llm-tg-bot/modules-history";
 import { isReplyThreadContext } from "./replies.js";
 import { currentSpeakerFromUser, type CurrentSpeaker } from "./speaker.js";
 

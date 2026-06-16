@@ -14,7 +14,7 @@ import {
   type KnownUserRecord,
 } from "./db/known-users.js";
 import { getReplyLengthGuidance } from "./settings-limits.js";
-import { userRoleTagFromKnown } from "./bot/history-format.js";
+import { userRoleTagFromKnown } from "@llm-tg-bot/modules-history";
 import { formatMoodForPrompt, type MoodValues } from "./mood.js";
 
 export const BASE_SYSTEM_PROMPT_CORE = `You are a character in a Telegram chat. You receive prior messages from this chat — use them for context and continuity.

@@ -2,7 +2,6 @@ import type { Message } from "@grammyjs/types";
 import { describe, expect, it } from "vitest";
 import {
   isMessageForBot,
-  isSlashCommandText,
   sliceEntity,
 } from "../src/telegram-address.js";
 
@@ -105,12 +104,5 @@ describe("isMessageForBot", () => {
         }),
       ),
     ).toBe(false);
-  });
-});
-
-describe("isSlashCommandText", () => {
-  it("detects a leading slash", () => {
-    expect(isSlashCommandText("/reset")).toBe(true);
-    expect(isSlashCommandText("hello")).toBe(false);
   });
 });

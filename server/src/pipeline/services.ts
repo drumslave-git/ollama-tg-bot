@@ -11,7 +11,7 @@ import { logEvent, logEventError } from "../event-log.js";
 import { getMessageReport } from "../message-report.js";
 import { getResolvedSettings } from "../settings-runtime.js";
 import { getBotIdentity } from "../bot/bot-identity.js";
-import { getStickerCatalogForSelection } from "../bot/sticker-catalog.js";
+import { getStickerCatalogForSelection } from "@llm-tg-bot/modules-sticker-selection";
 import { getEffectiveMood, saveMoodState } from "../db/mood.js";
 import { replaceGeneralFacts } from "../db/general-memory.js";
 import { replaceGroupFacts } from "../db/group-memory.js";

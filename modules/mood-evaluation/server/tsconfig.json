@@ -8,6 +8,9 @@
       ],
       "@llm-tg-bot/modules-registry": [
         "../../registry/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-mood-evaluation-db": [
+        "../db/src/index.ts"
       ]
     }
   },

@@ -465,7 +465,7 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
-export function humanAddressLabel(source?: string): string | undefined {
+function humanAddressLabel(source?: string): string | undefined {
   if (!source) return undefined;
   return ADDRESS_LABELS[source] ?? source;
 }
@@ -497,7 +497,3 @@ export function getMessageReport(
 ): MessageReportSession | undefined {
   return sessions.get(turnId);
 }
-
-export const beginDebugTrace = beginMessageReport;
-export const getDebugTrace = getMessageReport;
-export type DebugTraceSession = MessageReportSession;

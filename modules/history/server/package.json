@@ -11,7 +11,10 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@grammyjs/types": "^3.22.2"
+    "@grammyjs/types": "^3.22.2",
+    "@llm-tg-bot/modules-history-db": "*",
+    "@llm-tg-bot/modules-registry": "*",
+    "grammy": "^1.35.0"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

@@ -22,7 +22,6 @@ export {
 export { stripNonBotMentions } from "./strip-non-bot-mentions.js";
 export {
   isMessageForBot,
-  isSlashCommandText,
   sliceEntity,
   type MessageForBotInput,
 } from "./telegram-address.js";

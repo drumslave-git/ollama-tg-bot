@@ -1,20 +1,11 @@
 import type { Api } from "grammy";
-import type { Sticker } from "@grammyjs/types";
-import type { StickerCatalog } from "@llm-tg-bot/modules-sticker-selection";
-import {
-  formatStickerCatalogSection,
-  resolveStickerFileId as resolveStickerFileIdFromChoice,
-  stickerPromptLabel,
-} from "@llm-tg-bot/modules-sticker-selection";
-import { getSettings } from "../db/database.js";
-import { logEvent, logEventError } from "../event-log.js";
+import type { StickerCatalog } from "./types.js";
+import type { BotHostLogging } from "@llm-tg-bot/modules-registry";
 
 export interface CatalogSticker {
   index: number;
-  /** Emoji assigned to this sticker in the pack (from Telegram). */
   emoji: string;
   fileId: string;
-  previewFileId: string;
 }
 
 interface StickerCatalogState {
@@ -34,12 +25,6 @@ function readStickerEmoji(raw: string | undefined): string {
   const trimmed = raw?.trim() ?? "";
   return trimmed || "—";
 }
-
-function previewFileId(sticker: Sticker): string {
-  return sticker.thumbnail?.file_id ?? sticker.file_id;
-}
-
-export { stickerPromptLabel };
 
 export function getStickerCatalogState(): {
   packName: string;
@@ -73,11 +58,6 @@ export function getStickerCatalogForSelection(): StickerCatalog {
   };
 }
 
-export function getStickerPreviewFileId(index: number): string | null {
-  const sticker = catalog?.stickers.find((s) => s.index === index);
-  return sticker?.previewFileId ?? null;
-}
-
 export function clearStickerCatalog(): void {
   catalog = null;
   lastError = null;
@@ -86,6 +66,7 @@ export function clearStickerCatalog(): void {
 export async function refreshStickerCatalog(
   api: Api,
   packName: string,
+  log: BotHostLogging,
 ): Promise<{ ok: boolean; count: number; error?: string }> {
   const normalized = normalizePackName(packName);
   if (!normalized) {
@@ -101,13 +82,12 @@ export async function refreshStickerCatalog(
       index,
       emoji: readStickerEmoji(sticker.emoji),
       fileId: sticker.file_id,
-      previewFileId: previewFileId(sticker),
     }));
 
     if (stickers.length === 0) {
       catalog = null;
       lastError = "Sticker set is empty";
-      logEvent("sticker_catalog_empty", { packName: normalized });
+      log.logEvent("sticker_catalog_empty", { packName: normalized });
       return { ok: false, count: 0, error: lastError };
     }
 
@@ -117,7 +97,7 @@ export async function refreshStickerCatalog(
       loadedAt: new Date().toISOString(),
     };
     lastError = null;
-    logEvent("sticker_catalog_loaded", {
+    log.logEvent("sticker_catalog_loaded", {
       packName: normalized,
       count: stickers.length,
     });
@@ -126,28 +106,21 @@ export async function refreshStickerCatalog(
     catalog = null;
     lastError =
       err instanceof Error ? err.message : "Failed to load sticker set";
-    logEventError("sticker_catalog_failed", err, { packName: normalized });
+    log.logEventError("sticker_catalog_failed", err, { packName: normalized });
     return { ok: false, count: 0, error: lastError };
   }
 }
 
-export function resolveStickerFileId(raw: string): string | null {
-  if (!catalog || catalog.stickers.length === 0) return null;
-  return resolveStickerFileIdFromChoice(raw, catalog.stickers);
-}
-
-export function formatStickerCatalogForAnalyze(): string | null {
-  if (!catalog || catalog.stickers.length === 0) return null;
-  return formatStickerCatalogSection(catalog.packName, catalog.stickers);
-}
-
 export async function syncStickerCatalogFromSettings(
   api: Api,
+  settings: Record<string, unknown>,
+  log: BotHostLogging,
 ): Promise<{ ok: boolean; count: number; error?: string }> {
-  const settings = getSettings();
-  if (!settings.stickersEnabled || !settings.stickerPackName.trim()) {
+  const stickersEnabled = Boolean(settings.stickersEnabled);
+  const packName = String(settings.stickerPackName ?? "").trim();
+  if (!stickersEnabled || !packName) {
     clearStickerCatalog();
     return { ok: true, count: 0 };
   }
-  return refreshStickerCatalog(api, settings.stickerPackName);
+  return refreshStickerCatalog(api, packName, log);
 }

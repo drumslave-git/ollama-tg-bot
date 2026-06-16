@@ -6,8 +6,8 @@ import { groupSetupMessage } from "../group-setup.js";
 import { isOwner, getOwnerUserId, getOwnerUsername } from "../owner.js";
 import { escapeHtml } from "../../telegram/html.js";
 import { buildPublicCommandsHelp } from "../commands-help.js";
+import { collectModuleBotCommands } from "../module-hosts.js";
 import { clearHistory } from "../../db/history.js";
-import { buildMoodCommandReply } from "../mood-command.js";
 import { clearUserMemory, createUserFact, getUserFacts } from "../../db/user-memory.js";
 import { clearGroupMemory, createGroupFact, getGroupFacts } from "../../db/group-memory.js";
 import { createGeneralFact, getGeneralFacts } from "../../db/general-memory.js";
@@ -17,7 +17,7 @@ import { runExplainTurn } from "../explain-turn.js";
 import { replyToUser } from "../replies-helpers.js";
 import { resolveCallerRememberTarget, resolveCommandInlineOrReplyText, resolveRememberTarget } from "./command-utils.js";
 import { startTypingForMessage } from "../typing.js";
-import { userRoleTag } from "../history-format.js";
+import { userRoleTag } from "@llm-tg-bot/modules-history";
 
 export function registerBotCommands(bot: Bot, botUsername: string): void {
   bot.command("start", async (ctx) => {
@@ -58,7 +58,11 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
   bot.command("help", async (ctx) => {
     await replyToUser(
       ctx,
-      buildPublicCommandsHelp(botUsername, isGroupChat(ctx)),
+      buildPublicCommandsHelp(
+        botUsername,
+        isGroupChat(ctx),
+        collectModuleBotCommands(),
+      ),
     );
   });
 
@@ -101,17 +105,6 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
       ? "this group's shared chat history"
       : "this conversation";
     await replyToUser(ctx, `Chat context cleared for ${scope}.`);
-  });
-
-  bot.command("mood", async (ctx) => {
-    try {
-      await replyToUser(ctx, buildMoodCommandReply());
-    } catch (err) {
-      console.error("/mood command error:", err);
-      await replyToUser(ctx, "Sorry, I could not load mood.").catch((e) =>
-        console.error("Failed to send /mood error reply:", e),
-      );
-    }
   });
 
   bot.command("forget", async (ctx) => {

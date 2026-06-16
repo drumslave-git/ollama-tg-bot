@@ -36,6 +36,7 @@ import { ensureHistoryFits } from "../context-compress.js";
 import { getEffectiveMood } from "../db/mood.js";
 import { sendThinkingMessages } from "./send-thinking.js";
 import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";
+import { replyHtml } from "./replies-helpers.js";
 import type { PipelineTurnState } from "@llm-tg-bot/modules-registry";
 import {
   createPipelineServices,
@@ -66,18 +67,6 @@ export interface ChatTurnInput {
   mentionedUsersContext?: string | null;
   messageThreadId?: number;
   isForum?: boolean;
-}
-
-async function replyHtml(
-  ctx: Context,
-  text: string,
-  extra?: Parameters<Context["reply"]>[1],
-) {
-  try {
-    return await ctx.reply(text, { parse_mode: "HTML", ...extra });
-  } catch {
-    return await ctx.reply(text, extra);
-  }
 }
 
 function formatSourceTitle(title: string): string {

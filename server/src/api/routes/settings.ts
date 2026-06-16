@@ -4,16 +4,26 @@ import { buildSettingsPayload } from "../../dashboard-payloads.js";
 import { getBot } from "../../bot/index.js";
 import { resolveOwnerUsername } from "../../bot/resolve-owner.js";
 import { ensureModelContextCache } from "../../llm/model-context-cache.js";
-import { syncStickerCatalogFromSettings, getStickerCatalogState, refreshStickerCatalog } from "../../bot/sticker-catalog.js";
+import {
+  syncStickerCatalogFromSettings,
+  getStickerCatalogState,
+  refreshStickerCatalog,
+} from "@llm-tg-bot/modules-sticker-selection";
+import { logEvent, logEventError, type EventFields } from "../../event-log.js";
+import type { BotHostLogging } from "@llm-tg-bot/modules-registry";
 import { getResolvedSettings, getResolvedHistoryLimits, getContextBudgetForSettings } from "../../settings-runtime.js";
 import { buildBaseSystemPrompt } from "../../prompts.js";
-import { getVramAvailableGb } from "../../config.js";
+import { getVramAvailableGb, config } from "../../config.js";
 import { listModels, checkHealth } from "../../llm/client.js";
 import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings-limits.js";
 import { calculateContextBudget, modelContextInputFromTags } from "../../context-budget.js";
-import { config } from "../../config.js";
-import { logEventError } from "../../event-log.js";
 import { runWebSearch } from "@llm-tg-bot/modules-web-search";
+
+const stickerCatalogLog: BotHostLogging = {
+  logEvent: (event, fields) => logEvent(event, fields as EventFields),
+  logEventError: (event, err, fields) =>
+    logEventError(event, err, fields as EventFields),
+};
 
 function isTavilyConfigured(): boolean {
   return config.tavilyApiKey.length > 0;
@@ -117,7 +127,11 @@ settingsRouter.patch("/", async (req, res) => {
     ) {
       try {
         const bot = getBot();
-        await syncStickerCatalogFromSettings(bot.api);
+        await syncStickerCatalogFromSettings(
+          bot.api,
+          updated as unknown as Record<string, unknown>,
+          stickerCatalogLog,
+        );
       } catch {
         // Bot may not be running during early setup; catalog syncs on startup.
       }
@@ -245,7 +259,11 @@ settingsRouter.post("/stickers/refresh", async (_req, res) => {
   try {
     const bot = getBot();
     const settings = getSettings();
-    await refreshStickerCatalog(bot.api, settings.stickerPackName);
+    await refreshStickerCatalog(
+      bot.api,
+      settings.stickerPackName,
+      stickerCatalogLog,
+    );
     res.json(stickerCatalogResponse());
   } catch (err) {
     res.status(500).json({

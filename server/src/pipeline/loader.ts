@@ -57,7 +57,3 @@ export function getPipelineHosts(): PipelineModuleHost[] {
   }
   return pipelineHosts;
 }
-
-export function resetPipelineHostsForTests(): void {
-  pipelineHosts = null;
-}
