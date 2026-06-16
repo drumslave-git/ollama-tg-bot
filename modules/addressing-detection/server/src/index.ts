@@ -6,10 +6,24 @@ export {
   type AddressingDetectionOutput,
 } from "./detect.js";
 export {
+  addressCheckModule,
+  checkMessageAddressed,
+  type AddressCheckConfig,
+  type AddressCheckInput,
+  type AddressCheckResult,
+  type AddressSource,
+} from "./check-addressed.js";
+export {
+  buildBotAddressIdentity,
+  messageReferencesBotByName,
+  stripBotAddressing,
+  type BotAddressIdentity,
+} from "./bot-identity.js";
+export { stripNonBotMentions } from "./strip-non-bot-mentions.js";
+export {
   isMessageForBot,
   isSlashCommandText,
   sliceEntity,
-  type BotIdentity,
   type MessageForBotInput,
 } from "./telegram-address.js";
 export {

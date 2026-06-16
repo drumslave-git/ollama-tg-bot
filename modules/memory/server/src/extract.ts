@@ -2,6 +2,7 @@ import {
   auxiliaryChatComplete,
   type ChatMessage,
   type ModuleDefinition,
+  type ModuleLogging,
 } from "@llm-tg-bot/modules-utils";
 import {
   buildMemoryExtractMessages,
@@ -25,6 +26,7 @@ export interface MemoryLlmConfig {
   model: string;
   apiKey?: string;
   numPredict?: number;
+  log?: ModuleLogging;
   /**
    * Optional host-provided completion (e.g. debug tracing, thinking mode).
    * When set, `baseUrl` / `model` / `apiKey` are ignored for the LLM call.

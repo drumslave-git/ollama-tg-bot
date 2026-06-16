@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from "@llm-tg-bot/modules-utils";
+import type { ModuleDefinition, ModuleLogging } from "@llm-tg-bot/modules-utils";
 import {
   extractWebSearchSources,
   formatWebSearchContext,
@@ -11,7 +11,9 @@ export interface WebSearchInput {
   query: string;
 }
 
-export interface WebSearchConfig extends TavilyFetchConfig {}
+export interface WebSearchConfig extends TavilyFetchConfig {
+  log?: ModuleLogging;
+}
 
 export interface WebSearchOutput {
   ok: boolean;
@@ -41,15 +43,23 @@ export async function runWebSearch(
 
   try {
     const payload: WebSearchPayload = await fetchTavilySearch(query, config);
-    return {
-      ok: true,
+    const output = {
+      ok: true as const,
       results: payload.results,
       sources: extractWebSearchSources(payload),
       answer: payload.answer,
       context: formatWebSearchContext(query, payload),
       reason: "Search completed",
     };
+    config.log?.logEvent?.("web_search_done", {
+      queryLen: query.length,
+      resultCount: output.results.length,
+    });
+    return output;
   } catch (err) {
+    config.log?.logEventError?.("web_search_failed", err, {
+      queryLen: query.length,
+    });
     return {
       ok: false,
       results: [],

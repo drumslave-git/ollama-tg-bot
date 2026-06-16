@@ -15,7 +15,7 @@ import { getUserFacts } from "../../db/user-memory.js";
 import { getGroupFacts } from "../../db/group-memory.js";
 import { getGeneralFacts } from "../../db/general-memory.js";
 import { mediaKindForMessage, userRoleTag, buildMediaHistoryContent, buildTextHistoryContent } from "../history-format.js";
-import { stripBotAddressing } from "../bot-identity.js";
+import { getBotIdentity, stripBotAddressing } from "../bot-identity.js";
 import { resolveMentionedKnownUsers, formatMentionedUsersContext } from "../mentions.js";
 import { stickerPackEmoji } from "../stickers.js";
 import { describeVisionImages } from "../vision-describe.js";
@@ -190,7 +190,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
       const speaker = inGroupChat ? currentSpeakerFromUser(ctx.from) : null;
       const userRole = userRoleTag(ctx.from);
 
-      const promptText = stripBotAddressing(text) || text;
+      const promptText = stripBotAddressing(text, getBotIdentity()) || text;
       const mentionCtx = {
         botId,
         botUsername,

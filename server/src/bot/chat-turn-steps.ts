@@ -1,14 +1,13 @@
 import type { Context } from "grammy";
 import type { ChatTurnInput } from "./chat-turn.js";
 import { getResolvedSettings } from "../settings-runtime.js";
-import { logEvent, logEventError } from "../event-log.js";
 import { getMessageReport } from "../message-report.js";
 import { getEffectiveMood, saveMoodState } from "../db/mood.js";
 import { evaluateMood } from "../mood-evaluate.js";
 import { resolveLinkFetchContext } from "./link-fetch.js";
 import { isTavilyConfigured, executeWebSearch, type TavilySource } from "../tavily/client.js";
-import { analyzeSearchNeed } from "./search-analyze.js";
-import { rollStickerReplyChance, analyzeStickerForReply } from "./sticker-analyze.js";
+import { analyzeSearchNeedForTurn } from "./search-analyze.js";
+import { rollStickerReplyChance, analyzeStickerForReplyFromTurn } from "./sticker-analyze.js";
 import { resolveStickerFileId } from "./sticker-catalog.js";
 import { sendThinkingMessages } from "./send-thinking.js";
 import { resolveTypingThreadParams, messageThreadExtra } from "./typing.js";
@@ -66,7 +65,10 @@ export async function fetchLinksForTurn(input: ChatTurnInput) {
   return linkFetch;
 }
 
-export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: boolean, turnLog: any) {
+export async function searchWebForTurn(
+  input: ChatTurnInput,
+  linkFetchResolved: boolean,
+) {
   const settings = getResolvedSettings();
   const report = getMessageReport(input.turnId);
   if (settings.workflowSteps && !settings.workflowSteps.includes("search")) {
@@ -77,13 +79,12 @@ export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: 
   let webSearchSources: TavilySource[] = [];
 
   if (isTavilyConfigured() && !linkFetchResolved) {
-    const decision = await analyzeSearchNeed({
+    const decision = await analyzeSearchNeedForTurn({
       userMessage: input.latestBody,
       replyContext: input.replyContext,
       traceTurnId: input.turnId,
     });
     if (decision.needsSearch && decision.query) {
-      logEvent("web_search_triggered", { ...turnLog, queryLen: decision.query.length });
       const searchStarted = performance.now();
       const result = await executeWebSearch(decision.query);
       webSearchContext = result.context;
@@ -96,7 +97,6 @@ export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: 
           performance.now() - searchStarted,
         );
       } else {
-        logEventError("web_search_failed", new Error(result.reason), turnLog);
         report?.failPhase(
           "search",
           "Web search",
@@ -119,7 +119,10 @@ export async function searchWebForTurn(input: ChatTurnInput, linkFetchResolved: 
   return { webSearchContext, webSearchSources };
 }
 
-export async function analyzeStickerForTurn(input: ChatTurnInput, replyBody: string, turnLog: any) {
+export async function analyzeStickerForTurn(
+  input: ChatTurnInput,
+  replyBody: string,
+) {
   const settings = getResolvedSettings();
   const report = getMessageReport(input.turnId);
   if (settings.workflowSteps && !settings.workflowSteps.includes("sticker")) {
@@ -131,7 +134,7 @@ export async function analyzeStickerForTurn(input: ChatTurnInput, replyBody: str
   const stickerRoll = settings.stickersEnabled ? rollStickerReplyChance(settings.stickerReplyChance) : null;
   if (settings.stickersEnabled && stickerRoll?.hit) {
     const stickerStarted = performance.now();
-    stickerEmoji = await analyzeStickerForReply({
+    stickerEmoji = await analyzeStickerForReplyFromTurn({
       userMessage: input.latestBody,
       botReply: replyBody,
       replyContext: input.replyContext,

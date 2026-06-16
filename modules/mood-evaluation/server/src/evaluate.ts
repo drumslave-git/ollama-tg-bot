@@ -2,6 +2,7 @@ import {
   auxiliaryChatComplete,
   type ChatMessage,
   type ModuleDefinition,
+  type ModuleLogging,
 } from "@llm-tg-bot/modules-utils";
 import {
   buildMoodEvaluateMessages,
@@ -18,6 +19,7 @@ export interface MoodEvaluateConfig {
   model: string;
   apiKey?: string;
   numPredict?: number;
+  log?: ModuleLogging;
   /**
    * Optional host-provided completion (e.g. debug tracing).
    * When set, `baseUrl` / `model` / `apiKey` are ignored for the LLM call.
@@ -51,9 +53,15 @@ export async function evaluateMood(
             responseFormat: MOOD_RESPONSE_FORMAT,
           },
         );
-    return parseMoodBlock(raw, fallback);
+    const parsed = parseMoodBlock(raw, fallback);
+    config.log?.logEvent?.("mood_evaluated", {
+      moodSummary: JSON.stringify(parsed.mood),
+      reason: parsed.reason,
+    });
+    return parsed;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
+    config.log?.logEventError?.("mood_evaluate_failed", err);
     return {
       mood: fallback,
       reason: `LLM request failed: ${message}`,

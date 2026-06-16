@@ -1,14 +1,12 @@
 import type { Message } from "@grammyjs/types";
+import type { BotAddressIdentity } from "./bot-identity.js";
 
-export interface BotIdentity {
-  id: number;
-  username?: string;
-}
+export type { BotAddressIdentity };
 
 export interface MessageForBotInput {
   chatType?: string;
   message?: Message;
-  bot: BotIdentity;
+  bot: Pick<BotAddressIdentity, "id" | "username">;
   isReplyToBot?: boolean;
   isReplyInBotThread?: boolean;
 }

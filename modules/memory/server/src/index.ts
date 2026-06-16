@@ -35,3 +35,12 @@ export {
   buildExplainUserMemorySection,
   type ParticipantMemoryFacts,
 } from "./inject.js";
+export {
+  extractMemoriesFromTurn,
+  persistMemories,
+  scheduleMemoryPersistence,
+  type MemoryPersistCallbacks,
+  type MemoryPersistConfig,
+  type MemoryPersistContext,
+  type MemoryPersistReport,
+} from "./persist.js";

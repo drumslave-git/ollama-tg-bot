@@ -27,10 +27,6 @@ import { getOwnerUserId, getOwnerUsername } from "./owner.js";
 import { replyParameters } from "./replies.js";
 import { logEvent, logEventError } from "../event-log.js";
 import { getMessageReport } from "../message-report.js";
-import {
-  analyzeStickerForReply,
-  rollStickerReplyChance,
-} from "./sticker-analyze.js";
 import { resolveStickerFileId } from "./sticker-catalog.js";
 import {
   getHistory,
@@ -149,7 +145,7 @@ export async function runChatTurn(
 
     const moodPromise = evaluateMoodForTurn(input, moodContextText, moodLatestTurnPreview);
     const linkFetch = await fetchLinksForTurn(input);
-    const { webSearchContext, webSearchSources } = await searchWebForTurn(input, linkFetch.resolved, turnLog);
+    const { webSearchContext, webSearchSources } = await searchWebForTurn(input, linkFetch.resolved);
 
     const evaluatedMood = await moodPromise;
 
@@ -245,7 +241,7 @@ export async function runChatTurn(
     const replyBody = extractTelegramReply(modelOutput);
     const hasReply = hasVisibleTelegramReply(replyBody);
 
-    const { stickerEmoji, stickerFileId } = await analyzeStickerForTurn(input, replyBody, turnLog);
+    const { stickerEmoji, stickerFileId } = await analyzeStickerForTurn(input, replyBody);
 
     if (!hasReply && !stickerFileId) {
       throw new Error("Model response had no reply content");

@@ -1,4 +1,4 @@
-import type { ModuleDefinition } from "@llm-tg-bot/modules-utils";
+import type { ModuleDefinition, ModuleLogging } from "@llm-tg-bot/modules-utils";
 import { extractUrls } from "./extract.js";
 import {
   formatLinkFetchContext,
@@ -16,6 +16,7 @@ import type {
 
 export interface LinkFetchConfig {
   maxUrls?: number;
+  log?: ModuleLogging;
   /**
    * Optional host-provided page fetcher (e.g. tests).
    * When omitted, Playwright is used.
@@ -47,14 +48,25 @@ export async function runLinkFetch(
   try {
     const pages = await fetchPages(limited);
     const loaded = pages.filter((p) => !p.error).length;
-    return {
+    const output = {
       context: formatLinkFetchContext(pages),
       urlCount: urls.length,
       resolved: loaded > 0,
       reason: loaded > 0 ? "Pages fetched" : "All page fetches failed",
       pages,
     };
+    if (output.urlCount > 0) {
+      config.log?.logEvent?.("link_fetch_done", {
+        urlCount: output.urlCount,
+        loadedCount: loaded,
+        failedCount: pages.length - loaded,
+      });
+    }
+    return output;
   } catch (err) {
+    config.log?.logEventError?.("link_fetch_failed", err, {
+      urlCount: urls.length,
+    });
     return {
       context: formatLinkFetchFailure(limited, err),
       urlCount: urls.length,

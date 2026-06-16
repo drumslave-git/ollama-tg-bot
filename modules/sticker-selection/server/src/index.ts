@@ -5,6 +5,12 @@ export {
   type StickerSelectionConfig,
 } from "./select.js";
 export {
+  analyzeStickerForReply,
+  stickerAnalyzeModule,
+  type StickerAnalyzeConfig,
+  type StickerAnalyzeInput,
+} from "./analyze.js";
+export {
   STICKER_RESPONSE_FORMAT,
   buildStickerAnalyzerSystem,
   buildStickerAnalyzerMessages,

@@ -8,6 +8,7 @@ import {
   type WebSearchResult,
   type WebSearchSource,
 } from "@llm-tg-bot/modules-web-search";
+import { hostLogging } from "../module-host.js";
 
 export {
   extractWebSearchSources as tavilySources,
@@ -38,9 +39,11 @@ export async function tavilySearch(
   return payload;
 }
 
-/** Run a configured web search through the module (host adapter). */
 export async function executeWebSearch(query: string) {
-  return runWebSearch({ query }, { apiKey: config.tavilyApiKey });
+  return runWebSearch(
+    { query },
+    { apiKey: config.tavilyApiKey, log: hostLogging() },
+  );
 }
 
 /** Lightweight check that the API key works (uses one search credit). */
@@ -48,7 +51,7 @@ export async function checkTavilyHealth(): Promise<boolean> {
   if (!isTavilyConfigured()) return false;
   const result = await runWebSearch(
     { query: "test" },
-    { apiKey: config.tavilyApiKey, maxResults: 1 },
+    { apiKey: config.tavilyApiKey, maxResults: 1, log: hostLogging() },
   );
   if (!result.ok) {
     throw new Error(result.reason);

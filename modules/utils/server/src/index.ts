@@ -1,4 +1,9 @@
 export type { ModuleDefinition, ModuleRun } from "./contract.js";
+export {
+  noopModuleLogging,
+  type ModuleEventFields,
+  type ModuleLogging,
+} from "./logging.js";
 export { extractLastClosedBlock } from "./structured-output.js";
 export {
   asObject,

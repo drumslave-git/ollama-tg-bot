@@ -1,20 +1,10 @@
 import type { Context } from "grammy";
-import { chatComplete } from "../llm/client.js";
-import { config } from "../config.js";
 import {
   ADDRESS_RESPONSE_FORMAT,
-  detectAddressing,
-  type AddressingDetectionConfig,
+  checkMessageAddressed,
+  type AddressCheckResult,
+  type AddressSource,
 } from "@llm-tg-bot/modules-addressing-detection";
-import {
-  getBotIdentity,
-  messageReferencesBotByName,
-  type BotIdentity,
-} from "./bot-identity.js";
-import { isMessageForBot } from "./addressed.js";
-import { stripNonBotMentions } from "./mentions.js";
-import { logEvent, logEventError } from "../event-log.js";
-import { getResolvedSettings } from "../settings-runtime.js";
 
 export {
   ANALYZER_SYSTEM,
@@ -22,145 +12,74 @@ export {
   formatBotLabels,
   parseAddressDecision,
   addressingDetectionModule,
+  addressCheckModule,
   detectAddressing,
+  checkMessageAddressed,
+  buildBotAddressIdentity,
+  messageReferencesBotByName,
+  stripBotAddressing,
+  stripNonBotMentions,
   type AddressingDetectionConfig,
   type AddressingDetectionInput,
   type AddressingDetectionOutput,
+  type AddressCheckConfig,
+  type AddressCheckInput,
+  type AddressSource,
+  type BotAddressIdentity,
 } from "@llm-tg-bot/modules-addressing-detection";
+
+export type { AddressCheckResult };
+
+import { getBotIdentity } from "./bot-identity.js";
+import { isReplyInBotThread, isReplyToBot } from "./replies.js";
+import {
+  hostAuxiliaryChatComplete,
+  hostLlmConfig,
+  hostLogging,
+} from "../module-host.js";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;
 
-export type AddressSource =
-  | "private"
-  | "mention_or_reply"
-  | "name"
-  | "analyzer"
-  | "no_text";
-
-export interface AddressCheckResult {
-  addressed: boolean;
-  source?: AddressSource;
-}
-
-function buildAddressingConfig(
-  bot: BotIdentity,
-  turnId?: number,
-): AddressingDetectionConfig {
-  const settings = getResolvedSettings();
-  return {
-    baseUrl: settings.apiBaseUrl,
-    model: settings.model,
-    botAliases: [bot.username, ...bot.aliases],
-    apiKey: config.openAiApiKey || undefined,
-    numPredict: ADDRESS_CHECK_NUM_PREDICT,
-    chatComplete: (messages) =>
-      chatComplete(messages, {
-        numPredict: ADDRESS_CHECK_NUM_PREDICT,
-        auxiliary: true,
-        responseFormat: ADDRESS_RESPONSE_FORMAT,
-        traceTurnId: turnId,
-        traceLabel: "address detection",
-      }),
-  };
+function senderLabel(ctx: Context): string {
+  if (!ctx.from) return "Someone";
+  return (
+    [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") ||
+    ctx.from.username ||
+    "Someone"
+  );
 }
 
 /**
  * Whether the bot should treat this message as addressed.
- * Private chats: always true. Groups: @mention/reply/command, name match, then LLM name-variant check.
  */
 export async function isMessageAddressedToBot(
   ctx: Context,
   turnId?: number,
 ): Promise<AddressCheckResult> {
-  const baseLog = {
-    chatId: ctx.chat?.id,
-    userId: ctx.from?.id,
-    chatType: ctx.chat?.type,
-  };
-
-  if (ctx.chat?.type === "private") {
-    logEvent("message_addressed", { ...baseLog, source: "private" });
-    return { addressed: true, source: "private" };
-  }
-
-  if (isMessageForBot(ctx)) {
-    logEvent("message_addressed", { ...baseLog, source: "mention_or_reply" });
-    return { addressed: true, source: "mention_or_reply" };
-  }
-
   const bot = getBotIdentity();
-  const textForNameCheck = stripNonBotMentions(ctx.message, {
-    botId: ctx.me?.id,
-    botUsername: ctx.me?.username,
-  });
-  if (textForNameCheck && messageReferencesBotByName(textForNameCheck, bot)) {
-    logEvent("message_addressed", { ...baseLog, source: "name" });
-    return { addressed: true, source: "name" };
-  }
-
-  const text = (ctx.message?.text ?? ctx.message?.caption ?? "").trim();
-  if (!text) {
-    logEvent("message_address_decision", {
-      ...baseLog,
-      turnId,
-      addressed: false,
-      source: "no_text",
-    });
-    return { addressed: false, source: "no_text" };
-  }
-
-  return analyzeGroupMessageForBot(ctx, bot, text, turnId);
-}
-
-async function analyzeGroupMessageForBot(
-  ctx: Context,
-  bot: BotIdentity,
-  text: string,
-  turnId?: number,
-): Promise<AddressCheckResult> {
-  const chatType = ctx.chat?.type;
-  if (chatType !== "group" && chatType !== "supergroup") {
-    return { addressed: false };
-  }
-
-  const sender = ctx.from
-    ? [ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(" ") ||
-      ctx.from.username ||
-      "Someone"
-    : "Someone";
-
-  try {
-    const { result, reason } = await detectAddressing(
-      { message: text, sender, chatType },
-      buildAddressingConfig(bot, turnId),
-    );
-    if (result) {
-      logEvent("message_addressed", {
-        chatId: ctx.chat?.id,
-        userId: ctx.from?.id,
-        turnId,
-        chatType,
-        source: "analyzer",
-        reason,
-      });
-      return { addressed: true, source: "analyzer" };
-    }
-    logEvent("message_address_decision", {
+  return checkMessageAddressed(
+    {
+      chatType: ctx.chat?.type,
       chatId: ctx.chat?.id,
       userId: ctx.from?.id,
       turnId,
-      chatType,
-      addressed: false,
-      source: "analyzer",
-      reason,
-    });
-    return { addressed: false, source: "analyzer" };
-  } catch (err) {
-    logEventError("address_analyzer_failed", err, {
-      chatId: ctx.chat?.id,
-      userId: ctx.from?.id,
-      chatType,
-    });
-    return { addressed: false, source: "analyzer" };
-  }
+      message: ctx.message,
+      bot,
+      isReplyToBot: isReplyToBot(ctx, bot.username),
+      isReplyInBotThread: isReplyInBotThread(ctx, bot.username),
+      sender: senderLabel(ctx),
+    },
+    {
+      ...hostLlmConfig(),
+      botAliases: [bot.username, ...bot.aliases],
+      numPredict: ADDRESS_CHECK_NUM_PREDICT,
+      log: hostLogging(),
+      chatComplete: hostAuxiliaryChatComplete({
+        numPredict: ADDRESS_CHECK_NUM_PREDICT,
+        responseFormat: ADDRESS_RESPONSE_FORMAT,
+        traceTurnId: turnId,
+        traceLabel: "address detection",
+      }),
+    },
+  );
 }

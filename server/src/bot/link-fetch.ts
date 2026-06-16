@@ -1,9 +1,9 @@
-import { logEvent, logEventError } from "../event-log.js";
 import {
   runLinkFetch,
   type LinkFetchInput,
   type LinkFetchOutput,
 } from "@llm-tg-bot/modules-link-fetch";
+import { hostLogging } from "../module-host.js";
 
 export {
   extractUrls,
@@ -36,40 +36,9 @@ function toLinkFetchResult(output: LinkFetchOutput): LinkFetchResult {
   };
 }
 
-/**
- * Detect http(s) links in the addressed turn, visit them with Playwright,
- * and format context for the main reply (similar to Tavily web search).
- */
 export async function resolveLinkFetchContext(
   input: LinkFetchInput,
 ): Promise<LinkFetchResult> {
-  const result = await runLinkFetch(input);
-
-  if (result.urlCount === 0) {
-    return toLinkFetchResult(result);
-  }
-
-  if (result.resolved) {
-    const loaded = result.pages.filter((p) => !p.error).length;
-    logEvent("link_fetch_done", {
-      urlCount: result.urlCount,
-      loadedCount: loaded,
-      failedCount: result.pages.length - loaded,
-    });
-    return toLinkFetchResult(result);
-  }
-
-  if (result.pages.length > 0) {
-    logEvent("link_fetch_done", {
-      urlCount: result.urlCount,
-      loadedCount: 0,
-      failedCount: result.pages.length,
-    });
-    return toLinkFetchResult(result);
-  }
-
-  logEventError("link_fetch_failed", new Error(result.reason), {
-    urlCount: result.urlCount,
-  });
+  const result = await runLinkFetch(input, { log: hostLogging() });
   return toLinkFetchResult(result);
 }
