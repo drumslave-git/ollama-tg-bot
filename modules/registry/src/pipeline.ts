@@ -1,13 +1,22 @@
 /**
  * Generic pipeline contract for dynamically loaded bot feature modules.
  *
- * Each module package may export `pipelineHost` implementing this interface.
+ * Each module package may export `pipelineHost` or `pipelineHosts`.
  * The server discovers modules via manifest.json and runs them by phase.
  */
 
-export type PipelinePhase = "gate" | "pre-reply" | "post-reply" | "background";
+export type PipelinePhase =
+  | "preprocess"
+  | "gate"
+  | "not-addressed"
+  | "pre-reply"
+  | "reply"
+  | "post-reply"
+  | "background";
 
 export type PipelineStepStatus = "ok" | "skipped" | "failed" | "halt";
+
+export type ReplyTrigger = "addressed" | "random" | "image" | null;
 
 export interface ModulePipelineMeta {
   /** ID referenced in dashboard workflowSteps (e.g. "mood", "links"). */
@@ -29,22 +38,86 @@ export interface PipelineStepResult {
   detail?: unknown;
 }
 
+/** Minimal Telegram context passed into the pipeline by the server. */
+export interface PipelineTelegramContext {
+  message: unknown;
+  chat?: { id: number; type: string; is_forum?: boolean };
+  from?: unknown;
+  me?: { id: number; username?: string };
+  botToken: string;
+}
+
+/** Reply payload produced by the pipeline for the server to deliver. */
+export interface PipelineDeliveryResult {
+  replyHtml?: string;
+  thinking?: string;
+  stickerFileId?: string | null;
+  stickerEmoji?: string | null;
+  webSearchSources?: unknown[];
+  historyText?: string;
+  skipUserHistory?: boolean;
+  userHistoryContent?: string | null;
+  userRole?: string | null;
+  error?: string;
+}
+
+/** Result returned from runMessagePipeline to the message handler. */
+export interface MessagePipelineResult {
+  /** When set, the server should send this text and stop (e.g. vision unavailable). */
+  earlyReply?: string;
+  /** When shouldReply is false, the pipeline ended without a bot reply. */
+  ignored?: boolean;
+  ignoreReason?: string;
+  /** Populated when the bot should send a full reply turn. */
+  delivery?: PipelineDeliveryResult;
+  replyTrigger?: ReplyTrigger;
+  addressSource?: string;
+}
+
 /** Mutable per-turn state passed through the pipeline. */
 export interface PipelineTurnState {
   turnId: number;
+  telegram: PipelineTelegramContext;
+
+  /** Raw message text/caption before bot-address stripping. */
+  rawText?: string;
   latestBody: string;
   replyContext?: string | null;
+  mentionedUsersContext?: string | null;
+
+  convKey?: string | null;
+  chatId?: number;
+  userId?: string | null;
+  groupChatId?: string | null;
+  inGroup?: boolean;
+  userRole?: string | null;
+  currentSpeaker?: unknown;
+  currentSpeakerIsOwner?: boolean;
+  messageThreadId?: number;
+  isForum?: boolean;
 
   /** When true, gate modules such as address check are skipped. */
   skipAddressCheck?: boolean;
+
+  /** Whether the bot should produce a reply for this message. */
+  shouldReply?: boolean;
+  replyTrigger?: ReplyTrigger;
 
   /** Populated by the address gate module. */
   addressed?: boolean;
   addressSource?: string;
 
-  /** When true, remaining pipeline steps should not run. */
-  halt?: boolean;
-  haltReason?: string;
+  userHistoryContent?: string | null;
+  skipUserHistory?: boolean;
+
+  /** Accumulated prompt context for the completion step. */
+  systemPromptContent?: string;
+  personalityPrompt?: string;
+  chatMessages?: unknown[];
+  systemContent?: string;
+  historyMessages?: unknown[];
+  latestContent?: string;
+  storedHistoryCount?: number;
 
   /** Mood evaluation inputs/outputs. */
   moodContextText?: string;
@@ -62,6 +135,7 @@ export interface PipelineTurnState {
 
   /** Main reply body before sticker/post-processing. */
   replyBody?: string;
+  thinking?: string;
 
   /** Sticker selection outputs. */
   stickerEmoji?: string | null;
@@ -69,9 +143,14 @@ export interface PipelineTurnState {
 
   /** Memory persistence context. */
   memoryInput?: unknown;
-  userId?: string | null;
-  groupChatId?: string | null;
   assistantReply?: string;
+
+  /** Pipeline control — early exit without delivery. */
+  halt?: boolean;
+  haltReason?: string;
+  earlyReply?: string;
+
+  delivery?: PipelineDeliveryResult;
 
   /** Module-specific inputs set by the host before a phase runs. */
   moduleInput?: Record<string, unknown>;
@@ -110,14 +189,91 @@ export interface PipelineLlmServices {
     traceLabel: string;
     think?: boolean;
   }): (messages: unknown[]) => Promise<string>;
+  createMainChatComplete?(options: {
+    think?: boolean;
+    responseFormat: unknown;
+    traceTurnId?: number;
+    traceLabel: string;
+    traceLayout?: {
+      system: string;
+      history: unknown[];
+      latest: string;
+    };
+  }): (messages: unknown[]) => Promise<{ raw: string; thinking?: string }>;
 }
 
 export interface PipelineHostCallbacks {
   getBotIdentity?: () => unknown;
+  resolveConversationKey?: (telegram: PipelineTelegramContext) => string | null;
+  resolveUserId?: (telegram: PipelineTelegramContext) => string | null;
+  resolveGroupChatId?: (telegram: PipelineTelegramContext) => string | null;
+  isGroupChat?: (telegram: PipelineTelegramContext) => boolean;
+  isOwner?: (telegram: PipelineTelegramContext) => boolean;
   getEffectiveMood?: () => unknown;
   saveMoodState?: (mood: unknown) => void;
   getStickerCatalog?: () => unknown;
   getSettings?: () => Record<string, unknown>;
+  getActivePersonalityPrompt?: () => string;
+  buildSystemPromptForTurn?: (state: PipelineTurnState) => string;
+  buildChatContextForTurn?: (state: PipelineTurnState) => {
+    messages: unknown[];
+    systemContent: string;
+    historyMessages: unknown[];
+    latestContent: string;
+    storedHistoryCount: number;
+  };
+  prepareDelivery?: (state: PipelineTurnState) => PipelineDeliveryResult;
+  ensureHistoryFits?: (convKey: string) => Promise<void>;
+  recordExchange?: (
+    convKey: string,
+    userRole: string | null,
+    userContent: string | null,
+    assistantText: string,
+    options?: { skipUser?: boolean },
+  ) => void;
+  enrichTextWithUserMentions?: (
+    text: string,
+    message: unknown,
+    options: {
+      botId?: number;
+      botUsername?: string;
+      senderId?: number;
+      senderUsername?: string;
+    },
+  ) => string;
+  formatReplyContext?: (
+    telegram: PipelineTelegramContext,
+    currentSpeaker?: unknown,
+  ) => string | null;
+  stripBotAddressing?: (text: string) => string;
+  resolveMentionedUsersContext?: (
+    text: string,
+    telegram: PipelineTelegramContext,
+  ) => string | null;
+  currentSpeakerFromUser?: (from: unknown) => unknown;
+  userRoleTag?: (from: unknown) => string | null;
+  loadVisionFromMessage?: (
+    botToken: string,
+    message: unknown,
+  ) => Promise<{
+    images: unknown[];
+    unavailableText?: string;
+    visionHint?: string;
+    sourceSticker?: unknown;
+  }>;
+  findReplyMediaMessage?: (message: unknown) => unknown;
+  messageHasVisionMedia?: (message: unknown) => boolean;
+  messageHasUserImage?: (message: unknown) => boolean;
+  describeVisionImages?: (
+    images: unknown[],
+    logContext: Record<string, unknown>,
+    visionHint?: string,
+    traceTurnId?: number,
+  ) => Promise<string>;
+  stickerPackEmoji?: (sticker: unknown) => string | null;
+  getUserFacts?: (userId: string) => string[];
+  getGroupFacts?: (groupId: string) => string[];
+  getGeneralFacts?: () => string[];
   memoryCallbacks?: {
     replaceUserFacts: (userId: string, facts: string[]) => void;
     replaceGroupFacts: (groupId: string, facts: string[]) => void;

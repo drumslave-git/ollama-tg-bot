@@ -1,3 +1,12 @@
-export { createPipelineServices } from "./services.js";
+export { createPipelineServices, createInitialPipelineState } from "./services.js";
 export { loadPipelineHosts, getPipelineHosts } from "./loader.js";
-export { runPipelinePhase, runPipelinePhaseBackground } from "./runner.js";
+export {
+  runMessagePipeline,
+  runPipelinePhase,
+  runPipelinePhaseBackground,
+} from "./runner.js";
+export {
+  deliverPipelineReply,
+  deliverEarlyReply,
+  deliverPipelineError,
+} from "./deliver.js";

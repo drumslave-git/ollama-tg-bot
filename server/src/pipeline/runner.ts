@@ -1,4 +1,5 @@
 import type {
+  MessagePipelineResult,
   PipelineHostServices,
   PipelineModuleHost,
   PipelinePhase,
@@ -6,6 +7,16 @@ import type {
   PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
 import { getPipelineHosts } from "./loader.js";
+
+const PHASE_SEQUENCE: PipelinePhase[] = [
+  "preprocess",
+  "gate",
+  "not-addressed",
+  "pre-reply",
+  "reply",
+  "post-reply",
+  "background",
+];
 
 function isStepEnabled(
   host: PipelineModuleHost,
@@ -70,7 +81,7 @@ export async function runPipelinePhase(
   phase: PipelinePhase,
   state: PipelineTurnState,
   services: PipelineHostServices,
-): Promise<boolean> {
+): Promise<void> {
   const enabledSteps = services.getWorkflowSteps();
   const hosts = getPipelineHosts().filter((host) => host.phase === phase);
 
@@ -84,13 +95,53 @@ export async function runPipelinePhase(
 
     const result = await runHost(host, state, services);
     recordStepResult(result, services, state.turnId);
+  }
+}
 
-    if (result.status === "halt" || state.halt) {
-      return false;
+function shouldRunReplyPhases(state: PipelineTurnState): boolean {
+  return Boolean(state.shouldReply);
+}
+
+export async function runMessagePipeline(
+  state: PipelineTurnState,
+  services: PipelineHostServices,
+): Promise<MessagePipelineResult> {
+  for (const phase of PHASE_SEQUENCE) {
+    if (state.earlyReply) {
+      return { earlyReply: state.earlyReply };
+    }
+
+    const isReplyPhase =
+      phase === "pre-reply" || phase === "reply" || phase === "post-reply";
+    if (isReplyPhase && !shouldRunReplyPhases(state)) {
+      continue;
+    }
+
+    await runPipelinePhase(phase, state, services);
+
+    if (state.earlyReply) {
+      return { earlyReply: state.earlyReply };
     }
   }
 
-  return true;
+  if (!state.shouldReply) {
+    return {
+      ignored: true,
+      ignoreReason: state.haltReason ?? "not_addressed",
+      addressSource: state.addressSource,
+    };
+  }
+
+  const delivery =
+    state.delivery ??
+    services.callbacks.prepareDelivery?.(state) ??
+    {};
+
+  return {
+    delivery,
+    replyTrigger: state.replyTrigger ?? null,
+    addressSource: state.addressSource,
+  };
 }
 
 export function runPipelinePhaseBackground(

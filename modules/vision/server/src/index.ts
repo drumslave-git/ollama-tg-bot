@@ -34,3 +34,5 @@ export {
   type VisionDescribeInput,
   type VisionDescribeOutput,
 } from "./describe.js";
+export { visionPreprocessHost } from "./pipeline.js";
+export { pipelineHosts } from "./pipeline-hosts.js";

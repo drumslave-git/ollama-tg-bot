@@ -1,0 +1,12 @@
+{
+  "id": "completions",
+  "name": "Chat completions",
+  "description": "System prompt injection and main LLM reply generation.",
+  "serverPackage": "@llm-tg-bot/modules-completions",
+  "pipeline": {
+    "stepId": "completions",
+    "phase": "reply",
+    "order": 0,
+    "alwaysOn": true
+  }
+}

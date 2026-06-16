@@ -7,12 +7,30 @@ import { resolveModulesRoot } from "../runtime/modules.js";
 
 let pipelineHosts: PipelineModuleHost[] | null = null;
 
+const PHASE_ORDER: Record<string, number> = {
+  preprocess: 0,
+  gate: 1,
+  "not-addressed": 2,
+  "pre-reply": 3,
+  reply: 4,
+  "post-reply": 5,
+  background: 6,
+};
+
+function sortHosts(hosts: PipelineModuleHost[]): PipelineModuleHost[] {
+  return hosts.sort((a, b) => {
+    const phaseDiff = (PHASE_ORDER[a.phase] ?? 99) - (PHASE_ORDER[b.phase] ?? 99);
+    if (phaseDiff !== 0) return phaseDiff;
+    return a.order - b.order;
+  });
+}
+
 export async function loadPipelineHosts(): Promise<PipelineModuleHost[]> {
   if (pipelineHosts) return pipelineHosts;
 
   const manifests = discoverModuleManifests(resolveModulesRoot()).filter(
     (manifest): manifest is ModuleManifest & { serverPackage: string } =>
-      Boolean(manifest.serverPackage && manifest.pipeline),
+      Boolean(manifest.serverPackage),
   );
 
   const loaded: PipelineModuleHost[] = [];
@@ -20,34 +38,26 @@ export async function loadPipelineHosts(): Promise<PipelineModuleHost[]> {
   for (const manifest of manifests) {
     const mod = (await import(manifest.serverPackage)) as {
       pipelineHost?: PipelineModuleHost;
+      pipelineHosts?: PipelineModuleHost[];
     };
-    if (!mod.pipelineHost) {
-      throw new Error(
-        `Module ${manifest.id} declares pipeline metadata but exports no pipelineHost`,
-      );
+
+    const hosts = mod.pipelineHosts
+      ? mod.pipelineHosts
+      : mod.pipelineHost
+        ? [mod.pipelineHost]
+        : [];
+
+    for (const host of hosts) {
+      if (host.id !== manifest.id) {
+        throw new Error(
+          `Module ${manifest.id} pipelineHost.id mismatch: ${host.id}`,
+        );
+      }
+      loaded.push(host);
     }
-    const host = mod.pipelineHost;
-    if (host.id !== manifest.id) {
-      throw new Error(
-        `Module ${manifest.id} pipelineHost.id mismatch: ${host.id}`,
-      );
-    }
-    loaded.push(host);
   }
 
-  pipelineHosts = loaded.sort((a, b) => {
-    if (a.phase !== b.phase) {
-      const order: Record<string, number> = {
-        gate: 0,
-        "pre-reply": 1,
-        "post-reply": 2,
-        background: 3,
-      };
-      return (order[a.phase] ?? 99) - (order[b.phase] ?? 99);
-    }
-    return a.order - b.order;
-  });
-
+  pipelineHosts = sortHosts(loaded);
   return pipelineHosts;
 }
 

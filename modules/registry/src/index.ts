@@ -8,7 +8,9 @@ export type {
 } from "./bot.js";
 export type { ModuleManifest, ModuleDashboardMeta } from "./manifest.js";
 export type {
+  MessagePipelineResult,
   ModulePipelineMeta,
+  PipelineDeliveryResult,
   PipelineHostCallbacks,
   PipelineHostServices,
   PipelineLlmServices,
@@ -17,7 +19,9 @@ export type {
   PipelineReportWriter,
   PipelineStepResult,
   PipelineStepStatus,
+  PipelineTelegramContext,
   PipelineTurnState,
+  ReplyTrigger,
 } from "./pipeline.js";
 export { discoverModuleManifests } from "./discover.js";
 export {

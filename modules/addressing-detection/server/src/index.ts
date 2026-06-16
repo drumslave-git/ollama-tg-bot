@@ -32,4 +32,5 @@ export {
   formatBotLabels,
   parseAddressDecision,
 } from "./prompt.js";
-export { pipelineHost } from "./pipeline.js";
+export { pipelineHosts, addressingHost } from "./pipeline.js";
+export { replyTriggersHost } from "./reply-triggers.js";

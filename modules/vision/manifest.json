@@ -2,5 +2,11 @@
   "id": "vision",
   "name": "Vision",
   "description": "Recognize photos, image documents, and stickers via a vision model for chat history and context.",
-  "serverPackage": "@llm-tg-bot/modules-vision"
+  "serverPackage": "@llm-tg-bot/modules-vision",
+  "pipeline": {
+    "stepId": "vision",
+    "phase": "preprocess",
+    "order": 5,
+    "alwaysOn": true
+  }
 }

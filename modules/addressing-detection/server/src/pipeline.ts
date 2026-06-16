@@ -3,15 +3,15 @@ import type {
   PipelineModuleHost,
   PipelineHostServices,
   PipelineStepResult,
-  PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
 import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
-import {
-  checkMessageAddressed,
-  type AddressCheckInput,
-} from "./check-addressed.js";
-import type { BotAddressIdentity } from "./bot-identity.js";
+import { checkMessageAddressed } from "./check-addressed.js";
 import { ADDRESS_RESPONSE_FORMAT } from "./prompt.js";
+import {
+  isReplyInBotThreadMessage,
+  isReplyToBotMessage,
+} from "./telegram-reply.js";
+import { readBotIdentity, replyTriggersHost, senderLabel } from "./reply-triggers.js";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;
 
@@ -28,31 +28,11 @@ function hostLogging(services: PipelineHostServices): ModuleLogging {
   };
 }
 
-function readAddressInput(
-  state: PipelineTurnState,
-): AddressCheckInput | null {
-  const raw = state.moduleInput?.address;
-  if (!raw || typeof raw !== "object") return null;
-  const input = raw as Partial<AddressCheckInput>;
-  if (!input.bot) return null;
-  return {
-    chatType: input.chatType,
-    chatId: input.chatId,
-    userId: input.userId,
-    turnId: state.turnId,
-    message: input.message as Message | undefined,
-    bot: input.bot as BotAddressIdentity,
-    isReplyToBot: input.isReplyToBot,
-    isReplyInBotThread: input.isReplyInBotThread,
-    sender: input.sender,
-  };
-}
-
-export const pipelineHost: PipelineModuleHost = {
+export const addressingHost: PipelineModuleHost = {
   id: "addressing-detection",
   stepId: "address",
   phase: "gate",
-  order: 0,
+  order: 10,
   alwaysOn: true,
 
   shouldRun(state) {
@@ -60,56 +40,69 @@ export const pipelineHost: PipelineModuleHost = {
   },
 
   async run(state, services): Promise<PipelineStepResult> {
-    const input = readAddressInput(state);
-    if (!input) {
+    const bot = readBotIdentity(services);
+    const message = state.telegram.message as Message | undefined;
+    if (!bot) {
       return {
         status: "failed",
         phaseId: "address",
         phaseTitle: "Address check",
-        summary: "Missing address input",
+        summary: "Bot identity not available",
       };
     }
 
     const started = performance.now();
-    const result = await checkMessageAddressed(input, {
-      baseUrl: services.llm.baseUrl,
-      model: services.llm.model,
-      apiKey: services.llm.apiKey,
-      botAliases: [
-        input.bot.username,
-        ...(input.bot.aliases ?? []),
-      ],
-      numPredict: ADDRESS_CHECK_NUM_PREDICT,
-      log: hostLogging(services),
-      chatComplete: services.llm.createAuxiliaryChatComplete({
+    const result = await checkMessageAddressed(
+      {
+        chatType: state.telegram.chat?.type,
+        chatId: state.telegram.chat?.id,
+        userId: (state.telegram.from as { id?: number } | undefined)?.id,
+        turnId: state.turnId,
+        message,
+        bot,
+        isReplyToBot: isReplyToBotMessage(message, state.telegram.me, bot),
+        isReplyInBotThread: isReplyInBotThreadMessage(
+          message,
+          state.telegram.me,
+          bot,
+        ),
+        sender: senderLabel(state.telegram.from),
+      },
+      {
+        baseUrl: services.llm.baseUrl,
+        model: services.llm.model,
+        apiKey: services.llm.apiKey,
+        botAliases: [bot.username, ...(bot.aliases ?? [])],
         numPredict: ADDRESS_CHECK_NUM_PREDICT,
-        responseFormat: ADDRESS_RESPONSE_FORMAT,
-        traceTurnId: state.turnId,
-        traceLabel: "address detection",
-      }),
-    });
+        log: hostLogging(services),
+        chatComplete: services.llm.createAuxiliaryChatComplete({
+          numPredict: ADDRESS_CHECK_NUM_PREDICT,
+          responseFormat: ADDRESS_RESPONSE_FORMAT,
+          traceTurnId: state.turnId,
+          traceLabel: "address detection",
+        }),
+      },
+    );
 
     state.addressed = result.addressed;
     state.addressSource = result.source;
-
-    if (!result.addressed) {
-      state.halt = true;
+    state.shouldReply = result.addressed;
+    if (result.addressed) {
+      state.replyTrigger = "addressed";
+    } else {
       state.haltReason = "not_addressed";
-      return {
-        status: "halt",
-        phaseId: "address",
-        phaseTitle: "Address check",
-        summary: result.reason ?? "Not addressed to the bot",
-        durationMs: performance.now() - started,
-      };
     }
 
     return {
       status: "ok",
       phaseId: "address",
       phaseTitle: "Address check",
-      summary: result.source ?? "Addressed",
+      summary: result.addressed
+        ? (result.source ?? "Addressed")
+        : (result.reason ?? "Not addressed to the bot"),
       durationMs: performance.now() - started,
     };
   },
 };
+
+export const pipelineHosts = [replyTriggersHost, addressingHost];

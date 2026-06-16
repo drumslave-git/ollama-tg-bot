@@ -36,6 +36,7 @@
     "@llm-tg-bot/modules-search-decision": "*",
     "@llm-tg-bot/modules-registry": "*",
     "@llm-tg-bot/modules-utils": "*",
+    "@llm-tg-bot/modules-completions": "*",
     "@llm-tg-bot/modules-web-search": "*",
     "openai": "^6.42.0",
     "playwright": "^1.52.0",

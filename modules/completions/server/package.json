@@ -1,5 +1,5 @@
 {
-  "name": "@llm-tg-bot/modules-vision",
+  "name": "@llm-tg-bot/modules-completions",
   "version": "1.0.0",
   "private": true,
   "type": "module",
@@ -11,11 +11,8 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@grammyjs/types": "^3.22.2",
-    "@llm-tg-bot/modules-history": "*",
     "@llm-tg-bot/modules-registry": "*",
-    "@llm-tg-bot/modules-utils": "*",
-    "sharp": "^0.33.5"
+    "@llm-tg-bot/modules-utils": "*"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

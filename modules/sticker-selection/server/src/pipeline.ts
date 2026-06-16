@@ -33,7 +33,7 @@ export const pipelineHost: PipelineModuleHost = {
   order: 10,
 
   shouldRun(state) {
-    return Boolean(state.replyBody?.trim());
+    return Boolean(state.shouldReply && state.replyBody?.trim());
   },
 
   async run(state, services): Promise<PipelineStepResult> {
