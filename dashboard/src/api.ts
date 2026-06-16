@@ -138,6 +138,8 @@ export interface ReportDetailLlm {
   type: "llm";
   model: string;
   sampling?: string;
+  requestBody?: unknown;
+  responseBody?: unknown;
   sections: Array<{ title: string; body: string }>;
   output: {
     content: string;
@@ -255,6 +257,8 @@ export interface Stats {
   lastActivityAt: string | null;
   botUsername: string | null;
   botRunning: boolean;
+  buildCommit: string;
+  buildCommitShort: string;
   uptimeSeconds: number;
   startedAt: string;
   recentErrors: BotErrorRecord[];

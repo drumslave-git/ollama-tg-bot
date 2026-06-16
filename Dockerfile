@@ -2,6 +2,9 @@ FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
+ARG GIT_COMMIT_SHA
+ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
+
 ENV NODE_ENV=development
 
 COPY package.json package-lock.json* ./

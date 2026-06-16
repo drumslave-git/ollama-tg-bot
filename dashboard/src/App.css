@@ -1495,6 +1495,30 @@ a.report-message-item {
   max-height: 280px;
 }
 
+.report-json-view {
+  padding: 0.5rem 0.65rem 0.75rem;
+  border-top: 1px solid var(--border);
+  overflow: auto;
+  max-height: 480px;
+  font-size: 0.78rem;
+}
+
+.report-json-view .react-json-view {
+  background: transparent !important;
+}
+
+.report-empty {
+  display: block;
+  padding: 0.75rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.badge.build-commit {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  letter-spacing: 0.02em;
+}
+
 .report-llm-meta {
   display: flex;
   flex-wrap: wrap;

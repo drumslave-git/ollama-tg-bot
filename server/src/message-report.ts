@@ -196,6 +196,8 @@ export class MessageReportSession {
     response: ChatResponseShape,
     layout?: VerbosePromptLayout,
     samplingLine?: string,
+    requestBody?: unknown,
+    responseBody?: unknown,
   ): void {
     const title = LLM_TITLES[label] ?? label;
     const id = `llm-${label.replace(/\s+/g, "-")}`;
@@ -245,6 +247,8 @@ export class MessageReportSession {
       type: "llm",
       model,
       sampling: samplingLine,
+      requestBody,
+      responseBody,
       sections,
       output: {
         content,

@@ -3,6 +3,7 @@ import type {
   ReportDetail,
   ReportPhase,
 } from "../../api";
+import { DebugJsonView } from "../../components/DebugJsonView";
 import { formatDuration, statusClass } from "./debugUtils";
 
 export function buildLogFileContent(detail: MessageReportDetail): string {
@@ -89,6 +90,18 @@ function PhaseDetail({ detail }: { detail: ReportDetail }) {
         {detail.sampling ? <span>{detail.sampling}</span> : null}
         {detail.output.meta ? <span>{detail.output.meta}</span> : null}
       </div>
+      {detail.requestBody != null ? (
+        <details className="report-section">
+          <summary>Request body</summary>
+          <DebugJsonView value={detail.requestBody} />
+        </details>
+      ) : null}
+      {detail.responseBody != null ? (
+        <details className="report-section">
+          <summary>Response body</summary>
+          <DebugJsonView value={detail.responseBody} />
+        </details>
+      ) : null}
       {detail.sections.map((section) => (
         <details key={section.title} className="report-section">
           <summary>{section.title}</summary>
@@ -97,13 +110,13 @@ function PhaseDetail({ detail }: { detail: ReportDetail }) {
       ))}
       <details className="report-section">
         <summary>Output</summary>
-        <pre className="report-pre">{detail.output.content || "(empty)"}</pre>
+        <DebugJsonView value={detail.output.content || "(empty)"} />
       </details>
       <details className="report-section" open={Boolean(detail.output.reasoning)}>
         <summary>
           Reasoning{detail.output.reasoning ? "" : " (none)"}
         </summary>
-        <pre className="report-pre">{detail.output.reasoning || "(empty)"}</pre>
+        <DebugJsonView value={detail.output.reasoning || "(empty)"} />
       </details>
     </div>
   );

@@ -1,3 +1,4 @@
+import { buildCommit, buildCommitShort } from "./build-info.js";
 import { getBot, getBotUsername } from "./bot/index.js";
 import { getVramAvailableGb } from "./config.js";
 import { getSettings, getStats } from "./db/database.js";
@@ -32,6 +33,8 @@ export function buildStatsPayload() {
     ...stats,
     botUsername: getBotUsername() || null,
     botRunning,
+    buildCommit,
+    buildCommitShort,
     uptimeSeconds: Math.floor(
       (Date.now() - processStartedAt.getTime()) / 1000,
     ),

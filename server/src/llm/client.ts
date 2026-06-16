@@ -28,6 +28,7 @@ import {
   shouldUseResponseFormat,
 } from "./openai-compat.js";
 import { getMessageReport } from "../message-report.js";
+import { sanitizeLlmPayloadForDebug } from "./debug-payload.js";
 import { extractModelMaxCtx } from "../context-budget.js";
 
 const LIST_MODELS_TIMEOUT_MS = 60_000;
@@ -290,12 +291,18 @@ async function requestChat(
   responseFormat?: JsonSchemaResponseFormat,
 ): Promise<ChatResponse> {
   const settings = getResolvedSettings();
+  const requestBody = chatCompletionBody(
+    model,
+    prepared,
+    numPredict,
+    auxiliary,
+    responseFormat,
+  );
   let response: ChatCompletion;
   try {
-    response = await openAiClient().chat.completions.create(
-      chatCompletionBody(model, prepared, numPredict, auxiliary, responseFormat),
-      { timeout: getChatTimeoutMs(settings) },
-    );
+    response = await openAiClient().chat.completions.create(requestBody, {
+      timeout: getChatTimeoutMs(settings),
+    });
   } catch (err) {
     if (
       err instanceof APIConnectionTimeoutError ||
@@ -329,6 +336,8 @@ async function requestChat(
         data,
         traceLayout,
         formatTraceSamplingLine(settings, auxiliary, responseFormat),
+        sanitizeLlmPayloadForDebug(requestBody),
+        sanitizeLlmPayloadForDebug(response),
       );
     }
   }

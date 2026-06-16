@@ -98,6 +98,11 @@ export function AppLayout() {
                   ? "off"
                   : "—"}
             </span>
+            {stats?.buildCommitShort ? (
+              <span className="badge build-commit" title={stats.buildCommit}>
+                {stats.buildCommitShort}
+              </span>
+            ) : null}
           </div>
         </div>
       </aside>
