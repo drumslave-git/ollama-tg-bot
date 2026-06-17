@@ -12,8 +12,9 @@ import { liveClient, liveConfig, liveReasoningMode, runTurn } from "./helpers.js
 
 const cfg = liveConfig();
 
+const NUM_PREDICT = 2048;
 const SYSTEM = buildBaseSystemPrompt(
-  makeSettings({ numCtx: 8192, numPredict: 512, thinkingEnabled: true }),
+  makeSettings({ numCtx: 8192, numPredict: NUM_PREDICT, thinkingEnabled: true }),
 );
 
 function userTurn(text: string): ChatCompletionMessageParam[] {
@@ -22,6 +23,9 @@ function userTurn(text: string): ChatCompletionMessageParam[] {
     { role: "user", content: `[user:georg:123 said] ${text}` },
   ];
 }
+
+const REASONING_EFFORT_LEVELS = ["none", "low", "medium", "high"] as const;
+const EFFORT_LEVEL_PROMPT = "What is 12 + 13? One word in the reply field.";
 
 describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled)", () => {
   it("uses json_schema with reasoning field on main reply while thinking is on", () => {
@@ -37,24 +41,37 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
     });
   });
 
-  it("returns reasoning in JSON content and a usable reply", async () => {
-    const client = liveClient(cfg!);
-    const result = await runTurn(
-      client,
-      cfg!.model,
-      userTurn("What is 12 + 13? One word in the reply field."),
-      { thinkingEnabled: true, numPredict: 512 },
-    );
+  it.each(REASONING_EFFORT_LEVELS)(
+    "returns reasoning in JSON content and a usable reply at effort %s",
+    async (reasoningEffort) => {
+      const settings = makeSettings({ thinkingEnabled: true, reasoningEffort });
+      const ext = providerChatExtensions(settings, false);
+      if (reasoningEffort === "none") {
+        expect(ext.reasoning_effort).toBeUndefined();
+        expect(ext.chat_template_kwargs?.reasoning_effort).toBeUndefined();
+      } else {
+        expect(ext.reasoning_effort).toBe(reasoningEffort);
+        expect(ext.chat_template_kwargs?.reasoning_effort).toBe(reasoningEffort);
+      }
 
-    expect(result.reply, "reply should not be empty").not.toBe("");
-    expect(hasVisibleTelegramReply(prepareTelegramHtml(result.reply))).toBe(true);
-    expect(
-      result.reasoning,
-      "backend should return chain-of-thought in a separate reasoning field",
-    ).not.toBe("");
-    expect(result.reasoning.length).toBeGreaterThan(20);
-    expect(result.content, "final answer should stay in content").not.toBe("");
-  });
+      const client = liveClient(cfg!);
+      const result = await runTurn(
+        client,
+        cfg!.model,
+        userTurn(EFFORT_LEVEL_PROMPT),
+        { thinkingEnabled: true, numPredict: NUM_PREDICT, reasoningEffort },
+      );
+
+      expect(result.reply, `reply should not be empty (effort=${reasoningEffort})`).not.toBe("");
+      expect(hasVisibleTelegramReply(prepareTelegramHtml(result.reply))).toBe(true);
+      expect(
+        result.reasoning,
+        `backend should return chain-of-thought at effort=${reasoningEffort}`,
+      ).not.toBe("");
+      expect(result.reasoning.length).toBeGreaterThan(20);
+      expect(result.content, "final answer should stay in content").not.toBe("");
+    },
+  );
 
   it("returns separate reasoning for an alive-check prompt", async () => {
     const client = liveClient(cfg!);
@@ -62,7 +79,7 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
       client,
       cfg!.model,
       userTurn("Ihar, are you alive!"),
-      { thinkingEnabled: true, numPredict: 512 },
+      { thinkingEnabled: true, numPredict: NUM_PREDICT },
     );
 
     expect(result.reply).not.toBe("");
@@ -75,7 +92,7 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
       client,
       cfg!.model,
       userTurn("Tell me a one-sentence joke."),
-      { thinkingEnabled: true, numPredict: 1024 },
+      { thinkingEnabled: true, numPredict: NUM_PREDICT },
     );
 
     expect(result.reply).not.toBe("");

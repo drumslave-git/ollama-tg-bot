@@ -18,6 +18,7 @@ import {
   mergeAssistantReasoning,
   responseFormatForThinking,
   toOpenAiResponseFormat,
+  type ReasoningEffort,
 } from "@llm-tg-bot/modules-utils";
 import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
 import { makeSettings } from "../helpers/settings.js";
@@ -69,11 +70,18 @@ export async function runTurn(
   client: OpenAI,
   model: string,
   messages: ChatCompletionMessageParam[],
-  opts: { numPredict?: number; thinkingEnabled?: boolean } = {},
+  opts: {
+    numPredict?: number;
+    thinkingEnabled?: boolean;
+    reasoningEffort?: ReasoningEffort;
+  } = {},
 ): Promise<TurnResult> {
   const settings = makeSettings({
     numCtx: 8192,
     thinkingEnabled: opts.thinkingEnabled ?? liveReasoningMode(),
+    ...(opts.reasoningEffort !== undefined
+      ? { reasoningEffort: opts.reasoningEffort }
+      : {}),
   });
   const ext = providerChatExtensions(settings, false);
   const responseFormat = getMainReplyResponseFormat(settings.thinkingEnabled);
