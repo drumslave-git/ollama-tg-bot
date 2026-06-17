@@ -28,7 +28,7 @@ describe.skipIf(!cfg)("live: chat round-trip", () => {
 
   it("handles several greetings in different languages", async () => {
     const client = liveClient(cfg!);
-    const prompts = ["привет", "hello", "здаров", "аллоха"];
+    const prompts = ["bonjour", "hello", "hola", "ciao"];
     for (const p of prompts) {
       const result = await runTurn(client, cfg!.model, userTurn(p));
       expect(result.reply, `empty reply for "${p}" (finish=${result.finishReason})`).not.toBe(

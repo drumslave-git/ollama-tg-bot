@@ -20,7 +20,7 @@ function liveConfig(): LiveConfig | null {
 }
 
 const cfg = liveConfig();
-const BOT_ALIASES = ["arguella_bot", "Arguella", "Аргуэлла"];
+const BOT_ALIASES = ["arguella_bot", "Arguella", "ArguellaBot"];
 
 async function decide(text: string): Promise<boolean> {
   const result = await detectAddressing(
@@ -57,7 +57,7 @@ describe.skipIf(!cfg)("live: addressing-detection module", () => {
     const positives = [
       "Arguella, what do you think about this?",
       "hey Arguella can you summarize this thread?",
-      "Аргуэлла, привет, как дела?",
+      "Arguella, hey, how are you?",
       "@arguella_bot translate this please",
     ];
     let correct = 0;

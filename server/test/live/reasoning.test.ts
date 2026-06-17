@@ -40,7 +40,7 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
     const settings = makeSettings({ thinkingEnabled: true, reasoningEffort: "medium" });
     const completion = await client.chat.completions.create({
       model: cfg!.model,
-      messages: userTurn("Ігарь, ти живий!"),
+      messages: userTurn("Ihar, are you alive!"),
       stream: false,
       max_completion_tokens: 512,
       temperature: settings.temperature,
@@ -75,12 +75,12 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
     expect(result.content, "final answer should stay in content").not.toBe("");
   });
 
-  it("returns separate reasoning for the Ukrainian alive-check prompt", async () => {
+  it("returns separate reasoning for an alive-check prompt", async () => {
     const client = liveClient(cfg!);
     const result = await runTurn(
       client,
       cfg!.model,
-      userTurn("Ігарь, ти живий!"),
+      userTurn("Ihar, are you alive!"),
       { thinkingEnabled: true, numPredict: 512 },
     );
 

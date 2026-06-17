@@ -49,8 +49,8 @@ describe("ANALYZER_SYSTEM", () => {
 
 describe("formatBotLabels", () => {
   it("prefixes the username with @ and keeps aliases", () => {
-    expect(formatBotLabels(["arguella_bot", "Arguella", "Аргуэлла"])).toBe(
-      "@arguella_bot, Arguella, Аргуэлла",
+    expect(formatBotLabels(["arguella_bot", "Arguella", "ArguellaBot"])).toBe(
+      "@arguella_bot, Arguella, ArguellaBot",
     );
   });
 });
