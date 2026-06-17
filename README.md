@@ -52,11 +52,11 @@ When an addressed message contains `http(s)` links, the bot detects them, opens 
 - Opens links in addressed messages via Playwright (auto-detected URLs)
 - **Maintenance mode** — dashboard toggle; when on, only the configured owner can trigger LLM-backed behavior (others are ignored silently)
 - Dashboard: API base URL, model, owner, prompts, stats
-- **Modular features** — LLM side passes packaged as stateless workspace modules under `server/src/modules/` (see [Feature modules](#feature-modules))
+- **Modular features** — LLM side passes packaged as stateless workspace modules under `modules/` (see [Feature modules](#feature-modules))
 
 ## Feature modules
 
-Bot capabilities are being split into small **stateless npm packages** (microservice-style contracts, same Node process). Each module lives in `server/src/modules/<name>/`, is imported as `@llm-tg-bot/modules-<name>` (logical path `llm-tg-bot/modules/<name>`), and defines typed **input**, **config**, and **output**.
+Bot capabilities are split into small **stateless npm packages** (microservice-style contracts, same Node process). Each module lives in `modules/<name>/`, is imported as `@llm-tg-bot/modules-<name>`, and defines typed **input**, **config**, and **output**.
 
 | Module | Role |
 |--------|------|

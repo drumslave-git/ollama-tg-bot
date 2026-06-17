@@ -11,7 +11,7 @@ import {
 } from "../db/personalities/index.js";
 import { ensureModelContextCache } from "../llm/model-context-cache.js";
 import { MOOD_TRAIT_HINTS } from "../mood/index.js";
-import { buildBaseSystemPrompt } from "../prompts/index.js";
+import { buildBaseSystemPrompt } from "../pipeline/adapters/system-prompt.js";
 import { processStartedAt } from "../config/process-info.js";
 import {
   getContextBudgetForSettings,

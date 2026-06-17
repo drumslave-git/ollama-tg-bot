@@ -66,6 +66,14 @@ export default defineConfig({
         modulesRoot,
         "history/db/src/index.ts",
       ),
+      "@llm-tg-bot/modules-vision": path.join(
+        modulesRoot,
+        "vision/server/src/index.ts",
+      ),
+      "@llm-tg-bot/modules-completions": path.join(
+        modulesRoot,
+        "completions/server/src/index.ts",
+      ),
     },
   },
   test: {

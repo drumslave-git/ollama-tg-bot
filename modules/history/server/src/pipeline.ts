@@ -4,7 +4,6 @@ import type {
   PipelineStepResult,
 } from "@llm-tg-bot/modules-registry";
 import { stripCurrentBotAddressing } from "@llm-tg-bot/modules-addressing-detection";
-import { appendMessage } from "@llm-tg-bot/modules-history-db";
 import {
   buildMediaHistoryContent,
   buildPassiveHistoryContent,
@@ -125,7 +124,7 @@ export const passiveRecordHost: PipelineModuleHost = {
       botId,
     );
     if (textContent) {
-      appendMessage(convKey, role, textContent);
+      cb.appendMessage?.(convKey, role, textContent);
       services.logging.logEvent("passive_history_stored", {
         ...msgLog,
         kind: "text",
@@ -157,7 +156,7 @@ export const passiveRecordHost: PipelineModuleHost = {
             cb.stickerPackEmoji?.(sticker) ?? null,
           );
           if (mediaHistory) {
-            appendMessage(convKey, role, mediaHistory);
+            cb.appendMessage?.(convKey, role, mediaHistory);
             services.logging.logEvent("vision_stored", {
               ...msgLog,
               mediaKind,

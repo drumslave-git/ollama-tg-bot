@@ -18,12 +18,12 @@ import { chatCompleteDetailed } from "../llm/client.js";
 import {
   extractTelegramReply,
   MAIN_REPLY_RESPONSE_FORMAT,
-} from "../prompts/response-format.js";
+} from "@llm-tg-bot/modules-completions";
 import {
   hasVisibleTelegramReply,
   prepareTelegramHtml,
 } from "../telegram/html.js";
-import { buildExplainSystemPrompt } from "../prompts/index.js";
+import { buildExplainSystemPrompt } from "../pipeline/adapters/system-prompt.js";
 import { recordExchange } from "../pipeline/chat-messages.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { isOwner } from "../bot/owner/owner.js";

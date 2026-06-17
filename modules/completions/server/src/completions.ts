@@ -3,29 +3,9 @@ import type {
   PipelineStepResult,
 } from "@llm-tg-bot/modules-registry";
 import {
-  asObject,
-  parseJsonContent,
-  readString,
-  strictObjectSchema,
-} from "@llm-tg-bot/modules-utils";
-
-const MAIN_REPLY_RESPONSE_FORMAT = strictObjectSchema(
-  "telegram_reply",
-  {
-    reply: {
-      type: "string",
-      description:
-        "The bot's spoken reply to the user. Telegram HTML subset when tags add emphasis.",
-    },
-  },
-  ["reply"],
-);
-
-function extractReply(raw: string): string {
-  const parsed = asObject(parseJsonContent(raw));
-  if (!parsed) return "";
-  return readString(parsed, "reply") ?? "";
-}
+  extractTelegramReply,
+  MAIN_REPLY_RESPONSE_FORMAT,
+} from "./response-format.js";
 
 export const completionsHost: PipelineModuleHost = {
   id: "completions",
@@ -123,7 +103,7 @@ export const completionsHost: PipelineModuleHost = {
       }
     }
 
-    const replyBody = extractReply(modelOutput);
+    const replyBody = extractTelegramReply(modelOutput);
     state.replyBody = replyBody;
 
     if (!replyBody.trim()) {

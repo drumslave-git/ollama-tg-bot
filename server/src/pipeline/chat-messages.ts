@@ -13,7 +13,10 @@ import {
 import { getUserFacts } from "../db/memory/user.js";
 import { logEvent } from "../logging/event-log.js";
 import type { Settings } from "../db/index.js";
-import { buildSystemPrompt, type ParticipantFacts } from "../prompts/index.js";
+import {
+  buildSystemPrompt,
+  type ParticipantFacts,
+} from "./adapters/system-prompt.js";
 import type { MoodValues } from "../mood/index.js";
 import { extractParticipantUserIds } from "@llm-tg-bot/modules-history";
 import { isReplyThreadContext } from "../bot/replies/replies.js";

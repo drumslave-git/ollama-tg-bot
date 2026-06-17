@@ -12,7 +12,7 @@ import {
 import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
 import type { BotHostLogging } from "@llm-tg-bot/modules-registry";
 import { getResolvedSettings, getResolvedHistoryLimits, getContextBudgetForSettings } from "../../settings/runtime.js";
-import { buildBaseSystemPrompt } from "../../prompts/index.js";
+import { buildBaseSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
 import { getVramAvailableGb, config } from "../../config/index.js";
 import { listModels, checkHealth } from "../../llm/client.js";
 import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings/limits.js";

@@ -8,7 +8,7 @@ import { parseAssistantMessage, providerChatExtensions, shouldUseResponseFormat 
 import {
   extractTelegramReply,
   MAIN_REPLY_RESPONSE_FORMAT,
-} from "../../src/prompts/response-format.js";
+} from "@llm-tg-bot/modules-completions";
 import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,

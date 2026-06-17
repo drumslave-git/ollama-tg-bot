@@ -230,6 +230,11 @@ export interface PipelineHostCallbacks {
     assistantText: string,
     options?: { skipUser?: boolean },
   ) => void;
+  appendMessage?: (
+    convKey: string,
+    role: string,
+    content: string,
+  ) => void;
   enrichTextWithUserMentions?: (
     text: string,
     message: unknown,

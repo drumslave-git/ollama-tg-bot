@@ -28,3 +28,7 @@ export {
 export { pipelineHost, pipelineHosts, moodPipelineHost } from "./pipeline.js";
 export { botHost } from "./bot-host.js";
 export { buildMoodCommandReply } from "./mood-command.js";
+export {
+  MOOD_EXTENSION_ID,
+  type MoodCommandExtension,
+} from "./mood-command-types.js";

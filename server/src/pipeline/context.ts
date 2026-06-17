@@ -10,7 +10,7 @@ import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
 import { getUserFacts } from "../db/memory/user.js";
 import { getGroupFacts } from "../db/memory/group.js";
 import { getGeneralFacts } from "../db/memory/general.js";
-import { buildSystemPrompt } from "../prompts/index.js";
+import { buildSystemPrompt } from "./adapters/system-prompt.js";
 import {
   buildChatMessages,
   type LatestTurnOptions,

@@ -3,7 +3,7 @@ import {
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "../../src/llm/openai-compat.js";
-import { MAIN_REPLY_RESPONSE_FORMAT } from "../../src/prompts/response-format.js";
+import { MAIN_REPLY_RESPONSE_FORMAT } from "@llm-tg-bot/modules-completions";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("main reply thinking request policy", () => {

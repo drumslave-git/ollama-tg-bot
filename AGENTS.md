@@ -126,8 +126,8 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 
 - Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`; optional `showModel` / catalog fetch for context-budget metadata)
 - OpenAI-compatible parsing: `server/src/llm/openai-compat.ts` (`content` vs `reasoning` / `reasoning_content`, request `options`)
-- Debug traces: `server/src/debug-trace.ts`, `server/src/db/debug-traces.ts` — per-message processing stored in SQLite (50 per chat); LLM I/O recorded when a trace session is active
-- Chat options: `server/src/settings-limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
+- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); LLM I/O recorded when a trace session is active
+- Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
 **OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (`"medium"` when `thinkingEnabled` is on, `"none"` when off). Some models/backends mis-split when thinking is enabled via API (`content` empty, answer in `reasoning`); JSON replies require the full answer in `message.content`. Parse **`message.content`** as JSON for the Telegram reply (`reply` field). Parse **`message.reasoning_content`** / **`reasoning`** as chain-of-thought only — never for replies. Extensions: `providerChatExtensions()` in `openai-compat.ts`. All structured passes also send `response_format: { type: "json_schema", json_schema: { strict: true, ... } }` via `@llm-tg-bot/modules-utils` (`strictObjectSchema`, `toOpenAiResponseFormat`).
@@ -168,11 +168,11 @@ Reference implementations:
 - **Schema helpers:** `@llm-tg-bot/modules-utils` (`json-schema.ts`: `strictObjectSchema`, `parseJsonContent`, typed readers)
 - **Address detection:** `@llm-tg-bot/modules-addressing-detection` (`ADDRESS_RESPONSE_FORMAT`, `{ addressed: boolean }`)
 - **Search decision:** `@llm-tg-bot/modules-search-decision` (`SEARCH_RESPONSE_FORMAT`, `{ needs_search, query }`)
-- **Main reply:** `MAIN_REPLY_RESPONSE_FORMAT` + `buildReplyFormatSpec()` in `server/src/response-format.ts` (`{ reply: string }`)
+- **Main reply:** `MAIN_REPLY_RESPONSE_FORMAT` + `buildReplyFormatSpec()` in `modules/completions/server/src/response-format.ts` (`{ reply: string }`)
 
 ### Response format
 
-Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `server/src/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
+Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `modules/completions/server/src/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
 
 **LLM response fields:** User-facing text comes from the API `content` field (JSON). Chain-of-thought / reasoning comes from the separate `reasoning` (or `reasoning_content`) field — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
 
@@ -184,7 +184,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 - **No drive-by refactors** or unrelated changes.
 - **Do not commit** unless the user asks. Do not put secrets in git (`.env`, tokens).
 - **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.
-- **SQLite settings** — add new keys to `DEFAULT_SETTINGS` in `server/src/db/database.ts`, validation in `settings-limits.ts`, allowed PATCH keys in `server/src/api/routes.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
+- **SQLite settings** — add new keys to `DEFAULT_SETTINGS` in `server/src/db/database.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
 
 ## Dashboard pages
 
@@ -216,8 +216,8 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Maintenance | `server/src/bot/maintenance/maintenance.ts`, `owner/owner.ts` |
 | Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
 | History | `modules/history/server/` (pipeline hosts); SQLite in `server/src/db/history/` |
-| Vision | `modules/vision/server/`; adapter `server/src/pipeline/vision-adapter.ts`; image resize `server/src/llm/images.js` |
-| Completions | `modules/completions/server/` (system-prompt + LLM reply pipeline hosts, `/explain` bot host) |
+| Vision | `modules/vision/server/`; vision describe wired in `server/src/pipeline/adapters/callbacks.ts` |
+| Completions | `modules/completions/server/` (system prompt + LLM reply pipeline hosts, `/explain` bot host, reply JSON schema); host adapter `server/src/pipeline/adapters/system-prompt.ts` |
 | Search decision | `modules/search-decision/server/` |
 | Web search | `modules/web-search/server/`; Tavily adapter in pipeline callbacks |
 | Memory | `modules/memory/server/` (pipeline hosts); extract logic in module |
@@ -235,8 +235,8 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 - **Feature module suites:** `npm test` runs each `@llm-tg-bot/modules-*` package (unit tests in `<module>/test/`). Live LLM tests: `npm run test:llm -w @llm-tg-bot/modules-addressing-detection` (and search-decision, memory, mood-evaluation; requires `LLM_BASE_URL`, `LLM_MODEL`).
 - **Mocked server suite (committable, default):** `npm run test -w server`. Pure logic only — no network, LLM, or Telegram. Lives in `server/test/unit/**`; shared `Settings` fixture in `server/test/helpers/settings.ts`. Config: `server/vitest.config.ts`.
 - **Live LLM server suite (opt-in):** `npm run test:llm -w server`. Hits a real OpenAI-compatible backend for chat. Address, search-decision, memory, and mood-evaluation live tests live in their modules. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when absent. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
-- **Legacy side-pass prompts:** non-modular LLM side passes (if any remain) still keep system prompt + `build*Messages()` + parser in pure `*-prompt.ts` files until migrated to `server/src/modules/`.
-- **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (`settings-limits` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
+- **Legacy side-pass prompts:** non-modular LLM side passes (if any remain) still keep system prompt + `build*Messages()` + parser in pure `*-prompt.ts` files until migrated to `modules/<name>/server/`.
+- **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (`server/src/settings/limits.ts` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
 
 After server or module changes: `npm run build:modules` then `npm run build -w server`. After dashboard changes: `npm run build -w dashboard`. Manually verify bot commands (`/start`, `/id`, `/reset`) and dashboard save/load.
 

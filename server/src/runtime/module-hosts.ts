@@ -13,6 +13,7 @@ import { getSettings } from "../db/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { replyToUser } from "../bot/replies/replies-helpers.js";
 import { createExplainExtensions } from "./explain-host.js";
+import { createMoodExtensions } from "./mood-host.js";
 
 type ServerManifest = ModuleManifest & { serverPackage: string };
 
@@ -126,7 +127,10 @@ export function createBotHostServices(
     },
     getSettings: () => getSettings() as unknown as Record<string, unknown>,
     replyToUser: (ctx, text) => replyToUser(ctx as Context, text),
-    extensions: createExplainExtensions(),
+    extensions: {
+      ...createExplainExtensions(),
+      ...createMoodExtensions(),
+    },
   };
 }
 

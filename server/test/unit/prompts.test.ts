@@ -4,7 +4,7 @@ import {
   buildBaseSystemPrompt,
   buildExplainSystemPrompt,
   buildSystemPrompt,
-} from "../../src/prompts/index.js";
+} from "../../src/pipeline/adapters/system-prompt.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("buildBaseSystemPrompt", () => {

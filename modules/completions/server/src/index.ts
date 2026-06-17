@@ -11,3 +11,9 @@ export {
 } from "./explain-types.js";
 export { runExplainTurn } from "./explain-turn.js";
 export { handleExplainCommand } from "./explain-command.js";
+export {
+  MAIN_REPLY_RESPONSE_FORMAT,
+  buildReplyFormatSpec,
+  extractTelegramReply,
+  stripStructuredMarkup,
+} from "./response-format.js";

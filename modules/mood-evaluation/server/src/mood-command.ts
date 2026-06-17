@@ -1,12 +1,5 @@
-import {
-  getEffectiveMood,
-  getMoodStateView,
-  tickMoodCooldown,
-  getActivePersonalityMoodDefaults,
-  getPersonalityById,
-  resolveActivePersonalityId,
-} from "@llm-tg-bot/modules-mood-evaluation-db";
 import { escapeHtml } from "@llm-tg-bot/modules-utils";
+import type { MoodCommandExtension } from "./mood-command-types.js";
 import { MOOD_KEYS } from "./values.js";
 
 function formatTraitLine(
@@ -20,16 +13,17 @@ function formatTraitLine(
 
 export function buildMoodCommandReply(
   settings: Record<string, unknown>,
+  extension: MoodCommandExtension,
 ): string {
-  tickMoodCooldown();
+  extension.tickMoodCooldown();
 
-  const defaults = getActivePersonalityMoodDefaults();
-  const current = getEffectiveMood();
-  const state = getMoodStateView();
-  const activeId = resolveActivePersonalityId(
+  const defaults = extension.getActivePersonalityMoodDefaults();
+  const current = extension.getEffectiveMood();
+  const state = extension.getMoodStateView();
+  const activeId = extension.resolveActivePersonalityId(
     Number(settings.activePersonalityId ?? 0),
   );
-  const activeName = activeId ? getPersonalityById(activeId)?.name : null;
+  const activeName = activeId ? extension.getPersonalityById(activeId)?.name : null;
 
   const lines = ["<b>Mood</b> (global)"];
 

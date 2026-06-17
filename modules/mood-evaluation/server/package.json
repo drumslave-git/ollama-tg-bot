@@ -12,7 +12,6 @@
     "test:llm": "vitest run --config vitest.live.config.ts"
   },
   "dependencies": {
-    "@llm-tg-bot/modules-mood-evaluation-db": "*",
     "@llm-tg-bot/modules-registry": "*",
     "@llm-tg-bot/modules-utils": "*",
     "grammy": "^1.35.0"

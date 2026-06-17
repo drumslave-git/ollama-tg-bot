@@ -1,6 +1,17 @@
 import type { Context } from "grammy";
-import type { BotModuleHost } from "@llm-tg-bot/modules-registry";
+import type { BotModuleHost, BotHostServices } from "@llm-tg-bot/modules-registry";
 import { buildMoodCommandReply } from "./mood-command.js";
+import {
+  MOOD_EXTENSION_ID,
+  type MoodCommandExtension,
+} from "./mood-command-types.js";
+
+function readMoodExtension(
+  services: BotHostServices,
+): MoodCommandExtension | null {
+  const extension = services.extensions[MOOD_EXTENSION_ID];
+  return extension ? (extension as MoodCommandExtension) : null;
+}
 
 export const botHost: BotModuleHost = {
   id: "mood-evaluation",
@@ -11,10 +22,15 @@ export const botHost: BotModuleHost = {
       description: "Current mood traits and defaults",
       handler: async (ctx, services) => {
         const grammyCtx = ctx as Context;
+        const extension = readMoodExtension(services);
+        if (!extension) {
+          throw new Error("Mood extension is not configured");
+        }
+
         try {
           await services.replyToUser(
             grammyCtx,
-            buildMoodCommandReply(services.getSettings()),
+            buildMoodCommandReply(services.getSettings(), extension),
           );
         } catch (err) {
           console.error("/mood command error:", err);

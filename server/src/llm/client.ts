@@ -21,7 +21,7 @@ import {
   getEffectiveNumPredict,
 } from "../settings/limits.js";
 import { getResolvedSettings } from "../settings/runtime.js";
-import { normalizeImageForChat } from "./images.js";
+import { normalizeImageForChat } from "@llm-tg-bot/modules-vision";
 import {
   parseAssistantMessage,
   providerChatExtensions,
@@ -250,7 +250,9 @@ async function prepareMessages(
     messages.map(async (msg) => {
       if (!msg.images?.length) return msg;
       const images = await Promise.all(
-        msg.images.map((b64) => normalizeImageForChat(b64)),
+        msg.images.map((b64) =>
+          normalizeImageForChat(b64, getSettings().visionMaxDimension),
+        ),
       );
       return { ...msg, images };
     }),
