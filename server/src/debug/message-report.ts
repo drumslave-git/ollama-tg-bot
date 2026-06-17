@@ -72,7 +72,7 @@ export class MessageReportSession {
   readonly messageId: number | null;
   readonly messagePreview: string;
   private readonly startedAt = performance.now();
-  private status: ReportStatus = "ignored";
+  private status: ReportStatus = "processing";
   private hasMedia = false;
   private mediaKind?: string;
   private routing:
@@ -118,6 +118,12 @@ export class MessageReportSession {
   setIntake(input: { hasMedia: boolean; mediaKind?: string }): void {
     this.hasMedia = input.hasMedia;
     this.mediaKind = input.mediaKind;
+    this.persistIfInFlight();
+  }
+
+  /** Write the trace as soon as a message is accepted for handling. */
+  markReceived(): void {
+    this.persistIfInFlight();
   }
 
   finishIgnored(ignoreReason: string, addressSource?: string): void {
@@ -152,6 +158,7 @@ export class MessageReportSession {
 
   skipPhase(id: string, title: string, summary: string): void {
     this.phases.push({ id, title, status: "skipped", summary });
+    this.persistIfInFlight();
   }
 
   okPhase(
@@ -169,6 +176,7 @@ export class MessageReportSession {
       ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
       ...(detail ? { detail } : {}),
     });
+    this.persistIfInFlight();
   }
 
   failPhase(
@@ -186,6 +194,7 @@ export class MessageReportSession {
       ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
       ...(detail ? { detail } : {}),
     });
+    this.persistIfInFlight();
   }
 
   recordLlmCall(
@@ -363,6 +372,12 @@ export class MessageReportSession {
     };
   }
 
+  private persistIfInFlight(): void {
+    if (this.status === "processing") {
+      this.persist();
+    }
+  }
+
   private persist(): void {
     const report = this.buildReport();
     const listSummary: MessageReportListSummary = {
@@ -432,9 +447,14 @@ function buildHeadline(
   }
 
   if (status === "processing") {
-    const label =
-      routing?.decision === "accepted" ? routing.triggerLabel : "Processing";
-    return `Processing · ${label}`;
+    if (routing?.decision === "accepted") {
+      return `Processing · ${routing.triggerLabel}`;
+    }
+    const lastPhase = phases.at(-1);
+    if (lastPhase) {
+      return `Processing · ${lastPhase.title}`;
+    }
+    return "Processing · message received";
   }
 
   if (status === "error") {
@@ -489,6 +509,7 @@ export function beginMessageReport(input: {
     messagePreview: input.messagePreview,
   });
   sessions.set(input.turnId, session);
+  session.markReceived();
   return session;
 }
 
