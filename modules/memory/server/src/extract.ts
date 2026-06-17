@@ -19,7 +19,7 @@ import {
 } from "./merge-prompt.js";
 
 export const MEMORY_EXTRACT_NUM_PREDICT = 384;
-export const MEMORY_MERGE_NUM_PREDICT = 1024;
+export const MEMORY_MERGE_NUM_PREDICT = 1536;
 
 export interface MemoryLlmConfig {
   baseUrl: string;

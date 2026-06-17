@@ -8,6 +8,8 @@ export const MIN_NUM_PREDICT = 32;
  * too low a budget makes those passes return empty content and silently fail.
  */
 export const AUXILIARY_NUM_PREDICT = 768;
+/** Higher auxiliary floor when thinking is on — reasoning tokens precede structured JSON. */
+export const AUXILIARY_REASONING_NUM_PREDICT = 1024;
 /** Hard cap on generated tokens; also limited by context size minus prompt headroom. */
 export const MAX_NUM_PREDICT = 8192;
 export const NUM_CTX_GENERATION_HEADROOM = 512;
@@ -59,13 +61,16 @@ export function getEffectiveNumPredict(
   return snapNumPredict(options?.baseNumPredict ?? settings.numPredict);
 }
 
-/** Generation budget for auxiliary LLM side passes (never below AUXILIARY_NUM_PREDICT). */
+/** Generation budget for auxiliary LLM side passes (never below the thinking-aware floor). */
 export function getAuxiliaryNumPredict(
   settings: Settings,
   baseNumPredict?: number,
 ): number {
+  const floor = settings.thinkingEnabled
+    ? AUXILIARY_REASONING_NUM_PREDICT
+    : AUXILIARY_NUM_PREDICT;
   return Math.max(
-    AUXILIARY_NUM_PREDICT,
+    floor,
     getEffectiveNumPredict(settings, { baseNumPredict }),
   );
 }

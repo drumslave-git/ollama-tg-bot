@@ -56,13 +56,16 @@ describe("providerChatExtensions", () => {
     expect(ext.chat_template_kwargs).toEqual({ enable_thinking: true });
   });
 
-  it("forces reasoning off for auxiliary side passes", () => {
+  it("uses low reasoning effort for auxiliary side passes when thinking is on", () => {
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
       true,
     );
-    expect(ext.reasoning_effort).toBeUndefined();
-    expect(ext.chat_template_kwargs).toEqual({ enable_thinking: false });
+    expect(ext.reasoning_effort).toBe("low");
+    expect(ext.chat_template_kwargs).toEqual({
+      enable_thinking: true,
+      reasoning_effort: "low",
+    });
   });
 
   it("disables chat template thinking when thinking is off", () => {

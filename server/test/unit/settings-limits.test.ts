@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AUXILIARY_NUM_PREDICT,
+  AUXILIARY_REASONING_NUM_PREDICT,
   MAX_NUM_PREDICT,
   MIN_NUM_CTX,
   MIN_NUM_PREDICT,
@@ -54,10 +55,18 @@ describe("getEffectiveNumPredict", () => {
 });
 
 describe("getAuxiliaryNumPredict", () => {
-  it("never drops below the auxiliary floor", () => {
+  it("never drops below the auxiliary floor when thinking is off", () => {
     expect(getAuxiliaryNumPredict(makeSettings({ numPredict: 64 }))).toBe(
       AUXILIARY_NUM_PREDICT,
     );
+  });
+
+  it("uses the higher reasoning floor when thinking is on", () => {
+    expect(
+      getAuxiliaryNumPredict(
+        makeSettings({ numPredict: 64, thinkingEnabled: true }),
+      ),
+    ).toBe(AUXILIARY_REASONING_NUM_PREDICT);
   });
 
   it("uses a larger configured budget when above the floor", () => {

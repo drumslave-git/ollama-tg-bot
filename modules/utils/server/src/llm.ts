@@ -4,9 +4,15 @@ import {
   toOpenAiResponseFormat,
   type JsonSchemaResponseFormat,
 } from "./json-schema.js";
+import {
+  providerChatExtensions,
+  type ProviderChatSettings,
+} from "./openai-compat.js";
 
-/** Floor for auxiliary side-pass generation budget (reasoning backends need headroom). */
+/** Floor for auxiliary side-pass generation budget when thinking is off. */
 export const AUXILIARY_NUM_PREDICT = 768;
+/** Higher floor when thinking is on — reasoning tokens consume budget before JSON. */
+export const AUXILIARY_REASONING_NUM_PREDICT = 1024;
 
 export const AUXILIARY_TEMPERATURE = 0.2;
 
@@ -25,6 +31,8 @@ export interface AuxiliaryChatOptions {
   numPredict?: number;
   timeoutMs?: number;
   responseFormat?: JsonSchemaResponseFormat;
+  /** When set, reasoning flags follow dashboard settings (low effort for side passes). */
+  providerSettings?: ProviderChatSettings;
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
@@ -48,7 +56,7 @@ function pickAssistantContent(
 
 /**
  * Stateless auxiliary chat completion for side-pass modules.
- * Uses low temperature and `reasoning_effort: none` when supported.
+ * Uses low temperature; when `providerSettings.thinkingEnabled`, sends low reasoning effort.
  */
 export async function auxiliaryChatComplete(
   llm: LlmConfig,
@@ -62,10 +70,19 @@ export async function auxiliaryChatComplete(
     timeout: options.timeoutMs ?? 120_000,
   });
 
-  const numPredict = Math.max(
-    AUXILIARY_NUM_PREDICT,
-    options.numPredict ?? 0,
-  );
+  const thinkingOn = options.providerSettings?.thinkingEnabled === true;
+  const floor = thinkingOn
+    ? AUXILIARY_REASONING_NUM_PREDICT
+    : AUXILIARY_NUM_PREDICT;
+  const numPredict = Math.max(floor, options.numPredict ?? 0);
+
+  const providerExt = options.providerSettings
+    ? providerChatExtensions(options.providerSettings, true)
+    : {
+        reasoning_effort: "none" as const,
+        chat_template_kwargs: { enable_thinking: false },
+        options: { skip_special_tokens: false },
+      };
 
   const completion = await client.chat.completions.create({
     model: llm.model,
@@ -73,11 +90,7 @@ export async function auxiliaryChatComplete(
     stream: false,
     max_completion_tokens: numPredict,
     temperature: AUXILIARY_TEMPERATURE,
-    reasoning_effort: "none",
-    chat_template_kwargs: { enable_thinking: false },
-    options: {
-      skip_special_tokens: false,
-    },
+    ...providerExt,
     ...(options.responseFormat
       ? { response_format: toOpenAiResponseFormat(options.responseFormat) }
       : {}),

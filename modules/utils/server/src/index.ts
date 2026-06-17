@@ -19,6 +19,7 @@ export {
 } from "./json-schema.js";
 export {
   AUXILIARY_NUM_PREDICT,
+  AUXILIARY_REASONING_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,
   auxiliaryChatComplete,
   type AuxiliaryChatOptions,
@@ -38,6 +39,7 @@ export {
   providerChatExtensions,
   providerRequestExtensions,
   shouldUseResponseFormat,
+  AUXILIARY_REASONING_EFFORT,
   type ParsedAssistantMessage,
   type ProviderChatExtensions,
   type ProviderChatOptions,

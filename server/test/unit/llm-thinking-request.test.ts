@@ -40,7 +40,7 @@ describe("main reply thinking request policy", () => {
     ).toBe(true);
   });
 
-  it("enables chat-template thinking on main reply only", () => {
+  it("enables chat-template thinking on main and auxiliary when thinking is on", () => {
     const main = providerChatExtensions(thinkingSettings, false);
     expect(main.chat_template_kwargs).toEqual({
       enable_thinking: true,
@@ -49,7 +49,10 @@ describe("main reply thinking request policy", () => {
     expect(main.reasoning_effort).toBe("medium");
 
     const aux = providerChatExtensions(thinkingSettings, true);
-    expect(aux.chat_template_kwargs).toEqual({ enable_thinking: false });
-    expect(aux.reasoning_effort).toBeUndefined();
+    expect(aux.chat_template_kwargs).toEqual({
+      enable_thinking: true,
+      reasoning_effort: "low",
+    });
+    expect(aux.reasoning_effort).toBe("low");
   });
 });

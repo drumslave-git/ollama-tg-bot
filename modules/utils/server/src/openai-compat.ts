@@ -40,6 +40,9 @@ export interface ProviderChatExtensions {
 
 export type ReasoningEffort = "none" | "low" | "medium" | "high";
 
+/** Side passes use low effort when thinking is enabled (main reply may be higher). */
+export const AUXILIARY_REASONING_EFFORT: ReasoningEffort = "low";
+
 export interface ProviderChatSettings {
   numCtx: number;
   topK: number;
@@ -59,12 +62,9 @@ export function providerRequestExtensions(
 /**
  * OpenAI-compatible chat request extensions for provider-specific options.
  *
- * Some backends can mis-split when `reasoning_effort` is not `"none"`: the
- * answer may land in `reasoning` with empty `content`. Keep thinking disabled
- * unless the selected backend/model handles separate reasoning reliably.
- *
  * Reasoning is parsed from a separate backend field when returned, but is never
- * merged into user-facing reply text.
+ * merged into user-facing reply text. Side passes keep `response_format` and
+ * use {@link AUXILIARY_REASONING_EFFORT} when thinking is on.
  */
 export function providerChatExtensions(
   settings: ProviderChatSettings,
@@ -79,9 +79,12 @@ export function providerChatExtensions(
     },
   };
 
-  const thinkingOn = !auxiliary && settings.thinkingEnabled;
-  const effort =
-    auxiliary || !settings.thinkingEnabled ? "none" : settings.reasoningEffort;
+  const thinkingOn = settings.thinkingEnabled;
+  const effort: ReasoningEffort = !thinkingOn
+    ? "none"
+    : auxiliary
+      ? AUXILIARY_REASONING_EFFORT
+      : settings.reasoningEffort;
 
   const templateKwargs: ChatTemplateKwargs = {
     enable_thinking: thinkingOn,

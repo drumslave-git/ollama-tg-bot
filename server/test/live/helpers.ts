@@ -11,6 +11,7 @@ import {
 } from "@llm-tg-bot/modules-completions";
 import {
   AUXILIARY_NUM_PREDICT,
+  AUXILIARY_REASONING_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,
 } from "../../src/settings/limits.js";
 import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
@@ -114,7 +115,7 @@ export interface AuxResult {
 
 /**
  * Run one *auxiliary* side-pass (address/search/memory/mood) the way the bot
- * does: low temperature and `reasoning_effort: none` via
+ * does: low temperature and low `reasoning_effort` when thinking is enabled via
  * {@link providerChatExtensions}, parsed through {@link parseAssistantMessage}.
  * Returns the raw assistant content (callers apply the feature parser).
  */
@@ -122,13 +123,19 @@ export async function runAuxiliary(
   client: OpenAI,
   model: string,
   messages: ChatMessage[],
-  opts: { numPredict?: number; responseFormat?: JsonSchemaResponseFormat } = {},
+  opts: {
+    numPredict?: number;
+    responseFormat?: JsonSchemaResponseFormat;
+    thinkingEnabled?: boolean;
+  } = {},
 ): Promise<AuxResult> {
-  const settings = makeSettings({ numCtx: 8192, thinkingEnabled: false });
+  const thinkingEnabled = opts.thinkingEnabled ?? liveReasoningMode();
+  const settings = makeSettings({ numCtx: 8192, thinkingEnabled });
   const ext = providerChatExtensions(settings, true);
-  // Mirror production: side passes never run below the auxiliary floor, which
-  // must cover hidden reasoning + the structured answer on reasoning backends.
-  const numPredict = Math.max(AUXILIARY_NUM_PREDICT, opts.numPredict ?? 0);
+  const floor = thinkingEnabled
+    ? AUXILIARY_REASONING_NUM_PREDICT
+    : AUXILIARY_NUM_PREDICT;
+  const numPredict = Math.max(floor, opts.numPredict ?? 0);
   const completion: ChatCompletion = await client.chat.completions.create({
     model,
     messages: toParams(messages),
