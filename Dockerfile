@@ -2,9 +2,6 @@ FROM node:24-bookworm-slim AS build
 
 WORKDIR /app
 
-ARG GIT_COMMIT_SHA
-ENV GIT_COMMIT_SHA=$GIT_COMMIT_SHA
-
 ENV NODE_ENV=development
 
 COPY package.json package-lock.json* ./
@@ -27,16 +24,12 @@ COPY modules/history/db/package.json ./modules/history/db/
 RUN npm ci --include=dev
 
 RUN rm -rf server dashboard modules
-COPY .git ./.git
 COPY scripts ./scripts
 COPY server ./server
 COPY dashboard ./dashboard
 COPY modules ./modules
 
-RUN apt-get update && apt-get install -y --no-install-recommends git \
-    && npm run build \
-    && rm -rf .git \
-    && apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
+RUN npm run build
 
 FROM node:24-bookworm-slim
 

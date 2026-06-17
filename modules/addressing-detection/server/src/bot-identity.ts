@@ -1,4 +1,4 @@
-const GENERIC_ALIAS_BLOCKLIST = new Set(["bot", "the", "and"]);
+const GENERIC_ALIAS_BLOCKLIST = new Set(["bot", "the", "and", "cloud"]);
 
 export interface BotAddressIdentity {
   id: number;

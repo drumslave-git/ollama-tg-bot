@@ -48,6 +48,16 @@ describe("messageReferencesBotByName", () => {
   it("does not match unrelated text", () => {
     expect(messageReferencesBotByName("just chatting here", bot)).toBe(false);
   });
+
+  it("does not match generic English words blocked as aliases", () => {
+    const cloudBot = buildBotAddressIdentity(
+      { id: 2, first_name: "Igor" },
+      "IgorTCloudBot",
+    );
+    expect(
+      messageReferencesBotByName("move everything to the cloud next week", cloudBot),
+    ).toBe(false);
+  });
 });
 
 describe("stripBotAddressing", () => {

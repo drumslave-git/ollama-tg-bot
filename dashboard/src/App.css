@@ -1514,11 +1514,6 @@ a.report-message-item {
   font-size: 0.82rem;
 }
 
-.badge.build-commit {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  letter-spacing: 0.02em;
-}
-
 .report-llm-meta {
   display: flex;
   flex-wrap: wrap;

@@ -183,6 +183,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 - **No migrations / backward compatibility** — do not create migrations or worry about backward compatibility unless explicitly requested; data loss is acceptable, but warn the user in such cases.
 - **No drive-by refactors** or unrelated changes.
 - **Do not commit** unless the user asks. Do not put secrets in git (`.env`, tokens).
+- **English-only source** — tests, prompts, comments, and code must be written in proper English. No Cyrillic and no transliteration of foreign words.
 - **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.
 - **SQLite settings** — add new keys to `DEFAULT_SETTINGS` in `server/src/db/database.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
 

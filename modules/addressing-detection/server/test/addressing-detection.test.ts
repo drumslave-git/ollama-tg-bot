@@ -81,6 +81,18 @@ describe("buildAddressAnalyzerMessages", () => {
     expect(messages[1].content).toContain("Return JSON with addressed");
   });
 
+  it("notes when automated name scan found no bot identity", () => {
+    const messages = buildAddressAnalyzerMessages({
+      botLabels: "@bot, Igor",
+      chatType: "supergroup",
+      sender: "drumslave",
+      text: "Today I got a request that you need to be available",
+      nameScanFound: false,
+    });
+    expect(messages[1].content).toContain("Automated name scan");
+    expect(messages[1].content).toContain("Second-person pronouns alone are not enough");
+  });
+
   it("substitutes a placeholder for empty text", () => {
     const messages = buildAddressAnalyzerMessages({
       botLabels: "@bot",

@@ -121,6 +121,7 @@ async function analyzeGroupMessageForBot(
         message: text,
         sender: input.sender ?? "Someone",
         chatType,
+        nameScanFound: false,
       },
       config,
     );

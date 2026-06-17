@@ -257,8 +257,6 @@ export interface Stats {
   lastActivityAt: string | null;
   botUsername: string | null;
   botRunning: boolean;
-  buildCommit: string;
-  buildCommitShort: string;
   uptimeSeconds: number;
   startedAt: string;
   recentErrors: BotErrorRecord[];

@@ -18,6 +18,8 @@ export interface AddressingDetectionInput {
   sender?: string;
   /** Telegram chat type; defaults to "group". */
   chatType?: string;
+  /** When false, a regex name scan found no bot identity in the message text. */
+  nameScanFound?: boolean;
 }
 
 export interface AddressingDetectionConfig {
@@ -53,6 +55,7 @@ export async function detectAddressing(
     chatType: input.chatType ?? "group",
     sender: input.sender ?? "Someone",
     text,
+    nameScanFound: input.nameScanFound,
   });
 
   try {

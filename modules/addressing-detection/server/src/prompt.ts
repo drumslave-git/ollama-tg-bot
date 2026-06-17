@@ -26,7 +26,7 @@ Respond with JSON only, matching the provided schema. The object has one field:
 
 Say addressed=true only when the message contains a reference to the bot identity:
 - The bot's username, first name, full name, nickname, or a clear spelling/case/punctuation variation
-- A clear translation/transliteration of the bot's name into another language
+- A clear translation of the bot's name into another language, or the same name in another alphabet
 - A natural-language call to that named bot, such as "<bot name>, what do you think?"
 
 Say addressed=false when:
@@ -70,14 +70,25 @@ export function buildAddressAnalyzerMessages(params: {
   chatType: string;
   sender: string;
   text: string;
+  /** When false, a regex name scan found no bot identity in the message text. */
+  nameScanFound?: boolean;
 }): ChatMessage[] {
+  const nameScanNote =
+    params.nameScanFound === false
+      ? "Automated name scan: no bot identity token found in the message text. " +
+        "Say addressed=true only when the message clearly names the bot anyway " +
+        "(e.g. the same name written in another alphabet). " +
+        "Second-person pronouns alone are not enough.\n"
+      : "";
+
   return [
     { role: "system", content: ANALYZER_SYSTEM },
     {
       role: "user",
       content:
         `Bot identity (names users may use): ${params.botLabels}\n` +
-        `Treat these as bot-name references even when case, punctuation, underscores/spaces, minor spelling, or Latin/Cyrillic transliteration differs.\n` +
+        `Treat these as bot-name references even when case, punctuation, underscores/spaces, minor spelling, or alphabet differs.\n` +
+        nameScanNote +
         `Chat type: ${params.chatType}\n` +
         `Sender: ${params.sender}\n\n` +
         `Message:\n${params.text.trim() || "(empty or non-text)"}\n\n` +

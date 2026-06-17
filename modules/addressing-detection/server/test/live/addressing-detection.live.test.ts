@@ -24,7 +24,7 @@ const BOT_ALIASES = ["arguella_bot", "Arguella", "ArguellaBot"];
 
 async function decide(text: string): Promise<boolean> {
   const result = await detectAddressing(
-    { message: text, sender: "Georg", chatType: "group" },
+    { message: text, sender: "Georg", chatType: "group", nameScanFound: false },
     {
       baseUrl: cfg!.baseURL.replace(/\/v1$/, ""),
       model: cfg!.model,
@@ -74,6 +74,7 @@ describe.skipIf(!cfg)("live: addressing-detection module", () => {
       "I think the build is broken again",
       "some bot could probably answer that, lol",
       "the weather is awful today",
+      "Today I got a request that you need to be available... The demand is really bad",
     ];
     let correct = 0;
     for (const text of negatives) {

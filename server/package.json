@@ -7,10 +7,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "predev": "node ../scripts/write-build-info.mjs",
     "dev": "tsx watch --tsconfig tsconfig.json --include ../modules/**/server/** --include ../modules/**/db/** src/index.ts",
-    "prebuild": "node ../scripts/write-build-info.mjs",
-    "pretest": "node ../scripts/write-build-info.mjs",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "test": "vitest run --config vitest.config.ts",
