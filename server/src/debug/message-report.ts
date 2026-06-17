@@ -40,6 +40,10 @@ const TRIGGER_LABELS: Record<string, string> = {
   image: "Image reaction trigger",
 };
 
+function llmPhaseId(label: string): string {
+  return `llm-${label.replace(/\s+/g, "-")}`;
+}
+
 const LLM_TITLES: Record<string, string> = {
   "address detection": "Address check",
   "web search decision": "Search decision",
@@ -197,6 +201,28 @@ export class MessageReportSession {
     this.persistIfInFlight();
   }
 
+  /** Mark an in-flight LLM request so Debug shows a waiting state. */
+  beginLlmWait(label: string, model: string, timeoutSec: number): void {
+    const title = LLM_TITLES[label] ?? label;
+    this.upsertPhase({
+      id: llmPhaseId(label),
+      title,
+      status: "waiting",
+      summary: `Waiting for LLM · ${model} · up to ${timeoutSec}s`,
+    });
+  }
+
+  failLlmWait(label: string, summary: string, durationMs?: number): void {
+    const title = LLM_TITLES[label] ?? label;
+    this.upsertPhase({
+      id: llmPhaseId(label),
+      title,
+      status: "failed",
+      summary,
+      ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
+    });
+  }
+
   recordLlmCall(
     label: string,
     model: string,
@@ -207,9 +233,10 @@ export class MessageReportSession {
     samplingLine?: string,
     requestBody?: unknown,
     responseBody?: unknown,
+    durationMs?: number,
   ): void {
     const title = LLM_TITLES[label] ?? label;
-    const id = `llm-${label.replace(/\s+/g, "-")}`;
+    const id = llmPhaseId(label);
     const sections: Array<{ title: string; body: string }> = [];
 
     if (layout) {
@@ -252,17 +279,24 @@ export class MessageReportSession {
     const summaryParts = [`${model}`, `${content.length} chars output`];
     if (reasoning) summaryParts.push(`${reasoning.length} chars reasoning`);
 
-    this.okPhase(id, title, summaryParts.join(" · "), undefined, {
-      type: "llm",
-      model,
-      sampling: samplingLine,
-      requestBody,
-      responseBody,
-      sections,
-      output: {
-        content,
-        reasoning: reasoning || undefined,
-        meta,
+    this.upsertPhase({
+      id,
+      title,
+      status: "ok",
+      summary: summaryParts.join(" · "),
+      ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
+      detail: {
+        type: "llm",
+        model,
+        sampling: samplingLine,
+        requestBody,
+        responseBody,
+        sections,
+        output: {
+          content,
+          reasoning: reasoning || undefined,
+          meta,
+        },
       },
     });
   }
@@ -372,6 +406,16 @@ export class MessageReportSession {
     };
   }
 
+  private upsertPhase(phase: ReportPhase): void {
+    const idx = this.phases.findIndex((entry) => entry.id === phase.id);
+    if (idx >= 0) {
+      this.phases[idx] = phase;
+    } else {
+      this.phases.push(phase);
+    }
+    this.persistIfInFlight();
+  }
+
   private persistIfInFlight(): void {
     if (this.status === "processing") {
       this.persist();
@@ -447,6 +491,10 @@ function buildHeadline(
   }
 
   if (status === "processing") {
+    const waitingPhase = [...phases].reverse().find((p) => p.status === "waiting");
+    if (waitingPhase) {
+      return `Waiting for LLM · ${waitingPhase.title}`;
+    }
     if (routing?.decision === "accepted") {
       return `Processing · ${routing.triggerLabel}`;
     }

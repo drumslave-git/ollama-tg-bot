@@ -131,7 +131,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 
 - Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`; optional `showModel` / catalog fetch for context-budget metadata)
 - OpenAI-compatible parsing: `server/src/llm/openai-compat.ts` (`content` vs `reasoning` / `reasoning_content`, request `options`)
-- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as a message is accepted for handling (phase updates stream while the turn runs); LLM I/O recorded when a trace session is active
+- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as a message is accepted for handling (phase updates stream while the turn runs); in-flight LLM calls add a **waiting** phase (`Waiting for LLM · {model} · up to {timeout}s`) until the provider responds or times out; LLM I/O recorded when a trace session is active
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 

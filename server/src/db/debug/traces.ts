@@ -3,7 +3,7 @@ let db: import("node:sqlite").DatabaseSync;
 export const MAX_TRACES_PER_CHAT = 50;
 
 export type ReportStatus = "ignored" | "processing" | "processed" | "error";
-export type PhaseStatus = "skipped" | "ok" | "failed";
+export type PhaseStatus = "skipped" | "ok" | "failed" | "waiting";
 
 export interface ReportDetailFields {
   type: "fields";

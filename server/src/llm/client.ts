@@ -300,12 +300,33 @@ async function requestChat(
     auxiliary,
     responseFormat,
   );
+  const traceLabelText = traceLabel ?? "llm";
+  const llmStarted = performance.now();
+  if (traceTurnId != null) {
+    getMessageReport(traceTurnId)?.beginLlmWait(
+      traceLabelText,
+      model,
+      settings.chatTimeoutSec,
+    );
+  }
+
   let response: ChatCompletion;
   try {
     response = await openAiClient().chat.completions.create(requestBody, {
       timeout: getChatTimeoutMs(settings),
     });
   } catch (err) {
+    if (traceTurnId != null) {
+      const report = getMessageReport(traceTurnId);
+      if (report) {
+        const message = err instanceof Error ? err.message : String(err);
+        report.failLlmWait(
+          traceLabelText,
+          message,
+          performance.now() - llmStarted,
+        );
+      }
+    }
     if (
       err instanceof APIConnectionTimeoutError ||
       err instanceof APIConnectionError
@@ -326,12 +347,13 @@ async function requestChat(
     throw err;
   }
 
+  const llmDurationMs = performance.now() - llmStarted;
   const data = toChatResponse(response.choices?.[0], response.usage);
   if (traceTurnId != null) {
     const report = getMessageReport(traceTurnId);
     if (report) {
       report.recordLlmCall(
-        traceLabel ?? "llm",
+        traceLabelText,
         model,
         numPredict,
         prepared,
@@ -340,6 +362,7 @@ async function requestChat(
         formatTraceSamplingLine(settings, auxiliary, responseFormat),
         sanitizeLlmPayloadForDebug(requestBody),
         sanitizeLlmPayloadForDebug(response),
+        llmDurationMs,
       );
     }
   }

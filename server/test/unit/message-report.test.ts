@@ -43,4 +43,46 @@ describe("beginMessageReport", () => {
       status: "ignored",
     });
   });
+
+  it("shows a waiting LLM phase and headline while the provider has not replied", () => {
+    const session = beginMessageReport({
+      turnId: 7,
+      chatId: 2002,
+      userId: "3",
+      chatType: "private",
+      messageId: 1,
+      messagePreview: "ping",
+    });
+
+    session.beginLlmWait("main reply", "test-model", 120);
+    const waitingPersist = upsertMessageReport.mock.calls.at(-1)?.[0];
+    expect(waitingPersist?.report.phases).toEqual([
+      expect.objectContaining({
+        id: "llm-main-reply",
+        status: "waiting",
+        summary: "Waiting for LLM · test-model · up to 120s",
+      }),
+    ]);
+    expect(waitingPersist?.report.headline).toBe("Waiting for LLM · Main reply");
+
+    session.recordLlmCall(
+      "main reply",
+      "test-model",
+      512,
+      [{ role: "user", content: "ping" }],
+      { message: { content: '{"reply":"pong"}' } },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      1500,
+    );
+    const donePersist = upsertMessageReport.mock.calls.at(-1)?.[0];
+    expect(donePersist?.report.phases).toHaveLength(1);
+    expect(donePersist?.report.phases[0]).toMatchObject({
+      id: "llm-main-reply",
+      status: "ok",
+      durationMs: 1500,
+    });
+  });
 });

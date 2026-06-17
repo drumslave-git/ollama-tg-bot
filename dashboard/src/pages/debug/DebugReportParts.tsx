@@ -42,6 +42,7 @@ export function downloadReportLog(detail: MessageReportDetail): void {
 function phaseStatusClass(status: ReportPhase["status"]): string {
   if (status === "ok") return "ok";
   if (status === "failed") return "danger";
+  if (status === "waiting") return "warn";
   return "";
 }
 

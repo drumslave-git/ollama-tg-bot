@@ -1432,6 +1432,10 @@ a.report-message-item {
   color: var(--danger);
 }
 
+.report-phase-status.warn {
+  color: var(--warn, #c9a227);
+}
+
 .report-phase-title {
   grid-area: title;
   font-weight: 600;
