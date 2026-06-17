@@ -31,13 +31,14 @@ export function isMessageForBot(input: MessageForBotInput): boolean {
 
   if (input.isReplyToBot) return true;
   if (input.isReplyInBotThread) return true;
-  if (messageMentionsBot(message, bot.id, bot.username)) return true;
+  if (messageHasBotUsernameMention(message, bot.id, bot.username)) return true;
   if (messageHasBotCommand(message, bot.username)) return true;
 
   return false;
 }
 
-function messageMentionsBot(
+/** True when the message contains an @username mention of the bot (not reply or display name). */
+export function messageHasBotUsernameMention(
   msg: Message,
   botId: number,
   botUsername?: string,

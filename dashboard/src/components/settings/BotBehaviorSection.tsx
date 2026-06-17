@@ -100,9 +100,9 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
           Maintenance mode
         </label>
         <p className="hint">
-          When enabled, only the owner can trigger LLM-backed behavior
-          (replies, vision, search, memory extraction). Other users are
-          ignored silently.
+          When enabled, only the owner can trigger LLM-backed behavior. In
+          groups, the owner must also @mention the bot (e.g.{" "}
+          <code>@your_bot hello</code>). Other users are ignored silently.
         </p>
       </div>
 

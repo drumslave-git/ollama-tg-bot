@@ -2,6 +2,7 @@ import type { Message } from "@grammyjs/types";
 import { describe, expect, it } from "vitest";
 import {
   isMessageForBot,
+  messageHasBotUsernameMention,
   sliceEntity,
 } from "../src/telegram-address.js";
 
@@ -103,6 +104,30 @@ describe("isMessageForBot", () => {
           },
         }),
       ),
+    ).toBe(false);
+  });
+});
+
+describe("messageHasBotUsernameMention", () => {
+  it("is true for a plain @username mention", () => {
+    expect(
+      messageHasBotUsernameMention(
+        { text: "hey @mybot help" } as never,
+        BOT.id,
+        BOT.username,
+      ),
+    ).toBe(true);
+  });
+
+  it("is false for a reply without an @mention", () => {
+    expect(
+      messageHasBotUsernameMention({ text: "thanks" } as never, BOT.id, BOT.username),
+    ).toBe(false);
+  });
+
+  it("is false for display-name-only text", () => {
+    expect(
+      messageHasBotUsernameMention({ text: "hey mybot" } as never, BOT.id, BOT.username),
     ).toBe(false);
   });
 });

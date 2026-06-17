@@ -125,7 +125,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 3. **`server/src/pipeline/runner.ts`** — Runs phased module hosts (`preprocess` → `gate` → `not-addressed` → `pre-reply` → `reply` → `post-reply` → `background`). Server does not hard-code which modules run — hosts are discovered from manifests.
 4. **`server/src/runtime/module-hosts.ts`** — Loads `pipelineHosts` and optional `botHost` from each module package at startup.
 5. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
-6. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, non-owner messages are dropped before the pipeline. History module gates passive recording the same way.
+6. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
 
 ### LLM
 
@@ -153,7 +153,7 @@ Three layers, extracted in a **background pass** by the memory module's pipeline
 - Bot responds when @mentioned, replied to, display name is spoken (regex or LLM for other languages), or on random/image toggles.
 - Per-member history in groups (`conversationKey` includes `userId`).
 - Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain` (completions module), `/remember`.
-- **Maintenance mode** (`maintenanceModeEnabled`): non-owner events must not reach the pipeline — gate in `handlers/message.ts` and in the history module's passive-record host.
+- **Maintenance mode** (`maintenanceModeEnabled`): only the owner can reach the pipeline; in groups the owner must also include a direct @mention of the bot — gate in `handlers/message.ts`.
 
 ### Structured LLM output (JSON schema)
 

@@ -26,6 +26,7 @@ export {
 export { stripNonBotMentions } from "./strip-non-bot-mentions.js";
 export {
   isMessageForBot,
+  messageHasBotUsernameMention,
   sliceEntity,
   type MessageForBotInput,
 } from "./telegram-address.js";

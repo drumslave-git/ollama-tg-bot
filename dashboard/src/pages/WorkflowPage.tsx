@@ -112,7 +112,7 @@ export function WorkflowPage() {
         position: getPosition("maintenance", { x: 240, y: 110 }),
         data: {
           label: "Maintenance Gate",
-          sublabel: "Drop if maintenance mode",
+          sublabel: "Drop unless owner (@mention in groups)",
           phase: "decision",
           enabled: true,
         },
@@ -489,8 +489,9 @@ export function WorkflowPage() {
           </li>
           <li>
             <strong>Maintenance Gate</strong> — If{" "}
-            <code>maintenanceModeEnabled</code> is on, non-owner messages are
-            dropped before any processing.
+            <code>maintenanceModeEnabled</code> is on, only the owner can
+            proceed; in groups the owner must also include a direct @mention of
+            the bot.
           </li>
           <li>
             <strong>Address Check</strong> — In groups, the bot checks for
