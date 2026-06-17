@@ -153,10 +153,18 @@ function shouldRunReplyPhases(state: PipelineTurnState): boolean {
   return Boolean(state.shouldReply);
 }
 
+export type MessagePipelineHooks = {
+  /** Fires once after the gate phase when the bot will reply (address/trigger confirmed). */
+  onReplyConfirmed?: () => void;
+};
+
 export async function runMessagePipeline(
   state: PipelineTurnState,
   services: PipelineHostServices,
+  hooks?: MessagePipelineHooks,
 ): Promise<MessagePipelineResult> {
+  let replyConfirmedNotified = false;
+
   for (const phase of PHASE_SEQUENCE) {
     if (state.earlyReply) {
       return { earlyReply: state.earlyReply };
@@ -169,6 +177,16 @@ export async function runMessagePipeline(
     }
 
     await runPipelinePhase(phase, state, services);
+
+    if (
+      phase === "gate" &&
+      state.shouldReply &&
+      hooks?.onReplyConfirmed &&
+      !replyConfirmedNotified
+    ) {
+      replyConfirmedNotified = true;
+      hooks.onReplyConfirmed();
+    }
 
     if (state.earlyReply) {
       return { earlyReply: state.earlyReply };

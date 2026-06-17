@@ -124,7 +124,11 @@ export async function messageHandler(ctx: Context, botToken: string) {
 
     let endTyping: (() => void) | undefined;
     try {
-      const result = await runMessagePipeline(state, services);
+      const result = await runMessagePipeline(state, services, {
+        onReplyConfirmed: () => {
+          endTyping = startTypingForMessage(ctx) ?? undefined;
+        },
+      });
 
       if (result.earlyReply) {
         await deliverEarlyReply(ctx, result.earlyReply, turnId);
@@ -154,7 +158,6 @@ export async function messageHandler(ctx: Context, botToken: string) {
       }
 
       recordMessageReceived();
-      endTyping = startTypingForMessage(ctx) ?? undefined;
 
       const deliveryChatId = state.chatId ?? chatId;
       if (!deliveryChatId) {

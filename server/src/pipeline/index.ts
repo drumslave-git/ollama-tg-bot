@@ -7,6 +7,7 @@ export {
   runMessagePipeline,
   runPipelinePhase,
   runPipelinePhaseBackground,
+  type MessagePipelineHooks,
 } from "./runner.js";
 export {
   deliverPipelineReply,
