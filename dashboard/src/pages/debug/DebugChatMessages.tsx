@@ -5,7 +5,7 @@ import { ErrorBanner } from "../../components/ErrorBanner";
 import { useDashboard } from "../../context/DashboardContext";
 import { useLiveDebug } from "../../liveSocket";
 import { debugMessagePath, decodeRouteChatId } from "./debugPaths";
-import { formatDuration, formatTime, upsertListItem } from "./debugUtils";
+import { formatDuration, formatTime, liveDurationMs, upsertListItem, useLiveClock } from "./debugUtils";
 import { statusClass } from "./DebugReportParts";
 
 export function DebugChatMessages() {
@@ -61,6 +61,9 @@ export function DebugChatMessages() {
     apiOnline === true,
   );
 
+  const hasProcessing = messages.some((item) => item.status === "processing");
+  const now = useLiveClock(hasProcessing);
+
   if (!chatId) {
     return <Navigate to="/debug" replace />;
   }
@@ -82,11 +85,18 @@ export function DebugChatMessages() {
             <p className="muted">No reports for this chat.</p>
           ) : (
             <div className="report-message-list">
-              {messages.map((item) => (
+              {messages.map((item) => {
+                const duration = liveDurationMs(
+                  item.createdAt,
+                  item.durationMs,
+                  item.status,
+                  now,
+                );
+                return (
                 <Link
                   key={item.id}
                   to={debugMessagePath(chatId, item.id)}
-                  className="report-message-item"
+                  className={`report-message-item${item.status === "processing" ? " report-message-item-live" : ""}`}
                 >
                   <div className="report-message-top">
                     <span className={`badge ${statusClass(item.status)}`}>
@@ -97,7 +107,7 @@ export function DebugChatMessages() {
                       {formatTime(item.createdAt)}
                     </span>
                     <span className="report-message-duration">
-                      {formatDuration(item.durationMs)}
+                      {formatDuration(duration)}
                     </span>
                   </div>
                   <p className="report-headline">{item.headline}</p>
@@ -106,7 +116,8 @@ export function DebugChatMessages() {
                     <span className="report-badge">{item.userLabel}</span>
                   ) : null}
                 </Link>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

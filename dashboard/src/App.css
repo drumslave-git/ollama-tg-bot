@@ -1316,6 +1316,32 @@ a.report-message-item {
   margin-left: auto;
 }
 
+.report-message-item-live {
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--warn) 20%, transparent);
+}
+
+.report-message-item-live .badge.warn {
+  animation: debug-live-pulse 1.6s ease-in-out infinite;
+}
+
+.report-phase-live {
+  color: var(--warn);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@keyframes debug-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
 .report-headline {
   margin: 0;
   font-weight: 600;

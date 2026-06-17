@@ -67,6 +67,28 @@ interface ChatResponseShape {
 
 const sessions = new Map<number, MessageReportSession>();
 
+const PROCESSING_TICK_MS = 2000;
+let processingTick: ReturnType<typeof setInterval> | null = null;
+
+function trackProcessingSession(session: MessageReportSession): void {
+  sessions.set(session.turnId, session);
+  if (processingTick != null) return;
+  processingTick = setInterval(() => {
+    if (sessions.size === 0) {
+      if (processingTick != null) clearInterval(processingTick);
+      processingTick = null;
+      return;
+    }
+    for (const active of sessions.values()) {
+      active.tick();
+    }
+  }, PROCESSING_TICK_MS);
+}
+
+function releaseProcessingSession(turnId: number): void {
+  sessions.delete(turnId);
+}
+
 export class MessageReportSession {
   readonly turnId: number;
   readonly chatId: string;
@@ -80,6 +102,10 @@ export class MessageReportSession {
   private hasMedia = false;
   private mediaKind?: string;
   private routing:
+    | {
+        decision: "pending";
+        pendingLabel: string;
+      }
     | {
         decision: "ignored";
         ignoreReason: string;
@@ -125,9 +151,25 @@ export class MessageReportSession {
     this.persistIfInFlight();
   }
 
-  /** Write the trace as soon as a message is accepted for handling. */
+  /** Write the trace as soon as the bot receives a message. */
   markReceived(): void {
-    this.persistIfInFlight();
+    this.routing = {
+      decision: "pending",
+      pendingLabel: "Message received",
+    };
+    this.upsertPhase({
+      id: "intake",
+      title: "Message received",
+      status: "ok",
+      summary: this.messagePreview.slice(0, 120) || "(non-text message)",
+    });
+  }
+
+  /** Re-persist in-flight traces so the dashboard can show live duration. */
+  tick(): void {
+    if (this.status === "processing") {
+      this.persist();
+    }
   }
 
   finishIgnored(ignoreReason: string, addressSource?: string): void {
@@ -141,7 +183,7 @@ export class MessageReportSession {
         : undefined,
     };
     this.persist();
-    sessions.delete(this.turnId);
+    releaseProcessingSession(this.turnId);
   }
 
   setAccepted(input: {
@@ -322,7 +364,7 @@ export class MessageReportSession {
     this.awaitMemory = options?.awaitMemory ?? false;
     this.persist();
     if (!this.awaitMemory) {
-      sessions.delete(this.turnId);
+      releaseProcessingSession(this.turnId);
     }
   }
 
@@ -330,7 +372,7 @@ export class MessageReportSession {
     this.status = "error";
     this.result = { ...this.result, error };
     this.persist();
-    sessions.delete(this.turnId);
+    releaseProcessingSession(this.turnId);
   }
 
   finalizeEarlyReply(input: { reason: string; replyChars?: number }): void {
@@ -340,7 +382,7 @@ export class MessageReportSession {
       replyChars: input.replyChars,
     };
     this.persist();
-    sessions.delete(this.turnId);
+    releaseProcessingSession(this.turnId);
   }
 
   completeMemory(input: {
@@ -375,7 +417,7 @@ export class MessageReportSession {
     }
 
     this.persist();
-    sessions.delete(this.turnId);
+    releaseProcessingSession(this.turnId);
   }
 
   private buildReport(): MessageReportRecord {
@@ -396,11 +438,17 @@ export class MessageReportSession {
         mediaKind: this.mediaKind,
       },
       routing:
-        this.routing ?? {
-          decision: "ignored",
-          ignoreReason: "unknown",
-          ignoreLabel: "Unknown",
-        },
+        this.routing ??
+        (this.status === "processing"
+          ? {
+              decision: "pending",
+              pendingLabel: "Message received",
+            }
+          : {
+              decision: "ignored",
+              ignoreReason: "unknown",
+              ignoreLabel: "Unknown",
+            }),
       phases: this.phases,
       result: this.result,
     };
@@ -457,8 +505,10 @@ function buildBadges(report: MessageReportRecord): string[] {
   const badges: string[] = [];
   if (report.routing.decision === "accepted") {
     badges.push(report.routing.triggerLabel);
-  } else {
+  } else if (report.routing.decision === "ignored") {
     badges.push(report.routing.ignoreLabel);
+  } else if (report.status === "processing") {
+    badges.push("in progress");
   }
 
   for (const phase of report.phases) {
@@ -497,6 +547,15 @@ function buildHeadline(
     }
     if (routing?.decision === "accepted") {
       return `Processing · ${routing.triggerLabel}`;
+    }
+    if (routing?.decision === "pending") {
+      const activePhase = [...phases]
+        .reverse()
+        .find((p) => p.status === "ok" && p.id !== "intake");
+      if (activePhase) {
+        return `Processing · ${activePhase.title}`;
+      }
+      return `Processing · ${routing.pendingLabel}`;
     }
     const lastPhase = phases.at(-1);
     if (lastPhase) {
@@ -556,7 +615,7 @@ export function beginMessageReport(input: {
     messageId: input.messageId,
     messagePreview: input.messagePreview,
   });
-  sessions.set(input.turnId, session);
+  trackProcessingSession(session);
   session.markReceived();
   return session;
 }

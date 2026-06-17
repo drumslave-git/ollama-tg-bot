@@ -61,6 +61,10 @@ export interface MessageReportRecord {
   };
   routing:
     | {
+        decision: "pending";
+        pendingLabel: string;
+      }
+    | {
         decision: "ignored";
         ignoreReason: string;
         ignoreLabel: string;

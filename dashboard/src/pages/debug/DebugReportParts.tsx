@@ -124,8 +124,9 @@ function PhaseDetail({ detail }: { detail: ReportDetail }) {
 }
 
 export function PhaseRow({ phase }: { phase: ReportPhase }) {
+  const isWaiting = phase.status === "waiting";
   return (
-    <details className="report-phase">
+    <details className="report-phase" open={isWaiting}>
       <summary className="report-phase-summary">
         <span className={`report-phase-status ${phaseStatusClass(phase.status)}`}>
           {phase.status}
@@ -136,6 +137,8 @@ export function PhaseRow({ phase }: { phase: ReportPhase }) {
           <span className="report-phase-duration">
             {formatDuration(phase.durationMs)}
           </span>
+        ) : isWaiting ? (
+          <span className="report-phase-duration report-phase-live">live</span>
         ) : null}
       </summary>
       {phase.detail ? (

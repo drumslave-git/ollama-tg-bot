@@ -8,7 +8,7 @@ import {
   decodeRouteChatId,
   parseRouteMessageId,
 } from "./debugPaths";
-import { formatDuration, formatTime } from "./debugUtils";
+import { formatDuration, formatTime, liveDurationMs, useLiveClock } from "./debugUtils";
 import {
   downloadReportLog,
   PhaseRow,
@@ -69,11 +69,17 @@ export function DebugMessageDetail() {
     apiOnline === true,
   );
 
+  const report = detail?.report;
+  const isProcessing = detail?.status === "processing";
+  const now = useLiveClock(isProcessing);
+  const reportDuration =
+    detail && report
+      ? liveDurationMs(detail.createdAt, report.durationMs, report.status, now)
+      : null;
+
   if (!chatId || messageId == null) {
     return <Navigate to="/debug" replace />;
   }
-
-  const report = detail?.report;
 
   return (
     <>
@@ -114,7 +120,7 @@ export function DebugMessageDetail() {
               </div>
               <div>
                 <dt>Duration</dt>
-                <dd>{formatDuration(report.durationMs)}</dd>
+                <dd>{formatDuration(reportDuration)}</dd>
               </div>
               <div>
                 <dt>Chat</dt>
@@ -133,7 +139,18 @@ export function DebugMessageDetail() {
 
           <section className="card">
             <h3>Routing</h3>
-            {report.routing.decision === "ignored" ? (
+            {report.routing.decision === "pending" ? (
+              <dl className="report-fields">
+                <div>
+                  <dt>Decision</dt>
+                  <dd>Evaluating</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{report.routing.pendingLabel}</dd>
+                </div>
+              </dl>
+            ) : report.routing.decision === "ignored" ? (
               <dl className="report-fields">
                 <div>
                   <dt>Decision</dt>
@@ -244,7 +261,7 @@ export function DebugMessageDetail() {
             ) : (
               <div className="report-phase-list">
                 {report.phases.map((phase) => (
-                  <PhaseRow key={`${phase.id}-${phase.title}`} phase={phase} />
+                  <PhaseRow key={phase.id} phase={phase} />
                 ))}
               </div>
             )}
