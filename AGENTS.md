@@ -19,6 +19,7 @@ npm install
 cp .env.example .env          # BOT_TOKEN required
 npm run dev                   # server :3000 + dashboard :5173 (modules watched from src)
 npm run build                 # modules + dashboard dist + server tsc
+npm run typecheck             # tsc --noEmit for server, dashboard, and modules
 npm run build:modules         # compile feature packages (production / start only)
 npm run start                 # production server only
 ```

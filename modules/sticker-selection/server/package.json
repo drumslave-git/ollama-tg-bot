@@ -8,6 +8,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "typecheck": "node ../../../scripts/typecheck-package.mjs",
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {

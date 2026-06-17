@@ -1,4 +1,4 @@
-import type { ProviderChatSettings } from "../src/openai-compat.js";
+import type { ProviderChatSettings } from "../../src/openai-compat.js";
 
 export function makeProviderSettings(
   overrides: Partial<ProviderChatSettings> = {},

@@ -68,8 +68,8 @@ export function HistoryPage() {
 
   useLiveData(
     useCallback(
-      (tables) => {
-        if (tables.includes("chat_history")) void load(true);
+      (event) => {
+        if (event.tableIds?.includes("chat_history")) void load(true);
       },
       [load],
     ),

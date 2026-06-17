@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch --tsconfig tsconfig.json --include ../modules/**/server/** --include ../modules/**/db/** src/index.ts",
     "build": "tsc -p tsconfig.build.json",
+    "typecheck": "node ../scripts/typecheck-package.mjs",
     "start": "node dist/index.js",
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",

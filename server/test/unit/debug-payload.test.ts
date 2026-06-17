@@ -22,7 +22,10 @@ describe("sanitizeLlmPayloadForDebug", () => {
     };
 
     const sanitized = sanitizeLlmPayloadForDebug(payload) as typeof payload;
-    const url = sanitized.messages[0].content[1].image_url.url;
+    const content = sanitized.messages[0]?.content;
+    expect(Array.isArray(content)).toBe(true);
+    if (!Array.isArray(content)) return;
+    const url = content[1]?.image_url?.url;
     expect(url).toMatch(/^data:image\/jpeg;base64,<base64 \d+ chars>$/);
   });
 
