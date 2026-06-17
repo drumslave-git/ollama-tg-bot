@@ -17,7 +17,7 @@ import { ensureHistoryFits } from "../debug/context-compress.js";
 import { chatCompleteDetailed } from "../llm/client.js";
 import {
   extractTelegramReply,
-  MAIN_REPLY_RESPONSE_FORMAT,
+  getMainReplyResponseFormat,
 } from "@llm-tg-bot/modules-completions";
 import {
   hasVisibleTelegramReply,
@@ -71,7 +71,7 @@ export function createExplainExtension(): ExplainExtension {
     ensureHistoryFits,
     loadHistoryMessages: (convKey) =>
       historyToChatMessages(getHistory(convKey)),
-    mainReplyResponseFormat: MAIN_REPLY_RESPONSE_FORMAT,
+    getMainReplyResponseFormat,
     chatCompleteDetailed: (messages, options) =>
       chatCompleteDetailed(messages as never, options as never),
     extractTelegramReply,

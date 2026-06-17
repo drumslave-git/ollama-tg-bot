@@ -5,6 +5,7 @@ import {
   buildGeneralMemorySection,
   buildGroupMemorySection,
   buildParticipantMemoriesSection,
+  MEMORY_USAGE_PREAMBLE,
   type ParticipantMemoryFacts,
 } from "@llm-tg-bot/modules-memory";
 import { buildReplyFormatSpec } from "@llm-tg-bot/modules-completions";
@@ -54,7 +55,7 @@ export interface SystemPromptOptions {
 
 export function buildBaseSystemPrompt(settings: Settings): string {
   const { systemHint, formatHint } = getReplyLengthGuidance(settings);
-  return `${BASE_SYSTEM_PROMPT_CORE}\n\n${systemHint}\n\n${buildReplyFormatSpec(formatHint)}`;
+  return `${BASE_SYSTEM_PROMPT_CORE}\n\n${systemHint}\n\n${buildReplyFormatSpec(formatHint, settings.thinkingEnabled)}`;
 }
 
 export interface ExplainPromptOptions {
@@ -110,7 +111,7 @@ export function buildExplainSystemPrompt(options: ExplainPromptOptions): string 
     `${buildExplainGeneralMemorySection(generalMemoryFacts)}\n\n` +
     `${buildExplainGroupMemorySection(groupMemoryFacts, isGroupChat)}\n\n` +
     `${buildExplainUserMemorySection(userMemoryFacts)}\n\n` +
-    buildReplyFormatSpec(formatHint)
+    buildReplyFormatSpec(formatHint, settings.thinkingEnabled)
   );
 }
 
@@ -135,6 +136,8 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
   if (custom) {
     prompt += `\n\n---\nAdditional instructions:\n${custom}`;
   }
+
+  prompt += `\n\n${MEMORY_USAGE_PREAMBLE}`;
 
   prompt += `\n\n${buildGeneralMemorySection(generalMemoryFacts)}`;
 
@@ -171,6 +174,6 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
     prompt += `\n\n## Current mood (highest priority)\n${formatMoodForPrompt(mood)}`;
   }
 
-  prompt += `\n\n${buildReplyFormatSpec(formatHint)}`;
+  prompt += `\n\n${buildReplyFormatSpec(formatHint, settings.thinkingEnabled)}`;
   return prompt;
 }

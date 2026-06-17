@@ -5,8 +5,8 @@ import {
 } from "@llm-tg-bot/modules-utils";
 import {
   buildStickerAnalyzerMessages,
+  getStickerResponseFormat,
   parseStickerChoice,
-  STICKER_RESPONSE_FORMAT,
 } from "./prompt.js";
 import { resolveStickerFileId } from "./resolve.js";
 import type {
@@ -59,6 +59,7 @@ export async function pickSticker(
     botReply,
     message: input.message,
     replyContext: input.replyContext,
+    thinkingEnabled: input.thinkingEnabled,
   });
   if (!messages) {
     return {
@@ -67,6 +68,10 @@ export async function pickSticker(
       reason: "Sticker catalog not loaded",
     };
   }
+
+  const responseFormat = getStickerResponseFormat(
+    Boolean(input.thinkingEnabled),
+  );
 
   try {
     const raw = config.chatComplete
@@ -78,8 +83,9 @@ export async function pickSticker(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? STICKER_CHECK_NUM_PREDICT,
-            responseFormat: STICKER_RESPONSE_FORMAT,
+          {
+            numPredict: config.numPredict ?? STICKER_CHECK_NUM_PREDICT,
+            responseFormat,
           },
         );
     const parsed = parseStickerChoice(raw);

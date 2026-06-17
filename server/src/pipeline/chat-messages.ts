@@ -104,6 +104,17 @@ function loadParticipantFacts(
   chatKey: string,
   currentUserId: string | null,
 ): ParticipantFacts[] {
+  return loadChatParticipants(chatKey, currentUserId).map((participant) => ({
+    userId: participant.userId,
+    label: participant.label,
+    facts: getUserFacts(participant.userId),
+  }));
+}
+
+export function loadChatParticipants(
+  chatKey: string,
+  currentUserId: string | null,
+): { userId: string; label: string }[] {
   const history = getHistory(chatKey);
   const roles = history.map((m) => m.role);
   const participantIds = extractParticipantUserIds(
@@ -111,11 +122,21 @@ function loadParticipantFacts(
     currentUserId ? [currentUserId] : [],
   );
 
-  return participantIds.map((userId) => ({
-    userId,
-    label: `User ${userId}`,
-    facts: getUserFacts(userId),
-  }));
+  return participantIds.map((userId) => {
+    const known = getKnownUserById(userId);
+    if (known) {
+      return { userId, label: formatKnownUserLabel(known) };
+    }
+    const fromHistory = history.find((m) => m.role.endsWith(`:${userId}`));
+    if (fromHistory) {
+      const tag = fromHistory.role;
+      return {
+        userId,
+        label: tag.startsWith("user:") ? tag : `User ${userId}`,
+      };
+    }
+    return { userId, label: `User ${userId}` };
+  });
 }
 
 export interface BuiltChatPayload {

@@ -5,7 +5,7 @@ import type {
 } from "@llm-tg-bot/modules-registry";
 import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
 import { evaluateMood, MOOD_EVAL_NUM_PREDICT } from "./evaluate.js";
-import { MOOD_RESPONSE_FORMAT } from "./prompt.js";
+import { getMoodResponseFormat } from "./prompt.js";
 import { normalizeMoodValues, type MoodValues } from "./values.js";
 import { personalityHost } from "./personality-pipeline.js";
 
@@ -51,12 +51,17 @@ export const moodPipelineHost: PipelineModuleHost = {
       state.moodLatestTurnPreview ??
       [state.replyContext, state.latestBody].filter(Boolean).join("\n\n");
 
+    const settings = services.callbacks.getSettings?.() ?? {};
+    const thinkingEnabled = Boolean(settings.thinkingEnabled);
+    const responseFormat = getMoodResponseFormat(thinkingEnabled);
+
     const started = performance.now();
     const result = await evaluateMood(
       {
         currentMood: decayedMood,
         historyText: moodContextText,
         latestTurn: moodLatestTurnPreview,
+        thinkingEnabled,
       },
       {
         baseUrl: services.llm.baseUrl,
@@ -66,7 +71,7 @@ export const moodPipelineHost: PipelineModuleHost = {
         log: hostLogging(services),
         chatComplete: services.llm.createAuxiliaryChatComplete({
           numPredict: MOOD_EVAL_NUM_PREDICT,
-          responseFormat: MOOD_RESPONSE_FORMAT,
+          responseFormat,
           traceTurnId: state.turnId,
           traceLabel: "mood evaluate",
         }),

@@ -104,17 +104,15 @@ export function providerChatExtensions(
 /**
  * Whether to attach OpenAI `response_format` for this call.
  *
- * Many reasoning backends stop populating a separate `reasoning` /
- * `reasoning_content` field when structured output is forced. While thinking is
- * enabled, omit the schema on every pass (main and auxiliary) and rely on prompt
- * + strict JSON parsing instead.
+ * Structured passes always keep the schema. When thinking is on, schemas include
+ * a `reasoning` string field so chain-of-thought stays in JSON `content`.
  */
 export function shouldUseResponseFormat(
-  settings: ProviderChatSettings,
+  _settings: ProviderChatSettings,
   _auxiliary: boolean,
   responseFormat?: JsonSchemaResponseFormat,
 ): responseFormat is JsonSchemaResponseFormat {
-  return Boolean(responseFormat && !settings.thinkingEnabled);
+  return Boolean(responseFormat);
 }
 
 function readReasoningField(

@@ -32,6 +32,7 @@ export {
 export {
   ANALYZER_SYSTEM,
   ADDRESS_RESPONSE_FORMAT,
+  getAddressResponseFormat,
   buildAddressAnalyzerMessages,
   formatBotIdentity,
   parseAddressDecision,

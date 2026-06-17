@@ -8,8 +8,8 @@ import type { StickerCatalog } from "./types.js";
 import {
   analyzeStickerForReply,
   STICKER_CHECK_NUM_PREDICT,
-  STICKER_RESPONSE_FORMAT,
 } from "./analyze.js";
+import { getStickerResponseFormat } from "./prompt.js";
 import { rollStickerReplyChance } from "./chance.js";
 import { resolveStickerFileId } from "./resolve.js";
 
@@ -49,6 +49,8 @@ export const pipelineHost: PipelineModuleHost = {
     }
 
     const chance = Number(settings.stickerReplyChance ?? 0);
+    const thinkingEnabled = Boolean(settings.thinkingEnabled);
+    const responseFormat = getStickerResponseFormat(thinkingEnabled);
     const roll = rollStickerReplyChance(chance);
     if (!roll.hit) {
       return {
@@ -79,6 +81,7 @@ export const pipelineHost: PipelineModuleHost = {
         replyContext: state.replyContext,
         catalog,
         traceTurnId: state.turnId,
+        thinkingEnabled,
       },
       {
         baseUrl: services.llm.baseUrl,
@@ -88,7 +91,7 @@ export const pipelineHost: PipelineModuleHost = {
         log: hostLogging(services),
         chatComplete: services.llm.createAuxiliaryChatComplete({
           numPredict: STICKER_CHECK_NUM_PREDICT,
-          responseFormat: STICKER_RESPONSE_FORMAT,
+          responseFormat,
           traceTurnId: state.turnId,
           traceLabel: "sticker pick",
         }),

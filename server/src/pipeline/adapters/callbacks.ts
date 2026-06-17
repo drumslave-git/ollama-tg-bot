@@ -30,7 +30,7 @@ import {
   loadMemoryFactsForUser,
   preparePipelineDelivery,
 } from "../context.js";
-import { recordExchange } from "../chat-messages.js";
+import { recordExchange, loadChatParticipants } from "../chat-messages.js";
 import {
   formatReplyContextFromTelegram,
   isGroupChatFromTelegram,
@@ -112,10 +112,13 @@ export function createPipelineCallbacks(): PipelineHostCallbacks {
     getUserFacts: loadMemoryFactsForUser,
     getGroupFacts: loadMemoryFactsForGroup,
     getGeneralFacts: loadGeneralMemoryFacts,
+    getChatParticipants: (convKey, currentUserId) =>
+      loadChatParticipants(convKey, currentUserId),
     memoryCallbacks: {
       replaceUserFacts,
       replaceGroupFacts,
       replaceGeneralFacts,
+      getUserFacts: loadMemoryFactsForUser,
     },
   };
 }

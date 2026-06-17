@@ -4,6 +4,8 @@ import type {
   PipelineStepResult,
 } from "@llm-tg-bot/modules-registry";
 import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
+import { responseFormatForThinking } from "@llm-tg-bot/modules-utils";
+import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
 import {
   MEMORY_EXTRACT_NUM_PREDICT,
   MEMORY_MERGE_NUM_PREDICT,
@@ -31,14 +33,19 @@ function buildMemoryConfig(
   services: PipelineHostServices,
   traceLabel: string,
   numPredict: number,
-  responseFormat: typeof MEMORY_EXTRACT_RESPONSE_FORMAT,
+  baseFormat: JsonSchemaResponseFormat,
   traceTurnId: number,
 ) {
+  const settings = services.callbacks.getSettings?.() ?? {};
+  const thinkingEnabled = Boolean(settings.thinkingEnabled);
+  const responseFormat = responseFormatForThinking(baseFormat, thinkingEnabled);
+
   return {
     baseUrl: services.llm.baseUrl,
     model: services.llm.model,
     apiKey: services.llm.apiKey,
     numPredict,
+    thinkingEnabled,
     log: hostLogging(services),
     chatComplete: services.llm.createAuxiliaryChatComplete({
       numPredict,

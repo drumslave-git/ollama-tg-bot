@@ -4,6 +4,9 @@ export interface ParticipantMemoryFacts {
   facts: string[];
 }
 
+export const MEMORY_USAGE_PREAMBLE = `## Long-term memory (evolve from this)
+Use stored memories to adapt over time. Apply what you know about each person — their character, preferences, and boundaries. Respect what they appreciate and avoid what annoys them. Follow group norms and bot-behavior lessons as standing instructions. Let memories shape tone, depth, topics, and habits — not just factual answers.`;
+
 export function formatGeneralMemoryForPrompt(facts: string[]): string {
   if (facts.length === 0) {
     return "No general facts stored yet.";
@@ -28,18 +31,28 @@ export function formatUserMemoryForPrompt(facts: string[]): string {
 }
 
 export function buildGeneralMemorySection(facts: string[]): string {
-  return `## General knowledge (all chats)\n${formatGeneralMemoryForPrompt(facts)}`;
+  return (
+    `## General knowledge and bot-wide lessons (all chats)\n` +
+    `Glossary, project facts, and behavior patterns that work across chats.\n` +
+    `${formatGeneralMemoryForPrompt(facts)}`
+  );
 }
 
 export function buildGroupMemorySection(facts: string[]): string {
-  return `## Known facts about this group (shared)\n${formatGroupMemoryForPrompt(facts)}`;
+  return (
+    `## This group's culture and how to behave here\n` +
+    `Norms, dynamics, and what this group appreciates or finds annoying about you.\n` +
+    `${formatGroupMemoryForPrompt(facts)}`
+  );
 }
 
 export function buildParticipantMemoriesSection(
   participants: ParticipantMemoryFacts[],
 ): string {
   if (participants.length === 0) return "";
-  let section = `\n\n## Known facts about people in this chat`;
+  let section =
+    `\n\n## People in this chat (adapt to each)\n` +
+    `Personality, preferences, boundaries, and interaction lessons per person.`;
   for (const participant of participants) {
     const facts = formatUserMemoryForPrompt(participant.facts);
     section += `\n\n### ${participant.label} (id: ${participant.userId})\n${facts}`;

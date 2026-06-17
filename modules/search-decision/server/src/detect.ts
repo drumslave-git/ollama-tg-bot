@@ -4,8 +4,8 @@ import {
   type ModuleDefinition,
 } from "@llm-tg-bot/modules-utils";
 import {
-  SEARCH_RESPONSE_FORMAT,
   buildSearchAnalyzerMessages,
+  getSearchResponseFormat,
   parseSearchDecision,
   type SearchDecisionOutput,
 } from "./prompt.js";
@@ -15,6 +15,7 @@ const DEFAULT_NUM_PREDICT = 192;
 export interface SearchDecisionInput {
   message: string;
   replyContext?: string | null;
+  thinkingEnabled?: boolean;
 }
 
 export interface SearchDecisionConfig {
@@ -41,7 +42,12 @@ export async function decideSearch(
   const messages = buildSearchAnalyzerMessages({
     message: text,
     replyContext: input.replyContext,
+    thinkingEnabled: input.thinkingEnabled,
   });
+
+  const responseFormat = getSearchResponseFormat(
+    Boolean(input.thinkingEnabled),
+  );
 
   try {
     const raw = config.chatComplete
@@ -53,8 +59,9 @@ export async function decideSearch(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? DEFAULT_NUM_PREDICT,
-            responseFormat: SEARCH_RESPONSE_FORMAT,
+          {
+            numPredict: config.numPredict ?? DEFAULT_NUM_PREDICT,
+            responseFormat,
           },
         );
     return parseSearchDecision(raw);

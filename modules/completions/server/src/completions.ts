@@ -4,6 +4,7 @@ import type {
 } from "@llm-tg-bot/modules-registry";
 import {
   extractTelegramReply,
+  getMainReplyResponseFormat,
   MAIN_REPLY_RESPONSE_FORMAT,
 } from "./response-format.js";
 
@@ -71,9 +72,12 @@ export const completionsHost: PipelineModuleHost = {
       convKey: state.convKey,
     });
 
+    const settings = services.callbacks.getSettings?.() ?? {};
+    const thinkingEnabled = Boolean(settings.thinkingEnabled);
+
     const complete = createMain({
       think: true,
-      responseFormat: MAIN_REPLY_RESPONSE_FORMAT,
+      responseFormat: getMainReplyResponseFormat(thinkingEnabled),
       traceTurnId: state.turnId,
       traceLabel: "main reply",
       traceLayout: {
@@ -86,8 +90,7 @@ export const completionsHost: PipelineModuleHost = {
     const { raw: modelOutput, thinking } = await complete(built.messages);
     state.thinking = thinking;
 
-    const settings = services.callbacks.getSettings?.() ?? {};
-    if (settings.thinkingEnabled) {
+    if (thinkingEnabled) {
       if (thinking) {
         report?.okPhase(
           "reasoning",

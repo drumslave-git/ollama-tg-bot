@@ -13,6 +13,8 @@ export {
   parseMemoryExtract,
   type MemoryExtractInput,
   type MemoryExtractResult,
+  type KnownParticipant,
+  type ObservedUserFacts,
 } from "./extract-prompt.js";
 export {
   MEMORY_MERGE_SYSTEM,
@@ -33,6 +35,7 @@ export {
   buildExplainGeneralMemorySection,
   buildExplainGroupMemorySection,
   buildExplainUserMemorySection,
+  MEMORY_USAGE_PREAMBLE,
   type ParticipantMemoryFacts,
 } from "./inject.js";
 export {

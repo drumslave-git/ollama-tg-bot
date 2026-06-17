@@ -7,14 +7,18 @@ import type { ChatMessage } from "../../src/llm/client.js";
 import { parseAssistantMessage, providerChatExtensions, shouldUseResponseFormat } from "../../src/llm/openai-compat.js";
 import {
   extractTelegramReply,
-  MAIN_REPLY_RESPONSE_FORMAT,
+  getMainReplyResponseFormat,
 } from "@llm-tg-bot/modules-completions";
 import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_REASONING_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,
 } from "../../src/settings/limits.js";
-import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
+import {
+  mergeAssistantReasoning,
+  responseFormatForThinking,
+  toOpenAiResponseFormat,
+} from "@llm-tg-bot/modules-utils";
 import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
 import { makeSettings } from "../helpers/settings.js";
 
@@ -72,6 +76,7 @@ export async function runTurn(
     thinkingEnabled: opts.thinkingEnabled ?? liveReasoningMode(),
   });
   const ext = providerChatExtensions(settings, false);
+  const responseFormat = getMainReplyResponseFormat(settings.thinkingEnabled);
   const completion: ChatCompletion = await client.chat.completions.create({
     model,
     messages,
@@ -80,16 +85,17 @@ export async function runTurn(
     temperature: settings.temperature,
     top_p: settings.topP,
     ...ext,
-    ...(shouldUseResponseFormat(settings, false, MAIN_REPLY_RESPONSE_FORMAT)
-      ? { response_format: toOpenAiResponseFormat(MAIN_REPLY_RESPONSE_FORMAT) }
+    ...(shouldUseResponseFormat(settings, false, responseFormat)
+      ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
   });
 
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);
+  const mergedReasoning = mergeAssistantReasoning(content, reasoning);
   return {
     content,
-    reasoning,
+    reasoning: mergedReasoning,
     reply: extractTelegramReply(content),
     finishReason: choice?.finish_reason ?? null,
   };
@@ -136,6 +142,9 @@ export async function runAuxiliary(
     ? AUXILIARY_REASONING_NUM_PREDICT
     : AUXILIARY_NUM_PREDICT;
   const numPredict = Math.max(floor, opts.numPredict ?? 0);
+  const responseFormat = opts.responseFormat
+    ? responseFormatForThinking(opts.responseFormat, thinkingEnabled)
+    : undefined;
   const completion: ChatCompletion = await client.chat.completions.create({
     model,
     messages: toParams(messages),
@@ -144,17 +153,16 @@ export async function runAuxiliary(
     temperature: AUXILIARY_TEMPERATURE,
     top_p: settings.topP,
     ...ext,
-    ...(opts.responseFormat
-      ? { response_format: toOpenAiResponseFormat(opts.responseFormat) }
+    ...(responseFormat
+      ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
   });
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);
-  // Some backends route side-pass blocks to reasoning when content is empty.
-  const effective = content || reasoning;
+  const effective = mergeAssistantReasoning(content, reasoning) || content;
   return {
     content: effective,
-    reasoning,
+    reasoning: mergeAssistantReasoning(content, reasoning),
     finishReason: choice?.finish_reason ?? null,
   };
 }

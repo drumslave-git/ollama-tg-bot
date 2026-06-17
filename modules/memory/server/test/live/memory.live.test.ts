@@ -140,7 +140,9 @@ describe.skipIf(!cfg)("live: memory module", () => {
     const messages = buildMemoryExtractMessages(
       extractInput({ userMessage: "remember this" }),
     );
-    expect(messages[1].content).toContain("user_facts, group_facts, and general_facts");
+    expect(messages[1].content).toContain(
+      "user_facts, observed_user_facts, group_facts, and general_facts",
+    );
   });
 
   it("builds merge messages with the JSON format reminder", () => {

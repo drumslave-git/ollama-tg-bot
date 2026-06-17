@@ -6,7 +6,6 @@ import {
 } from "./json-schema.js";
 import {
   providerChatExtensions,
-  shouldUseResponseFormat,
   type ProviderChatSettings,
 } from "./openai-compat.js";
 
@@ -85,15 +84,6 @@ export async function auxiliaryChatComplete(
         options: { skip_special_tokens: false },
       };
 
-  const useSchema =
-    options.responseFormat &&
-    (!options.providerSettings ||
-      shouldUseResponseFormat(
-        options.providerSettings,
-        true,
-        options.responseFormat,
-      ));
-
   const completion = await client.chat.completions.create({
     model: llm.model,
     messages: toParams(messages),
@@ -101,8 +91,8 @@ export async function auxiliaryChatComplete(
     max_completion_tokens: numPredict,
     temperature: AUXILIARY_TEMPERATURE,
     ...providerExt,
-    ...(useSchema
-      ? { response_format: toOpenAiResponseFormat(options.responseFormat!) }
+    ...(options.responseFormat
+      ? { response_format: toOpenAiResponseFormat(options.responseFormat) }
       : {}),
   } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
 

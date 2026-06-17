@@ -4,6 +4,9 @@ import {
   parseJsonContent,
   readBoolean,
   readNullableString,
+  reasoningJsonUserTail,
+  reasoningSchemaSystemSuffix,
+  responseFormatForThinking,
   strictObjectSchema,
 } from "@llm-tg-bot/modules-utils";
 
@@ -23,6 +26,12 @@ export const SEARCH_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     },
     ["needs_search", "query"],
   );
+
+export function getSearchResponseFormat(
+  thinkingEnabled: boolean,
+): JsonSchemaResponseFormat {
+  return responseFormatForThinking(SEARCH_RESPONSE_FORMAT, thinkingEnabled);
+}
 
 export const SEARCH_ANALYZER_SYSTEM = `You decide whether a Telegram bot should run a web search before answering.
 
@@ -100,6 +109,7 @@ function isReplyThreadContext(context: string | null | undefined): boolean {
 export function buildSearchAnalyzerMessages(params: {
   message: string;
   replyContext?: string | null;
+  thinkingEnabled?: boolean;
 }): ChatMessage[] {
   const userText = params.message.trim();
   const replyContext = params.replyContext?.trim() ?? "";
@@ -113,10 +123,19 @@ export function buildSearchAnalyzerMessages(params: {
     }
   }
   content +=
-    "\n\nReturn JSON with needs_search and query (null when needs_search is false).";
+    "\n\n" +
+    reasoningJsonUserTail(
+      "needs_search and query (null when needs_search is false)",
+      !!params.thinkingEnabled,
+    );
 
   return [
-    { role: "system", content: SEARCH_ANALYZER_SYSTEM },
+    {
+      role: "system",
+      content:
+        SEARCH_ANALYZER_SYSTEM +
+        reasoningSchemaSystemSuffix(!!params.thinkingEnabled),
+    },
     { role: "user", content },
   ];
 }

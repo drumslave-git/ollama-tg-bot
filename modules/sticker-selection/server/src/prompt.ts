@@ -3,6 +3,9 @@ import {
   asObject,
   parseJsonContent,
   readString,
+  reasoningJsonUserTail,
+  reasoningSchemaSystemSuffix,
+  responseFormatForThinking,
   strictObjectSchema,
 } from "@llm-tg-bot/modules-utils";
 import { formatStickerCatalogSection } from "./catalog.js";
@@ -21,9 +24,18 @@ export const STICKER_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     ["choice"],
   );
 
+export function getStickerResponseFormat(
+  thinkingEnabled: boolean,
+): JsonSchemaResponseFormat {
+  return responseFormatForThinking(STICKER_RESPONSE_FORMAT, thinkingEnabled);
+}
+
 const STICKER_VALUE_MAX_LEN = 32;
 
-export function buildStickerAnalyzerSystem(catalog: StickerCatalog): string | null {
+export function buildStickerAnalyzerSystem(
+  catalog: StickerCatalog,
+  thinkingEnabled = false,
+): string | null {
   const catalogSection = formatStickerCatalogSection(
     catalog.packName,
     catalog.stickers,
@@ -34,8 +46,9 @@ export function buildStickerAnalyzerSystem(catalog: StickerCatalog): string | nu
     `You pick the best-matching Telegram sticker for a bot's text reply, based on emotional tone and context.\n\n` +
     `${catalogSection}\n\n` +
     `Respond with JSON only, matching the provided schema:\n` +
-    `- choice (string): the pack emoji exactly, or the sticker number from the list, or "none" to skip\n\n` +
-    `Always pick the sticker that best fits the reply's mood, humor, or reaction — even if the fit is subtle.`
+    `- choice (string): the pack emoji exactly, or the sticker number from the list, or "none" to skip` +
+    reasoningSchemaSystemSuffix(thinkingEnabled) +
+    `\n\nAlways pick the sticker that best fits the reply's mood, humor, or reaction — even if the fit is subtle.`
   );
 }
 
@@ -48,8 +61,12 @@ export function buildStickerAnalyzerMessages(params: {
   botReply: string;
   message?: string;
   replyContext?: string | null;
+  thinkingEnabled?: boolean;
 }): ChatMessage[] | null {
-  const system = buildStickerAnalyzerSystem(params.catalog);
+  const system = buildStickerAnalyzerSystem(
+    params.catalog,
+    !!params.thinkingEnabled,
+  );
   if (!system) return null;
 
   const botReply = params.botReply.trim();
@@ -67,7 +84,8 @@ export function buildStickerAnalyzerMessages(params: {
     }
   }
 
-  content += `\n\nReturn JSON with a choice field.`;
+  content +=
+    "\n\n" + reasoningJsonUserTail("a choice field", !!params.thinkingEnabled);
 
   return [
     { role: "system", content: system },

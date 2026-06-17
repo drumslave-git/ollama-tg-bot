@@ -15,6 +15,7 @@ export interface StickerSelectionInput {
   message?: string;
   replyContext?: string | null;
   catalog: StickerCatalog;
+  thinkingEnabled?: boolean;
 }
 
 export interface StickerSelectionOutput {

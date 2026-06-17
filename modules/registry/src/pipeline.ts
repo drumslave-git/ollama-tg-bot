@@ -281,7 +281,12 @@ export interface PipelineHostCallbacks {
     replaceUserFacts: (userId: string, facts: string[]) => void;
     replaceGroupFacts: (groupId: string, facts: string[]) => void;
     replaceGeneralFacts: (facts: string[]) => void;
+    getUserFacts?: (userId: string) => string[];
   };
+  getChatParticipants?: (
+    convKey: string,
+    currentUserId: string | null,
+  ) => { userId: string; label: string }[];
 }
 
 export interface PipelineHostServices {

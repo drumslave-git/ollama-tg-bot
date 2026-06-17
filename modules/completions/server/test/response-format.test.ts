@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   buildReplyFormatSpec,
   extractTelegramReply,
+  extractThinkingFromContent,
+  getMainReplyResponseFormat,
   MAIN_REPLY_RESPONSE_FORMAT,
   stripStructuredMarkup,
 } from "../src/response-format.js";
+import { REASONING_JSON_FIELD } from "@llm-tg-bot/modules-utils";
 
 describe("extractTelegramReply", () => {
   const cases: { name: string; in: string; want: string }[] = [
@@ -68,6 +71,22 @@ describe("buildReplyFormatSpec", () => {
     expect(spec).toContain("HINT-TEXT");
     expect(spec).toContain("Respond with JSON only");
   });
+
+  it("includes reasoning when thinking is on", () => {
+    const spec = buildReplyFormatSpec("HINT-TEXT", true);
+    expect(spec).toContain("reasoning (string)");
+    expect(spec).toContain("two fields");
+  });
+});
+
+describe("extractThinkingFromContent", () => {
+  it("reads reasoning from structured JSON", () => {
+    expect(
+      extractThinkingFromContent(
+        '{"reasoning":"step one","reply":"hello"}',
+      ),
+    ).toBe("step one");
+  });
 });
 
 describe("MAIN_REPLY_RESPONSE_FORMAT", () => {
@@ -77,5 +96,10 @@ describe("MAIN_REPLY_RESPONSE_FORMAT", () => {
       type: "object",
       required: ["reply"],
     });
+  });
+
+  it("adds reasoning when thinking is enabled", () => {
+    const format = getMainReplyResponseFormat(true);
+    expect(format.schema.required).toContain(REASONING_JSON_FIELD);
   });
 });

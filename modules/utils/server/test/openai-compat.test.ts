@@ -84,14 +84,14 @@ describe("shouldUseResponseFormat", () => {
     schema: { type: "object", properties: {}, required: [] },
   };
 
-  it("omits schema for auxiliary passes when thinking is on", () => {
+  it("uses schema for auxiliary passes when thinking is on", () => {
     expect(
       shouldUseResponseFormat(
         makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
         true,
         format,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("uses schema for auxiliary passes when thinking is off", () => {
@@ -104,14 +104,14 @@ describe("shouldUseResponseFormat", () => {
     ).toBe(true);
   });
 
-  it("omits schema for main reply when thinking is on", () => {
+  it("uses schema for main reply when thinking is on", () => {
     expect(
       shouldUseResponseFormat(
         makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "medium" }),
         false,
         format,
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("uses schema for main reply when thinking is off", () => {

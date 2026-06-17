@@ -37,6 +37,7 @@ export interface AddressCheckInput {
   isReplyInBotThread?: boolean;
   /** Display name of the sender; defaults to "Someone". */
   sender?: string;
+  thinkingEnabled?: boolean;
 }
 
 export interface AddressCheckConfig extends AddressingDetectionConfig {
@@ -142,6 +143,7 @@ async function analyzeGroupMessageForBot(
         sender: input.sender ?? "Someone",
         chatType,
         nameScanFound: false,
+        thinkingEnabled: input.thinkingEnabled,
       },
       config,
     );

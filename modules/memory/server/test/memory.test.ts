@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EXTRACTOR_SYSTEM,
   MEMORY_MERGE_SYSTEM,
+  MEMORY_USAGE_PREAMBLE,
   buildExplainGeneralMemorySection,
   buildGeneralMemorySection,
   buildGroupMemorySection,
@@ -29,18 +30,22 @@ function input(over: Partial<MemoryExtractInput>): MemoryExtractInput {
 }
 
 describe("parseMemoryExtract", () => {
-  it("parses all three memory scopes from JSON", () => {
+  it("parses all memory scopes from JSON", () => {
     expect(
       parseMemoryExtract(
         JSON.stringify({
           user_facts: ["Lives in Lisbon."],
-          group_facts: [],
+          observed_user_facts: [
+            { user_id: "42", facts: ["Hates spoilers."] },
+          ],
+          group_facts: ["Backend-only channel."],
           general_facts: ["MTTR means mean time to recovery."],
         }),
       ),
     ).toEqual({
       userFacts: ["Lives in Lisbon."],
-      groupFacts: [],
+      observedUserFacts: [{ userId: "42", facts: ["Hates spoilers."] }],
+      groupFacts: ["Backend-only channel."],
       generalFacts: ["MTTR means mean time to recovery."],
     });
   });
@@ -50,12 +55,35 @@ describe("parseMemoryExtract", () => {
       parseMemoryExtract(
         JSON.stringify({
           user_facts: ["none"],
+          observed_user_facts: [],
           group_facts: [],
           general_facts: [],
         }),
       ),
     ).toEqual({
       userFacts: [],
+      observedUserFacts: [],
+      groupFacts: [],
+      generalFacts: [],
+    });
+  });
+
+  it("skips observed entries without user_id or facts", () => {
+    expect(
+      parseMemoryExtract(
+        JSON.stringify({
+          user_facts: [],
+          observed_user_facts: [
+            { user_id: "", facts: ["x"] },
+            { user_id: "1", facts: [] },
+          ],
+          group_facts: [],
+          general_facts: [],
+        }),
+      ),
+    ).toEqual({
+      userFacts: [],
+      observedUserFacts: [],
       groupFacts: [],
       generalFacts: [],
     });
@@ -94,14 +122,21 @@ describe("buildMemoryExtractMessages", () => {
       input({ userMessage: "hi", isGroupChat: false }),
     );
     expect(messages[1].content).toContain("Not a group chat");
-    expect(messages[1].content).toContain("user_facts, group_facts");
+    expect(messages[1].content).toContain("observed_user_facts");
   });
 
-  it("lists already-stored facts", () => {
+  it("lists already-stored facts and known participants", () => {
     const messages = buildMemoryExtractMessages(
-      input({ userMessage: "hi", existingUserFacts: ["Lives in Lisbon."] }),
+      input({
+        userMessage: "hi",
+        existingUserFacts: ["Lives in Lisbon."],
+        knownParticipants: [{ userId: "1", label: "Alice" }],
+        currentSpeaker: { userId: "2", label: "Bob" },
+      }),
     );
     expect(messages[1].content).toContain("Lives in Lisbon.");
+    expect(messages[1].content).toContain("id 1: Alice");
+    expect(messages[1].content).toContain("Current speaker: Bob");
   });
 });
 
@@ -141,12 +176,13 @@ describe("memory injection", () => {
     expect(formatGeneralMemoryForPrompt([])).toContain("No general facts");
   });
 
-  it("builds system-prompt memory sections", () => {
+  it("builds system-prompt memory sections with evolution guidance", () => {
+    expect(MEMORY_USAGE_PREAMBLE).toContain("evolve");
     expect(buildGeneralMemorySection(["Fact one."])).toContain(
-      "## General knowledge (all chats)",
+      "bot-wide lessons",
     );
     expect(buildGroupMemorySection(["Group norm."])).toContain(
-      "## Known facts about this group",
+      "culture and how to behave",
     );
     expect(
       buildParticipantMemoriesSection([
@@ -160,11 +196,18 @@ describe("memory injection", () => {
 });
 
 describe("EXTRACTOR_SYSTEM", () => {
-  it("requires JSON with three fact arrays", () => {
+  it("requires JSON with four memory fields", () => {
     expect(EXTRACTOR_SYSTEM).toContain("user_facts");
+    expect(EXTRACTOR_SYSTEM).toContain("observed_user_facts");
     expect(EXTRACTOR_SYSTEM).toContain("group_facts");
     expect(EXTRACTOR_SYSTEM).toContain("general_facts");
     expect(EXTRACTOR_SYSTEM).toContain("Respond with JSON only");
+  });
+
+  it("covers personality, preferences, and bot feedback", () => {
+    expect(EXTRACTOR_SYSTEM).toContain("personality");
+    expect(EXTRACTOR_SYSTEM).toContain("appreciate");
+    expect(EXTRACTOR_SYSTEM).toContain("annoying");
   });
 });
 
@@ -173,5 +216,10 @@ describe("MEMORY_MERGE_SYSTEM", () => {
     expect(MEMORY_MERGE_SYSTEM).toContain("memory (string)");
     expect(MEMORY_MERGE_SYSTEM).toContain('no "Entity"');
     expect(MEMORY_MERGE_SYSTEM).toContain("Drop duplicates");
+  });
+
+  it("organizes personality and bot-interaction lessons", () => {
+    expect(MEMORY_MERGE_SYSTEM).toContain("personality");
+    expect(MEMORY_MERGE_SYSTEM).toContain("appreciate");
   });
 });

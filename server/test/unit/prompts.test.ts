@@ -33,14 +33,14 @@ describe("buildSystemPrompt", () => {
       isGroupChat: true,
       groupMemoryFacts: ["likes chess"],
     });
-    expect(group).toContain("Known facts about this group");
+    expect(group).toContain("This group's culture and how to behave here");
 
     const dm = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
       isGroupChat: false,
     });
-    expect(dm).not.toContain("Known facts about this group");
+    expect(dm).not.toContain("This group's culture and how to behave here");
   });
 
   it("includes the owner section and mood when provided", () => {

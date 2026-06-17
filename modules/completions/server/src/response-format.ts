@@ -2,6 +2,8 @@ import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
 import {
   asObject,
   parseJsonContent,
+  readReasoningFromContent,
+  responseFormatForThinking,
   strictObjectSchema,
 } from "@llm-tg-bot/modules-utils";
 import { stripEchoedHistoryMarkup } from "@llm-tg-bot/modules-history";
@@ -19,13 +21,26 @@ export const MAIN_REPLY_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     ["reply"],
   );
 
+export function getMainReplyResponseFormat(
+  thinkingEnabled: boolean,
+): JsonSchemaResponseFormat {
+  return responseFormatForThinking(MAIN_REPLY_RESPONSE_FORMAT, thinkingEnabled);
+}
+
 /**
  * Structured assistant output. Only the `reply` field is sent to Telegram.
  * Stickers are chosen in a separate model pass; memory is extracted in a dedicated pass.
  */
-export function buildReplyFormatSpec(formatHint: string): string {
-  return `Respond with JSON only, matching the provided schema. The object has one field:
-- reply (string): your spoken reply to the user
+export function buildReplyFormatSpec(
+  formatHint: string,
+  thinkingEnabled = false,
+): string {
+  const reasoningLine = thinkingEnabled
+    ? "- reasoning (string): brief chain-of-thought for this reply; analysis only — never the spoken reply text\n"
+    : "";
+  const fieldCount = thinkingEnabled ? "two fields" : "one field";
+  return `Respond with JSON only, matching the provided schema. The object has ${fieldCount}:
+${reasoningLine}- reply (string): your spoken reply to the user
 
 Output rules (mandatory):
 - Put only your spoken reply in the reply field.
@@ -36,6 +51,11 @@ Output rules (mandatory):
 
 Reply length and style (apply inside reply, not as separate structure):
 ${formatHint}`;
+}
+
+/** Chain-of-thought from structured JSON content (when thinking is on). */
+export function extractThinkingFromContent(content: string): string {
+  return readReasoningFromContent(content) ?? "";
 }
 
 const BLOCK_NAME = "[A-Za-z_][A-Za-z0-9_]*";

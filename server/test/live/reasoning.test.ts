@@ -1,20 +1,20 @@
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { describe, expect, it } from "vitest";
-import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
 import { buildBaseSystemPrompt } from "../../src/pipeline/adapters/system-prompt.js";
 import {
-  parseAssistantMessage,
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "../../src/llm/openai-compat.js";
-import { MAIN_REPLY_RESPONSE_FORMAT } from "@llm-tg-bot/modules-completions";
+import { getMainReplyResponseFormat } from "@llm-tg-bot/modules-completions";
 import { hasVisibleTelegramReply, prepareTelegramHtml } from "../../src/telegram/html.js";
 import { makeSettings } from "../helpers/settings.js";
 import { liveClient, liveConfig, liveReasoningMode, runTurn } from "./helpers.js";
 
 const cfg = liveConfig();
 
-const SYSTEM = buildBaseSystemPrompt(makeSettings({ numCtx: 8192, numPredict: 512 }));
+const SYSTEM = buildBaseSystemPrompt(
+  makeSettings({ numCtx: 8192, numPredict: 512, thinkingEnabled: true }),
+);
 
 function userTurn(text: string): ChatCompletionMessageParam[] {
   return [
@@ -24,39 +24,20 @@ function userTurn(text: string): ChatCompletionMessageParam[] {
 }
 
 describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled)", () => {
-  it("omits json_schema on main reply while thinking is on", () => {
+  it("uses json_schema with reasoning field on main reply while thinking is on", () => {
     const settings = makeSettings({ thinkingEnabled: true, reasoningEffort: "medium" });
+    const format = getMainReplyResponseFormat(true);
     expect(
-      shouldUseResponseFormat(settings, false, MAIN_REPLY_RESPONSE_FORMAT),
-    ).toBe(false);
+      shouldUseResponseFormat(settings, false, format),
+    ).toBe(true);
+    expect(format.schema.required).toContain("reasoning");
     expect(providerChatExtensions(settings, false).chat_template_kwargs).toEqual({
       enable_thinking: true,
       reasoning_effort: "medium",
     });
   });
 
-  it("regression: json_schema suppresses separate reasoning on reasoning backends", async () => {
-    const client = liveClient(cfg!);
-    const settings = makeSettings({ thinkingEnabled: true, reasoningEffort: "medium" });
-    const completion = await client.chat.completions.create({
-      model: cfg!.model,
-      messages: userTurn("Ihar, are you alive!"),
-      stream: false,
-      max_completion_tokens: 512,
-      temperature: settings.temperature,
-      top_p: settings.topP,
-      ...providerChatExtensions(settings, false),
-      response_format: toOpenAiResponseFormat(MAIN_REPLY_RESPONSE_FORMAT),
-    });
-    const parsed = parseAssistantMessage(completion.choices[0]);
-    expect(parsed.content).not.toBe("");
-    expect(
-      parsed.reasoning,
-      "forcing json_schema while thinking is on should not be used in production",
-    ).toBe("");
-  });
-
-  it("returns separate reasoning and a usable JSON reply", async () => {
+  it("returns reasoning in JSON content and a usable reply", async () => {
     const client = liveClient(cfg!);
     const result = await runTurn(
       client,

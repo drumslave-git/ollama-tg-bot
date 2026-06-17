@@ -15,5 +15,7 @@ export {
   MAIN_REPLY_RESPONSE_FORMAT,
   buildReplyFormatSpec,
   extractTelegramReply,
+  extractThinkingFromContent,
+  getMainReplyResponseFormat,
   stripStructuredMarkup,
 } from "./response-format.js";

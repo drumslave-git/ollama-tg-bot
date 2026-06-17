@@ -20,6 +20,7 @@ export interface MemoryPersistCallbacks {
   replaceUserFacts: (userId: string, facts: string[]) => void;
   replaceGroupFacts: (groupId: string, facts: string[]) => void;
   replaceGeneralFacts: (facts: string[]) => void;
+  getUserFacts?: (userId: string) => string[];
 }
 
 export interface MemoryPersistContext {
@@ -51,7 +52,12 @@ export async function extractMemoriesFromTurn(
     config.log?.logEventError?.("memory_extract_failed", err, {
       isGroupChat: input.isGroupChat,
     });
-    return { userFacts: [], groupFacts: [], generalFacts: [] };
+    return {
+      userFacts: [],
+      observedUserFacts: [],
+      groupFacts: [],
+      generalFacts: [],
+    };
   }
 }
 
@@ -89,6 +95,30 @@ export async function persistMemories(
     });
     anyUpdated = true;
     updatedScopes.push("user");
+  }
+
+  for (const observed of extracted.observedUserFacts) {
+    if (observed.facts.length === 0) continue;
+    const existing = callbacks.getUserFacts?.(observed.userId) ?? [];
+    const merged = await mergeMemoryDocument(
+      {
+        kind: "user",
+        existing,
+        incoming: observed.facts,
+      },
+      config.merge,
+    );
+    callbacks.replaceUserFacts(observed.userId, merged ? [merged] : []);
+    log?.logEvent?.("memory_updated", {
+      scope: "user",
+      userId: observed.userId,
+      factCount: observed.facts.length,
+      observed: true,
+    });
+    anyUpdated = true;
+    if (!updatedScopes.includes("user")) {
+      updatedScopes.push("user");
+    }
   }
 
   if (ctx.groupChatId && extracted.groupFacts.length > 0) {

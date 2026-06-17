@@ -6,7 +6,7 @@ import type {
 } from "@llm-tg-bot/modules-registry";
 import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
 import { checkMessageAddressed } from "./check-addressed.js";
-import { ADDRESS_RESPONSE_FORMAT } from "./prompt.js";
+import { ADDRESS_RESPONSE_FORMAT, getAddressResponseFormat } from "./prompt.js";
 import {
   isReplyInBotThreadMessage,
   isReplyToBotMessage,
@@ -44,6 +44,10 @@ export const addressingHost: PipelineModuleHost = {
     const bot = getBotIdentity();
     const message = state.telegram.message as Message | undefined;
 
+    const settings = services.callbacks.getSettings?.() ?? {};
+    const thinkingEnabled = Boolean(settings.thinkingEnabled);
+    const responseFormat = getAddressResponseFormat(thinkingEnabled);
+
     const started = performance.now();
     const result = await checkMessageAddressed(
       {
@@ -60,6 +64,7 @@ export const addressingHost: PipelineModuleHost = {
           bot,
         ),
         sender: senderLabel(state.telegram.from),
+        thinkingEnabled,
       },
       {
         baseUrl: services.llm.baseUrl,
@@ -71,7 +76,7 @@ export const addressingHost: PipelineModuleHost = {
         log: hostLogging(services),
         chatComplete: services.llm.createAuxiliaryChatComplete({
           numPredict: ADDRESS_CHECK_NUM_PREDICT,
-          responseFormat: ADDRESS_RESPONSE_FORMAT,
+          responseFormat,
           traceTurnId: state.turnId,
           traceLabel: "address detection",
         }),

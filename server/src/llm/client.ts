@@ -1,5 +1,5 @@
 import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
-import { toOpenAiResponseFormat } from "@llm-tg-bot/modules-utils";
+import { toOpenAiResponseFormat, mergeAssistantReasoning } from "@llm-tg-bot/modules-utils";
 import OpenAI, {
   APIConnectionError,
   APIConnectionTimeoutError,
@@ -93,7 +93,7 @@ function toChatResponse(
     message: {
       role: choice?.message?.role,
       content,
-      reasoning,
+      reasoning: mergeAssistantReasoning(content, reasoning),
     },
     done_reason: choice?.finish_reason ?? undefined,
     eval_count: usage?.completion_tokens ?? usage?.total_tokens,
@@ -356,9 +356,7 @@ function formatTraceSamplingLine(
   const enableThinking =
     extensions.chat_template_kwargs?.enable_thinking === true;
   const responseFormatLine = responseFormat
-    ? shouldUseResponseFormat(settings, auxiliary, responseFormat)
-      ? "response_format: json_schema"
-      : "response_format: omitted (thinking)"
+    ? "response_format: json_schema"
     : null;
   return [
     `temperature: ${temp}`,
@@ -461,7 +459,7 @@ export async function chatCompleteDetailed(
       options?.responseFormat,
     );
     const content = pickAssistantContent(data);
-    const thinking = pickReasoning(data);
+    const thinking = mergeAssistantReasoning(content, pickReasoning(data));
     if (content) {
       return { raw: content, thinking };
     }

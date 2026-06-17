@@ -135,7 +135,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
-**OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (dashboard `reasoningEffort` on the main reply when `thinkingEnabled` is on; **`"low"` on all auxiliary side passes**; `"none"` when thinking is off). Some models/backends mis-split when thinking is enabled via API (`content` empty, answer in `reasoning`); JSON replies require the full answer in `message.content`. Parse **`message.content`** as JSON for the Telegram reply (`reply` field). Parse **`message.reasoning_content`** / **`reasoning`** as chain-of-thought only — never for replies. Extensions: `providerChatExtensions()` in `openai-compat.ts`. Structured passes send `response_format: { type: "json_schema", ... }` via `@llm-tg-bot/modules-utils` when thinking is **off**; when thinking is **on**, every pass omits `response_format` (schema suppresses separate reasoning on many backends) and relies on prompt + strict JSON parsing instead.
+**OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (dashboard `reasoningEffort` on the main reply when `thinkingEnabled` is on; **`"low"` on all auxiliary side passes**; `"none"` when thinking is off). JSON replies require the full answer in `message.content`. When thinking is on, every pass keeps `response_format: json_schema` with an extra required **`reasoning`** string field in the schema; chain-of-thought is read from that JSON field (API `reasoning` / `reasoning_content` is a fallback). Parse decision/reply fields from `content` JSON only — never merge `reasoning` into user-facing text. Extensions: `providerChatExtensions()` and `responseFormatForThinking()` in `@llm-tg-bot/modules-utils`.
 
 **Terminology — OpenAI-compatible only:** This project targets **any OpenAI-compatible API** (LocalAI, vLLM, llama.cpp server, cloud providers, etc.). Do **not** use vendor-specific names in code, comments, docs, or agent replies — especially **“Ollama”**. Describe behavior in neutral terms: “OpenAI-compatible API”, “provider”, “backend”, “optional model metadata endpoints”. Some servers expose non-standard routes such as `POST /api/show` or `GET /api/tags` for context length and model size; treat these as **optional provider extensions** (best-effort, fail silently if absent). Primary integration is always `/v1/models` and `/v1/chat/completions`.
 
@@ -145,6 +145,8 @@ Three layers, extracted in a **background pass** by the memory module's pipeline
 
 - Per-user, per-group, general — see `server/src/db/*-memory.ts`
 - User/group memories are merged into one entity document during persistence.
+- Extraction learns **personality, preferences, boundaries, and bot-feedback** (what users appreciate vs find annoying), not just encyclopedic facts. In group chats, `observed_user_facts` can update other known participants' user memories when the turn reveals durable traits about them.
+- Injected memories include a **usage preamble** (`MEMORY_USAGE_PREAMBLE`) so the main reply adapts tone and behavior over time — not only factual recall.
 
 ### Group behavior
 
@@ -155,7 +157,7 @@ Three layers, extracted in a **background pass** by the memory module's pipeline
 
 ### Structured LLM output (JSON schema)
 
-Side passes and the main reply use **strict JSON schemas** enforced via OpenAI-compatible `response_format`. Each module exports a `*_RESPONSE_FORMAT` constant; prompts describe the same fields in prose. Parsers in `*-prompt.ts`, `response-format.ts`, and feature modules validate JSON only — they must not be loosened to accept model mistakes.
+Side passes and the main reply use **strict JSON schemas** enforced via OpenAI-compatible `response_format`. Each module exports a `*_RESPONSE_FORMAT` constant; when `thinkingEnabled` is on, `responseFormatForThinking()` adds a required **`reasoning`** string field. Prompts describe the same fields in prose. Parsers validate decision/reply fields only — they must not be loosened to accept model mistakes.
 
 **When the model misbehaves, fix the prompt or schema — not the parser.**
 
@@ -179,7 +181,7 @@ Reference implementations:
 
 Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `modules/completions/server/src/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
 
-**LLM response fields:** User-facing text comes from the API `content` field (JSON). Chain-of-thought / reasoning comes from the separate `reasoning` (or `reasoning_content`) field — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
+**LLM response fields:** User-facing text comes from the API `content` JSON (`reply`, `addressed`, etc.). Chain-of-thought comes from the JSON `reasoning` field when thinking is on (`mergeAssistantReasoning()` prefers JSON, then API `reasoning` / `reasoning_content`) — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
 
 ## Code conventions
 

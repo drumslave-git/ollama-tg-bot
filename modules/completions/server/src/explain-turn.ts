@@ -48,7 +48,9 @@ export async function runExplainTurn(
       messages,
       {
         think: true,
-        responseFormat: deps.mainReplyResponseFormat,
+        responseFormat: deps.getMainReplyResponseFormat(
+          Boolean(settings.thinkingEnabled),
+        ),
       },
     );
     deps.logging.logEvent("llm_reply_done", {

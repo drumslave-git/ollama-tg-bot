@@ -52,6 +52,14 @@ export const turnSetupHost: PipelineModuleHost = {
 
     const userId = state.userId;
     const groupChatId = state.groupChatId;
+    const knownParticipants =
+      state.convKey && cb.getChatParticipants
+        ? cb.getChatParticipants(state.convKey, userId ?? null)
+        : [];
+    const speaker = state.currentSpeaker as
+      | { userId: string; label: string }
+      | null
+      | undefined;
     state.memoryInput = {
       userMessage: state.latestBody,
       replyContext: state.replyContext,
@@ -61,6 +69,10 @@ export const turnSetupHost: PipelineModuleHost = {
         : [],
       existingGeneralFacts: cb.getGeneralFacts?.() ?? [],
       isGroupChat: state.inGroup,
+      currentSpeaker: speaker
+        ? { userId: speaker.userId, label: speaker.label }
+        : null,
+      knownParticipants,
     };
 
     return {

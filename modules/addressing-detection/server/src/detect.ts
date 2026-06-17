@@ -7,6 +7,7 @@ import {
   ADDRESS_RESPONSE_FORMAT,
   buildAddressAnalyzerMessages,
   formatBotIdentity,
+  getAddressResponseFormat,
   parseAddressDecision,
 } from "./prompt.js";
 
@@ -20,6 +21,7 @@ export interface AddressingDetectionInput {
   chatType?: string;
   /** When false, a regex scan found no display name in the message text. */
   nameScanFound?: boolean;
+  thinkingEnabled?: boolean;
 }
 
 export interface AddressingDetectionConfig {
@@ -56,7 +58,12 @@ export async function detectAddressing(
     sender: input.sender ?? "Someone",
     text,
     nameScanFound: input.nameScanFound,
+    thinkingEnabled: input.thinkingEnabled,
   });
+
+  const responseFormat = getAddressResponseFormat(
+    Boolean(input.thinkingEnabled),
+  );
 
   try {
     const raw = config.chatComplete
@@ -70,7 +77,7 @@ export async function detectAddressing(
           messages,
           {
             numPredict: config.numPredict ?? DEFAULT_NUM_PREDICT,
-            responseFormat: ADDRESS_RESPONSE_FORMAT,
+            responseFormat,
           },
         );
     return parseAddressDecision(raw);

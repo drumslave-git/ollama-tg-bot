@@ -8,6 +8,7 @@ import {
   readString,
   readStringArray,
   strictObjectSchema,
+  withReasoningInSchema,
 } from "../src/json-schema.js";
 
 describe("parseJsonContent", () => {
@@ -35,6 +36,17 @@ describe("strictObjectSchema", () => {
     );
     expect(format.schema.additionalProperties).toBe(false);
     expect(format.name).toBe("test");
+  });
+});
+
+describe("withReasoningInSchema", () => {
+  it("prepends a required reasoning field", () => {
+    const base = strictObjectSchema("test", { ok: { type: "boolean" } }, [
+      "ok",
+    ]);
+    const withReasoning = withReasoningInSchema(base);
+    expect(withReasoning.schema.required).toEqual(["reasoning", "ok"]);
+    expect(withReasoning.schema.properties).toHaveProperty("reasoning");
   });
 });
 

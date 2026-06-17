@@ -7,7 +7,7 @@ import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
 import {
   analyzeSearchNeed,
 } from "./analyze.js";
-import { SEARCH_RESPONSE_FORMAT } from "./prompt.js";
+import { getSearchResponseFormat } from "./prompt.js";
 import { runWebSearch } from "@llm-tg-bot/modules-web-search";
 
 const SEARCH_CHECK_NUM_PREDICT = 192;
@@ -51,12 +51,17 @@ export const pipelineHost: PipelineModuleHost = {
       };
     }
 
+    const settings = services.callbacks.getSettings?.() ?? {};
+    const thinkingEnabled = Boolean(settings.thinkingEnabled);
+    const responseFormat = getSearchResponseFormat(thinkingEnabled);
+
     const started = performance.now();
     const decision = await analyzeSearchNeed(
       {
         message: state.latestBody,
         replyContext: state.replyContext,
         traceTurnId: state.turnId,
+        thinkingEnabled,
       },
       {
         baseUrl: services.llm.baseUrl,
@@ -67,7 +72,7 @@ export const pipelineHost: PipelineModuleHost = {
         log: hostLogging(services),
         chatComplete: services.llm.createAuxiliaryChatComplete({
           numPredict: SEARCH_CHECK_NUM_PREDICT,
-          responseFormat: SEARCH_RESPONSE_FORMAT,
+          responseFormat,
           traceTurnId: state.turnId,
           traceLabel: "web search decision",
         }),

@@ -3,7 +3,14 @@ import {
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "../../src/llm/openai-compat.js";
-import { MAIN_REPLY_RESPONSE_FORMAT } from "@llm-tg-bot/modules-completions";
+import {
+  getMainReplyResponseFormat,
+  MAIN_REPLY_RESPONSE_FORMAT,
+} from "@llm-tg-bot/modules-completions";
+import {
+  REASONING_JSON_FIELD,
+  withReasoningInSchema,
+} from "@llm-tg-bot/modules-utils";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("main reply thinking request policy", () => {
@@ -13,14 +20,14 @@ describe("main reply thinking request policy", () => {
     numCtx: 32768,
   });
 
-  it("omits json_schema for main reply when thinking is on", () => {
+  it("keeps json_schema for main reply when thinking is on", () => {
     expect(
       shouldUseResponseFormat(
         thinkingSettings,
         false,
-        MAIN_REPLY_RESPONSE_FORMAT,
+        getMainReplyResponseFormat(true),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("keeps json_schema for main reply when thinking is off", () => {
@@ -30,14 +37,20 @@ describe("main reply thinking request policy", () => {
     ).toBe(true);
   });
 
-  it("omits json_schema for auxiliary passes when thinking is on", () => {
+  it("adds reasoning to the main reply schema when thinking is on", () => {
+    const format = getMainReplyResponseFormat(true);
+    expect(format.schema.required).toContain(REASONING_JSON_FIELD);
+    expect(format.schema.required).toContain("reply");
+  });
+
+  it("keeps json_schema for auxiliary passes when thinking is on", () => {
     expect(
       shouldUseResponseFormat(
         thinkingSettings,
         true,
-        MAIN_REPLY_RESPONSE_FORMAT,
+        withReasoningInSchema(MAIN_REPLY_RESPONSE_FORMAT),
       ),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("enables chat-template thinking on main and auxiliary when thinking is on", () => {

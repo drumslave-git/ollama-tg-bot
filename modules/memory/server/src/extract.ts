@@ -6,19 +6,19 @@ import {
 } from "@llm-tg-bot/modules-utils";
 import {
   buildMemoryExtractMessages,
-  MEMORY_EXTRACT_RESPONSE_FORMAT,
+  getMemoryExtractResponseFormat,
   parseMemoryExtract,
   type MemoryExtractInput,
   type MemoryExtractResult,
 } from "./extract-prompt.js";
 import {
   buildMemoryMergeMessages,
-  MEMORY_MERGE_RESPONSE_FORMAT,
+  getMemoryMergeResponseFormat,
   parseMemoryBlock,
   type MemoryMergeInput,
 } from "./merge-prompt.js";
 
-export const MEMORY_EXTRACT_NUM_PREDICT = 384;
+export const MEMORY_EXTRACT_NUM_PREDICT = 512;
 export const MEMORY_MERGE_NUM_PREDICT = 1536;
 
 export interface MemoryLlmConfig {
@@ -26,6 +26,7 @@ export interface MemoryLlmConfig {
   model: string;
   apiKey?: string;
   numPredict?: number;
+  thinkingEnabled?: boolean;
   log?: ModuleLogging;
   /**
    * Optional host-provided completion (e.g. debug tracing, thinking mode).
@@ -38,7 +39,9 @@ export async function extractMemories(
   input: MemoryExtractInput,
   config: MemoryLlmConfig,
 ): Promise<MemoryExtractResult> {
-  const messages = buildMemoryExtractMessages(input);
+  const thinkingEnabled = Boolean(config.thinkingEnabled);
+  const messages = buildMemoryExtractMessages(input, thinkingEnabled);
+  const responseFormat = getMemoryExtractResponseFormat(thinkingEnabled);
 
   try {
     const raw = config.chatComplete
@@ -50,13 +53,29 @@ export async function extractMemories(
             apiKey: config.apiKey,
           },
           messages,
-          { numPredict: config.numPredict ?? MEMORY_EXTRACT_NUM_PREDICT,
-            responseFormat: MEMORY_EXTRACT_RESPONSE_FORMAT,
+          {
+            numPredict: config.numPredict ?? MEMORY_EXTRACT_NUM_PREDICT,
+            responseFormat,
           },
         );
     const parsed = parseMemoryExtract(raw);
+    const allowedIds = new Set(
+      (input.knownParticipants ?? []).map((p) => p.userId),
+    );
+    if (input.currentSpeaker?.userId) {
+      allowedIds.add(input.currentSpeaker.userId);
+    }
+    const observedUserFacts =
+      allowedIds.size > 0
+        ? parsed.observedUserFacts.filter(
+            (entry) =>
+              allowedIds.has(entry.userId) &&
+              entry.userId !== input.currentSpeaker?.userId,
+          )
+        : [];
     return {
       userFacts: parsed.userFacts,
+      observedUserFacts,
       groupFacts: input.isGroupChat ? parsed.groupFacts : [],
       generalFacts: parsed.generalFacts,
     };
@@ -70,7 +89,9 @@ export async function mergeMemoryDocument(
   input: MemoryMergeInput,
   config: MemoryLlmConfig,
 ): Promise<string> {
-  const messages = buildMemoryMergeMessages(input);
+  const thinkingEnabled = Boolean(config.thinkingEnabled);
+  const messages = buildMemoryMergeMessages(input, thinkingEnabled);
+  const responseFormat = getMemoryMergeResponseFormat(thinkingEnabled);
 
   const raw = config.chatComplete
     ? await config.chatComplete(messages)
@@ -83,7 +104,7 @@ export async function mergeMemoryDocument(
         messages,
         {
           numPredict: config.numPredict ?? MEMORY_MERGE_NUM_PREDICT,
-          responseFormat: MEMORY_MERGE_RESPONSE_FORMAT,
+          responseFormat,
         },
       );
 

@@ -3,6 +3,9 @@ import {
   asObject,
   parseJsonContent,
   readBoolean,
+  reasoningJsonUserTail,
+  reasoningSchemaSystemSuffix,
+  responseFormatForThinking,
   strictObjectSchema,
 } from "@llm-tg-bot/modules-utils";
 
@@ -18,6 +21,12 @@ export const ADDRESS_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     },
     ["addressed"],
   );
+
+export function getAddressResponseFormat(
+  thinkingEnabled: boolean,
+): JsonSchemaResponseFormat {
+  return responseFormatForThinking(ADDRESS_RESPONSE_FORMAT, thinkingEnabled);
+}
 
 export const ANALYZER_SYSTEM = `You decide whether a group-chat message names a Telegram bot by its display name and should receive a reply.
 
@@ -70,6 +79,7 @@ export interface BuildAddressAnalyzerMessagesParams {
   text: string;
   /** When false, a regex scan found no display name in the message text. */
   nameScanFound?: boolean;
+  thinkingEnabled?: boolean;
 }
 
 export function buildAddressAnalyzerMessages(
@@ -84,7 +94,10 @@ export function buildAddressAnalyzerMessages(
       : "";
 
   return [
-    { role: "system", content: ANALYZER_SYSTEM },
+    {
+      role: "system",
+      content: ANALYZER_SYSTEM + reasoningSchemaSystemSuffix(!!params.thinkingEnabled),
+    },
     {
       role: "user",
       content:
@@ -94,7 +107,7 @@ export function buildAddressAnalyzerMessages(
         `Chat type: ${params.chatType}\n` +
         `Sender: ${params.sender}\n\n` +
         `Message:\n${params.text.trim() || "(empty or non-text)"}\n\n` +
-        `Return JSON with addressed true or false.`,
+        reasoningJsonUserTail("addressed true or false", !!params.thinkingEnabled),
     },
   ];
 }

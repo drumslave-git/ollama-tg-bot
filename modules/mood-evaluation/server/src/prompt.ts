@@ -3,6 +3,9 @@ import {
   asObject,
   parseJsonContent,
   readInt,
+  reasoningJsonUserTail,
+  reasoningSchemaSystemSuffix,
+  responseFormatForThinking,
   strictObjectSchema,
 } from "@llm-tg-bot/modules-utils";
 import {
@@ -29,6 +32,12 @@ export const MOOD_RESPONSE_FORMAT: JsonSchemaResponseFormat = strictObjectSchema
   moodProperties,
   [...MOOD_KEYS],
 );
+
+export function getMoodResponseFormat(
+  thinkingEnabled: boolean,
+): JsonSchemaResponseFormat {
+  return responseFormatForThinking(MOOD_RESPONSE_FORMAT, thinkingEnabled);
+}
 
 export const MOOD_EVALUATOR_SYSTEM = `You evaluate the bot character's emotional mood for the next reply in a Telegram chat.
 
@@ -62,6 +71,7 @@ export interface MoodEvaluateInput {
   currentMood: MoodValues;
   historyText: string;
   latestTurn: string;
+  thinkingEnabled?: boolean;
 }
 
 export interface MoodParseResult {
@@ -124,10 +134,18 @@ export function buildMoodEvaluateMessages(input: MoodEvaluateInput): ChatMessage
     `Trait guide:\n${traitGuide}\n\n` +
     `---\nRecent chat:\n${input.historyText.trim() || "(no prior messages)"}\n\n` +
     `Latest turn:\n${input.latestTurn.trim() || "(empty)"}\n\n` +
-    `Return JSON with all nine mood traits as integers 0–5.`;
+    reasoningJsonUserTail(
+      "all nine mood traits as integers 0–5",
+      !!input.thinkingEnabled,
+    );
 
   return [
-    { role: "system", content: MOOD_EVALUATOR_SYSTEM },
+    {
+      role: "system",
+      content:
+        MOOD_EVALUATOR_SYSTEM +
+        reasoningSchemaSystemSuffix(!!input.thinkingEnabled),
+    },
     { role: "user", content: userContent },
   ];
 }
