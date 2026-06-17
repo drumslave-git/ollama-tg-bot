@@ -30,14 +30,14 @@ describe("main reply thinking request policy", () => {
     ).toBe(true);
   });
 
-  it("always keeps json_schema for auxiliary passes", () => {
+  it("omits json_schema for auxiliary passes when thinking is on", () => {
     expect(
       shouldUseResponseFormat(
         thinkingSettings,
         true,
         MAIN_REPLY_RESPONSE_FORMAT,
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("enables chat-template thinking on main and auxiliary when thinking is on", () => {

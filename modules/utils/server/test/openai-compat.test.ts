@@ -84,10 +84,20 @@ describe("shouldUseResponseFormat", () => {
     schema: { type: "object", properties: {}, required: [] },
   };
 
-  it("uses schema for auxiliary passes even when thinking is on", () => {
+  it("omits schema for auxiliary passes when thinking is on", () => {
     expect(
       shouldUseResponseFormat(
         makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
+        true,
+        format,
+      ),
+    ).toBe(false);
+  });
+
+  it("uses schema for auxiliary passes when thinking is off", () => {
+    expect(
+      shouldUseResponseFormat(
+        makeProviderSettings({ thinkingEnabled: false }),
         true,
         format,
       ),
