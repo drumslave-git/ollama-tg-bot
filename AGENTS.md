@@ -50,7 +50,7 @@ Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, r
 | Package | Purpose |
 |---------|---------|
 | `@llm-tg-bot/modules-utils` | Shared `ModuleDefinition` contract, structured-output helpers, stateless auxiliary LLM client |
-| `@llm-tg-bot/modules-addressing-detection` | Group name-variant address detection (LLM side pass) |
+| `@llm-tg-bot/modules-addressing-detection` | Group address detection (@mention, reply, display name + LLM) |
 | `@llm-tg-bot/modules-search-decision` | Whether a message needs web search + query extraction (LLM side pass) |
 | `@llm-tg-bot/modules-vision` | Telegram media download, sticker previews, and vision-model image description |
 | `@llm-tg-bot/modules-completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` bot command |
@@ -62,7 +62,7 @@ Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, r
 ```typescript
 // addressing-detection
 input:  { message: string; sender?: string; chatType?: string }
-config: { baseUrl: string; model: string; botAliases: string[]; apiKey?: string; chatComplete?: … }
+config: { baseUrl: string; model: string; botUsername: string; botDisplayName: string; apiKey?: string; chatComplete?: … }
 output: { result: boolean; reason: string }
 
 // search-decision
@@ -143,7 +143,7 @@ Three layers, extracted in a **background pass** by the memory module's pipeline
 
 ### Group behavior
 
-- Bot responds when @mentioned, replied to, named (regex or LLM name-variant module), or on random/image toggles.
+- Bot responds when @mentioned, replied to, display name is spoken (regex or LLM for other languages), or on random/image toggles.
 - Per-member history in groups (`conversationKey` includes `userId`).
 - Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain` (completions module), `/remember`.
 - **Maintenance mode** (`maintenanceModeEnabled`): non-owner events must not reach the pipeline — gate in `handlers/message.ts` and in the history module's passive-record host.

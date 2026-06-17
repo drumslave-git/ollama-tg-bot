@@ -20,7 +20,8 @@ function liveConfig(): LiveConfig | null {
 }
 
 const cfg = liveConfig();
-const BOT_ALIASES = ["arguella_bot", "Arguella", "ArguellaBot"];
+const BOT_USERNAME = "arguella_bot";
+const BOT_DISPLAY_NAME = "Arguella";
 
 async function decide(text: string): Promise<boolean> {
   const result = await detectAddressing(
@@ -29,7 +30,8 @@ async function decide(text: string): Promise<boolean> {
       baseUrl: cfg!.baseURL.replace(/\/v1$/, ""),
       model: cfg!.model,
       apiKey: cfg!.apiKey,
-      botAliases: BOT_ALIASES,
+      botUsername: BOT_USERNAME,
+      botDisplayName: BOT_DISPLAY_NAME,
       numPredict: 192,
     },
   );
@@ -75,12 +77,13 @@ describe.skipIf(!cfg)("live: addressing-detection module", () => {
       "some bot could probably answer that, lol",
       "the weather is awful today",
       "Today I got a request that you need to be available... The demand is really bad",
+      "hey arguella_bot without the at sign",
     ];
     let correct = 0;
     for (const text of negatives) {
       if (!(await decide(text))) correct += 1;
     }
     expect(correct, `only ${correct}/${negatives.length} negatives rejected`)
-      .toBeGreaterThanOrEqual(3);
+      .toBeGreaterThanOrEqual(4);
   });
 });

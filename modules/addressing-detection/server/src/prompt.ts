@@ -13,27 +13,30 @@ export const ADDRESS_RESPONSE_FORMAT: JsonSchemaResponseFormat =
       addressed: {
         type: "boolean",
         description:
-          "True when the message explicitly names this bot and should receive a reply.",
+          "True when the message names the bot display name and should receive a reply.",
       },
     },
     ["addressed"],
   );
 
-export const ANALYZER_SYSTEM = `You decide whether a group-chat message explicitly names a specific Telegram bot and should receive a reply.
+export const ANALYZER_SYSTEM = `You decide whether a group-chat message names a Telegram bot by its display name and should receive a reply.
+
+@username mentions and replies to the bot are handled elsewhere. Your job is only the spoken display name.
 
 Respond with JSON only, matching the provided schema. The object has one field:
 - addressed (boolean): true when the bot should reply, false otherwise.
 
-Say addressed=true only when the message contains a reference to the bot identity:
-- The bot's username, first name, full name, nickname, or a clear spelling/case/punctuation variation
-- A clear translation of the bot's name into another language, or the same name in another alphabet
-- A natural-language call to that named bot, such as "<bot name>, what do you think?"
+Say addressed=true only when the message names the bot display name:
+- Exact match or clear spelling/case variation of that name
+- The same name in another language or alphabet
 
 Say addressed=false when:
-- Humans are chatting among themselves with no request aimed at the bot
-- The bot is not named, even if the message asks a general question or sounds like it wants an assistant
-- The message says "bot", "assistant", "AI", or similar generic words without the specific bot name
-- It is background banter the bot should not interrupt`;
+- The display name does not appear and is not clearly referenced
+- Humans chat among themselves; second-person "you" alone is not the bot name
+- Generic words like "bot", "assistant", or "AI" without the specific display name
+- Background banter the bot should not interrupt
+
+Example (addressed=false): "Today I got a request that you need to be put on extended leave" — "you" refers to another person; the display name does not appear.`;
 
 export function parseAddressDecision(raw: string): {
   result: boolean;
@@ -53,31 +56,30 @@ export function parseAddressDecision(raw: string): {
   };
 }
 
-export function formatBotLabels(botAliases: string[]): string {
-  const labels = new Set<string>();
-  const [username, ...aliases] = botAliases;
-  if (username?.trim()) {
-    labels.add(`@${username.replace(/^@/, "")}`);
-  }
-  for (const alias of aliases) {
-    if (alias.length >= 3) labels.add(alias);
-  }
-  return [...labels].join(", ");
+export function formatBotIdentity(username: string, displayName: string): string {
+  const handle = `@${username.replace(/^@/, "")}`;
+  const name = displayName.trim();
+  if (!name) return `Username: ${handle}; no display name configured`;
+  return `Username: ${handle}; display name: ${name}`;
 }
 
-export function buildAddressAnalyzerMessages(params: {
-  botLabels: string;
+export interface BuildAddressAnalyzerMessagesParams {
+  botIdentity: string;
   chatType: string;
   sender: string;
   text: string;
-  /** When false, a regex name scan found no bot identity in the message text. */
+  /** When false, a regex scan found no display name in the message text. */
   nameScanFound?: boolean;
-}): ChatMessage[] {
+}
+
+export function buildAddressAnalyzerMessages(
+  params: BuildAddressAnalyzerMessagesParams,
+): ChatMessage[] {
   const nameScanNote =
     params.nameScanFound === false
-      ? "Automated name scan: no bot identity token found in the message text. " +
-        "Say addressed=true only when the message clearly names the bot anyway " +
-        "(e.g. the same name written in another alphabet). " +
+      ? "Automated name scan: no display name found in the message text. " +
+        "Say addressed=true only when the message clearly names the display name anyway " +
+        "(e.g. another alphabet or language). " +
         "Second-person pronouns alone are not enough.\n"
       : "";
 
@@ -86,8 +88,8 @@ export function buildAddressAnalyzerMessages(params: {
     {
       role: "user",
       content:
-        `Bot identity (names users may use): ${params.botLabels}\n` +
-        `Treat these as bot-name references even when case, punctuation, underscores/spaces, minor spelling, or alphabet differs.\n` +
+        `Bot identity: ${params.botIdentity}\n` +
+        `@username mentions are already handled; check only for the display name.\n` +
         nameScanNote +
         `Chat type: ${params.chatType}\n` +
         `Sender: ${params.sender}\n\n` +

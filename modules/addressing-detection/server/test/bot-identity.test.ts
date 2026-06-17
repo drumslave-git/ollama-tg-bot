@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   buildBotAddressIdentity,
+  displayNameMatchable,
   getBotIdentity,
   messageReferencesBotByName,
   setBotIdentity,
   stripBotAddressing,
   stripCurrentBotAddressing,
 } from "../src/bot-identity.js";
+
+const ALEX_BOT = buildBotAddressIdentity(
+  { id: 1, first_name: "Alex" },
+  "alex_helper_bot",
+);
 
 describe("runtime bot identity", () => {
   it("setBotIdentity and getBotIdentity share the same runtime state", () => {
@@ -16,42 +22,59 @@ describe("runtime bot identity", () => {
   });
 
   it("stripCurrentBotAddressing uses runtime identity", () => {
-    setBotIdentity({ id: 1 }, "mybot");
-    expect(stripCurrentBotAddressing("@mybot hello")).toBe("hello");
+    setBotIdentity({ id: 1, first_name: "Alex" }, "alex_helper_bot");
+    expect(stripCurrentBotAddressing("@alex_helper_bot hello Alex")).toBe("hello");
   });
 });
 
 describe("buildBotAddressIdentity", () => {
-  it("includes username and derived aliases", () => {
-    const bot = buildBotAddressIdentity(
-      { id: 1, first_name: "Helper", last_name: "Bot" },
-      "helper_bot",
-    );
-    expect(bot.id).toBe(1);
-    expect(bot.username).toBe("helper_bot");
-    expect(bot.aliases).toContain("helper_bot");
-    expect(bot.aliases).toContain("helper");
-    expect(bot.aliases).toContain("helper bot");
+  it("keeps username and Telegram first name only", () => {
+    expect(ALEX_BOT.username).toBe("alex_helper_bot");
+    expect(ALEX_BOT.displayName).toBe("Alex");
+  });
+
+  it("does not derive spoken names from the username", () => {
+    expect(ALEX_BOT.displayName).not.toContain("helper");
+  });
+});
+
+describe("displayNameMatchable", () => {
+  it("accepts a normal display name", () => {
+    expect(displayNameMatchable("Alex")).toBe(true);
+  });
+
+  it("rejects short and generic display names", () => {
+    expect(displayNameMatchable("AI")).toBe(false);
+    expect(displayNameMatchable("bot")).toBe(false);
   });
 });
 
 describe("messageReferencesBotByName", () => {
-  const bot = buildBotAddressIdentity(
-    { id: 1, first_name: "MyBot" },
-    "mybot",
-  );
+  it("matches the display name in free text", () => {
+    expect(messageReferencesBotByName("Alex, what do you think?", ALEX_BOT)).toBe(
+      true,
+    );
+  });
 
-  it("matches a spoken alias in free text", () => {
-    expect(messageReferencesBotByName("hey mybot what is up", bot)).toBe(true);
+  it("does not match the username without @", () => {
+    expect(messageReferencesBotByName("hey alex_helper_bot help", ALEX_BOT)).toBe(
+      false,
+    );
+  });
+
+  it("does not match username-derived words", () => {
+    expect(messageReferencesBotByName("hey helper can you check this", ALEX_BOT)).toBe(
+      false,
+    );
   });
 
   it("does not match unrelated text", () => {
-    expect(messageReferencesBotByName("just chatting here", bot)).toBe(false);
+    expect(messageReferencesBotByName("just chatting here", ALEX_BOT)).toBe(false);
   });
 
-  it("does not match generic English words blocked as aliases", () => {
+  it("does not match generic English words used as display names", () => {
     const cloudBot = buildBotAddressIdentity(
-      { id: 2, first_name: "Igor" },
+      { id: 2, first_name: "Cloud" },
       "IgorTCloudBot",
     );
     expect(
@@ -61,9 +84,7 @@ describe("messageReferencesBotByName", () => {
 });
 
 describe("stripBotAddressing", () => {
-  const bot = buildBotAddressIdentity({ id: 1 }, "mybot");
-
-  it("removes @username and spoken aliases", () => {
-    expect(stripBotAddressing("@mybot hello mybot", bot)).toBe("hello");
+  it("removes @username and display-name mentions", () => {
+    expect(stripBotAddressing("@alex_helper_bot hello Alex", ALEX_BOT)).toBe("hello");
   });
 });

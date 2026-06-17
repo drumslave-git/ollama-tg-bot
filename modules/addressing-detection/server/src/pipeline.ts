@@ -65,7 +65,8 @@ export const addressingHost: PipelineModuleHost = {
         baseUrl: services.llm.baseUrl,
         model: services.llm.model,
         apiKey: services.llm.apiKey,
-        botAliases: [bot.username, ...(bot.aliases ?? [])],
+        botUsername: bot.username,
+        botDisplayName: bot.displayName,
         numPredict: ADDRESS_CHECK_NUM_PREDICT,
         log: hostLogging(services),
         chatComplete: services.llm.createAuxiliaryChatComplete({

@@ -5,7 +5,11 @@ import {
   type AddressingDetectionConfig,
   type AddressingDetectionOutput,
 } from "./detect.js";
-import { messageReferencesBotByName, type BotAddressIdentity } from "./bot-identity.js";
+import {
+  displayNameMatchable,
+  messageReferencesBotByName,
+  type BotAddressIdentity,
+} from "./bot-identity.js";
 import { stripNonBotMentions } from "./strip-non-bot-mentions.js";
 import { isMessageForBot } from "./telegram-address.js";
 
@@ -49,7 +53,8 @@ function baseLogFields(input: AddressCheckInput): Record<string, string | number
 
 /**
  * Whether the bot should treat this message as addressed.
- * Private chats: always true. Groups: @mention/reply/command, name match, then LLM name-variant check.
+ * Private chats: always true.
+ * Groups: @mention, reply to bot, display-name regex, then LLM for other languages.
  */
 export async function checkMessageAddressed(
   input: AddressCheckInput,
@@ -97,6 +102,21 @@ export async function checkMessageAddressed(
       source: "no_text",
     });
     return { addressed: false, source: "no_text" };
+  }
+
+  if (!displayNameMatchable(input.bot.displayName)) {
+    log?.logEvent?.("message_address_decision", {
+      ...baseLog,
+      turnId: input.turnId,
+      addressed: false,
+      source: "analyzer",
+      reason: "No usable display name",
+    });
+    return {
+      addressed: false,
+      source: "analyzer",
+      reason: "No usable display name",
+    };
   }
 
   return analyzeGroupMessageForBot(input, text, config);

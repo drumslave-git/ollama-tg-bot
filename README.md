@@ -61,14 +61,14 @@ Bot capabilities are split into small **stateless npm packages** (microservice-s
 | Module | Role |
 |--------|------|
 | `@llm-tg-bot/modules-utils` | Shared contract types and auxiliary LLM helpers |
-| `@llm-tg-bot/modules-addressing-detection` | Decides whether a group message names the bot (LLM name-variant check) |
+| `@llm-tg-bot/modules-addressing-detection` | Group address detection (@mention, reply, display name + LLM) |
 | `@llm-tg-bot/modules-search-decision` | Decides whether a message needs web search and extracts the query (LLM) |
 | `@llm-tg-bot/modules-web-search` | Runs web search and formats context/sources for the main reply |
 
 Example (`addressing-detection`):
 
 - **Input:** `{ message: string }` (+ optional `sender`, `chatType`)
-- **Config:** `{ baseUrl, model, botAliases }`
+- **Config:** `{ baseUrl, model, botUsername, botDisplayName }`
 - **Output:** `{ result: boolean, reason: string }`
 
 The Telegram bot host (`server/`) wires modules to Grammy handlers, SQLite settings, and debug tracing. In dev, `tsx` resolves modules from `src/` via `server/tsconfig.json` paths (no rebuild). Production uses `npm run build:modules` before `npm run build`.

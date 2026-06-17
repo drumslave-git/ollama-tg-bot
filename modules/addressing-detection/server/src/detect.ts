@@ -6,7 +6,7 @@ import {
 import {
   ADDRESS_RESPONSE_FORMAT,
   buildAddressAnalyzerMessages,
-  formatBotLabels,
+  formatBotIdentity,
   parseAddressDecision,
 } from "./prompt.js";
 
@@ -18,15 +18,15 @@ export interface AddressingDetectionInput {
   sender?: string;
   /** Telegram chat type; defaults to "group". */
   chatType?: string;
-  /** When false, a regex name scan found no bot identity in the message text. */
+  /** When false, a regex scan found no display name in the message text. */
   nameScanFound?: boolean;
 }
 
 export interface AddressingDetectionConfig {
   baseUrl: string;
   model: string;
-  /** Bot @username (without @) followed by spoken name aliases. */
-  botAliases: string[];
+  botUsername: string;
+  botDisplayName: string;
   apiKey?: string;
   numPredict?: number;
   /**
@@ -51,7 +51,7 @@ export async function detectAddressing(
   }
 
   const messages = buildAddressAnalyzerMessages({
-    botLabels: formatBotLabels(config.botAliases),
+    botIdentity: formatBotIdentity(config.botUsername, config.botDisplayName),
     chatType: input.chatType ?? "group",
     sender: input.sender ?? "Someone",
     text,

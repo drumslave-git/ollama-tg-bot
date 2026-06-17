@@ -1,10 +1,17 @@
-const GENERIC_ALIAS_BLOCKLIST = new Set(["bot", "the", "and", "cloud"]);
+const GENERIC_DISPLAY_NAME_BLOCKLIST = new Set([
+  "bot",
+  "the",
+  "and",
+  "cloud",
+  "ai",
+  "assistant",
+]);
 
 export interface BotAddressIdentity {
   id: number;
   username: string;
-  /** Lowercase strings that may refer to the bot in free text. */
-  aliases: string[];
+  /** Telegram first name; the only spoken name that triggers addressing. */
+  displayName: string;
 }
 
 let runtimeIdentity: BotAddressIdentity | null = null;
@@ -24,7 +31,7 @@ export function getBotIdentity(): BotAddressIdentity {
   return runtimeIdentity;
 }
 
-/** Strip @username and spoken aliases using the runtime bot identity. */
+/** Strip @username and display-name mentions using the runtime bot identity. */
 export function stripCurrentBotAddressing(text: string): string {
   return stripBotAddressing(text, getBotIdentity());
 }
@@ -33,83 +40,37 @@ export function buildBotAddressIdentity(
   me: { id: number; first_name?: string; last_name?: string },
   username: string,
 ): BotAddressIdentity {
-  const aliases = new Set<string>();
-  const userLower = username.toLowerCase();
-  aliases.add(userLower);
-
-  if (userLower.endsWith("bot") && userLower.length > 5) {
-    aliases.add(userLower.slice(0, -3).replace(/_+$/, ""));
-  }
-
-  const underscored = username.replace(/_/g, " ").trim();
-  if (underscored.toLowerCase() !== userLower) {
-    aliases.add(underscored.toLowerCase());
-  }
-
-  for (const part of splitCamelCase(username)) {
-    const p = part.toLowerCase();
-    if (p.length >= 3 && !GENERIC_ALIAS_BLOCKLIST.has(p)) aliases.add(p);
-  }
-
-  const spaced = usernameSpacedVariant(username);
-  if (spaced) aliases.add(spaced);
-
-  const first = me.first_name?.trim();
-  if (first && first.length >= 3) {
-    aliases.add(first.toLowerCase());
-  }
-
-  const fullName = [me.first_name, me.last_name].filter(Boolean).join(" ").trim();
-  if (fullName.length >= 3) {
-    aliases.add(fullName.toLowerCase());
-  }
-
   return {
     id: me.id,
     username,
-    aliases: [...aliases].sort((a, b) => b.length - a.length),
+    displayName: me.first_name?.trim() ?? "",
   };
 }
 
-function splitCamelCase(value: string): string[] {
-  return value
-    .replace(/_/g, "")
-    .split(/(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-}
-
-function usernameSpacedVariant(username: string): string | null {
-  const parts = splitCamelCase(username.replace(/_/g, "")).filter(
-    (p) => p.length >= 2 && !GENERIC_ALIAS_BLOCKLIST.has(p.toLowerCase()),
-  );
-  if (parts.length < 2) return null;
-  return parts.join(" ").toLowerCase();
+export function displayNameMatchable(displayName: string): boolean {
+  const trimmed = displayName.trim();
+  if (trimmed.length < 3) return false;
+  return !GENERIC_DISPLAY_NAME_BLOCKLIST.has(trimmed.toLowerCase());
 }
 
 function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** True when free text likely names the bot (not only @username). */
+/** True when free text names the bot's Telegram display name (not @username). */
 export function messageReferencesBotByName(
   text: string,
   bot: BotAddressIdentity,
 ): boolean {
   const trimmed = text.trim();
-  if (!trimmed) return false;
+  if (!trimmed || !displayNameMatchable(bot.displayName)) return false;
 
-  for (const alias of bot.aliases) {
-    if (alias.length < 3 || GENERIC_ALIAS_BLOCKLIST.has(alias)) continue;
-
-    const re = new RegExp(`(?:^|[^\\w@])${escapeRegex(alias)}(?:[^\\w]|$)`, "i");
-    if (re.test(trimmed)) return true;
-  }
-
-  return false;
+  const name = bot.displayName.toLowerCase();
+  const re = new RegExp(`(?:^|[^\\w@])${escapeRegex(name)}(?:[^\\w]|$)`, "i");
+  return re.test(trimmed);
 }
 
-/** Remove @username and spoken name aliases from the user prompt. */
+/** Remove @username and display-name mentions from text. */
 export function stripBotAddressing(
   text: string,
   bot: BotAddressIdentity,
@@ -122,10 +83,9 @@ export function stripBotAddressing(
     out = out.replace(new RegExp(`@${escaped}\\s*`, "gi"), " ");
   }
 
-  for (const alias of bot.aliases) {
-    if (alias.length < 3) continue;
+  if (displayNameMatchable(bot.displayName)) {
     const re = new RegExp(
-      `(?:^|[^\\w@])${escapeRegex(alias)}(?:[^\\w]|$)`,
+      `(?:^|[^\\w@])${escapeRegex(bot.displayName)}(?:[^\\w]|$)`,
       "gi",
     );
     out = out.replace(re, " ");

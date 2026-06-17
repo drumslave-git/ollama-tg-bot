@@ -15,6 +15,7 @@ export {
 } from "./check-addressed.js";
 export {
   buildBotAddressIdentity,
+  displayNameMatchable,
   getBotIdentity,
   messageReferencesBotByName,
   setBotIdentity,
@@ -32,8 +33,9 @@ export {
   ANALYZER_SYSTEM,
   ADDRESS_RESPONSE_FORMAT,
   buildAddressAnalyzerMessages,
-  formatBotLabels,
+  formatBotIdentity,
   parseAddressDecision,
+  type BuildAddressAnalyzerMessagesParams,
 } from "./prompt.js";
 export { pipelineHosts, addressingHost } from "./pipeline.js";
 export { replyTriggersHost } from "./reply-triggers.js";
