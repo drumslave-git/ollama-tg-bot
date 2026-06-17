@@ -117,4 +117,35 @@ describe("beginMessageReport", () => {
       durationMs: 1500,
     });
   });
+
+  it("replaces the memory phase instead of appending duplicate rows", () => {
+    const session = beginMessageReport({
+      turnId: 9,
+      chatId: 4004,
+      userId: "5",
+      chatType: "private",
+      messageId: 3,
+      messagePreview: "remember this",
+    });
+
+    session.okPhase(
+      "memory",
+      "Memory extraction",
+      "Extracting after reply…",
+      undefined,
+      undefined,
+      { replace: true },
+    );
+    session.completeMemory({ updated: true, scopes: ["user", "general"] });
+
+    const phases = upsertMessageReport.mock.calls.at(-1)?.[0].report.phases;
+    const memoryPhases = phases.filter(
+      (phase: { id: string }) => phase.id === "memory",
+    );
+    expect(memoryPhases).toHaveLength(1);
+    expect(memoryPhases[0]).toMatchObject({
+      status: "ok",
+      summary: "Saved to user, general memory",
+    });
+  });
 });

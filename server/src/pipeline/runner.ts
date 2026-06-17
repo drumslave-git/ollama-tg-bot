@@ -3,6 +3,8 @@ import type {
   PipelineHostServices,
   PipelineModuleHost,
   PipelinePhase,
+  PipelinePhaseWriteOptions,
+  PipelineShouldRunResult,
   PipelineStepResult,
   PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
@@ -26,6 +28,33 @@ function isStepEnabled(
   return enabledSteps.includes(host.stepId);
 }
 
+function phaseWriteOptions(
+  result: PipelineStepResult,
+): PipelinePhaseWriteOptions | undefined {
+  return result.replace ? { replace: true } : undefined;
+}
+
+function evaluateShouldRun(result: PipelineShouldRunResult): {
+  run: boolean;
+  summary?: string;
+  omitFromReport?: boolean;
+} {
+  if (typeof result === "boolean") {
+    return result
+      ? { run: true }
+      : { run: false, summary: "Not needed for this turn" };
+  }
+  return {
+    run: false,
+    summary: result.summary ?? "Not needed for this turn",
+    omitFromReport: result.omitFromReport,
+  };
+}
+
+function hostDebugTitle(host: PipelineModuleHost): string {
+  return host.debugTitle ?? host.stepId;
+}
+
 function recordStepResult(
   result: PipelineStepResult,
   services: PipelineHostServices,
@@ -33,6 +62,8 @@ function recordStepResult(
 ): void {
   const report = services.getReport(turnId);
   if (!report) return;
+
+  const writeOptions = phaseWriteOptions(result);
 
   switch (result.status) {
     case "ok":
@@ -42,10 +73,16 @@ function recordStepResult(
         result.summary,
         result.durationMs,
         result.detail,
+        writeOptions,
       );
       break;
     case "skipped":
-      report.skipPhase(result.phaseId, result.phaseTitle, result.summary);
+      report.skipPhase(
+        result.phaseId,
+        result.phaseTitle,
+        result.summary,
+        writeOptions,
+      );
       break;
     case "failed":
       report.failPhase(
@@ -53,10 +90,16 @@ function recordStepResult(
         result.phaseTitle,
         result.summary,
         result.durationMs,
+        writeOptions,
       );
       break;
     case "halt":
-      report.skipPhase(result.phaseId, result.phaseTitle, result.summary);
+      report.skipPhase(
+        result.phaseId,
+        result.phaseTitle,
+        result.summary,
+        writeOptions,
+      );
       break;
   }
 }
@@ -65,14 +108,18 @@ async function runHost(
   host: PipelineModuleHost,
   state: PipelineTurnState,
   services: PipelineHostServices,
-): Promise<PipelineStepResult> {
-  if (host.shouldRun && !host.shouldRun(state, services)) {
-    return {
-      status: "skipped",
-      phaseId: host.stepId,
-      phaseTitle: host.stepId,
-      summary: "Conditions not met",
-    };
+): Promise<PipelineStepResult | null> {
+  if (host.shouldRun) {
+    const decision = evaluateShouldRun(host.shouldRun(state, services));
+    if (!decision.run) {
+      if (decision.omitFromReport) return null;
+      return {
+        status: "skipped",
+        phaseId: host.stepId,
+        phaseTitle: hostDebugTitle(host),
+        summary: decision.summary ?? "Not needed for this turn",
+      };
+    }
   }
   return host.run(state, services);
 }
@@ -89,12 +136,16 @@ export async function runPipelinePhase(
     if (!isStepEnabled(host, enabledSteps)) {
       services
         .getReport(state.turnId)
-        ?.skipPhase(host.stepId, host.stepId, "Skipped (Workflow step disabled)");
+        ?.skipPhase(
+          host.stepId,
+          hostDebugTitle(host),
+          "Disabled in workflow",
+        );
       continue;
     }
 
     const result = await runHost(host, state, services);
-    recordStepResult(result, services, state.turnId);
+    if (result) recordStepResult(result, services, state.turnId);
   }
 }
 
@@ -153,10 +204,15 @@ export function runPipelinePhaseBackground(
 
   for (const host of hosts) {
     if (!isStepEnabled(host, enabledSteps)) continue;
-    if (host.shouldRun && !host.shouldRun(state, services)) continue;
+    if (host.shouldRun) {
+      const decision = evaluateShouldRun(host.shouldRun(state, services));
+      if (!decision.run) continue;
+    }
 
     void runHost(host, state, services)
-      .then((result) => recordStepResult(result, services, state.turnId))
+      .then((result) => {
+        if (result) recordStepResult(result, services, state.turnId);
+      })
       .catch((err) => {
         services.logging.logEventError("pipeline_background_failed", err, {
           moduleId: host.id,

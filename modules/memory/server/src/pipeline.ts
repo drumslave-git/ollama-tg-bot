@@ -60,12 +60,19 @@ function buildMemoryConfig(
 export const memoryNotAddressedHost: PipelineModuleHost = {
   id: "memory",
   stepId: "memory",
+  debugTitle: "Memory extraction",
   phase: "not-addressed",
   order: 10,
   alwaysOn: true,
 
   shouldRun(state) {
-    return !state.shouldReply && Boolean(state.memoryInput);
+    if (state.shouldReply) {
+      return { run: false, omitFromReport: true };
+    }
+    if (!state.memoryInput) {
+      return { run: false, summary: "No message content to analyze" };
+    }
+    return true;
   },
 
   async run(state, services): Promise<PipelineStepResult> {
@@ -127,7 +134,8 @@ export const memoryNotAddressedHost: PipelineModuleHost = {
       status: "ok",
       phaseId: "memory",
       phaseTitle: "Memory extraction",
-      summary: "Scheduled (not addressed)",
+      summary: "Extracting from ignored message…",
+      replace: true,
     };
   },
 };
@@ -135,6 +143,7 @@ export const memoryNotAddressedHost: PipelineModuleHost = {
 export const memoryPostReplyHost: PipelineModuleHost = {
   id: "memory",
   stepId: "memory",
+  debugTitle: "Memory extraction",
   phase: "background",
   order: 10,
   alwaysOn: true,
@@ -203,7 +212,8 @@ export const memoryPostReplyHost: PipelineModuleHost = {
       status: "ok",
       phaseId: "memory",
       phaseTitle: "Memory extraction",
-      summary: "Scheduled",
+      summary: "Extracting after reply…",
+      replace: true,
     };
   },
 };

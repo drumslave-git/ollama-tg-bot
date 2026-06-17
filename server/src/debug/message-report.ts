@@ -202,8 +202,18 @@ export class MessageReportSession {
     this.persist();
   }
 
-  skipPhase(id: string, title: string, summary: string): void {
-    this.phases.push({ id, title, status: "skipped", summary });
+  skipPhase(
+    id: string,
+    title: string,
+    summary: string,
+    options?: { replace?: boolean },
+  ): void {
+    const phase: ReportPhase = { id, title, status: "skipped", summary };
+    if (options?.replace) {
+      this.upsertPhase(phase);
+      return;
+    }
+    this.phases.push(phase);
     this.persistIfInFlight();
   }
 
@@ -213,15 +223,21 @@ export class MessageReportSession {
     summary: string,
     durationMs?: number,
     detail?: ReportDetail,
+    options?: { replace?: boolean },
   ): void {
-    this.phases.push({
+    const phase: ReportPhase = {
       id,
       title,
       status: "ok",
       summary,
       ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
       ...(detail ? { detail } : {}),
-    });
+    };
+    if (options?.replace) {
+      this.upsertPhase(phase);
+      return;
+    }
+    this.phases.push(phase);
     this.persistIfInFlight();
   }
 
@@ -230,16 +246,20 @@ export class MessageReportSession {
     title: string,
     summary: string,
     durationMs?: number,
-    detail?: ReportDetail,
+    options?: { replace?: boolean },
   ): void {
-    this.phases.push({
+    const phase: ReportPhase = {
       id,
       title,
       status: "failed",
       summary,
       ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
-      ...(detail ? { detail } : {}),
-    });
+    };
+    if (options?.replace) {
+      this.upsertPhase(phase);
+      return;
+    }
+    this.phases.push(phase);
     this.persistIfInFlight();
   }
 
@@ -401,19 +421,26 @@ export class MessageReportSession {
     };
 
     if (input.error) {
-      this.failPhase("memory", "Memory extraction", input.error);
+      this.upsertPhase({
+        id: "memory",
+        title: "Memory extraction",
+        status: "failed",
+        summary: input.error,
+      });
     } else if (input.updated) {
-      this.okPhase(
-        "memory",
-        "Memory extraction",
-        `Updated ${input.scopes.join(", ")} memory`,
-      );
+      this.upsertPhase({
+        id: "memory",
+        title: "Memory extraction",
+        status: "ok",
+        summary: `Saved to ${input.scopes.join(", ")} memory`,
+      });
     } else {
-      this.skipPhase(
-        "memory",
-        "Memory extraction",
-        "No new facts extracted",
-      );
+      this.upsertPhase({
+        id: "memory",
+        title: "Memory extraction",
+        status: "skipped",
+        summary: "No new facts to save",
+      });
     }
 
     this.persist();

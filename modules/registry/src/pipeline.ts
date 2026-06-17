@@ -36,7 +36,19 @@ export interface PipelineStepResult {
   summary: string;
   durationMs?: number;
   detail?: unknown;
+  /** Replace an existing phase with the same id instead of appending. */
+  replace?: boolean;
 }
+
+/** Result of {@link PipelineModuleHost.shouldRun}. */
+export type PipelineShouldRunResult =
+  | boolean
+  | {
+      run: false;
+      summary?: string;
+      /** Omit this step from the debug trace (expected no-op). */
+      omitFromReport?: boolean;
+    };
 
 /** Minimal Telegram context passed into the pipeline by the server. */
 export interface PipelineTelegramContext {
@@ -156,6 +168,11 @@ export interface PipelineTurnState {
   moduleInput?: Record<string, unknown>;
 }
 
+export interface PipelinePhaseWriteOptions {
+  /** Replace an existing phase with the same id instead of appending. */
+  replace?: boolean;
+}
+
 export interface PipelineReportWriter {
   okPhase(
     id: string,
@@ -163,13 +180,20 @@ export interface PipelineReportWriter {
     summary: string,
     durationMs?: number,
     detail?: unknown,
+    options?: PipelinePhaseWriteOptions,
   ): void;
-  skipPhase(id: string, title: string, summary: string): void;
+  skipPhase(
+    id: string,
+    title: string,
+    summary: string,
+    options?: PipelinePhaseWriteOptions,
+  ): void;
   failPhase(
     id: string,
     title: string,
     summary: string,
     durationMs?: number,
+    options?: PipelinePhaseWriteOptions,
   ): void;
   completeMemory?(input: {
     updated: boolean;
@@ -311,10 +335,12 @@ export interface PipelineModuleHost {
   readonly phase: PipelinePhase;
   readonly order: number;
   readonly alwaysOn?: boolean;
+  /** Human-readable title in debug traces. Defaults to stepId. */
+  debugTitle?: string;
   shouldRun?(
     state: PipelineTurnState,
     services: PipelineHostServices,
-  ): boolean;
+  ): PipelineShouldRunResult;
   run(
     state: PipelineTurnState,
     services: PipelineHostServices,

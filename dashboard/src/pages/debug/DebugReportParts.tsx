@@ -39,6 +39,14 @@ export function downloadReportLog(detail: MessageReportDetail): void {
   URL.revokeObjectURL(url);
 }
 
+function phaseStatusLabel(status: ReportPhase["status"]): string {
+  if (status === "ok") return "OK";
+  if (status === "skipped") return "N/A";
+  if (status === "waiting") return "Waiting";
+  if (status === "failed") return "Failed";
+  return status;
+}
+
 function phaseStatusClass(status: ReportPhase["status"]): string {
   if (status === "ok") return "ok";
   if (status === "failed") return "danger";
@@ -129,7 +137,7 @@ export function PhaseRow({ phase }: { phase: ReportPhase }) {
     <details className="report-phase" open={isWaiting}>
       <summary className="report-phase-summary">
         <span className={`report-phase-status ${phaseStatusClass(phase.status)}`}>
-          {phase.status}
+          {phaseStatusLabel(phase.status)}
         </span>
         <span className="report-phase-title">{phase.title}</span>
         <span className="report-phase-oneline">{phase.summary}</span>

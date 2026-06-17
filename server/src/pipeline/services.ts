@@ -16,11 +16,12 @@ function toReportWriter(turnId: number): PipelineReportWriter | null {
   const report = getMessageReport(turnId);
   if (!report) return null;
   return {
-    okPhase: (id, title, summary, durationMs, detail) =>
-      report.okPhase(id, title, summary, durationMs, detail as never),
-    skipPhase: (id, title, summary) => report.skipPhase(id, title, summary),
-    failPhase: (id, title, summary, durationMs) =>
-      report.failPhase(id, title, summary, durationMs),
+    okPhase: (id, title, summary, durationMs, detail, options) =>
+      report.okPhase(id, title, summary, durationMs, detail as never, options),
+    skipPhase: (id, title, summary, options) =>
+      report.skipPhase(id, title, summary, options),
+    failPhase: (id, title, summary, durationMs, options) =>
+      report.failPhase(id, title, summary, durationMs, options),
     completeMemory: (input) => report.completeMemory(input),
   };
 }
