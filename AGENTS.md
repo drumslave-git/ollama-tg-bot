@@ -2,6 +2,8 @@
 
 Guidance for AI agents working in this repository.
 
+**Maintain this file.** Treat `AGENTS.md` as living documentation: update it in the same task whenever you change workflows, commands, architecture, conventions, testing gates, or other agent expectations. Remove or rewrite stale sections when behavior changes — never leave contradictory leftovers for the next agent.
+
 ## Project summary
 
 Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for configuration. One Node process runs the Grammy bot, Express API, and (in production) serves the built dashboard.
@@ -18,19 +20,21 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 npm install
 cp .env.example .env          # BOT_TOKEN required
 npm run dev                   # server :3000 + dashboard :5173 (modules watched from src)
-npm run build                 # modules + dashboard dist + server tsc
-npm run typecheck             # tsc --noEmit for server, dashboard, and modules
-npm run build:modules         # compile feature packages (production / start only)
+npm test                      # post-task gate: all module + server unit tests
+npm run typecheck             # post-task gate: server, dashboard, and all modules
+npm run build                 # production compile (modules + dashboard + server)
+npm run build:modules         # compile feature packages only (production / start)
 npm run start                 # production server only
 ```
 
-Per-workspace:
+Per-workspace commands (debugging during development — **not** the post-task gate):
 
 ```bash
 npm run dev -w server
 npm run build -w server
 npm run build -w dashboard
-npm run test -w @llm-tg-bot/modules-addressing-detection
+npm run test -w server
+npm run typecheck -w @llm-tg-bot/modules-addressing-detection
 ```
 
 Docker: `docker compose up -d --build` (see `README.md`).
@@ -179,6 +183,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 
 ## Code conventions
 
+- **Keep `AGENTS.md` current** — part of every task that touches documented behavior; see the intro.
 - **ESM** throughout; server imports use `.js` extensions (`"type": "module"`).
 - **Minimal diffs** — match existing style, naming, and patterns in the file you edit.
 - **No migrations / backward compatibility** — do not create migrations or worry about backward compatibility unless explicitly requested; data loss is acceptable, but warn the user in such cases.
@@ -229,18 +234,29 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | HTML replies | `server/src/telegram/html.ts`, `server/src/bot/replies/delivery.ts` |
 
 ## Testing
-- **Always run tests after completing a task.**
-- **Maintain test coverage continuously for all new features and bug fixes.**
 
-[Vitest](https://vitest.dev) drives three areas:
+**Post-task gate — required after every task, no exceptions:**
 
-- **Feature module suites:** `npm test` runs each `@llm-tg-bot/modules-*` package (unit tests in `<module>/test/`). Live LLM tests: `npm run test:llm -w @llm-tg-bot/modules-addressing-detection` (and search-decision, memory, mood-evaluation; requires `LLM_BASE_URL`, `LLM_MODEL`).
-- **Mocked server suite (committable, default):** `npm run test -w server`. Pure logic only — no network, LLM, or Telegram. Lives in `server/test/unit/**`; shared `Settings` fixture in `server/test/helpers/settings.ts`. Config: `server/vitest.config.ts`.
-- **Live LLM server suite (opt-in):** `npm run test:llm -w server`. Hits a real OpenAI-compatible backend for chat. Address, search-decision, memory, and mood-evaluation live tests live in their modules. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); self-skips when absent. Config: `server/vitest.live.config.ts`. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
-- **Legacy side-pass prompts:** non-modular LLM side passes (if any remain) still keep system prompt + `build*Messages()` + parser in pure `*-prompt.ts` files until migrated to `modules/<name>/server/`.
-- **Auxiliary generation budget:** reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (`server/src/settings/limits.ts` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
+```bash
+npm test
+npm run typecheck
+```
 
-After server or module changes: `npm run build:modules` then `npm run build -w server`. After dashboard changes: `npm run build -w dashboard`. Manually verify bot commands (`/start`, `/id`, `/reset`) and dashboard save/load.
+Run both from the repo root. Do not substitute `npm run test -w …` or `npm run typecheck -w …` unless the user explicitly asks for a scoped run.
+
+Maintain test coverage for all new features and bug fixes. Update `AGENTS.md` when your changes affect anything documented there (see intro).
+
+### What `npm test` covers
+
+[Vitest](https://vitest.dev) runs every `@llm-tg-bot/modules-*` unit suite (`<module>/test/`) plus the mocked server suite (`server/test/unit/**`; fixture in `server/test/helpers/settings.ts`; config `server/vitest.config.ts`).
+
+### Opt-in live LLM suites
+
+Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); suites self-skip when unset. Module live tests: addressing-detection, search-decision, memory, mood-evaluation. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+
+### Auxiliary generation budget
+
+Reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` (`server/src/settings/limits.ts` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
 
 ## Common pitfalls
 
@@ -249,5 +265,5 @@ After server or module changes: `npm run build:modules` then `npm run build -w s
 3. Assuming `@username` resolves without the user having messaged the bot at least once.
 4. Editing only server or only dashboard types when adding a setting — update both + PATCH allowlist.
 5. New LLM entry points must respect maintenance mode (`isMaintenanceBlocked`) — not only the main message handler.
-6. Naming LLM integration after a single vendor (especially Ollama) — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints.
+6. Naming LLM integration after a single vendor — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints (see **Code conventions**).
 7. **Loosening JSON parsers** when a model returns the wrong shape or puts the answer in `reasoning` — improve the prompt/schema instead (see **Structured LLM output (JSON schema)**).
