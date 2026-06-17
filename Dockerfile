@@ -27,6 +27,7 @@ COPY modules/history/db/package.json ./modules/history/db/
 RUN npm ci --include=dev
 
 RUN rm -rf server dashboard modules
+COPY scripts ./scripts
 COPY server ./server
 COPY dashboard ./dashboard
 COPY modules ./modules
