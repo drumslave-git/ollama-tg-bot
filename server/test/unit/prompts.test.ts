@@ -77,6 +77,9 @@ describe("buildExplainSystemPrompt", () => {
     });
     expect(prompt).toContain("meta assistant");
     expect(prompt).toContain("Do NOT roleplay");
+    expect(prompt).toContain("reference only");
+    expect(prompt).toContain("meta explanation");
+    expect(prompt).not.toContain("your spoken reply to the user");
     expect(prompt).toContain("Pirate");
     expect(prompt).toContain("Not applicable (private chat).");
   });

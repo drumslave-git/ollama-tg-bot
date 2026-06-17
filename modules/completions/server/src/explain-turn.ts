@@ -36,7 +36,7 @@ export async function runExplainTurn(
 
     await deps.ensureHistoryFits(input.convKey);
     const history = deps.loadHistoryMessages(input.convKey);
-    const latestContent = `Question: ${input.question.trim()}`;
+    const latestContent = input.question.trim();
     const messages: ChatMessage[] = [
       { role: "system", content: system },
       ...history,
@@ -47,7 +47,7 @@ export async function runExplainTurn(
     const { raw: modelOutput, thinking } = await deps.chatCompleteDetailed(
       messages,
       {
-        think: true,
+        think: Boolean(settings.thinkingEnabled),
         responseFormat: deps.getMainReplyResponseFormat(
           Boolean(settings.thinkingEnabled),
         ),

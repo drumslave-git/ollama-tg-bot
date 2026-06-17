@@ -140,9 +140,9 @@ export function registerModuleCommands(
 ): void {
   for (const host of getBotHosts()) {
     for (const command of host.commands ?? []) {
-      bot.command(command.command, (ctx) =>
-        command.handler(ctx, services),
-      );
+      bot.command(command.command, async (ctx) => {
+        await command.handler(ctx, services);
+      });
     }
   }
 }

@@ -31,6 +31,22 @@ export function getMainReplyResponseFormat(
  * Structured assistant output. Only the `reply` field is sent to Telegram.
  * Stickers are chosen in a separate model pass; memory is extracted in a dedicated pass.
  */
+export function buildExplainFormatSpec(thinkingEnabled = false): string {
+  const reasoningLine = thinkingEnabled
+    ? "- reasoning (string): brief analysis of which configuration or history drove the behavior; analysis only — never the spoken explanation text\n"
+    : "";
+  const fieldCount = thinkingEnabled ? "two fields" : "one field";
+  return `Respond with JSON only, matching the provided schema. The object has ${fieldCount}:
+${reasoningLine}- reply (string): your meta explanation for the bot owner
+
+Output rules (mandatory):
+- Do NOT roleplay. Do NOT speak as the bot's character or continue its dialogue.
+- Explain which configuration, memory, or chat history caused the behavior.
+- Put only the explanation in the reply field.
+- Write in clear, direct prose. Match the owner's language when they asked in one; otherwise use English.
+- Quote or paraphrase the relevant instruction or memory when it explains the behavior.`;
+}
+
 export function buildReplyFormatSpec(
   formatHint: string,
   thinkingEnabled = false,

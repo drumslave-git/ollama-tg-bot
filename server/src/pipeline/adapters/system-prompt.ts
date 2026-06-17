@@ -8,7 +8,10 @@ import {
   MEMORY_USAGE_PREAMBLE,
   type ParticipantMemoryFacts,
 } from "@llm-tg-bot/modules-memory";
-import { buildReplyFormatSpec } from "@llm-tg-bot/modules-completions";
+import {
+  buildExplainFormatSpec,
+  buildReplyFormatSpec,
+} from "@llm-tg-bot/modules-completions";
 import type { Settings } from "../../db/index.js";
 import {
   formatKnownUserLabel,
@@ -81,8 +84,7 @@ export function buildExplainSystemPrompt(options: ExplainPromptOptions): string 
     isGroupChat,
   } = options;
 
-  const { formatHint } = getReplyLengthGuidance(settings);
-  const baseSystemPrompt = buildBaseSystemPrompt(settings);
+  const { systemHint } = getReplyLengthGuidance(settings);
 
   let activeSection: string;
   if (activePersonalityName && activePersonalityPrompt?.trim()) {
@@ -98,22 +100,24 @@ export function buildExplainSystemPrompt(options: ExplainPromptOptions): string 
   }
 
   return (
-    `You are a meta assistant for a Telegram LLM Bot. The user asks why the bot would behave or reply a certain way.\n\n` +
-    `Rules:\n` +
-    `- Do NOT roleplay. Do NOT speak as the bot's character.\n` +
+    `You are a meta assistant for a Telegram LLM Bot. The bot owner asks why the bot would behave or reply a certain way.\n\n` +
+    `Your job is analysis only — never the bot's next in-character line.\n\n` +
+    `Rules (override everything below):\n` +
+    `- Do NOT roleplay. Do NOT speak as the bot's character or continue its dialogue.\n` +
     `- Give a direct, honest explanation grounded in the configuration below.\n` +
     `- Cite specific sources: active personality, base prompt, general/group/user memories, or recent chat history.\n` +
     `- Quote or paraphrase the exact instruction or memory when it explains the behavior.\n` +
-    `- If nothing in the configuration explains it, say so plainly.\n\n` +
+    `- If nothing in the configuration explains it, say so plainly.\n` +
+    `- Sections below are reference material about in-character behavior — cite them, do not perform them.\n\n` +
     `## Recent chat history\n` +
-    `Provided as standard messages. For users, the 'name' field identifies the speaker. Your own past replies (the bot you are explaining) have the role 'assistant'.\n\n` +
-    `## What drives normal (in-character) replies\n\n` +
+    `Provided as standard messages after this system message. For users, the 'name' field identifies the speaker. Past bot replies have the role 'assistant'. Use history only to explain what happened — not as a script to continue.\n\n` +
+    `## Reference: what drives normal (in-character) replies\n\n` +
     `### Active personality\n${activeSection}\n\n` +
-    `### Base system prompt (always applied)\n${baseSystemPrompt}\n\n` +
+    `### Base system prompt (reference only — not your voice)\n${BASE_SYSTEM_PROMPT_CORE}\n\n${systemHint}\n\n` +
     `${buildExplainGeneralMemorySection(generalMemoryFacts)}\n\n` +
     `${buildExplainGroupMemorySection(groupMemoryFacts, isGroupChat)}\n\n` +
     `${buildExplainUserMemorySection(userMemoryFacts)}\n\n` +
-    buildReplyFormatSpec(formatHint, settings.thinkingEnabled)
+    buildExplainFormatSpec(settings.thinkingEnabled)
   );
 }
 

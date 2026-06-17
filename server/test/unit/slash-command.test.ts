@@ -16,4 +16,15 @@ describe("isSlashCommandMessage", () => {
       isSlashCommandMessage({ message: { caption: "/start" } } as never),
     ).toBe(true);
   });
+
+  it("detects bot_command entities at offset zero", () => {
+    expect(
+      isSlashCommandMessage({
+        message: {
+          text: "/explain@MyBot",
+          entities: [{ type: "bot_command", offset: 0, length: 14 }],
+        },
+      } as never),
+    ).toBe(true);
+  });
 });

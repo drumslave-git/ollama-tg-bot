@@ -98,7 +98,10 @@ export interface ExplainTurnDeps {
 
 export interface ExplainExtension {
   isOwner: (ctx: unknown) => boolean;
-  resolveCommandText: (ctx: unknown, inline: string) => string | null;
+  resolveCommandText: (
+    ctx: unknown,
+    inline: string,
+  ) => { text: string; fromReply: boolean } | null;
   buildTurnInput: (
     ctx: unknown,
     question: string,

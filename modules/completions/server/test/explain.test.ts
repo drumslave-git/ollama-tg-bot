@@ -3,6 +3,26 @@ import { EXPLAIN_EXTENSION_ID } from "../src/explain-types.js";
 import { handleExplainCommand } from "../src/explain-command.js";
 import { botHost } from "../src/bot-host.js";
 
+function makeServices(
+  extension: Record<string, unknown>,
+  replyToUser = vi.fn().mockResolvedValue(undefined),
+) {
+  return {
+    api: {},
+    botUsername: "TestBot",
+    botToken: "token",
+    logging: {
+      logEvent: vi.fn(),
+      logEventError: vi.fn(),
+    },
+    getSettings: () => ({}),
+    replyToUser,
+    extensions: {
+      [EXPLAIN_EXTENSION_ID]: extension,
+    },
+  };
+}
+
 describe("explain command", () => {
   it("registers explain on completions bot host", () => {
     expect(botHost.commands?.some((command) => command.command === "explain")).toBe(
@@ -14,32 +34,74 @@ describe("explain command", () => {
     const replyToUser = vi.fn().mockResolvedValue(undefined);
     const extension = {
       isOwner: () => false,
-      resolveCommandText: () => "why?",
+      resolveCommandText: () => ({ text: "why?", fromReply: false }),
       buildTurnInput: () => null,
       deps: {} as never,
     };
 
-    await handleExplainCommand(
+    await handleExplainCommand({}, makeServices(extension, replyToUser));
+
+    expect(replyToUser).toHaveBeenCalledWith(
       {},
-      {
-        api: {},
-        botUsername: "TestBot",
-        botToken: "token",
+      "Only the bot owner can use /explain.",
+    );
+  });
+
+  it("frames reply-only /explain as a meta question", async () => {
+    const buildTurnInput = vi.fn().mockReturnValue({
+      convKey: "c1",
+      chatId: 1,
+      userId: "1",
+      groupChatId: null,
+      inGroup: false,
+      question: "",
+      userRole: null,
+      userMemoryFacts: [],
+      groupMemoryFacts: [],
+      generalMemoryFacts: [],
+    });
+    const extension = {
+      isOwner: () => true,
+      resolveCommandText: () => ({
+        text: "Chaos is the only truth.",
+        fromReply: true,
+      }),
+      buildTurnInput,
+      deps: {
         logging: {
           logEvent: vi.fn(),
           logEventError: vi.fn(),
         },
         getSettings: () => ({}),
-        replyToUser,
-        extensions: {
-          [EXPLAIN_EXTENSION_ID]: extension,
-        },
+        resolveActivePersonalityId: () => null,
+        getPersonalityById: () => null,
+        buildExplainSystemPrompt: () => "system",
+        ensureHistoryFits: vi.fn().mockResolvedValue(undefined),
+        loadHistoryMessages: () => [],
+        getMainReplyResponseFormat: () => ({}),
+        chatCompleteDetailed: vi.fn().mockResolvedValue({
+          raw: '{"reply":"Because the personality says so."}',
+        }),
+        extractTelegramReply: (raw: string) => raw,
+        hasVisibleTelegramReply: () => true,
+        prepareTelegramHtml: (html: string) => html,
+        recordExchange: vi.fn(),
+        recordReply: vi.fn(),
+        recordError: vi.fn(),
+        sendChunkedHtmlReply: vi.fn().mockResolvedValue({ chunkCount: 1 }),
+        deliverHtmlErrorReply: vi.fn(),
       },
-    );
+    };
 
-    expect(replyToUser).toHaveBeenCalledWith(
+    await handleExplainCommand({}, makeServices(extension));
+
+    expect(buildTurnInput).toHaveBeenCalledWith(
       {},
-      "Only the bot owner can use /explain.",
+      expect.stringContaining("The owner used /explain on a specific bot message"),
+    );
+    expect(buildTurnInput).toHaveBeenCalledWith(
+      {},
+      expect.stringContaining("Chaos is the only truth."),
     );
   });
 });

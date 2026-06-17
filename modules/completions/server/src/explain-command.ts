@@ -6,6 +6,22 @@ import {
 } from "./explain-types.js";
 import { runExplainTurn } from "./explain-turn.js";
 
+function formatExplainQuestion(resolution: {
+  text: string;
+  fromReply: boolean;
+}): string {
+  const { text, fromReply } = resolution;
+  if (fromReply) {
+    return (
+      `The owner used /explain on a specific bot message. ` +
+      `Give a meta explanation of why the bot would have sent this (cite personality, base prompt, memories, or history). ` +
+      `Do not continue the roleplay or speak in character.\n\n` +
+      `Bot message:\n${text}`
+    );
+  }
+  return `The owner asks: ${text}`;
+}
+
 function readExplainExtension(
   services: BotHostServices,
 ): ExplainExtension | null {
@@ -30,11 +46,11 @@ export async function handleExplainCommand(
     return;
   }
 
-  const question = extension.resolveCommandText(
+  const resolution = extension.resolveCommandText(
     grammyCtx,
     String(grammyCtx.match ?? ""),
   );
-  if (!question) {
+  if (!resolution) {
     await services.replyToUser(
       grammyCtx,
       `Usage: <code>/explain@${botUsername} your question</code>\n` +
@@ -45,7 +61,10 @@ export async function handleExplainCommand(
     return;
   }
 
-  const input = extension.buildTurnInput(grammyCtx, question);
+  const input = extension.buildTurnInput(
+    grammyCtx,
+    formatExplainQuestion(resolution),
+  );
   if (!input) return;
 
   try {

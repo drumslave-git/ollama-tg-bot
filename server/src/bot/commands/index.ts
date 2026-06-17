@@ -128,7 +128,8 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
   bot.command("remember", async (ctx) => {
     const owner = isOwner(ctx);
     const inline = ctx.match as string;
-    const fact = resolveCommandInlineOrReplyText(ctx, inline);
+    const factResolution = resolveCommandInlineOrReplyText(ctx, inline);
+    const fact = factResolution?.text;
 
     if (!fact) {
       await replyToUser(

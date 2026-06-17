@@ -51,17 +51,22 @@ export function resolveRememberTarget(ctx: Context): RememberTarget | null {
   return null;
 }
 
+export interface CommandTextResolution {
+  text: string;
+  fromReply: boolean;
+}
+
 export function resolveCommandInlineOrReplyText(
   ctx: Context,
   inline: string,
-): string | null {
+): CommandTextResolution | null {
   const text = inline.trim();
-  if (text) return text;
+  if (text) return { text, fromReply: false };
 
   const replied = ctx.message?.reply_to_message;
   if (!replied) return null;
 
   const summary = summarizeMessageContent(replied).trim();
   if (!summary || summary === "[message]") return null;
-  return summary;
+  return { text: summary, fromReply: true };
 }
