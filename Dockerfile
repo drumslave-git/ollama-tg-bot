@@ -27,12 +27,16 @@ COPY modules/history/db/package.json ./modules/history/db/
 RUN npm ci --include=dev
 
 RUN rm -rf server dashboard modules
+COPY .git ./.git
 COPY scripts ./scripts
 COPY server ./server
 COPY dashboard ./dashboard
 COPY modules ./modules
 
-RUN npm run build
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && npm run build \
+    && rm -rf .git \
+    && apt-get purge -y git && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
 FROM node:24-bookworm-slim
 
