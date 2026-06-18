@@ -9,6 +9,7 @@ export {
   MOOD_RESPONSE_FORMAT,
   MOOD_EVALUATOR_SYSTEM,
   buildMoodEvaluateMessages,
+  getMoodResponseFormat,
   parseMoodBlock,
   type MoodEvaluateInput,
   type MoodParseResult,

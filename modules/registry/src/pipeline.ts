@@ -131,9 +131,7 @@ export interface PipelineTurnState {
   latestContent?: string;
   storedHistoryCount?: number;
 
-  /** Mood evaluation inputs/outputs. */
-  moodContextText?: string;
-  moodLatestTurnPreview?: string;
+  /** Mood evaluation output. */
   mood?: unknown;
 
   /** Link fetch outputs. */

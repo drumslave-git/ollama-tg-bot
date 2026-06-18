@@ -214,25 +214,6 @@ export const historyInjectHost: PipelineModuleHost = {
     const started = performance.now();
     await services.callbacks.ensureHistoryFits?.(convKey);
 
-    const built = services.callbacks.buildChatContextForTurn?.(state);
-    if (built) {
-      const historyText = built.historyMessages
-        .map((m) => {
-          const msg = m as { role?: string; name?: string; content?: string };
-          const namePart = msg.name ? ` [name: ${msg.name}]` : "";
-          return `[${msg.role ?? "unknown"}${namePart}]: ${msg.content ?? ""}`;
-        })
-        .join("\n\n");
-      state.moodContextText = historyText;
-      state.moodLatestTurnPreview = [
-        state.mentionedUsersContext,
-        state.replyContext,
-        state.latestBody,
-      ]
-        .filter((part) => part?.trim())
-        .join("\n\n");
-    }
-
     return {
       status: "ok",
       phaseId: "history",

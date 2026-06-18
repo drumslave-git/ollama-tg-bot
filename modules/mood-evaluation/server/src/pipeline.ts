@@ -46,10 +46,6 @@ export const moodPipelineHost: PipelineModuleHost = {
     }
 
     const decayedMood = normalizeMoodValues(getMood() as MoodValues);
-    const moodContextText = state.moodContextText ?? "";
-    const moodLatestTurnPreview =
-      state.moodLatestTurnPreview ??
-      [state.replyContext, state.latestBody].filter(Boolean).join("\n\n");
 
     const settings = services.callbacks.getSettings?.() ?? {};
     const thinkingEnabled = Boolean(settings.thinkingEnabled);
@@ -59,8 +55,8 @@ export const moodPipelineHost: PipelineModuleHost = {
     const result = await evaluateMood(
       {
         currentMood: decayedMood,
-        historyText: moodContextText,
-        latestTurn: moodLatestTurnPreview,
+        personality: state.personalityPrompt ?? "",
+        latestMessage: state.latestBody,
         thinkingEnabled,
       },
       {

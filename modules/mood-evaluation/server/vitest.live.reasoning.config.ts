@@ -14,12 +14,15 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["test/live/**/*.live.test.ts"],
+    include: ["test/live/**/*.reasoning.live.test.ts"],
     environment: "node",
     globals: false,
     testTimeout: 180_000,
     hookTimeout: 180_000,
     fileParallelism: false,
     setupFiles: ["../../../server/test/live/setup-env.ts"],
+    env: {
+      LLM_THINKING_ENABLED: "1",
+    },
   },
 });

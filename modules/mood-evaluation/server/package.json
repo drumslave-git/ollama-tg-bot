@@ -10,7 +10,8 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "node ../../../scripts/typecheck-package.mjs",
     "test": "vitest run --config vitest.config.ts",
-    "test:llm": "vitest run --config vitest.live.config.ts"
+    "test:llm": "vitest run --config vitest.live.config.ts",
+    "test:llm:reasoning": "vitest run --config vitest.live.reasoning.config.ts"
   },
   "dependencies": {
     "@llm-tg-bot/modules-registry": "*",

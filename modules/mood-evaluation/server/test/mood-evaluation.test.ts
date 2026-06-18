@@ -47,16 +47,19 @@ describe("parseMoodBlock", () => {
 });
 
 describe("buildMoodEvaluateMessages", () => {
-  it("includes current mood, trait guide and the latest turn", () => {
+  it("includes personality, current mood, trait guide and the latest message", () => {
     const messages = buildMoodEvaluateMessages({
       currentMood: DEFAULT_MOOD_VALUES,
-      historyText: "earlier banter",
-      latestTurn: "you are great",
+      personality: "Sarcastic and dry",
+      latestMessage: "you are great",
     });
     expect(messages[0].role).toBe("system");
+    expect(messages[1].content).toContain("Personality");
+    expect(messages[1].content).toContain("Sarcastic and dry");
     expect(messages[1].content).toContain("Current mood");
     expect(messages[1].content).toContain("Trait guide");
     expect(messages[1].content).toContain("you are great");
+    expect(messages[1].content).not.toContain("Recent chat");
     expect(messages[1].content).toContain("Return JSON");
   });
 });
@@ -74,8 +77,8 @@ describe("evaluateMood", () => {
     const result = await evaluateMood(
       {
         currentMood: DEFAULT_MOOD_VALUES,
-        historyText: "",
-        latestTurn: "hello",
+        personality: "",
+        latestMessage: "hello",
       },
       {
         baseUrl: "http://localhost",

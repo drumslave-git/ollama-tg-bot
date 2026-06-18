@@ -14,7 +14,7 @@
     "start": "npm run start -w server",
     "test": "npm run test -w @llm-tg-bot/modules-registry && npm run test -w @llm-tg-bot/modules-utils && npm run test -w @llm-tg-bot/modules-addressing-detection && npm run test -w @llm-tg-bot/modules-search-decision && npm run test -w @llm-tg-bot/modules-web-search && npm run test -w @llm-tg-bot/modules-memory && npm run test -w @llm-tg-bot/modules-link-fetch && npm run test -w @llm-tg-bot/modules-sticker-selection && npm run test -w @llm-tg-bot/modules-mood-evaluation && npm run test -w @llm-tg-bot/modules-history && npm run test -w @llm-tg-bot/modules-vision && npm run test -w @llm-tg-bot/modules-completions && npm run test -w server",
     "test:llm": "npm run test:llm -w @llm-tg-bot/modules-addressing-detection && npm run test:llm -w @llm-tg-bot/modules-search-decision && npm run test:llm -w @llm-tg-bot/modules-memory && npm run test:llm -w @llm-tg-bot/modules-mood-evaluation && npm run test:llm -w @llm-tg-bot/modules-history && npm run test:llm -w server",
-    "test:llm:reasoning": "npm run test:llm:reasoning -w @llm-tg-bot/modules-history && npm run test:llm:reasoning -w server",
+    "test:llm:reasoning": "npm run test:llm:reasoning -w @llm-tg-bot/modules-history && npm run test:llm:reasoning -w @llm-tg-bot/modules-mood-evaluation && npm run test:llm:reasoning -w server",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d"
   },

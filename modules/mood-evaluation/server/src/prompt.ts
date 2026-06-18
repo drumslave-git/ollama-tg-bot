@@ -44,12 +44,7 @@ export const MOOD_EVALUATOR_SYSTEM = `You evaluate the bot character's emotional
 Respond with JSON only, matching the provided schema. The object has nine integer traits (0–5 each):
 ${MOOD_KEYS.map((key) => `- ${key}`).join("\n")}
 
-Each trait is an integer 0–5. Start from the "Current mood" values and adjust based on the latest conversation context.
-
-Chat history is provided as standard messages with roles and names:
-- [user [name: username]]: User message
-- [assistant]: Your past replies
-- Messages might be narrative summaries of older conversation
+Each trait is an integer 0–5. Start from the "Current mood" values and adjust based on the character personality and the latest incoming message only.
 
 Trait meanings:
 - irritated — sharper, shorter, more hostile
@@ -69,8 +64,8 @@ Rules:
 
 export interface MoodEvaluateInput {
   currentMood: MoodValues;
-  historyText: string;
-  latestTurn: string;
+  personality: string;
+  latestMessage: string;
   thinkingEnabled?: boolean;
 }
 
@@ -130,10 +125,10 @@ export function buildMoodEvaluateMessages(input: MoodEvaluateInput): ChatMessage
   ).join("\n");
 
   const userContent =
+    `Personality:\n${input.personality.trim() || "(default character)"}\n\n` +
     `Current mood (starting point):\n${formatCurrentMood(fallback)}\n\n` +
     `Trait guide:\n${traitGuide}\n\n` +
-    `---\nRecent chat:\n${input.historyText.trim() || "(no prior messages)"}\n\n` +
-    `Latest turn:\n${input.latestTurn.trim() || "(empty)"}\n\n` +
+    `---\nLatest message:\n${input.latestMessage.trim() || "(empty)"}\n\n` +
     reasoningJsonUserTail(
       "all nine mood traits as integers 0–5",
       !!input.thinkingEnabled,

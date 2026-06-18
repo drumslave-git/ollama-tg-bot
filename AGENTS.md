@@ -79,6 +79,11 @@ output: { needsSearch: boolean; query: string | null; reason: string }
 input:  { query: string }
 config: { apiKey: string; maxResults?: number }
 output: { ok: boolean; results: …; sources: …; context: string; answer: string | null; reason: string }
+
+// mood-evaluation
+input:  { currentMood: MoodValues; personality: string; latestMessage: string; thinkingEnabled?: boolean }
+config: { baseUrl: string; model: string; apiKey?: string; numPredict?: number; chatComplete?: … }
+output: { mood: MoodValues; reason: string }
 ```
 
 Rules:
@@ -256,7 +261,20 @@ Maintain test coverage for all new features and bug fixes. Update `AGENTS.md` wh
 
 ### Opt-in live LLM suites
 
-Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `LLM_API_KEY`); suites self-skip when unset. Module live tests: addressing-detection, search-decision, memory, mood-evaluation, history (compression). Reasoning live: `npm run test:llm:reasoning` (history compression + server). Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `LLM_API_KEY`); suites self-skip when unset.
+
+**Every package that calls an LLM** (module `run()`, pipeline host, or server path) must ship **both** live suites:
+
+| Script | When it runs | Config |
+|--------|----------------|--------|
+| `test:llm` | Thinking **off** (`LLM_THINKING_ENABLED` unset) | `vitest.live.config.ts` → `test/live/**/*.live.test.ts` |
+| `test:llm:reasoning` | Thinking **on** (`LLM_THINKING_ENABLED=1` in config) | `vitest.live.reasoning.config.ts` → `test/live/**/*.reasoning.live.test.ts` |
+
+Split files with `describe.skipIf(!cfg \|\| liveReasoningMode())` vs `describe.skipIf(!cfg \|\| !liveReasoningMode())` so the two root commands never double-run the same cases. Shared helpers live in `test/live/helpers.ts` (`liveConfig()`, `liveReasoningMode()`, and a `runLive…()` wrapper around the production code path).
+
+Register both scripts in the workspace `package.json` and wire `test:llm:reasoning` into the root `package.json` when adding a new LLM-backed package.
+
+Current module live tests: addressing-detection, search-decision, memory, mood-evaluation, history (compression). Reasoning live: history compression, mood-evaluation, server main reply. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
 
 ### Auxiliary generation budget
 
