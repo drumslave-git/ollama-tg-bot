@@ -20,6 +20,9 @@ COPY modules/mood-evaluation/server/package.json ./modules/mood-evaluation/serve
 COPY modules/mood-evaluation/db/package.json ./modules/mood-evaluation/db/
 COPY modules/history/server/package.json ./modules/history/server/
 COPY modules/history/db/package.json ./modules/history/db/
+COPY modules/vision/server/package.json ./modules/vision/server/
+COPY modules/vision/db/package.json ./modules/vision/db/
+COPY modules/completions/server/package.json ./modules/completions/server/
 
 RUN npm ci --include=dev
 
@@ -54,6 +57,9 @@ COPY modules/mood-evaluation/server/package.json ./modules/mood-evaluation/serve
 COPY modules/mood-evaluation/db/package.json ./modules/mood-evaluation/db/
 COPY modules/history/server/package.json ./modules/history/server/
 COPY modules/history/db/package.json ./modules/history/db/
+COPY modules/vision/server/package.json ./modules/vision/server/
+COPY modules/vision/db/package.json ./modules/vision/db/
+COPY modules/completions/server/package.json ./modules/completions/server/
 
 RUN npm ci --workspace=server --omit=dev 2>/dev/null || \
     npm install --workspace=server --omit=dev
@@ -75,6 +81,9 @@ COPY --from=build /app/modules/mood-evaluation/server/dist ./modules/mood-evalua
 COPY --from=build /app/modules/mood-evaluation/db/dist ./modules/mood-evaluation/db/dist
 COPY --from=build /app/modules/history/server/dist ./modules/history/server/dist
 COPY --from=build /app/modules/history/db/dist ./modules/history/db/dist
+COPY --from=build /app/modules/vision/server/dist ./modules/vision/server/dist
+COPY --from=build /app/modules/vision/db/dist ./modules/vision/db/dist
+COPY --from=build /app/modules/completions/server/dist ./modules/completions/server/dist
 COPY --from=build /app/modules ./modules
 COPY --from=build /app/dashboard/dist ./dashboard/dist
 
