@@ -1,60 +1,59 @@
-import { useCallback, useEffect, useState } from "react";
-import { api, type VisionJobDebugSnapshot } from "@llm-tg-bot/dashboard/api";
-import { ModuleJobDebugPanel } from "@llm-tg-bot/dashboard/components/ModuleJobDebugPanel";
+import { Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
-import { useLiveStats } from "@llm-tg-bot/dashboard/liveSocket";
+import {
+  formatCountdown,
+  useLiveClock,
+} from "@llm-tg-bot/dashboard/pages/debug/debugUtils";
+import { VisionDebugRunDetail } from "./VisionDebugRunDetail";
+import { VisionDebugRunList } from "./VisionDebugRunList";
 
 export function VisionDebugPage() {
-  const { apiOnline } = useDashboard();
-  const [snapshot, setSnapshot] = useState<VisionJobDebugSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (apiOnline !== true) return;
-    setError(null);
-    try {
-      const data = await api.getVisionJobDebug();
-      setSnapshot(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load debug data");
-    } finally {
-      setLoading(false);
-    }
-  }, [apiOnline]);
-
-  useEffect(() => {
-    void load();
-    const timer = setInterval(() => void load(), 3000);
-    return () => clearInterval(timer);
-  }, [load]);
-
-  useLiveStats(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const navigate = useNavigate();
+  const detailMatch = useMatch({
+    path: "/modules/vision/debug/:runId",
+    end: true,
+  });
+  const { stats } = useDashboard();
+  const scheduled = stats?.visionJobStatus === "scheduled";
+  const now = useLiveClock(scheduled);
+  const countdown = scheduled
+    ? formatCountdown(stats?.visionJobRunAt, now)
+    : null;
 
   return (
-    <ModuleJobDebugPanel
-      title="Vision backfill job"
-      snapshot={snapshot}
-      loading={loading && !snapshot}
-      error={error}
-      extraSummary={
-        snapshot
-          ? [
-              {
-                label: "Pending media rows",
-                value: snapshot.pendingMediaRows,
-              },
-              {
-                label: "Chats with pending media",
-                value: snapshot.chatsWithPending,
-              },
-            ]
-          : []
-      }
-    />
+    <div className="debug-page">
+      <header className="page-header">
+        <div className="debug-header-row">
+          <div>
+            <h2>Vision job debug</h2>
+            <p className="page-desc">
+              Debounced backfill runs with per-media phases and LLM I/O.
+              {scheduled && countdown ? (
+                <>
+                  {" "}
+                  Next run in <strong>{countdown}</strong>.
+                </>
+              ) : null}
+            </p>
+          </div>
+          {detailMatch ? (
+            <div className="debug-header-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => navigate("/modules/vision/debug")}
+              >
+                ← Back
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      <Routes>
+        <Route index element={<VisionDebugRunList />} />
+        <Route path=":runId" element={<VisionDebugRunDetail />} />
+      </Routes>
+    </div>
   );
 }

@@ -139,7 +139,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 
 - Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`; optional `showModel` / catalog fetch for context-budget metadata)
 - OpenAI-compatible parsing: `server/src/llm/openai-compat.ts` (`content` vs `reasoning` / `reasoning_content`, request `options`)
-- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as the bot **receives** a message; addressed messages show **queued** routing with queue position until processing starts; phase updates stream while the turn runs; main reply uses a single **Main reply** LLM phase (no separate Chat context / Completions / Model reasoning rows); sticker **selection** runs before delivery, **Sticker** sent phase logs after the Telegram sticker; in-flight LLM calls add a **waiting** phase until the provider responds; dashboard sidebar shows queue size + memory/vision job status (memory scheduled shows live countdown via `memoryJobRunAt`) via `dashboard:stats`
+- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as the bot **receives** a message; addressed messages show **queued** routing with queue position until processing starts; phase updates stream while the turn runs; main reply uses a single **Main reply** LLM phase (no separate Chat context / Completions / Model reasoning rows); sticker **selection** runs before delivery, **Sticker** sent phase logs after the Telegram sticker; in-flight LLM calls add a **waiting** phase until the provider responds; dashboard sidebar shows queue size + memory/vision job status (scheduled jobs show live countdown via `memoryJobRunAt` / `visionJobRunAt`) via `dashboard:stats`
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
@@ -213,7 +213,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 | `/settings` | LLM, model, owner, maintenance mode, performance, vision |
 | `/modules` | Discovered feature modules list |
 | `/modules/:id` | Per-module config/data UI (from module `ui/`) |
-| `/modules/:id/debug` | Per-module background job debug (memory: run list + phase/LLM detail like `/debug`; live countdown when scheduled) |
+| `/modules/:id/debug` | Per-module background job debug (memory: run list + phase/LLM detail like `/debug`; vision: same pattern; live countdown when scheduled) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
 | `/data` | Raw SQLite table browser |
 

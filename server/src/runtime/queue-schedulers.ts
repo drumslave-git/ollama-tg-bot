@@ -8,7 +8,10 @@ import {
   getMemoryJobScheduledRunAt,
 } from "@llm-tg-bot/modules-memory";
 import { createVisionQueueScheduler } from "@llm-tg-bot/modules-vision";
-import { configureVisionJobDebugStats } from "@llm-tg-bot/modules-vision";
+import {
+  configureVisionJobDebugStats,
+  getVisionJobScheduledRunAt,
+} from "@llm-tg-bot/modules-vision";
 import { responseFormatForThinking } from "@llm-tg-bot/modules-utils";
 import { isBase64MediaHistoryContent } from "@llm-tg-bot/modules-history";
 import {
@@ -39,6 +42,7 @@ import {
   setMemoryJobStatus,
   setMemoryJobRunAt,
   setVisionJobStatus,
+  setVisionJobRunAt,
 } from "./pipeline-status.js";
 
 let pipelineServices: PipelineHostServices | null = null;
@@ -48,20 +52,28 @@ function getPipelineServices(): PipelineHostServices {
   return pipelineServices;
 }
 
-configureVisionJobDebugStats(() => {
-  let pendingMediaRows = 0;
-  let chatsWithPending = 0;
-  for (const chatKey of listHistoryChatKeys(100)) {
-    const pending = getHistory(chatKey).filter((row) =>
-      isBase64MediaHistoryContent(row.content),
-    ).length;
-    if (pending > 0) {
-      pendingMediaRows += pending;
-      chatsWithPending += 1;
+configureVisionJobDebugStats(
+  () => {
+    let pendingMediaRows = 0;
+    let chatsWithPending = 0;
+    for (const chatKey of listHistoryChatKeys(100)) {
+      const pending = getHistory(chatKey).filter((row) =>
+        isBase64MediaHistoryContent(row.content),
+      ).length;
+      if (pending > 0) {
+        pendingMediaRows += pending;
+        chatsWithPending += 1;
+      }
     }
-  }
-  return { pendingMediaRows, chatsWithPending };
-});
+    return { pendingMediaRows, chatsWithPending };
+  },
+  () => {
+    setVisionJobRunAt(getVisionJobScheduledRunAt());
+    void import("../dashboard/live-events.js").then(({ emitStatsUpdated }) => {
+      emitStatsUpdated();
+    });
+  },
+);
 
 configureMemoryJobDebugStats(() => {
   setMemoryJobRunAt(getMemoryJobScheduledRunAt());
@@ -141,18 +153,23 @@ const visionScheduler = createVisionQueueScheduler({
   listHistoryChatKeys,
   getHistory,
   mapHistoryBase64Media,
-  describeConfig: {
-    chatComplete: (messages, opts) =>
-      chatComplete(messages, {
-        numPredict: opts.numPredict,
-        auxiliary: opts.auxiliary,
-        traceLabel: opts.traceLabel ?? "vision describe (backfill)",
-      }),
-    log: {
-      logEvent: (event, fields) => logEvent(event, fields as never),
-      logEventError: (event, err, fields) =>
-        logEventError(event, err, fields as never),
-    },
+  buildDescribeConfig: () => {
+    const settings = getSettings();
+    return {
+      model: settings.model,
+      llmTimeoutSec: settings.chatTimeoutSec,
+      chatComplete: (messages, opts) =>
+        chatComplete(messages, {
+          numPredict: opts.numPredict,
+          auxiliary: opts.auxiliary,
+          traceLabel: opts.traceLabel ?? "vision describe (backfill)",
+        }),
+      log: {
+        logEvent: (event, fields) => logEvent(event, fields as never),
+        logEventError: (event, err, fields) =>
+          logEventError(event, err, fields as never),
+      },
+    };
   },
   onStatusChange: setVisionJobStatus,
   logEvent: (event, fields) => logEvent(event, fields as never),

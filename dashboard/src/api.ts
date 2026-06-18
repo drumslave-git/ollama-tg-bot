@@ -270,6 +270,7 @@ export interface Stats {
   memoryJobStatus: "idle" | "scheduled" | "running";
   memoryJobRunAt: string | null;
   visionJobStatus: "idle" | "scheduled" | "running";
+  visionJobRunAt: string | null;
   botUsername: string | null;
   botRunning: boolean;
   uptimeSeconds: number;
@@ -354,7 +355,47 @@ export interface MemoryJobDebugSnapshot {
   lastUpdatedAt: string;
 }
 
-export interface VisionJobDebugSnapshot extends ModuleJobDebugSnapshot {
+export interface VisionJobRunListItem {
+  id: number;
+  status: ModuleJobRunStatus;
+  headline: string;
+  createdAt: string;
+  runAt: string | null;
+  durationMs: number | null;
+  mediaBackfilled: number;
+  mediaFailed: number;
+}
+
+export interface VisionJobReportRecord {
+  status: ModuleJobRunStatus;
+  headline: string;
+  durationMs: number;
+  chatsScanned: number;
+  mediaBackfilled: number;
+  mediaFailed: number;
+  interrupted: boolean;
+  phases: ReportPhase[];
+  error?: string;
+}
+
+export interface VisionJobRunDetail {
+  id: number;
+  status: ModuleJobRunStatus;
+  createdAt: string;
+  scheduledAt: string | null;
+  runAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  report: VisionJobReportRecord;
+}
+
+export interface VisionJobDebugSnapshot {
+  moduleId: string;
+  status: ModuleJobStatus;
+  scheduledRunAt: string | null;
+  currentRun: VisionJobRunDetail | null;
+  recentRuns: VisionJobRunListItem[];
+  lastUpdatedAt: string;
   pendingMediaRows: number;
   chatsWithPending: number;
 }
@@ -690,6 +731,8 @@ export const api = {
     request<{ run: MemoryJobRunDetail }>(`/api/memories/debug/runs/${id}`),
   getVisionJobDebug: () =>
     request<VisionJobDebugSnapshot>("/api/vision/debug"),
+  getVisionJobRun: (id: number) =>
+    request<{ run: VisionJobRunDetail }>(`/api/vision/debug/runs/${id}`),
   llmHealth: async () => {
     await request<{ ok: boolean }>("/api/settings/test-llm", {
       method: "POST",

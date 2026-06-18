@@ -1,9 +1,10 @@
-import { createModuleJobDebug, type ModuleJobDebugSnapshot } from "@llm-tg-bot/modules-utils";
+import {
+  createVisionJobDebug,
+  type VisionJobDebugSnapshot,
+  type VisionJobDebugStore,
+} from "./job-report.js";
 
-export const visionJobDebug = createModuleJobDebug({
-  moduleId: "vision",
-  maxRuns: 30,
-});
+let notifyStats: (() => void) | null = null;
 
 let pendingBackfillStats: (() => {
   pendingMediaRows: number;
@@ -12,22 +13,40 @@ let pendingBackfillStats: (() => {
 
 export function configureVisionJobDebugStats(
   provider: () => { pendingMediaRows: number; chatsWithPending: number },
+  onUpdate?: () => void,
 ): void {
   pendingBackfillStats = provider;
+  if (onUpdate) notifyStats = onUpdate;
 }
 
-export interface VisionJobDebugSnapshot extends ModuleJobDebugSnapshot {
-  pendingMediaRows: number;
-  chatsWithPending: number;
-}
+export const visionJobDebug: VisionJobDebugStore = createVisionJobDebug({
+  moduleId: "vision",
+  maxRuns: 30,
+  onUpdate: () => {
+    notifyStats?.();
+  },
+});
 
 export function getVisionJobDebugSnapshot(): VisionJobDebugSnapshot {
   const pending = pendingBackfillStats?.() ?? {
     pendingMediaRows: 0,
     chatsWithPending: 0,
   };
-  return {
-    ...visionJobDebug.snapshot(),
-    ...pending,
-  };
+  return visionJobDebug.snapshot(pending);
 }
+
+export function getVisionJobRunDetail(id: number) {
+  return visionJobDebug.getRunDetail(id);
+}
+
+export function getVisionJobScheduledRunAt(): string | null {
+  return visionJobDebug.getScheduledRunAt();
+}
+
+export {
+  createVisionJobDebug,
+  type VisionJobDebugSnapshot,
+  type VisionJobRunDetail,
+  type VisionJobRunListItem,
+  type VisionJobDebugStore,
+} from "./job-report.js";

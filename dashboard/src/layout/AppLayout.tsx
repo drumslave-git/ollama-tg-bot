@@ -30,9 +30,13 @@ export function AppLayout() {
   } = useDashboard();
 
   const memoryScheduled = stats?.memoryJobStatus === "scheduled";
-  const now = useLiveClock(memoryScheduled);
+  const visionScheduled = stats?.visionJobStatus === "scheduled";
+  const now = useLiveClock(memoryScheduled || visionScheduled);
   const memoryCountdown = memoryScheduled
     ? formatCountdown(stats?.memoryJobRunAt, now)
+    : null;
+  const visionCountdown = visionScheduled
+    ? formatCountdown(stats?.visionJobRunAt, now)
     : null;
 
   return (
@@ -142,7 +146,9 @@ export function AppLayout() {
               {stats?.visionJobStatus === "running"
                 ? "backfill"
                 : stats?.visionJobStatus === "scheduled"
-                  ? "scheduled"
+                  ? visionCountdown
+                    ? `in ${visionCountdown}`
+                    : "scheduled"
                   : "idle"}
             </span>
           </div>

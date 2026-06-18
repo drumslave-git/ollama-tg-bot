@@ -48,7 +48,10 @@ export {
 } from "./queue-scheduler.js";
 export {
   getVisionJobDebugSnapshot,
+  getVisionJobRunDetail,
+  getVisionJobScheduledRunAt,
   configureVisionJobDebugStats,
   visionJobDebug,
   type VisionJobDebugSnapshot,
+  type VisionJobRunDetail,
 } from "./job-debug.js";

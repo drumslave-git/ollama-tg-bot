@@ -6,6 +6,7 @@ export interface PipelineRuntimeStatus {
   memoryJobStatus: BackgroundJobStatus;
   memoryJobRunAt: string | null;
   visionJobStatus: BackgroundJobStatus;
+  visionJobRunAt: string | null;
 }
 
 let queueSize = 0;
@@ -13,6 +14,7 @@ let historyPointer: string | null = null;
 let memoryJobStatus: BackgroundJobStatus = "idle";
 let memoryJobRunAt: string | null = null;
 let visionJobStatus: BackgroundJobStatus = "idle";
+let visionJobRunAt: string | null = null;
 
 export function getPipelineRuntimeStatus(): PipelineRuntimeStatus {
   return {
@@ -21,6 +23,7 @@ export function getPipelineRuntimeStatus(): PipelineRuntimeStatus {
     memoryJobStatus,
     memoryJobRunAt,
     visionJobStatus,
+    visionJobRunAt,
   };
 }
 
@@ -47,6 +50,12 @@ export function setMemoryJobRunAt(runAt: string | null): void {
 
 export function setVisionJobStatus(status: BackgroundJobStatus): void {
   visionJobStatus = status;
+  if (status !== "scheduled") visionJobRunAt = null;
+  notifyPipelineStatusChanged();
+}
+
+export function setVisionJobRunAt(runAt: string | null): void {
+  visionJobRunAt = runAt;
   notifyPipelineStatusChanged();
 }
 
