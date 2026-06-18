@@ -11,6 +11,7 @@
   },
   "dbPackage": "@llm-tg-bot/modules-history-db",
   "uiPackage": "@llm-tg-bot/modules-history-ui",
+  "apiBasePath": "/history",
   "dataTables": ["chat_history"],
   "dashboard": {
     "label": "History",

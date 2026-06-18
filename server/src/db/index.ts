@@ -26,6 +26,7 @@ import {
   initModuleDatabases,
 } from "../runtime/modules.js";
 import { buildMoodPayload } from "../dashboard/payloads.js";
+import { compressHistoryForChat } from "../debug/context-compress.js";
 
 export interface Settings {
   model: string;
@@ -206,6 +207,8 @@ export async function initDatabase(): Promise<void> {
       >,
     buildMoodPayload: () => buildMoodPayload(),
     getHistoryLimits: () => getHistoryLimits(getResolvedSettings()),
+    compressHistoryChat: (chatKey, options) =>
+      compressHistoryForChat(chatKey, options),
   });
 
   bindErrorLogDatabase(db);

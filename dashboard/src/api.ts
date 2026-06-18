@@ -316,6 +316,14 @@ export interface DataTablePayload {
   truncated: boolean;
 }
 
+export interface HistoryCompressResult {
+  ok: boolean;
+  skipped?: boolean;
+  reason?: string;
+  messageCount?: number;
+  resultChars?: number;
+}
+
 export interface StickerCatalogEntry {
   index: number;
   emoji: string;
@@ -607,6 +615,11 @@ export const api = {
   getDataTables: () => request<{ tables: DataTableSummary[] }>("/api/data/tables"),
   getDataTable: (tableId: string) =>
     request<DataTablePayload>(`/api/data/table/${tableId}`),
+  compressHistory: (chatKey: string, force = true) =>
+    request<HistoryCompressResult>("/api/history/compress", {
+      method: "POST",
+      body: JSON.stringify({ chatKey, force }),
+    }),
   getMood: () => request<MoodPayload>("/api/mood"),
   updateMood: (patch: {
     cooldownMinutes?: number;

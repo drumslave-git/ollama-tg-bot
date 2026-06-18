@@ -59,7 +59,7 @@ Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, r
 | `@llm-tg-bot/modules-search-decision` | Whether a message needs web search + query extraction (LLM side pass) |
 | `@llm-tg-bot/modules-vision` | Telegram media download, sticker previews, and vision-model image description |
 | `@llm-tg-bot/modules-completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` bot command |
-| `@llm-tg-bot/modules-history` | Turn setup, passive history, history inject/record (pipeline hosts) |
+| `@llm-tg-bot/modules-history` | Turn setup, passive history, history inject/record (pipeline hosts); LLM compression via `compressHistoryChat()` |
 | `@llm-tg-bot/modules-mood-evaluation` | Personality + mood injection; `/mood` bot command |
 
 **Contract** — every module defines typed `input`, `config`, and `output`, and exposes a `run(input, config)` function (plus a `ModuleDefinition` object with `id`):

@@ -8,6 +8,7 @@ import {
   bindHistoryDatabase,
   configureHistoryAccess,
 } from "./history.js";
+import { configureHistoryRoutes, createHistoryRouter } from "./routes.js";
 
 export * from "@llm-tg-bot/modules-history";
 export * from "./history.js";
@@ -32,6 +33,11 @@ export function configureModuleAccess(host: ModuleDbHost): void {
     throw new Error("History module requires getHistoryLimits on ModuleDbHost");
   }
   configureHistoryAccess(host.getHistoryLimits);
+  configureHistoryRoutes(host);
+}
+
+export function createModuleRouter() {
+  return createHistoryRouter();
 }
 
 export function getDataTableConfigs(): Record<string, DataTableConfig> {
@@ -41,5 +47,6 @@ export function getDataTableConfigs(): Record<string, DataTableConfig> {
 export const historyDbModule: ModuleDbExports = {
   bindModuleDatabase,
   configureModuleAccess,
+  createModuleRouter,
   getDataTableConfigs,
 };

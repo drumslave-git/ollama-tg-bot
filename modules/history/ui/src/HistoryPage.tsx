@@ -45,6 +45,10 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [compressingChatKey, setCompressingChatKey] = useState<string | null>(
+    null,
+  );
+  const [compressNotice, setCompressNotice] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -83,17 +87,55 @@ export function HistoryPage() {
     });
   }, [payload, searchQuery]);
 
+  const compressChat = async (chatKey: string, messageCount: number) => {
+    if (messageCount === 0) return;
+    if (
+      !confirm(
+        `Compress ${messageCount} message${messageCount === 1 ? "" : "s"} for chat ${chatKey} into one summary? This replaces the stored transcript.`,
+      )
+    ) {
+      return;
+    }
+
+    setCompressingChatKey(chatKey);
+    setCompressNotice(null);
+    setError(null);
+    try {
+      const result = await api.compressHistory(chatKey);
+      if (result.skipped) {
+        setCompressNotice(
+          result.reason === "empty"
+            ? "Nothing to compress for that chat."
+            : "Compression was skipped.",
+        );
+      } else if (result.ok) {
+        setCompressNotice(
+          `Compressed ${result.messageCount ?? messageCount} message${
+            (result.messageCount ?? messageCount) === 1 ? "" : "s"
+          } for chat ${chatKey}.`,
+        );
+        await load(true);
+      }
+    } catch (err) {
+      setError(err);
+    } finally {
+      setCompressingChatKey(null);
+    }
+  };
+
   return (
     <div className="page">
       <header className="page-header">
         <h1>Chat history</h1>
         <p className="page-lead">
           Stored transcripts per Telegram chat. Limits are derived from context
-          window settings on the Settings page.
+          window settings on the Settings page. Use Compress to summarize a chat
+          into one narrative row (same as automatic overflow compression).
         </p>
       </header>
 
       {error ? <ErrorBanner error={error} /> : null}
+      {compressNotice ? <p className="hint">{compressNotice}</p> : null}
 
       <section className="card">
         <div className="toolbar">
@@ -132,6 +174,7 @@ export function HistoryPage() {
                 {filteredRows.map((row) => {
                   const chatKey = String(row.chatKey ?? "—");
                   const messages = parseMessages(row.messages);
+                  const isCompressing = compressingChatKey === chatKey;
 
                   return (
                     <article key={chatKey} className="history-group">
@@ -143,21 +186,35 @@ export function HistoryPage() {
                             {messages.length === 1 ? "" : "s"}
                           </span>
                         </div>
-                        <div className="history-group-times">
-                          <span>
-                            Updated{" "}
-                            <time dateTime={String(row.updatedAt ?? "")}>
-                              {formatTime(row.updatedAt)}
-                            </time>
-                          </span>
-                          {row.compressedAt ? (
+                        <div className="history-group-actions">
+                          <div className="history-group-times">
                             <span>
-                              Compressed{" "}
-                              <time dateTime={String(row.compressedAt ?? "")}>
-                                {formatTime(row.compressedAt)}
+                              Updated{" "}
+                              <time dateTime={String(row.updatedAt ?? "")}>
+                                {formatTime(row.updatedAt)}
                               </time>
                             </span>
-                          ) : null}
+                            {row.compressedAt ? (
+                              <span>
+                                Compressed{" "}
+                                <time dateTime={String(row.compressedAt ?? "")}>
+                                  {formatTime(row.compressedAt)}
+                                </time>
+                              </span>
+                            ) : null}
+                          </div>
+                          <button
+                            type="button"
+                            className="button secondary"
+                            disabled={
+                              messages.length === 0 ||
+                              isCompressing ||
+                              compressingChatKey != null
+                            }
+                            onClick={() => void compressChat(chatKey, messages.length)}
+                          >
+                            {isCompressing ? "Compressing…" : "Compress"}
+                          </button>
                         </div>
                       </header>
 

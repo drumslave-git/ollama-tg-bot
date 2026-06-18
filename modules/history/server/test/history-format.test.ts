@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildHistoryCompressionTranscript,
   extractParticipantUserIds,
+  formatStoredMessageLine,
   parseUserRole,
   stripAssistantHistoryEnvelope,
   stripEchoedHistoryMarkup,
   userRoleTagFromParts,
 } from "../src/format.js";
+import { ASSISTANT_ROLE, COMPRESSED_ROLE } from "../src/types.js";
 
 describe("userRoleTagFromParts", () => {
   it("prefers username, lowercased and sanitized", () => {
@@ -63,5 +66,47 @@ describe("stripEchoedHistoryMarkup", () => {
 
   it("removes an echoed assistant prefix", () => {
     expect(stripEchoedHistoryMarkup("[assistant said]: hey")).toBe("hey");
+  });
+});
+
+describe("formatStoredMessageLine", () => {
+  it("prefixes user rows with bracket tags from the stored role", () => {
+    expect(
+      formatStoredMessageLine({
+        role: "user:drumslave:312973896",
+        content: "hello",
+      }),
+    ).toBe("[user:drumslave:312973896]: hello");
+  });
+
+  it("keeps assistant envelope when already present", () => {
+    expect(
+      formatStoredMessageLine({
+        role: ASSISTANT_ROLE,
+        content: "[assistant said]: hi",
+      }),
+    ).toBe("[assistant said]: hi");
+  });
+
+  it("passes compressed rows through unchanged", () => {
+    expect(
+      formatStoredMessageLine({
+        role: COMPRESSED_ROLE,
+        content: "Earlier summary.",
+      }),
+    ).toBe("Earlier summary.");
+  });
+});
+
+describe("buildHistoryCompressionTranscript", () => {
+  it("joins tagged lines for every stored row", () => {
+    expect(
+      buildHistoryCompressionTranscript([
+        { role: "user:drumslave:312973896", content: "hey" },
+        { role: ASSISTANT_ROLE, content: "[assistant said]: hello" },
+      ]),
+    ).toBe(
+      "[user:drumslave:312973896]: hey\n[assistant said]: hello",
+    );
   });
 });

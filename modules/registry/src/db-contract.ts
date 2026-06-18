@@ -17,6 +17,16 @@ export interface ModuleDbHost {
     historyMaxReplyChars: number;
     historyMaxTokens: number;
   };
+  compressHistoryChat?: (
+    chatKey: string,
+    options?: { force?: boolean },
+  ) => Promise<{
+    ok: boolean;
+    skipped?: boolean;
+    reason?: string;
+    messageCount?: number;
+    resultChars?: number;
+  }>;
 }
 
 export interface ModuleDbExports {
