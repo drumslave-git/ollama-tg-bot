@@ -31,6 +31,11 @@ export const pipelineHost: PipelineModuleHost = {
   phase: "pre-reply",
   order: 30,
 
+  shouldRun(state) {
+    const body = (state.latestBody ?? "").trim();
+    return Boolean(body) && body !== "(non-text message)";
+  },
+
   async run(state, services): Promise<PipelineStepResult> {
     const tavilyKey = services.getSecret("tavily");
     if (!tavilyKey) {

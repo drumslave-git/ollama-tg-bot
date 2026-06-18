@@ -43,7 +43,7 @@ export const pipelineHost: PipelineModuleHost = {
       return {
         status: "skipped",
         phaseId: "sticker",
-        phaseTitle: "Sticker",
+        phaseTitle: "Sticker selection",
         summary: "Stickers disabled",
       };
     }
@@ -56,7 +56,7 @@ export const pipelineHost: PipelineModuleHost = {
       return {
         status: "skipped",
         phaseId: "sticker",
-        phaseTitle: "Sticker",
+        phaseTitle: "Sticker selection",
         summary: `Chance ${roll.chance}% not hit`,
       };
     }
@@ -68,7 +68,7 @@ export const pipelineHost: PipelineModuleHost = {
       return {
         status: "skipped",
         phaseId: "sticker",
-        phaseTitle: "Sticker",
+        phaseTitle: "Sticker selection",
         summary: "Sticker catalog not available",
       };
     }
@@ -107,7 +107,7 @@ export const pipelineHost: PipelineModuleHost = {
       return {
         status: "ok",
         phaseId: "sticker",
-        phaseTitle: "Sticker",
+        phaseTitle: "Sticker selection",
         summary: `Sent ${stickerEmoji}`,
         durationMs: performance.now() - started,
       };

@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import type { ChatCompletionCreateParamsNonStreaming } from "openai/resources/chat/completions";
 import {
   auxiliaryChatComplete,
   mergeAssistantReasoning,
@@ -109,7 +110,7 @@ async function liveChatComplete(
     max_completion_tokens: Math.max(1024, budget),
     temperature: 0.2,
     ...providerChatExtensions(providerSettings, true),
-  });
+  } as ChatCompletionCreateParamsNonStreaming);
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);
   const merged = mergeAssistantReasoning(content, reasoning);

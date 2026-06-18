@@ -73,6 +73,11 @@ export async function deliverPipelineReply(
       stickerFileId,
       Object.keys(stickerExtra).length > 0 ? stickerExtra : undefined,
     );
+    report?.okPhase(
+      "sticker-sent",
+      "Sticker",
+      stickerEmoji ? `Sent ${stickerEmoji}` : "Sent",
+    );
   }
 
   recordReply(false);
@@ -95,7 +100,6 @@ export async function deliverPipelineReply(
     [
       chunkCount > 0 ? `${chunkCount} text chunk(s)` : null,
       replyChars > 0 ? `${replyChars} chars` : null,
-      stickerEmoji ? `sticker ${stickerEmoji}` : null,
     ]
       .filter(Boolean)
       .join(" · ") || "Sticker only",
@@ -106,7 +110,6 @@ export async function deliverPipelineReply(
     chunks: chunkCount,
     sticker: stickerEmoji ?? undefined,
     thinkingSent,
-    awaitMemory: true,
   });
 }
 

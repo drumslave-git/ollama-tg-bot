@@ -5,7 +5,6 @@ import type {
 import {
   extractTelegramReply,
   getMainReplyResponseFormat,
-  MAIN_REPLY_RESPONSE_FORMAT,
 } from "./response-format.js";
 
 export const completionsHost: PipelineModuleHost = {
@@ -14,6 +13,7 @@ export const completionsHost: PipelineModuleHost = {
   phase: "reply",
   order: 0,
   alwaysOn: true,
+  debugTitle: "Main reply",
 
   shouldRun(state) {
     return Boolean(state.shouldReply);
@@ -40,31 +40,6 @@ export const completionsHost: PipelineModuleHost = {
     state.storedHistoryCount = built.storedHistoryCount;
 
     const report = services.getReport(state.turnId);
-    const injectedChars = (built.historyMessages as { content?: string }[]).reduce(
-      (n, m) => n + String(m.content ?? "").length,
-      0,
-    );
-    report?.okPhase(
-      "context",
-      "Chat context",
-      `${built.historyMessages.length} history messages · ${injectedChars} chars injected`,
-      undefined,
-      {
-        type: "fields",
-        fields: [
-          {
-            label: "Stored messages",
-            value: String(built.storedHistoryCount),
-          },
-          {
-            label: "Injected messages",
-            value: String(built.historyMessages.length),
-          },
-          { label: "Injected chars", value: String(injectedChars) },
-          { label: "Latest turn chars", value: String(built.latestContent.length) },
-        ],
-      },
-    );
 
     services.logging.logEvent("llm_reply_started", {
       turnId: state.turnId,
@@ -90,30 +65,20 @@ export const completionsHost: PipelineModuleHost = {
     const { raw: modelOutput, thinking } = await complete(built.messages);
     state.thinking = thinking;
 
-    if (thinkingEnabled) {
-      if (thinking) {
-        report?.okPhase(
-          "reasoning",
-          "Model reasoning",
-          `${thinking.length} chars returned`,
-        );
-      } else {
-        report?.skipPhase(
-          "reasoning",
-          "Model reasoning",
-          "No separate reasoning field in API response",
-        );
-      }
-    }
-
     const replyBody = extractTelegramReply(modelOutput);
     state.replyBody = replyBody;
 
     if (!replyBody.trim()) {
+      report?.failPhase(
+        "completions",
+        "Main reply",
+        "Model response had no reply content",
+        performance.now() - started,
+      );
       return {
         status: "failed",
         phaseId: "completions",
-        phaseTitle: "Completions",
+        phaseTitle: "Main reply",
         summary: "Model response had no reply content",
         durationMs: performance.now() - started,
       };
@@ -122,8 +87,8 @@ export const completionsHost: PipelineModuleHost = {
     return {
       status: "ok",
       phaseId: "completions",
-      phaseTitle: "Completions",
-      summary: `${replyBody.length} chars`,
+      phaseTitle: "Main reply",
+      summary: `${replyBody.length} chars · ${built.historyMessages.length} history messages`,
       durationMs: performance.now() - started,
     };
   },

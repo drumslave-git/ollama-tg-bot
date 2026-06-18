@@ -48,3 +48,13 @@ export {
   type MemoryPersistReport,
 } from "./persist.js";
 export { pipelineHosts } from "./pipeline.js";
+export {
+  DEFAULT_MEMORY_MODULE_CONFIG,
+  validateMemoryModuleConfig,
+  type MemoryModuleConfig,
+} from "./module-config.js";
+export {
+  createMemoryQueueScheduler,
+  type MemoryJobStatus,
+  type MemoryQueueSchedulerDeps,
+} from "./queue-scheduler.js";

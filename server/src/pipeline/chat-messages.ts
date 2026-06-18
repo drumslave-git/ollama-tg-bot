@@ -18,7 +18,7 @@ import {
   type ParticipantFacts,
 } from "./adapters/system-prompt.js";
 import type { MoodValues } from "../mood/index.js";
-import { extractParticipantUserIds } from "@llm-tg-bot/modules-history";
+import { extractParticipantUserIds, filterInjectableHistory } from "@llm-tg-bot/modules-history";
 import { isReplyThreadContext } from "../bot/replies/replies.js";
 import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 
@@ -210,12 +210,13 @@ export function buildChatMessages(
   });
 
   const storedHistory = getHistory(chatKey);
+  const injectableHistory = filterInjectableHistory(storedHistory);
   const historySource =
     isGroupChat &&
     latestTurn.speakerTag &&
     storedHistory.at(-1)?.role === latestTurn.speakerTag
-      ? storedHistory.slice(0, -1)
-      : storedHistory;
+      ? injectableHistory.slice(0, -1)
+      : injectableHistory;
   const history = historyToChatMessages(historySource);
   const latest = buildLatestTurnMessage({
     ...latestTurn,
@@ -229,7 +230,7 @@ export function buildChatMessages(
     systemContent: system,
     historyMessages: history,
     latestContent: latest,
-    storedHistoryCount: storedHistory.length,
+    storedHistoryCount: filterInjectableHistory(storedHistory).length,
     messages: [{ role: "system", content: system }, ...history, latestMessage],
   };
 }

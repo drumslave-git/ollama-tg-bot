@@ -1,3 +1,3 @@
-import { visionPreprocessHost } from "./pipeline.js";
+import { visionReplyHost } from "./pipeline.js";
 
-export const pipelineHosts = [visionPreprocessHost];
+export const pipelineHosts = [visionReplyHost];

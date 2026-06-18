@@ -15,7 +15,7 @@ import { replaceGroupFacts } from "../../db/memory/group.js";
 import { replaceUserFacts } from "../../db/memory/user.js";
 import { getSettings } from "../../db/index.js";
 import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
-import { appendMessage } from "../../db/history/index.js";
+import { appendMessage, mapHistoryBase64Media } from "../../db/history/index.js";
 import { isOwner } from "../../bot/owner/owner.js";
 import { enrichTextWithUserMentions } from "../../bot/messages/mentions.js";
 import { currentSpeakerFromUser } from "../../bot/messages/speaker.js";
@@ -87,6 +87,8 @@ export function createPipelineCallbacks(): PipelineHostCallbacks {
     recordExchange,
     appendMessage: (convKey, role, content) =>
       appendMessage(convKey, role, content),
+    mapHistoryBase64Media: (convKey, isBase64Media, replace) =>
+      mapHistoryBase64Media(convKey, isBase64Media, replace),
     enrichTextWithUserMentions: (text, message, options) =>
       enrichTextWithUserMentions(text, message as never, options),
     formatReplyContext: formatReplyContextFromTelegram,

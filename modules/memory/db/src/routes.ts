@@ -32,6 +32,11 @@ function normalizeMemoryContent(value: unknown): string | null {
   return trimmed.length >= MIN_FACT_LENGTH ? trimmed : null;
 }
 
+import {
+  getMemoryModuleConfig,
+  updateMemoryModuleConfig,
+} from "./module-config.js";
+
 export const memoriesRouter = Router();
 memoriesRouter.get("/user", (_req, res) => {
   res.json({ facts: listAllUserFacts() });
@@ -143,6 +148,24 @@ memoriesRouter.delete("/general/:id", (req, res) => {
 memoriesRouter.delete("/general", (_req, res) => {
   clearAllGeneralFacts();
   res.json({ ok: true });
+});
+
+memoriesRouter.get("/config", (_req, res) => {
+  res.json(getMemoryModuleConfig());
+});
+
+memoriesRouter.patch("/config", (req, res) => {
+  try {
+    const body = req.body as Partial<{ extractionDebounceSec: number }>;
+    const updated = updateMemoryModuleConfig({
+      extractionDebounceSec: body.extractionDebounceSec,
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Invalid memory config",
+    });
+  }
 });
 
 export function createMemoriesRouter(): Router {

@@ -5,6 +5,9 @@
     "paths": {
       "@llm-tg-bot/modules-utils": [
         "../../utils/server/src/index.ts"
+      ],
+      "@llm-tg-bot/modules-history": [
+        "../../history/server/src/index.ts"
       ]
     }
   },

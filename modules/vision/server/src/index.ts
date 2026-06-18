@@ -34,5 +34,15 @@ export {
   type VisionDescribeInput,
   type VisionDescribeOutput,
 } from "./describe.js";
-export { visionPreprocessHost } from "./pipeline.js";
+export { visionReplyHost, visionPreprocessHost } from "./pipeline.js";
 export { pipelineHosts } from "./pipeline-hosts.js";
+export {
+  DEFAULT_VISION_MODULE_CONFIG,
+  validateVisionModuleConfig,
+  type VisionModuleConfig,
+} from "./module-config.js";
+export {
+  createVisionQueueScheduler,
+  type VisionJobStatus,
+  type VisionQueueSchedulerDeps,
+} from "./queue-scheduler.js";

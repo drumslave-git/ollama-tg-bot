@@ -1,6 +1,7 @@
 import { getBot, getBotUsername } from "../bot/index.js";
 import { config, getVramAvailableGb } from "../config/index.js";
-import { getSettings, getStats } from "../db/index.js";
+import { getStats, getSettings } from "../db/index.js";
+import { getPipelineRuntimeStatus } from "../runtime/pipeline-status.js";
 import { listRecentErrors } from "../db/debug/error-log.js";
 import { getMoodStateView } from "../db/mood/index.js";
 import {
@@ -30,6 +31,7 @@ export function buildStatsPayload() {
 
   return {
     ...stats,
+    ...getPipelineRuntimeStatus(),
     botUsername: getBotUsername() || null,
     botRunning,
     uptimeSeconds: Math.floor(

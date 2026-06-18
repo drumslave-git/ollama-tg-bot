@@ -194,6 +194,11 @@ export interface MessageReportRecord {
         trigger: "addressed" | "random" | "image";
         triggerLabel: string;
         addressSource?: string;
+      }
+    | {
+        decision: "queued";
+        position: number;
+        queueLabel: string;
       };
   phases: ReportPhase[];
   result: {
@@ -260,6 +265,9 @@ export interface Stats {
   visionRequests: number;
   errors: number;
   lastActivityAt: string | null;
+  queueSize: number;
+  memoryJobStatus: "idle" | "scheduled" | "running";
+  visionJobStatus: "idle" | "scheduled" | "running";
   botUsername: string | null;
   botRunning: boolean;
   uptimeSeconds: number;
@@ -577,6 +585,20 @@ export const api = {
   clearGeneralMemories: () =>
     request<{ ok: boolean }>("/api/memories/general", {
       method: "DELETE",
+    }),
+  getMemoryModuleConfig: () =>
+    request<{ extractionDebounceSec: number }>("/api/memories/config"),
+  updateMemoryModuleConfig: (patch: { extractionDebounceSec: number }) =>
+    request<{ extractionDebounceSec: number }>("/api/memories/config", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  getVisionModuleConfig: () =>
+    request<{ backfillDebounceSec: number }>("/api/vision/config"),
+  updateVisionModuleConfig: (patch: { backfillDebounceSec: number }) =>
+    request<{ backfillDebounceSec: number }>("/api/vision/config", {
+      method: "PATCH",
+      body: JSON.stringify(patch),
     }),
   llmHealth: async () => {
     await request<{ ok: boolean }>("/api/settings/test-llm", {

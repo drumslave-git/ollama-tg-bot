@@ -1,27 +1,21 @@
 import type { Context } from "grammy";
 import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
 import { getMaxDebugTraceId } from "../../db/debug/traces.js";
-import { beginMessageReport, getMessageReport } from "../../debug/message-report.js";
+import { beginMessageReport } from "../../debug/message-report.js";
 import { extractText } from "../messages/message-content.js";
 import { summarizeMessageContent } from "../replies/replies.js";
 import { isSlashCommandMessage } from "../commands/slash-command.js";
 import { messageHasVisionMedia } from "@llm-tg-bot/modules-vision";
 import { mediaKindForMessage } from "@llm-tg-bot/modules-history";
-import { recordMessageReceived } from "../../db/index.js";
 import { isMaintenanceBlocked } from "../maintenance/maintenance.js";
-import { startTypingForMessage } from "../replies/typing.js";
 import {
   createInitialPipelineState,
   createPipelineServices,
-  runMessagePipeline,
-  runPipelinePhaseBackground,
 } from "../../pipeline/index.js";
 import { buildTelegramContext } from "../../pipeline/telegram.js";
-import {
-  deliverEarlyReply,
-  deliverPipelineError,
-  deliverPipelineReply,
-} from "../../pipeline/deliver.js";
+import { runIntakePipeline } from "../../pipeline/queue-runner.js";
+import { deliverEarlyReply } from "../../pipeline/deliver.js";
+import { enqueueMessage } from "../../runtime/message-queue.js";
 
 let nextTurnId: number | null = null;
 
@@ -122,80 +116,32 @@ export async function messageHandler(ctx: Context, botToken: string) {
       telegram: buildTelegramContext(ctx, botToken),
     });
 
-    let endTyping: (() => void) | undefined;
-    try {
-      const result = await runMessagePipeline(state, services, {
-        onReplyConfirmed: () => {
-          endTyping = startTypingForMessage(ctx) ?? undefined;
-        },
-      });
+    const intake = await runIntakePipeline(state, services);
 
-      if (result.earlyReply) {
-        await deliverEarlyReply(ctx, result.earlyReply, turnId);
-        return;
-      }
-
-      if (result.ignored) {
-        logEvent("message_ignored", {
-          ...msgLog,
-          reason: result.ignoreReason ?? "not_addressed",
-        });
-        report?.finishIgnored(
-          result.ignoreReason ?? "not_addressed",
-          result.addressSource,
-        );
-        return;
-      }
-
-      const trigger = result.replyTrigger ?? "addressed";
-      logEvent("message_accepted", { ...msgLog, trigger });
-      report?.setAccepted({
-        trigger,
-        addressSource: result.addressSource,
-      });
-      if (state.convKey) {
-        report?.setConvKey(state.convKey);
-      }
-
-      recordMessageReceived();
-
-      const deliveryChatId = state.chatId ?? chatId;
-      if (!deliveryChatId) {
-        report?.finalizeError("Missing chat id");
-        return;
-      }
-
-      logEvent("chat_turn_started", {
-        turnId,
-        chatId: deliveryChatId,
-        userId: state.userId,
-        groupId: state.groupChatId,
-        convKey: state.convKey,
-        inGroup: state.inGroup,
-      });
-
-      await deliverPipelineReply(ctx, result.delivery ?? {}, {
-        turnId,
-        chatId: deliveryChatId,
-        inGroup: Boolean(state.inGroup),
-        isForum: state.isForum,
-        messageThreadId: state.messageThreadId,
-      });
-
-      runPipelinePhaseBackground(state, services);
-    } catch (err) {
-      logEventError("handler_error", err, msgLog);
-      getMessageReport(turnId)?.finalizeError(
-        err instanceof Error ? err.message : String(err),
-      );
-      await deliverPipelineError(ctx, err, {
-        turnId,
-        chatId: ctx.chat?.id,
-        messageThreadId: ctx.message?.message_thread_id,
-      });
-    } finally {
-      endTyping?.();
+    if (intake.earlyReply) {
+      await deliverEarlyReply(ctx, intake.earlyReply, turnId);
+      return;
     }
+
+    if (!intake.shouldReply) {
+      logEvent("message_ignored", {
+        ...msgLog,
+        reason: intake.ignoreReason ?? "not_addressed",
+      });
+      report?.finishIgnored(
+        intake.ignoreReason ?? "not_addressed",
+        intake.addressSource,
+      );
+      return;
+    }
+
+    enqueueMessage({
+      turnId,
+      ctx,
+      botToken,
+      state,
+      services,
+    });
   } catch (err) {
     logEventError("handler_error", err, msgLog);
     report?.finalizeError(err instanceof Error ? err.message : String(err));

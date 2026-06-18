@@ -19,14 +19,12 @@ import { getResolvedSettings } from "../settings/runtime.js";
 import {
   normalizeTokenBudget,
   validateSettingsFields,
-  getHistoryLimits,
 } from "../settings/limits.js";
 import {
   configureModuleDatabases,
   initModuleDatabases,
 } from "../runtime/modules.js";
-import { buildMoodPayload } from "../dashboard/payloads.js";
-import { compressHistoryForChat } from "../debug/context-compress.js";
+import { buildModuleDbHost } from "../runtime/module-db-host.js";
 
 export interface Settings {
   model: string;
@@ -198,18 +196,7 @@ export async function initDatabase(): Promise<void> {
   }
 
   await initModuleDatabases(db);
-  configureModuleDatabases({
-    getSettings: () => getSettings() as unknown as Record<string, unknown>,
-    updateSettings: (partial) =>
-      updateSettings(partial as Partial<Settings>) as unknown as Record<
-        string,
-        unknown
-      >,
-    buildMoodPayload: () => buildMoodPayload(),
-    getHistoryLimits: () => getHistoryLimits(getResolvedSettings()),
-    compressHistoryChat: (chatKey, options) =>
-      compressHistoryForChat(chatKey, options),
-  });
+  configureModuleDatabases(buildModuleDbHost());
 
   bindErrorLogDatabase(db);
   bindDebugTracesDatabase(db);

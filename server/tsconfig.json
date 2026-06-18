@@ -45,6 +45,9 @@
       "@llm-tg-bot/modules-vision": [
         "../modules/vision/server/src/index.ts"
       ],
+      "@llm-tg-bot/modules-vision-db": [
+        "../modules/vision/db/src/index.ts"
+      ],
       "@llm-tg-bot/modules-completions": [
         "../modules/completions/server/src/index.ts"
       ]

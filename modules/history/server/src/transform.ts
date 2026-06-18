@@ -1,6 +1,7 @@
 import {
   parseUserRole,
   stripAssistantHistoryEnvelope,
+  filterInjectableHistory,
 } from "./format.js";
 import {
   ASSISTANT_ROLE,
@@ -20,7 +21,10 @@ export function conversationKey(chatId: number): string {
 }
 
 export function historyTotalChars(history: StoredMessage[]): number {
-  return history.reduce((n, m) => n + m.content.length, 0);
+  return filterInjectableHistory(history).reduce(
+    (n, m) => n + m.content.length,
+    0,
+  );
 }
 
 export function historyTotalTokens(history: StoredMessage[]): number {
@@ -31,7 +35,7 @@ export function historyTotalTokens(history: StoredMessage[]): number {
 export function historyToChatMessages(
   history: StoredMessage[],
 ): HistoryChatMessage[] {
-  return history.map((m) => {
+  return filterInjectableHistory(history).map((m) => {
     const role = m.role === ASSISTANT_ROLE ? "assistant" : "user";
     const isAssistant = role === "assistant";
     const parsedUser = parseUserRole(m.role);

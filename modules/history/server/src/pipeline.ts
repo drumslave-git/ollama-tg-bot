@@ -5,6 +5,7 @@ import type {
 } from "@llm-tg-bot/modules-registry";
 import { stripCurrentBotAddressing } from "@llm-tg-bot/modules-addressing-detection";
 import {
+  buildBase64MediaHistoryContent,
   buildMediaHistoryContent,
   buildPassiveHistoryContent,
   buildTextHistoryContent,
@@ -40,7 +41,7 @@ export const turnSetupHost: PipelineModuleHost = {
     state.messageThreadId = (state.telegram.message as Message | undefined)
       ?.message_thread_id;
     state.isForum = state.telegram.chat?.is_forum === true;
-    state.skipUserHistory = state.inGroup;
+    state.skipUserHistory = true;
 
     const rawText = state.rawText ?? "";
     const promptText = stripCurrentBotAddressing(rawText) || rawText;
@@ -84,15 +85,15 @@ export const turnSetupHost: PipelineModuleHost = {
   },
 };
 
-export const passiveRecordHost: PipelineModuleHost = {
+export const intakeHistoryHost: PipelineModuleHost = {
   id: "history",
-  stepId: "history-passive",
+  stepId: "history-intake",
   phase: "preprocess",
   order: 10,
   alwaysOn: true,
 
   shouldRun(state) {
-    return Boolean(state.inGroup && state.convKey && state.userRole);
+    return Boolean(state.convKey && state.userRole);
   },
 
   async run(state, services): Promise<PipelineStepResult> {
@@ -102,9 +103,9 @@ export const passiveRecordHost: PipelineModuleHost = {
     if (!msg || !convKey || !role) {
       return {
         status: "skipped",
-        phaseId: "history-passive",
-        phaseTitle: "Passive history",
-        summary: "Not a group message",
+        phaseId: "history-intake",
+        phaseTitle: "History intake",
+        summary: "Missing conversation or role",
       };
     }
 
@@ -129,6 +130,8 @@ export const passiveRecordHost: PipelineModuleHost = {
         }) ?? rawText)
       : "";
 
+    const parts: string[] = [];
+
     const textContent = buildPassiveHistoryContent(
       msg,
       from as never,
@@ -137,6 +140,7 @@ export const passiveRecordHost: PipelineModuleHost = {
     );
     if (textContent) {
       cb.appendMessage?.(convKey, role, textContent);
+      parts.push("text");
       services.logging.logEvent("passive_history_stored", {
         ...msgLog,
         kind: "text",
@@ -152,42 +156,40 @@ export const passiveRecordHost: PipelineModuleHost = {
       if (loaded?.unavailableText) {
         services.logging.logEvent("vision_unavailable", msgLog);
       } else if (loaded && loaded.images.length > 0) {
+        const image = loaded.images[0] as { base64: string; mimeHint: string };
         const sticker = loaded.sourceSticker ?? msg.sticker;
-        const visionDescription = await cb.describeVisionImages?.(
-          loaded.images,
-          msgLog,
-          loaded.visionHint,
+        const mediaHistory = buildBase64MediaHistoryContent(
+          from as never,
+          msg,
+          mediaKind,
+          image.base64,
+          image.mimeHint,
+          botId,
+          cb.stickerPackEmoji?.(sticker) ?? null,
         );
-        if (visionDescription) {
-          const mediaHistory = buildMediaHistoryContent(
-            from as never,
-            msg,
+        if (mediaHistory) {
+          cb.appendMessage?.(convKey, role, mediaHistory);
+          parts.push("media");
+          services.logging.logEvent("passive_history_stored", {
+            ...msgLog,
+            kind: "media",
             mediaKind,
-            visionDescription,
-            botId,
-            cb.stickerPackEmoji?.(sticker) ?? null,
-          );
-          if (mediaHistory) {
-            cb.appendMessage?.(convKey, role, mediaHistory);
-            services.logging.logEvent("vision_stored", {
-              ...msgLog,
-              mediaKind,
-              chars: visionDescription.length,
-              passive: true,
-            });
-          }
+          });
         }
       }
     }
 
     return {
       status: "ok",
-      phaseId: "history-passive",
-      phaseTitle: "Passive history",
-      summary: textContent ? "Stored" : "Media/text processed",
+      phaseId: "history-intake",
+      phaseTitle: "History intake",
+      summary: parts.length > 0 ? `Stored ${parts.join(" + ")}` : "Nothing to store",
     };
   },
 };
+
+/** @deprecated Use intakeHistoryHost — kept as alias for tests. */
+export const passiveRecordHost = intakeHistoryHost;
 
 export const historyInjectHost: PipelineModuleHost = {
   id: "history",
@@ -218,7 +220,7 @@ export const historyInjectHost: PipelineModuleHost = {
       status: "ok",
       phaseId: "history",
       phaseTitle: "History",
-      summary: "History injected into context",
+      summary: "Context ready",
       durationMs: performance.now() - started,
     };
   },

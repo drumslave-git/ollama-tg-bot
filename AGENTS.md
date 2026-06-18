@@ -59,7 +59,7 @@ Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, r
 | `@llm-tg-bot/modules-search-decision` | Whether a message needs web search + query extraction (LLM side pass) |
 | `@llm-tg-bot/modules-vision` | Telegram media download, sticker previews, and vision-model image description |
 | `@llm-tg-bot/modules-completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` bot command |
-| `@llm-tg-bot/modules-history` | Turn setup, passive history, history inject/record (pipeline hosts); LLM compression via `compressHistoryChat()` |
+| `@llm-tg-bot/modules-history` | Turn setup, history intake (all messages), history inject/record (queue); inject/compress skip pending base64 media; LLM compression via `compressHistoryChat()` |
 | `@llm-tg-bot/modules-mood-evaluation` | Personality + mood injection; `/mood` bot command |
 
 **Contract** — every module defines typed `input`, `config`, and `output`, and exposes a `run(input, config)` function (plus a `ModuleDefinition` object with `id`):
@@ -127,17 +127,19 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 ### Message flow
 
 1. **`server/src/bot/handlers/index.ts`** — Register **commands before** the catch-all `bot.on("message")`. Module commands via `registerModuleCommands()` from `server/src/runtime/module-hosts.ts`.
-2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then `runMessagePipeline()`; delivery via `server/src/pipeline/deliver.ts`.
-3. **`server/src/pipeline/runner.ts`** — Runs phased module hosts (`preprocess` → `gate` → `not-addressed` → `pre-reply` → `reply` → `post-reply` → `background`). Server does not hard-code which modules run — hosts are discovered from manifests.
-4. **`server/src/runtime/module-hosts.ts`** — Loads `pipelineHosts` and optional `botHost` from each module package at startup.
-5. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
-6. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
+2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then **intake pipeline** (`runIntakePipeline` in `server/src/pipeline/queue-runner.ts`). Addressed messages are **enqueued** (`server/src/runtime/message-queue.ts`) and processed **one at a time**.
+3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
+4. **Queue processing (addressed only)** — synchronous order: vision (media) → links/search (text) → system + personality → history inject → mood → main reply → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`).
+5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory extraction from recent history; vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
+6. **`server/src/runtime/module-hosts.ts`** — Loads `pipelineHosts` from manifests at startup. Queue runner invokes hosts by `stepId` in fixed order (not full phase runner).
+7. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
+8. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
 
 ### LLM
 
 - Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`; optional `showModel` / catalog fetch for context-budget metadata)
 - OpenAI-compatible parsing: `server/src/llm/openai-compat.ts` (`content` vs `reasoning` / `reasoning_content`, request `options`)
-- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as the bot **receives** a message (Socket.IO `dashboard:debug` pushes list + detail updates); routing starts as **pending** until accept/ignore; a 2s heartbeat re-persists in-flight traces for live duration; phase updates stream while the turn runs; in-flight LLM calls add a **waiting** phase (`Waiting for LLM · {model} · up to {timeout}s`) until the provider responds or times out; LLM I/O recorded when a trace session is active; memory extraction shows one **Memory extraction** row (runs after reply on addressed turns; passive extraction only on ignored turns); pipeline hosts may omit expected no-op steps from the trace via `shouldRun: { run: false, omitFromReport: true }`
+- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as the bot **receives** a message; addressed messages show **queued** routing with queue position until processing starts; phase updates stream while the turn runs; main reply uses a single **Main reply** LLM phase (no separate Chat context / Completions / Model reasoning rows); sticker **selection** runs before delivery, **Sticker** sent phase logs after the Telegram sticker; in-flight LLM calls add a **waiting** phase until the provider responds; dashboard sidebar shows queue size + memory/vision job status via `dashboard:stats`
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
@@ -147,7 +149,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 
 ### Memory
 
-Three layers, extracted in a **background pass** by the memory module's pipeline host (`modules/memory/server/`), not in the main reply:
+Three layers, extracted in a **debounced background job** (`modules/memory/server/src/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) from recent history when the message queue has been idle — not per-message in the reply path:
 
 - Per-user, per-group, general — see `server/src/db/*-memory.ts`
 - User/group memories are merged into one entity document during persistence.
@@ -227,7 +229,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Area | Files |
 |------|-------|
 | Bot entry | `server/src/bot/index.ts`, `handlers/index.ts`, `handlers/message.ts` |
-| Pipeline | `server/src/pipeline/runner.ts`, `services.ts`, `deliver.ts`, `context.ts`, `runtime/module-hosts.ts` |
+| Pipeline | `server/src/pipeline/queue-runner.ts`, `deliver.ts`, `context.ts`, `server/src/runtime/message-queue.ts`, `server/src/runtime/background-jobs.ts`, `runtime/module-hosts.ts` |
 | Address detection | `modules/addressing-detection/server/` (pipeline hosts + `bot-identity.ts`) |
 | Maintenance | `server/src/bot/maintenance/maintenance.ts`, `owner/owner.ts` |
 | Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
@@ -236,7 +238,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Completions | `modules/completions/server/` (system prompt + LLM reply pipeline hosts, `/explain` bot host, reply JSON schema); host adapter `server/src/pipeline/adapters/system-prompt.ts` |
 | Search decision | `modules/search-decision/server/` |
 | Web search | `modules/web-search/server/`; Tavily adapter in pipeline callbacks |
-| Memory | `modules/memory/server/` (pipeline hosts); extract logic in module |
+| Memory | `modules/memory/server/` (extract/merge logic + `queue-scheduler.ts`); wired in `server/src/runtime/queue-schedulers.ts` |
 | Link fetch | `modules/link-fetch/server/` |
 | Sticker selection | `modules/sticker-selection/server/` |
 | Mood evaluation | `modules/mood-evaluation/server/` (personality + mood pipeline hosts, `/mood` bot host) |

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { GeneralMemoriesPanel } from "./GeneralMemoriesPanel";
 import { MemoriesPanel, type MemoryKind } from "./MemoriesPanel";
+import { MemoryJobConfigSection } from "./MemoryJobConfigSection";
 
 type TabKind = MemoryKind | "general";
 
@@ -42,6 +43,7 @@ export function MemoriesPage() {
           General
         </button>
       </div>
+      <MemoryJobConfigSection apiOnline={apiOnline === true} />
       {kind === "general" ? (
         <GeneralMemoriesPanel apiOnline={apiOnline === true} embedded />
       ) : (

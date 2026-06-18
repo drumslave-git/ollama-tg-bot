@@ -1,13 +1,13 @@
 import {
   turnSetupHost,
-  passiveRecordHost,
+  intakeHistoryHost,
   historyInjectHost,
   historyRecordHost,
 } from "./pipeline.js";
 
 export const pipelineHosts = [
   turnSetupHost,
-  passiveRecordHost,
+  intakeHistoryHost,
   historyInjectHost,
   historyRecordHost,
 ];

@@ -34,6 +34,15 @@ export function configureHistoryAccess(getLimits: () => {
   readHistoryMaxReplyChars = () => getLimits().historyMaxReplyChars;
 }
 
+export function listHistoryChatKeys(limit = 100): string[] {
+  const rows = db
+    .prepare(
+      `SELECT chat_key FROM chat_history ORDER BY updated_at DESC LIMIT ?`,
+    )
+    .all(limit) as { chat_key: string }[];
+  return rows.map((row) => row.chat_key);
+}
+
 export function getHistory(chatKey: string): StoredMessage[] {
   const row = db
     .prepare(`SELECT messages FROM chat_history WHERE chat_key = ?`)
@@ -129,4 +138,45 @@ export function appendAssistantMessage(
     ASSISTANT_ROLE,
     `[assistant said]: ${assistantText.trim()}`,
   );
+}
+
+/** Replace one history row by index (used after vision backfill). */
+export function replaceHistoryMessageAt(
+  chatKey: string,
+  index: number,
+  content: string,
+): boolean {
+  const trimmed = content.trim();
+  if (!trimmed) return false;
+
+  const messages = getHistory(chatKey);
+  if (index < 0 || index >= messages.length) return false;
+
+  messages[index] = { ...messages[index]!, content: trimmed };
+  writeHistory(chatKey, messages);
+  return true;
+}
+
+/** Scan history and replace base64 media lines using the provided mapper. */
+export function mapHistoryBase64Media(
+  chatKey: string,
+  isBase64Media: (content: string) => boolean,
+  replace: (content: string) => string | null,
+): number {
+  const messages = getHistory(chatKey);
+  let updated = 0;
+
+  for (let i = 0; i < messages.length; i++) {
+    const row = messages[i]!;
+    if (!isBase64Media(row.content)) continue;
+    const next = replace(row.content);
+    if (!next || next === row.content) continue;
+    messages[i] = { ...row, content: next };
+    updated++;
+  }
+
+  if (updated > 0) {
+    writeHistory(chatKey, messages);
+  }
+  return updated;
 }

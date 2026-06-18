@@ -109,4 +109,17 @@ describe("buildHistoryCompressionTranscript", () => {
       "[user:alice:424242]: hey\n[assistant said]: hello",
     );
   });
+
+  it("omits pending base64 media rows", () => {
+    expect(
+      buildHistoryCompressionTranscript([
+        { role: "user:alice:424242", content: "hey" },
+        {
+          role: "user:alice:424242",
+          content:
+            "[sent image]: data:image/jpeg;base64,QUJDREVGR0hJSktMTU5PQVBJRkdISUpMTU5P",
+        },
+      ]),
+    ).toBe("[user:alice:424242]: hey");
+  });
 });

@@ -89,7 +89,7 @@ describe("beginMessageReport", () => {
     expect(waitingPersist?.report.phases).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: "llm-main-reply",
+          id: "completions",
           status: "waiting",
           summary: "Waiting for LLM · test-model · up to 120s",
         }),
@@ -112,7 +112,7 @@ describe("beginMessageReport", () => {
     const donePersist = upsertMessageReport.mock.calls.at(-1)?.[0];
     expect(donePersist?.report.phases).toHaveLength(2);
     expect(donePersist?.report.phases[1]).toMatchObject({
-      id: "llm-main-reply",
+      id: "completions",
       status: "ok",
       durationMs: 1500,
     });

@@ -257,6 +257,11 @@ export interface PipelineHostCallbacks {
     role: string,
     content: string,
   ) => void;
+  mapHistoryBase64Media?: (
+    convKey: string,
+    isBase64Media: (content: string) => boolean,
+    replace: (content: string) => string | null,
+  ) => number;
   enrichTextWithUserMentions?: (
     text: string,
     message: unknown,

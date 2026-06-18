@@ -10,6 +10,10 @@ export {
   type MessagePipelineHooks,
 } from "./runner.js";
 export {
+  runIntakePipeline,
+  processQueuedTurn,
+} from "./queue-runner.js";
+export {
   deliverPipelineReply,
   deliverEarlyReply,
   deliverPipelineError,

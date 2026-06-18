@@ -3,7 +3,10 @@ import type { DataTableConfig, ModuleDbExports } from "@llm-tg-bot/modules-regis
 import { bindGeneralMemoryDatabase } from "./general-memory.js";
 import { bindGroupMemoryDatabase } from "./group-memory.js";
 import { bindUserMemoryDatabase } from "./user-memory.js";
+import { bindMemoryConfigDatabase } from "./module-config.js";
 import { createMemoriesRouter } from "./routes.js";
+
+export * from "./module-config.js";
 
 export * from "./memory-facts.js";
 export * from "./user-memory.js";
@@ -41,6 +44,7 @@ export function bindModuleDatabase(database: DatabaseSync): void {
   bindUserMemoryDatabase(database);
   bindGroupMemoryDatabase(database);
   bindGeneralMemoryDatabase(database);
+  bindMemoryConfigDatabase(database);
 }
 
 export function createModuleRouter() {

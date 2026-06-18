@@ -151,7 +151,7 @@ export function buildMediaHistoryContent(
   return `${prefix}: ${body}`;
 }
 
-/** Passive group logging — text only. Media is recorded when the bot replies (with vision). */
+/** Passive intake — text only. */
 export function buildPassiveHistoryContent(
   message: Message,
   user: User | undefined,
@@ -161,6 +161,110 @@ export function buildPassiveHistoryContent(
   const trimmed = text.trim();
   if (!trimmed) return null;
   return buildTextHistoryContent(user, message, trimmed, botId);
+}
+
+const BASE64_DATA_URI =
+  /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i;
+
+/** History line with pending vision — base64 data URI after the media prefix. */
+export function buildBase64MediaHistoryContent(
+  user: User | undefined,
+  message: Message,
+  mediaKind: MediaKind,
+  base64: string,
+  mimeHint: string,
+  botId?: number,
+  packEmoji?: string | null,
+): string | null {
+  const userTag = userRoleTag(user);
+  const raw = base64.trim();
+  if (!userTag || !raw) return null;
+
+  const replyTo = resolveReplyTargetTag(message, botId);
+  const prefix = replyTo
+    ? `[replied to ${replyTo} with ${mediaKind}]`
+    : `[sent ${mediaKind}]`;
+  const mime = mimeHint.trim() || "image/jpeg";
+  let body = `data:${mime};base64,${raw}`;
+  if (mediaKind === "sticker" && packEmoji) {
+    body = `${body}\n(sticker emoji: ${packEmoji})`;
+  }
+  return `${prefix}: ${body}`;
+}
+
+export interface ParsedBase64MediaHistory {
+  prefix: string;
+  mediaKind: MediaKind;
+  mimeHint: string;
+  base64: string;
+  packEmoji?: string;
+}
+
+/** True when history content still holds a base64 data URI awaiting vision backfill. */
+export function isBase64MediaHistoryContent(content: string): boolean {
+  return parseBase64MediaHistoryContent(content) != null;
+}
+
+/** Rows with pending base64 vision data are stored but not injected or compressed. */
+export function isInjectableHistoryMessage(message: StoredMessage): boolean {
+  return !isBase64MediaHistoryContent(message.content);
+}
+
+export function filterInjectableHistory(
+  history: StoredMessage[],
+): StoredMessage[] {
+  return history.filter(isInjectableHistoryMessage);
+}
+
+export function parseBase64MediaHistoryContent(
+  content: string,
+): ParsedBase64MediaHistory | null {
+  const trimmed = content.trim();
+  const colon = trimmed.indexOf(": ");
+  if (colon < 0) return null;
+
+  const prefix = trimmed.slice(0, colon).trim();
+  if (!prefix.startsWith("[sent ") && !prefix.startsWith("[replied")) {
+    return null;
+  }
+
+  const rest = trimmed.slice(colon + 2).trim();
+  const lines = rest.split("\n");
+  const uriMatch = BASE64_DATA_URI.exec(lines[0]?.trim() ?? "");
+  if (!uriMatch) return null;
+
+  const mediaKind: MediaKind = prefix.includes("sticker")
+    ? "sticker"
+    : "image";
+  const emojiLine = lines.find((line) =>
+    line.trim().startsWith("(sticker emoji:"),
+  );
+  const packEmoji = emojiLine
+    ? emojiLine.replace(/^\(sticker emoji:\s*/i, "").replace(/\)\s*$/, "")
+    : undefined;
+
+  return {
+    prefix,
+    mediaKind,
+    mimeHint: uriMatch[1]!,
+    base64: uriMatch[2]!,
+    packEmoji: packEmoji || undefined,
+  };
+}
+
+/** Replace a base64 media line with a vision description, keeping the prefix. */
+export function replaceBase64WithVisionDescription(
+  content: string,
+  visionDescription: string,
+): string | null {
+  const parsed = parseBase64MediaHistoryContent(content);
+  if (!parsed || !visionDescription.trim()) return null;
+
+  let body = visionDescription.trim();
+  if (parsed.mediaKind === "sticker" && parsed.packEmoji) {
+    body = `${body}. it represents emoji ${parsed.packEmoji}`;
+  }
+  return `${parsed.prefix}: ${body}`;
 }
 
 /** One stored row as a tagged line for compression or debug display. */
@@ -189,7 +293,11 @@ export function formatStoredMessageLine(message: StoredMessage): string {
 export function buildHistoryCompressionTranscript(
   history: StoredMessage[],
 ): string {
-  return history.map(formatStoredMessageLine).filter(Boolean).join("\n");
+  return history
+    .filter((message) => !isBase64MediaHistoryContent(message.content))
+    .map(formatStoredMessageLine)
+    .filter(Boolean)
+    .join("\n");
 }
 
 function sanitizeTagPart(value: string): string {

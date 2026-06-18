@@ -25,6 +25,11 @@ export const pipelineHost: PipelineModuleHost = {
   phase: "pre-reply",
   order: 20,
 
+  shouldRun(state) {
+    const body = (state.latestBody ?? "").trim();
+    return Boolean(body) && body !== "(non-text message)";
+  },
+
   async run(state, services): Promise<PipelineStepResult> {
     const started = performance.now();
     const result = await runLinkFetch(

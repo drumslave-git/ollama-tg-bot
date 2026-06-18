@@ -98,6 +98,41 @@ export function AppLayout() {
                   ? "off"
                   : "—"}
             </span>
+            <span className="badge">
+              Queue {stats?.queueSize ?? "—"}
+            </span>
+            <span
+              className={`badge ${
+                stats?.memoryJobStatus === "running"
+                  ? "ok"
+                  : stats?.memoryJobStatus === "scheduled"
+                    ? "warn"
+                    : ""
+              }`}
+            >
+              Memory{" "}
+              {stats?.memoryJobStatus === "running"
+                ? "extracting"
+                : stats?.memoryJobStatus === "scheduled"
+                  ? "scheduled"
+                  : "idle"}
+            </span>
+            <span
+              className={`badge ${
+                stats?.visionJobStatus === "running"
+                  ? "ok"
+                  : stats?.visionJobStatus === "scheduled"
+                    ? "warn"
+                    : ""
+              }`}
+            >
+              Vision{" "}
+              {stats?.visionJobStatus === "running"
+                ? "backfill"
+                : stats?.visionJobStatus === "scheduled"
+                  ? "scheduled"
+                  : "idle"}
+            </span>
           </div>
         </div>
       </aside>

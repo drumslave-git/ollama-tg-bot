@@ -75,6 +75,11 @@ export interface MessageReportRecord {
         trigger: "addressed" | "random" | "image";
         triggerLabel: string;
         addressSource?: string;
+      }
+    | {
+        decision: "queued";
+        position: number;
+        queueLabel: string;
       };
   phases: ReportPhase[];
   result: {

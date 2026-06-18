@@ -41,6 +41,7 @@ const TRIGGER_LABELS: Record<string, string> = {
 };
 
 function llmPhaseId(label: string): string {
+  if (label === "main reply") return "completions";
   return `llm-${label.replace(/\s+/g, "-")}`;
 }
 
@@ -117,6 +118,11 @@ export class MessageReportSession {
         trigger: "addressed" | "random" | "image";
         triggerLabel: string;
         addressSource?: string;
+      }
+    | {
+        decision: "queued";
+        position: number;
+        queueLabel: string;
       }
     | null = null;
   private phases: ReportPhase[] = [];
@@ -200,6 +206,32 @@ export class MessageReportSession {
         : undefined,
     };
     this.persist();
+  }
+
+  setQueued(position: number): void {
+    this.status = "processing";
+    this.routing = {
+      decision: "queued",
+      position,
+      queueLabel: `Queued · position ${position}`,
+    };
+    this.upsertPhase({
+      id: "queue",
+      title: "Queue",
+      status: "waiting",
+      summary: `Position ${position} in queue`,
+    });
+    this.persist();
+  }
+
+  setProcessingStarted(): void {
+    this.upsertPhase({
+      id: "queue",
+      title: "Queue",
+      status: "ok",
+      summary: "Processing started",
+    });
+    this.persistIfInFlight();
   }
 
   skipPhase(
@@ -532,6 +564,8 @@ function buildBadges(report: MessageReportRecord): string[] {
   const badges: string[] = [];
   if (report.routing.decision === "accepted") {
     badges.push(report.routing.triggerLabel);
+  } else if (report.routing.decision === "queued") {
+    badges.push(`queued #${report.routing.position}`);
   } else if (report.routing.decision === "ignored") {
     badges.push(report.routing.ignoreLabel);
   } else if (report.status === "processing") {
@@ -571,6 +605,9 @@ function buildHeadline(
     const waitingPhase = [...phases].reverse().find((p) => p.status === "waiting");
     if (waitingPhase) {
       return `Waiting for LLM · ${waitingPhase.title}`;
+    }
+    if (routing?.decision === "queued") {
+      return routing.queueLabel;
     }
     if (routing?.decision === "accepted") {
       return `Processing · ${routing.triggerLabel}`;

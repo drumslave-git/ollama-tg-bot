@@ -150,6 +150,21 @@ export function DebugMessageDetail() {
                   <dd>{report.routing.pendingLabel}</dd>
                 </div>
               </dl>
+            ) : report.routing.decision === "queued" ? (
+              <dl className="report-fields">
+                <div>
+                  <dt>Decision</dt>
+                  <dd>Queued</dd>
+                </div>
+                <div>
+                  <dt>Position</dt>
+                  <dd>{report.routing.position}</dd>
+                </div>
+                <div>
+                  <dt>Status</dt>
+                  <dd>{report.routing.queueLabel}</dd>
+                </div>
+              </dl>
             ) : report.routing.decision === "ignored" ? (
               <dl className="report-fields">
                 <div>
