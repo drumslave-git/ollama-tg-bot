@@ -9,7 +9,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "node ../../../scripts/typecheck-package.mjs",
-    "test": "vitest run --config vitest.config.ts"
+    "test": "vitest run --config vitest.config.ts",
+    "test:llm": "vitest run --config vitest.live.config.ts",
+    "test:llm:reasoning": "vitest run --config vitest.live.reasoning.config.ts"
   },
   "dependencies": {
     "@grammyjs/types": "^3.22.2",
@@ -18,7 +20,9 @@
     "grammy": "^1.35.0"
   },
   "devDependencies": {
+    "@llm-tg-bot/modules-utils": "*",
     "@types/node": "^22.13.4",
+    "openai": "^4.77.0",
     "typescript": "^5.7.3",
     "vitest": "^2.1.9"
   }

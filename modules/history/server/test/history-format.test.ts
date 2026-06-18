@@ -73,10 +73,10 @@ describe("formatStoredMessageLine", () => {
   it("prefixes user rows with bracket tags from the stored role", () => {
     expect(
       formatStoredMessageLine({
-        role: "user:drumslave:312973896",
+        role: "user:alice:424242",
         content: "hello",
       }),
-    ).toBe("[user:drumslave:312973896]: hello");
+    ).toBe("[user:alice:424242]: hello");
   });
 
   it("keeps assistant envelope when already present", () => {
@@ -102,11 +102,11 @@ describe("buildHistoryCompressionTranscript", () => {
   it("joins tagged lines for every stored row", () => {
     expect(
       buildHistoryCompressionTranscript([
-        { role: "user:drumslave:312973896", content: "hey" },
+        { role: "user:alice:424242", content: "hey" },
         { role: ASSISTANT_ROLE, content: "[assistant said]: hello" },
       ]),
     ).toBe(
-      "[user:drumslave:312973896]: hey\n[assistant said]: hello",
+      "[user:alice:424242]: hey\n[assistant said]: hello",
     );
   });
 });

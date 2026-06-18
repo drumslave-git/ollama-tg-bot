@@ -255,7 +255,7 @@ Maintain test coverage for all new features and bug fixes. Update `AGENTS.md` wh
 
 ### Opt-in live LLM suites
 
-Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `LLM_API_KEY`); suites self-skip when unset. Module live tests: addressing-detection, search-decision, memory, mood-evaluation. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `LLM_API_KEY`); suites self-skip when unset. Module live tests: addressing-detection, search-decision, memory, mood-evaluation, history (compression). Reasoning live: `npm run test:llm:reasoning` (history compression + server). Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
 
 ### Auxiliary generation budget
 

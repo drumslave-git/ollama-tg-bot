@@ -67,7 +67,7 @@ describe("compressHistoryChat", () => {
     const chatComplete = vi.fn().mockResolvedValue("Summary.");
     const deps = makeDeps(
       [
-        { role: "user:drumslave:312973896", content: "hello there" },
+        { role: "user:alice:424242", content: "hello there" },
         { role: "assistant", content: "[assistant said]: hi back" },
       ],
       { chatComplete },
@@ -78,7 +78,7 @@ describe("compressHistoryChat", () => {
       (message: { role: string }) => message.role === "user",
     );
     expect(userMessage?.content).toContain(
-      "[user:drumslave:312973896]: hello there",
+      "[user:alice:424242]: hello there",
     );
     expect(userMessage?.content).toContain("[assistant said]: hi back");
   });

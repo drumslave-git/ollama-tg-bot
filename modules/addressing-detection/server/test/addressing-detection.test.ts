@@ -91,7 +91,7 @@ describe("buildAddressAnalyzerMessages", () => {
     const messages = buildAddressAnalyzerMessages({
       botIdentity: formatBotIdentity("alex_helper_bot", "Alex"),
       chatType: "supergroup",
-      sender: "drumslave",
+      sender: "testuser",
       text: "Today I got a request that you need to be available",
       nameScanFound: false,
     });
