@@ -26,7 +26,22 @@ export function liveDurationMs(
   return durationMs ?? null;
 }
 
-/** Re-render once per second while any watched status is processing. */
+export function formatCountdown(
+  runAt: string | null | undefined,
+  nowMs: number,
+): string | null {
+  if (!runAt) return null;
+  const target = Date.parse(runAt);
+  if (!Number.isFinite(target)) return null;
+  const sec = Math.max(0, Math.ceil((target - nowMs) / 1000));
+  if (sec <= 0) return "now";
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  const rem = sec % 60;
+  return rem > 0 ? `${min}m ${rem}s` : `${min}m`;
+}
+
+/** Re-render once per second while countdown or processing is active. */
 export function useLiveClock(active: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {

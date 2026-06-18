@@ -37,6 +37,7 @@ import {
   updateMemoryModuleConfig,
 } from "./module-config.js";
 import { getMemoryJobDebugSnapshot } from "@llm-tg-bot/modules-memory";
+import { getMemoryJobRunDetail } from "@llm-tg-bot/modules-memory";
 
 export const memoriesRouter = Router();
 memoriesRouter.get("/user", (_req, res) => {
@@ -157,6 +158,16 @@ memoriesRouter.get("/config", (_req, res) => {
 
 memoriesRouter.get("/debug", (_req, res) => {
   res.json(getMemoryJobDebugSnapshot());
+});
+
+memoriesRouter.get("/debug/runs/:id", (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) {
+    return res.status(400).json({ error: "Invalid run id" });
+  }
+  const run = getMemoryJobRunDetail(id);
+  if (!run) return res.status(404).json({ error: "Run not found" });
+  res.json({ run });
 });
 
 memoriesRouter.patch("/config", (req, res) => {

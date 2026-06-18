@@ -4,6 +4,7 @@ import {
 } from "./persist.js";
 import type { MemoryModuleConfig } from "./module-config.js";
 import type { KnownParticipant, MemoryExtractInput } from "./extract-prompt.js";
+import { computeMemoryExtractionFingerprint } from "./fingerprint.js";
 import { memoryJobDebug } from "./job-debug.js";
 
 export type MemoryJobStatus = "idle" | "scheduled" | "running";
@@ -21,6 +22,8 @@ export interface MemoryQueueSchedulerDeps {
   getConfig: () => MemoryModuleConfig;
   listHistoryChatKeys: (limit: number) => string[];
   getHistory: (chatKey: string) => HistoryRow[];
+  getChatFingerprint: (convKey: string) => string | null;
+  setChatFingerprint: (convKey: string, fingerprint: string) => void;
   loadChatParticipants: (
     convKey: string,
     currentUserId: string | null,
@@ -32,6 +35,8 @@ export interface MemoryQueueSchedulerDeps {
   buildPersistConfig: () => {
     extract: Parameters<typeof persistMemories>[1]["extract"];
     merge: Parameters<typeof persistMemories>[1]["merge"];
+    model: string;
+    llmTimeoutSec: number;
   };
   onStatusChange?: (status: MemoryJobStatus) => void;
   logEvent?: (event: string, fields?: Record<string, unknown>) => void;
@@ -94,6 +99,19 @@ function buildMemoryInputFromHistory(
   };
 }
 
+function formatInputPreview(input: MemoryExtractInput): string {
+  return [
+    `User: ${input.userMessage}`,
+    input.assistantReply ? `Assistant: ${input.assistantReply}` : null,
+    `Group chat: ${input.isGroupChat ? "yes" : "no"}`,
+    input.currentSpeaker
+      ? `Speaker: ${input.currentSpeaker.label} (${input.currentSpeaker.userId})`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let status: MemoryJobStatus = "idle";
@@ -106,40 +124,69 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
 
   async function runJob(): Promise<void> {
     if (deps.getQueueSize() > 0) return;
-    setStatus("running");
-    memoryJobDebug.startRun();
+    const session = memoryJobDebug.startRun();
     deps.logEvent?.("memory_job_started", {});
 
     try {
       const llm = deps.buildPersistConfig();
+      const tracedExtract = memoryJobDebug.wrapChatComplete(
+        "memory extract (debounced)",
+        llm.model,
+        llm.llmTimeoutSec,
+        llm.extract.chatComplete ??
+          (async () => {
+            throw new Error("extract chatComplete is not configured");
+          }),
+      );
+      const tracedMerge = memoryJobDebug.wrapChatComplete(
+        "memory merge (debounced)",
+        llm.model,
+        llm.llmTimeoutSec,
+        llm.merge.chatComplete ??
+          (async () => {
+            throw new Error("merge chatComplete is not configured");
+          }),
+      );
+      const persistConfig = {
+        extract: { ...llm.extract, chatComplete: tracedExtract },
+        merge: { ...llm.merge, chatComplete: tracedMerge },
+      };
+
       const convKeys = deps.listHistoryChatKeys(30);
-      memoryJobDebug.addStep("Scan chats", { chatCount: convKeys.length });
+      session.setScanSummary(convKeys.length);
+
       for (const convKey of convKeys) {
         if (deps.getQueueSize() > 0) {
-          memoryJobDebug.addStep("Interrupted by queue activity", { convKey });
+          session.markInterrupted();
           break;
         }
         const messages = deps.getHistory(convKey);
+        const fingerprint = computeMemoryExtractionFingerprint(messages);
+        if (!fingerprint) continue;
+
+        const storedFingerprint = deps.getChatFingerprint(convKey);
+        if (storedFingerprint === fingerprint) {
+          session.skipChat(convKey, "Unchanged since last successful run");
+          continue;
+        }
+
         const input = buildMemoryInputFromHistory(convKey, messages, deps);
         if (!input) continue;
+
+        session.beginChat(convKey, formatInputPreview(input));
 
         const userId = input.currentSpeaker?.userId ?? null;
         const groupChatId = input.isGroupChat
           ? (convKey.match(/group:([^:]+)/)?.[1] ?? null)
           : null;
 
-        memoryJobDebug.addStep("Extract memories", {
-          convKey,
-          userId,
-          groupChatId,
-          isGroupChat: input.isGroupChat,
-        });
-        await persistMemories(
+        const report = await persistMemories(
           { userId, groupChatId, input },
-          llm,
+          persistConfig,
           deps.memoryCallbacks,
         );
-        memoryJobDebug.addStep("Persisted memories", { convKey, userId, groupChatId });
+        deps.setChatFingerprint(convKey, fingerprint);
+        session.completeChat(convKey, report.updated, report.scopes);
       }
       memoryJobDebug.completeRun();
       deps.logEvent?.("memory_job_finished", {});
@@ -158,9 +205,10 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
       setStatus("idle");
       return;
     }
-    setStatus("scheduled");
-    memoryJobDebug.scheduleRun();
     const delayMs = deps.getConfig().extractionDebounceSec * 1000;
+    const runAt = new Date(Date.now() + delayMs);
+    setStatus("scheduled");
+    memoryJobDebug.scheduleRun(runAt);
     timer = setTimeout(() => {
       timer = null;
       if (deps.getQueueSize() > 0) {

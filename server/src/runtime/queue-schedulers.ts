@@ -4,12 +4,18 @@ import {
   MEMORY_MERGE_NUM_PREDICT,
   MEMORY_EXTRACT_RESPONSE_FORMAT,
   MEMORY_MERGE_RESPONSE_FORMAT,
+  configureMemoryJobDebugStats,
+  getMemoryJobScheduledRunAt,
 } from "@llm-tg-bot/modules-memory";
 import { createVisionQueueScheduler } from "@llm-tg-bot/modules-vision";
 import { configureVisionJobDebugStats } from "@llm-tg-bot/modules-vision";
 import { responseFormatForThinking } from "@llm-tg-bot/modules-utils";
 import { isBase64MediaHistoryContent } from "@llm-tg-bot/modules-history";
-import { getMemoryModuleConfig } from "@llm-tg-bot/modules-memory-db";
+import {
+  getMemoryChatFingerprint,
+  getMemoryModuleConfig,
+  setMemoryChatFingerprint,
+} from "@llm-tg-bot/modules-memory-db";
 import { getVisionModuleConfig } from "@llm-tg-bot/modules-vision-db";
 import {
   getHistory,
@@ -31,6 +37,7 @@ import { loadChatParticipants } from "../pipeline/chat-messages.js";
 import { getMessageQueueSize } from "./message-queue.js";
 import {
   setMemoryJobStatus,
+  setMemoryJobRunAt,
   setVisionJobStatus,
 } from "./pipeline-status.js";
 
@@ -56,11 +63,20 @@ configureVisionJobDebugStats(() => {
   return { pendingMediaRows, chatsWithPending };
 });
 
+configureMemoryJobDebugStats(() => {
+  setMemoryJobRunAt(getMemoryJobScheduledRunAt());
+  void import("../dashboard/live-events.js").then(({ emitStatsUpdated }) => {
+    emitStatsUpdated();
+  });
+});
+
 const memoryScheduler = createMemoryQueueScheduler({
   getQueueSize: getMessageQueueSize,
   getConfig: getMemoryModuleConfig,
   listHistoryChatKeys,
   getHistory,
+  getChatFingerprint: getMemoryChatFingerprint,
+  setChatFingerprint: setMemoryChatFingerprint,
   loadChatParticipants,
   getUserFacts,
   getGroupFacts,
@@ -83,6 +99,8 @@ const memoryScheduler = createMemoryQueueScheduler({
       thinkingEnabled,
     );
     return {
+      model: settings.model,
+      llmTimeoutSec: settings.chatTimeoutSec,
       extract: {
         baseUrl: config.llmBaseUrl,
         model: settings.model,

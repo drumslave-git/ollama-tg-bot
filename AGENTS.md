@@ -130,7 +130,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then **intake pipeline** (`runIntakePipeline` in `server/src/pipeline/queue-runner.ts`). Addressed messages are **enqueued** (`server/src/runtime/message-queue.ts`) and processed **one at a time**.
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
 4. **Queue processing (addressed only)** — synchronous order: vision (media) → links/search (text) → system + personality → history inject → mood → main reply → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
-5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory extraction from recent history; vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
+5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory extraction from recent history (skips chats whose extraction fingerprint is unchanged since the last successful run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
 6. **`server/src/runtime/module-hosts.ts`** — Loads `pipelineHosts` from manifests at startup. Queue runner invokes hosts by `stepId` in fixed order (not full phase runner).
 7. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
 8. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
@@ -139,7 +139,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 
 - Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`; optional `showModel` / catalog fetch for context-budget metadata)
 - OpenAI-compatible parsing: `server/src/llm/openai-compat.ts` (`content` vs `reasoning` / `reasoning_content`, request `options`)
-- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as the bot **receives** a message; addressed messages show **queued** routing with queue position until processing starts; phase updates stream while the turn runs; main reply uses a single **Main reply** LLM phase (no separate Chat context / Completions / Model reasoning rows); sticker **selection** runs before delivery, **Sticker** sent phase logs after the Telegram sticker; in-flight LLM calls add a **waiting** phase until the provider responds; dashboard sidebar shows queue size + memory/vision job status via `dashboard:stats`
+- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as the bot **receives** a message; addressed messages show **queued** routing with queue position until processing starts; phase updates stream while the turn runs; main reply uses a single **Main reply** LLM phase (no separate Chat context / Completions / Model reasoning rows); sticker **selection** runs before delivery, **Sticker** sent phase logs after the Telegram sticker; in-flight LLM calls add a **waiting** phase until the provider responds; dashboard sidebar shows queue size + memory/vision job status (memory scheduled shows live countdown via `memoryJobRunAt`) via `dashboard:stats`
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
@@ -149,7 +149,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 
 ### Memory
 
-Three layers, extracted in a **debounced background job** (`modules/memory/server/src/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) from recent history when the message queue has been idle — not per-message in the reply path:
+Three layers, extracted in a **debounced background job** (`modules/memory/server/src/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) from recent history when the message queue has been idle — not per-message in the reply path. Per-chat fingerprints in `memory_job_chat_state` skip unchanged chats.
 
 - Per-user, per-group, general — see `server/src/db/*-memory.ts`
 - User/group memories are merged into one entity document during persistence.
@@ -213,7 +213,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 | `/settings` | LLM, model, owner, maintenance mode, performance, vision |
 | `/modules` | Discovered feature modules list |
 | `/modules/:id` | Per-module config/data UI (from module `ui/`) |
-| `/modules/:id/debug` | Per-module background job debug (when module registers `DebugPage`) |
+| `/modules/:id/debug` | Per-module background job debug (memory: run list + phase/LLM detail like `/debug`; live countdown when scheduled) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
 | `/data` | Raw SQLite table browser |
 

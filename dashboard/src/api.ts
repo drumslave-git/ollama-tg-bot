@@ -268,6 +268,7 @@ export interface Stats {
   queueSize: number;
   historyPointer: string | null;
   memoryJobStatus: "idle" | "scheduled" | "running";
+  memoryJobRunAt: string | null;
   visionJobStatus: "idle" | "scheduled" | "running";
   botUsername: string | null;
   botRunning: boolean;
@@ -304,8 +305,52 @@ export interface ModuleJobRun {
 export interface ModuleJobDebugSnapshot {
   moduleId: string;
   status: ModuleJobStatus;
+  scheduledRunAt?: string | null;
   currentRun: ModuleJobRun | null;
   recentRuns: ModuleJobRun[];
+  lastUpdatedAt: string;
+}
+
+export interface MemoryJobRunListItem {
+  id: number;
+  status: ModuleJobRunStatus;
+  headline: string;
+  createdAt: string;
+  runAt: string | null;
+  durationMs: number | null;
+  chatsProcessed: number;
+  chatsSkipped: number;
+}
+
+export interface MemoryJobReportRecord {
+  status: ModuleJobRunStatus;
+  headline: string;
+  durationMs: number;
+  chatsScanned: number;
+  chatsProcessed: number;
+  chatsSkipped: number;
+  interrupted: boolean;
+  phases: ReportPhase[];
+  error?: string;
+}
+
+export interface MemoryJobRunDetail {
+  id: number;
+  status: ModuleJobRunStatus;
+  createdAt: string;
+  scheduledAt: string | null;
+  runAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  report: MemoryJobReportRecord;
+}
+
+export interface MemoryJobDebugSnapshot {
+  moduleId: string;
+  status: ModuleJobStatus;
+  scheduledRunAt: string | null;
+  currentRun: MemoryJobRunDetail | null;
+  recentRuns: MemoryJobRunListItem[];
   lastUpdatedAt: string;
 }
 
@@ -640,7 +685,9 @@ export const api = {
       body: JSON.stringify(patch),
     }),
   getMemoryJobDebug: () =>
-    request<ModuleJobDebugSnapshot>("/api/memories/debug"),
+    request<MemoryJobDebugSnapshot>("/api/memories/debug"),
+  getMemoryJobRun: (id: number) =>
+    request<{ run: MemoryJobRunDetail }>(`/api/memories/debug/runs/${id}`),
   getVisionJobDebug: () =>
     request<VisionJobDebugSnapshot>("/api/vision/debug"),
   llmHealth: async () => {

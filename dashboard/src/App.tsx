@@ -56,7 +56,7 @@ function DashboardRoutes() {
         <Route path="character" element={<CharacterPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="modules" element={<ModulesPage />} />
-        <Route path="modules/:moduleId/debug" element={<ModuleDebugPage />} />
+        <Route path="modules/:moduleId/debug/*" element={<ModuleDebugPage />} />
         <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
         <Route path="memories" element={<Navigate to="/modules/memory" replace />} />
         <Route path="mood" element={<Navigate to="/modules/mood-evaluation" replace />} />

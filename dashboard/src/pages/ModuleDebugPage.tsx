@@ -71,10 +71,14 @@ export function ModuleDebugPage() {
             <span aria-hidden="true"> / </span>
             <span>Debug</span>
           </p>
-          <h2>{label} debug</h2>
-          <p className="page-desc">
-            Background job runs and step detail for this module.
-          </p>
+          {!DebugPage ? (
+            <>
+              <h2>{label} debug</h2>
+              <p className="page-desc">
+                Background job runs and step detail for this module.
+              </p>
+            </>
+          ) : null}
         </div>
         <div className="module-detail-tabs">
           <Link className="btn secondary" to={`/modules/${moduleId}`}>

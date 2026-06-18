@@ -4,6 +4,7 @@ import { bindGeneralMemoryDatabase } from "./general-memory.js";
 import { bindGroupMemoryDatabase } from "./group-memory.js";
 import { bindUserMemoryDatabase } from "./user-memory.js";
 import { bindMemoryConfigDatabase } from "./module-config.js";
+import { bindMemoryJobStateDatabase } from "./job-state.js";
 import { createMemoriesRouter } from "./routes.js";
 
 export * from "./module-config.js";
@@ -12,6 +13,10 @@ export * from "./memory-facts.js";
 export * from "./user-memory.js";
 export * from "./group-memory.js";
 export * from "./general-memory.js";
+export {
+  getMemoryChatFingerprint,
+  setMemoryChatFingerprint,
+} from "./job-state.js";
 
 const DATA_TABLE_CONFIGS: Record<string, DataTableConfig> = {
   user_memories: {
@@ -45,6 +50,7 @@ export function bindModuleDatabase(database: DatabaseSync): void {
   bindGroupMemoryDatabase(database);
   bindGeneralMemoryDatabase(database);
   bindMemoryConfigDatabase(database);
+  bindMemoryJobStateDatabase(database);
 }
 
 export function createModuleRouter() {

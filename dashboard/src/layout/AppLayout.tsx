@@ -1,6 +1,10 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { ErrorBanner } from "../components/ErrorBanner";
+import {
+  formatCountdown,
+  useLiveClock,
+} from "../pages/debug/debugUtils";
 import "../App.css";
 
 const navItems = [
@@ -24,6 +28,12 @@ export function AppLayout() {
     saveOk,
     load,
   } = useDashboard();
+
+  const memoryScheduled = stats?.memoryJobStatus === "scheduled";
+  const now = useLiveClock(memoryScheduled);
+  const memoryCountdown = memoryScheduled
+    ? formatCountdown(stats?.memoryJobRunAt, now)
+    : null;
 
   return (
     <div className="app-shell">
@@ -114,7 +124,9 @@ export function AppLayout() {
               {stats?.memoryJobStatus === "running"
                 ? "extracting"
                 : stats?.memoryJobStatus === "scheduled"
-                  ? "scheduled"
+                  ? memoryCountdown
+                    ? `in ${memoryCountdown}`
+                    : "scheduled"
                   : "idle"}
             </span>
             <span

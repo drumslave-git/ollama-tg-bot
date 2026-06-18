@@ -1,46 +1,59 @@
-import { useCallback, useEffect, useState } from "react";
-import { api, type ModuleJobDebugSnapshot } from "@llm-tg-bot/dashboard/api";
-import { ModuleJobDebugPanel } from "@llm-tg-bot/dashboard/components/ModuleJobDebugPanel";
+import { Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
-import { useLiveStats } from "@llm-tg-bot/dashboard/liveSocket";
+import {
+  formatCountdown,
+  useLiveClock,
+} from "@llm-tg-bot/dashboard/pages/debug/debugUtils";
+import { MemoryDebugRunDetail } from "./MemoryDebugRunDetail";
+import { MemoryDebugRunList } from "./MemoryDebugRunList";
 
 export function MemoryDebugPage() {
-  const { apiOnline } = useDashboard();
-  const [snapshot, setSnapshot] = useState<ModuleJobDebugSnapshot | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (apiOnline !== true) return;
-    setError(null);
-    try {
-      const data = await api.getMemoryJobDebug();
-      setSnapshot(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load debug data");
-    } finally {
-      setLoading(false);
-    }
-  }, [apiOnline]);
-
-  useEffect(() => {
-    void load();
-    const timer = setInterval(() => void load(), 3000);
-    return () => clearInterval(timer);
-  }, [load]);
-
-  useLiveStats(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  const navigate = useNavigate();
+  const detailMatch = useMatch({
+    path: "/modules/memory/debug/:runId",
+    end: true,
+  });
+  const { stats } = useDashboard();
+  const scheduled = stats?.memoryJobStatus === "scheduled";
+  const now = useLiveClock(scheduled);
+  const countdown = scheduled
+    ? formatCountdown(stats?.memoryJobRunAt, now)
+    : null;
 
   return (
-    <ModuleJobDebugPanel
-      title="Memory extraction job"
-      snapshot={snapshot}
-      loading={loading && !snapshot}
-      error={error}
-    />
+    <div className="debug-page">
+      <header className="page-header">
+        <div className="debug-header-row">
+          <div>
+            <h2>Memory job debug</h2>
+            <p className="page-desc">
+              Debounced extraction runs with per-chat phases and LLM I/O.
+              {scheduled && countdown ? (
+                <>
+                  {" "}
+                  Next run in <strong>{countdown}</strong>.
+                </>
+              ) : null}
+            </p>
+          </div>
+          {detailMatch ? (
+            <div className="debug-header-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => navigate("/modules/memory/debug")}
+              >
+                ← Back
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </header>
+
+      <Routes>
+        <Route index element={<MemoryDebugRunList />} />
+        <Route path=":runId" element={<MemoryDebugRunDetail />} />
+      </Routes>
+    </div>
   );
 }
