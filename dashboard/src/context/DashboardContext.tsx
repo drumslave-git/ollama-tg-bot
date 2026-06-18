@@ -134,10 +134,9 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const load = useCallback(async () => {
     setLoading(true);
 
-    const [health, settingsRes, statsRes] = await Promise.allSettled([
+    const [health, settingsRes] = await Promise.allSettled([
       api.checkHealth(),
       api.getSettings(),
-      api.getStats(),
     ]);
 
     const nextErrors: Partial<Record<SectionKey, unknown>> = {};

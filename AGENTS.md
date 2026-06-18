@@ -286,7 +286,8 @@ Reasoning backends spend tokens on hidden chain-of-thought before emitting the s
 2. Duplicating history limit math — use `getHistoryLimits()` on server only; mirror in dashboard for UI preview only.
 3. Assuming `@username` resolves without the user having messaged the bot at least once.
 4. Editing only server or only dashboard types when adding a setting — update both + PATCH allowlist.
-5. New LLM entry points must respect maintenance mode (`isMaintenanceBlocked`) — not only the main message handler.
-6. Naming LLM integration after a single vendor — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints (see **Code conventions**).
-7. **Loosening JSON parsers** when a model returns the wrong shape or puts the answer in `reasoning` — improve the prompt/schema instead (see **Structured LLM output (JSON schema)**).
-8. **Copying user-provided data into code** — bug reports and live traces are not test fixtures; never commit real IDs, usernames, names, or message content (see **Code conventions**).
+5. **Dashboard `tsconfig.app.json` drift** — root `npm run typecheck` uses `tsconfig.app.json`, not `tsconfig.json`. Keep `noUnusedLocals` / `noUnusedParameters` (and other strict flags) aligned between them or unused-code errors will only show in the IDE.
+6. New LLM entry points must respect maintenance mode (`isMaintenanceBlocked`) — not only the main message handler.
+7. Naming LLM integration after a single vendor — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints (see **Code conventions**).
+8. **Loosening JSON parsers** when a model returns the wrong shape or puts the answer in `reasoning` — improve the prompt/schema instead (see **Structured LLM output (JSON schema)**).
+9. **Copying user-provided data into code** — bug reports and live traces are not test fixtures; never commit real IDs, usernames, names, or message content (see **Code conventions**).
