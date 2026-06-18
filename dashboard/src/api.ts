@@ -266,6 +266,7 @@ export interface Stats {
   errors: number;
   lastActivityAt: string | null;
   queueSize: number;
+  historyPointer: string | null;
   memoryJobStatus: "idle" | "scheduled" | "running";
   visionJobStatus: "idle" | "scheduled" | "running";
   botUsername: string | null;

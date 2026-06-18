@@ -100,6 +100,7 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
       ownerUserId: getOwnerUserId(),
       ownerUsername: getOwnerUsername(),
       mood: (state.mood ?? null) as MoodValues | null,
+      historyBeforeMessageId: state.telegramMessageId,
     },
   );
 }

@@ -6,6 +6,8 @@ export const HISTORY_APPROX_CHARS_PER_TOKEN = 4;
 export interface StoredMessage {
   role: string;
   content: string;
+  /** Telegram message_id for passive user rows (queue history pointer). */
+  messageId?: number;
   compressedAt?: number;
 }
 

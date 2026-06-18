@@ -4,6 +4,7 @@ import {
   appendMessage,
   getHistory,
   historyToChatMessages,
+  insertAssistantAfterMessage,
 } from "../db/history/index.js";
 import {
   formatKnownUserLabel,
@@ -18,7 +19,7 @@ import {
   type ParticipantFacts,
 } from "./adapters/system-prompt.js";
 import type { MoodValues } from "../mood/index.js";
-import { extractParticipantUserIds, filterInjectableHistory } from "@llm-tg-bot/modules-history";
+import { extractParticipantUserIds, filterInjectableHistory, historyBeforeMessageId } from "@llm-tg-bot/modules-history";
 import { isReplyThreadContext } from "../bot/replies/replies.js";
 import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 
@@ -160,6 +161,7 @@ export function buildChatMessages(
     ownerUserId?: string | null;
     ownerUsername?: string | null;
     mood?: MoodValues | null;
+    historyBeforeMessageId?: number;
   },
 ): BuiltChatPayload {
   const {
@@ -210,8 +212,12 @@ export function buildChatMessages(
   });
 
   const storedHistory = getHistory(chatKey);
-  const injectableHistory = filterInjectableHistory(storedHistory);
+  const injectableHistory =
+    options.historyBeforeMessageId != null
+      ? historyBeforeMessageId(storedHistory, options.historyBeforeMessageId)
+      : filterInjectableHistory(storedHistory);
   const historySource =
+    options.historyBeforeMessageId == null &&
     isGroupChat &&
     latestTurn.speakerTag &&
     storedHistory.at(-1)?.role === latestTurn.speakerTag
@@ -230,7 +236,7 @@ export function buildChatMessages(
     systemContent: system,
     historyMessages: history,
     latestContent: latest,
-    storedHistoryCount: filterInjectableHistory(storedHistory).length,
+    storedHistoryCount: injectableHistory.length,
     messages: [{ role: "system", content: system }, ...history, latestMessage],
   };
 }
@@ -240,15 +246,27 @@ export function recordExchange(
   userRole: string | null,
   userContent: string | null,
   assistantText: string,
-  options?: { skipUser?: boolean },
+  options?: { skipUser?: boolean; anchorMessageId?: number },
 ): void {
   if (!options?.skipUser && userRole && userContent?.trim()) {
-    appendMessage(chatKey, userRole, userContent);
+    appendMessage(
+      chatKey,
+      userRole,
+      userContent,
+      options?.anchorMessageId != null
+        ? { messageId: options.anchorMessageId }
+        : undefined,
+    );
   }
-  appendAssistantMessage(chatKey, assistantText);
+  if (options?.anchorMessageId != null) {
+    insertAssistantAfterMessage(chatKey, options.anchorMessageId, assistantText);
+  } else {
+    appendAssistantMessage(chatKey, assistantText);
+  }
   logEvent("history_exchange_stored", {
     convKey: chatKey,
     skipUser: Boolean(options?.skipUser),
+    anchorMessageId: options?.anchorMessageId ?? null,
     hasUserRow: !options?.skipUser && Boolean(userRole && userContent?.trim()),
   });
 }

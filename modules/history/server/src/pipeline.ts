@@ -42,6 +42,10 @@ export const turnSetupHost: PipelineModuleHost = {
       ?.message_thread_id;
     state.isForum = state.telegram.chat?.is_forum === true;
     state.skipUserHistory = true;
+    const msg = state.telegram.message as Message | undefined;
+    if (msg?.message_id != null) {
+      state.telegramMessageId = msg.message_id;
+    }
 
     const rawText = state.rawText ?? "";
     const promptText = stripCurrentBotAddressing(rawText) || rawText;
@@ -112,6 +116,7 @@ export const intakeHistoryHost: PipelineModuleHost = {
     const cb = services.callbacks;
     const botId = state.telegram.me?.id;
     const from = state.telegram.from;
+    const messageId = msg.message_id;
     const msgLog = {
       chatId: state.chatId,
       userId: (from as { id?: number } | undefined)?.id,
@@ -139,7 +144,7 @@ export const intakeHistoryHost: PipelineModuleHost = {
       botId,
     );
     if (textContent) {
-      cb.appendMessage?.(convKey, role, textContent);
+      cb.appendMessage?.(convKey, role, textContent, { messageId });
       parts.push("text");
       services.logging.logEvent("passive_history_stored", {
         ...msgLog,
@@ -168,7 +173,7 @@ export const intakeHistoryHost: PipelineModuleHost = {
           cb.stickerPackEmoji?.(sticker) ?? null,
         );
         if (mediaHistory) {
-          cb.appendMessage?.(convKey, role, mediaHistory);
+          cb.appendMessage?.(convKey, role, mediaHistory, { messageId });
           parts.push("media");
           services.logging.logEvent("passive_history_stored", {
             ...msgLog,
@@ -264,7 +269,10 @@ export const historyRecordHost: PipelineModuleHost = {
       state.userRole ?? null,
       state.userHistoryContent ?? null,
       historyText,
-      { skipUser: state.skipUserHistory },
+      {
+        skipUser: state.skipUserHistory,
+        anchorMessageId: state.telegramMessageId,
+      },
     );
 
     state.delivery = services.callbacks.prepareDelivery?.(state);

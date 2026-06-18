@@ -85,8 +85,8 @@ export function createPipelineCallbacks(): PipelineHostCallbacks {
     prepareDelivery: preparePipelineDelivery,
     ensureHistoryFits: ensureHistoryFitsForTurn,
     recordExchange,
-    appendMessage: (convKey, role, content) =>
-      appendMessage(convKey, role, content),
+    appendMessage: (convKey, role, content, options) =>
+      appendMessage(convKey, role, content, options),
     mapHistoryBase64Media: (convKey, isBase64Media, replace) =>
       mapHistoryBase64Media(convKey, isBase64Media, replace),
     enrichTextWithUserMentions: (text, message, options) =>

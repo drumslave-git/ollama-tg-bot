@@ -11,6 +11,18 @@ import {
   type StoredMessage,
 } from "./types.js";
 
+export {
+  formatHistoryPointer,
+  parseHistoryPointer,
+  findMessageRowRange,
+  historyBeforeMessageId,
+  insertIndexAfterMessageId,
+} from "./history-pointer.js";
+
+export function isAssistantOrCompressedRole(role: string): boolean {
+  return role === ASSISTANT_ROLE || role === COMPRESSED_ROLE;
+}
+
 export function isCompressedRole(role: string): boolean {
   return role === COMPRESSED_ROLE;
 }

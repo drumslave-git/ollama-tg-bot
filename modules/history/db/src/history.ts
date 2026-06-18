@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { getModuleLiveHooks } from "@llm-tg-bot/modules-registry";
 import {
   ASSISTANT_ROLE,
+  insertIndexAfterMessageId,
   type StoredMessage,
 } from "@llm-tg-bot/modules-history";
 
@@ -55,7 +56,8 @@ export function getHistory(chatKey: string): StoredMessage[] {
       (m): m is StoredMessage =>
         m != null &&
         typeof m.role === "string" &&
-        typeof m.content === "string",
+        typeof m.content === "string" &&
+        (m.messageId == null || typeof m.messageId === "number"),
     );
   } catch {
     return [];
@@ -92,6 +94,7 @@ export function appendMessage(
   chatKey: string,
   role: string,
   content: string,
+  options?: { messageId?: number },
 ): void {
   const trimmed = content.trim();
   if (!trimmed) return;
@@ -105,7 +108,11 @@ export function appendMessage(
   }
 
   const messages = getHistory(chatKey);
-  messages.push({ role, content: stored });
+  const row: StoredMessage = { role, content: stored };
+  if (options?.messageId != null) {
+    row.messageId = options.messageId;
+  }
+  messages.push(row);
   writeHistory(chatKey, messages);
 }
 
@@ -123,6 +130,7 @@ export function replaceHistory(
     .map((m) => ({
       role: m.role,
       content: m.content.trim(),
+      messageId: m.messageId,
       compressedAt: m.compressedAt,
     }))
     .filter((m) => m.content);
@@ -138,6 +146,28 @@ export function appendAssistantMessage(
     ASSISTANT_ROLE,
     `[assistant said]: ${assistantText.trim()}`,
   );
+}
+
+/** Insert assistant reply immediately after the anchored Telegram message rows. */
+export function insertAssistantAfterMessage(
+  chatKey: string,
+  anchorMessageId: number,
+  assistantText: string,
+): boolean {
+  const trimmed = assistantText.trim();
+  if (!trimmed) return false;
+
+  let stored = `[assistant said]: ${trimmed}`;
+  const historyMaxReplyChars = readHistoryMaxReplyChars();
+  if (stored.length > historyMaxReplyChars) {
+    stored = `${stored.slice(0, historyMaxReplyChars)}…`;
+  }
+
+  const messages = getHistory(chatKey);
+  const insertAt = insertIndexAfterMessageId(messages, anchorMessageId);
+  messages.splice(insertAt, 0, { role: ASSISTANT_ROLE, content: stored });
+  writeHistory(chatKey, messages);
+  return true;
 }
 
 /** Replace one history row by index (used after vision backfill). */

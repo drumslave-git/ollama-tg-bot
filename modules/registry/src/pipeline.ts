@@ -119,6 +119,13 @@ export interface PipelineTurnState {
   addressed?: boolean;
   addressSource?: string;
 
+  /**
+   * Queue anchor `{convKey}:{telegramMessageId}` for addressed turns.
+   */
+  historyPointer?: string;
+  /** Telegram message_id for the current turn. */
+  telegramMessageId?: number;
+
   userHistoryContent?: string | null;
   skipUserHistory?: boolean;
 
@@ -250,12 +257,13 @@ export interface PipelineHostCallbacks {
     userRole: string | null,
     userContent: string | null,
     assistantText: string,
-    options?: { skipUser?: boolean },
+    options?: { skipUser?: boolean; anchorMessageId?: number },
   ) => void;
   appendMessage?: (
     convKey: string,
     role: string,
     content: string,
+    options?: { messageId?: number },
   ) => void;
   mapHistoryBase64Media?: (
     convKey: string,

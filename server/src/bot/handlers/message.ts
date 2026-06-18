@@ -6,7 +6,7 @@ import { extractText } from "../messages/message-content.js";
 import { summarizeMessageContent } from "../replies/replies.js";
 import { isSlashCommandMessage } from "../commands/slash-command.js";
 import { messageHasVisionMedia } from "@llm-tg-bot/modules-vision";
-import { mediaKindForMessage } from "@llm-tg-bot/modules-history";
+import { mediaKindForMessage, formatHistoryPointer } from "@llm-tg-bot/modules-history";
 import { isMaintenanceBlocked } from "../maintenance/maintenance.js";
 import {
   createInitialPipelineState,
@@ -135,12 +135,19 @@ export async function messageHandler(ctx: Context, botToken: string) {
       return;
     }
 
+    const tgMessageId = ctx.message.message_id;
+    if (state.convKey && tgMessageId != null) {
+      state.telegramMessageId = tgMessageId;
+      state.historyPointer = formatHistoryPointer(state.convKey, tgMessageId);
+    }
+
     enqueueMessage({
       turnId,
       ctx,
       botToken,
       state,
       services,
+      historyPointer: state.historyPointer,
     });
   } catch (err) {
     logEventError("handler_error", err, msgLog);
