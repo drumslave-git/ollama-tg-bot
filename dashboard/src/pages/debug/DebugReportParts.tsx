@@ -4,6 +4,7 @@ import type {
   ReportPhase,
 } from "../../api";
 import { DebugJsonView } from "../../components/DebugJsonView";
+import { cn } from "../../lib/cn";
 import { formatDuration, statusClass } from "./debugUtils";
 
 export function buildLogFileContent(detail: MessageReportDetail): string {
@@ -47,81 +48,105 @@ function phaseStatusLabel(status: ReportPhase["status"]): string {
   return status;
 }
 
-function phaseStatusClass(status: ReportPhase["status"]): string {
-  if (status === "ok") return "ok";
-  if (status === "failed") return "danger";
-  if (status === "waiting") return "warn";
-  return "";
+function phaseStatusColor(status: ReportPhase["status"]): string {
+  if (status === "ok") return "text-accent";
+  if (status === "failed") return "text-danger";
+  if (status === "waiting") return "text-warning";
+  return "text-muted";
+}
+
+const fieldsGridClass =
+  "m-0 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-x-4 gap-y-3";
+
+const fieldLabelClass =
+  "mb-0.5 text-xs font-semibold uppercase tracking-wide text-muted";
+
+const preClass =
+  "m-0 max-h-[360px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/25 p-3 font-mono text-[0.78rem] leading-snug";
+
+const sectionClass =
+  "mt-2 overflow-hidden rounded-md border border-border [&_summary]:cursor-pointer [&_summary]:list-none [&_summary::-webkit-details-marker]:hidden [&_summary]:px-2.5 [&_summary]:py-1.5 [&_summary]:text-sm [&_summary]:font-semibold";
+
+function ReportFields({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return <dl className={cn(fieldsGridClass, className)}>{children}</dl>;
 }
 
 function PhaseDetail({ detail }: { detail: ReportDetail }) {
   if (detail.type === "fields") {
     return (
-      <dl className="report-fields">
+      <ReportFields>
         {detail.fields.map(({ label, value }) => (
           <div key={label}>
-            <dt>{label}</dt>
-            <dd>{value}</dd>
+            <dt className={fieldLabelClass}>{label}</dt>
+            <dd className="m-0 text-sm">{value}</dd>
           </div>
         ))}
-      </dl>
+      </ReportFields>
     );
   }
 
   if (detail.type === "text") {
     return (
-      <div className="report-text-block">
-        <h5>{detail.title}</h5>
-        <pre className="report-pre">{detail.body}</pre>
+      <div>
+        <h5 className="m-0 mb-1.5 text-sm text-muted">{detail.title}</h5>
+        <pre className={preClass}>{detail.body}</pre>
       </div>
     );
   }
 
   if (detail.type === "mood") {
     return (
-      <dl className="report-fields report-mood-grid">
+      <ReportFields className="pt-2">
         {Object.entries(detail.traits)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([trait, value]) => (
             <div key={trait}>
-              <dt>{trait}</dt>
-              <dd>{value}</dd>
+              <dt className={fieldLabelClass}>{trait}</dt>
+              <dd className="m-0 text-sm">{value}</dd>
             </div>
           ))}
-      </dl>
+      </ReportFields>
     );
   }
 
   return (
-    <div className="report-llm">
-      <div className="report-llm-meta">
+    <div>
+      <div className="mb-1 flex flex-wrap gap-3 text-xs text-muted">
         <span>{detail.model}</span>
         {detail.sampling ? <span>{detail.sampling}</span> : null}
         {detail.output.meta ? <span>{detail.output.meta}</span> : null}
       </div>
       {detail.requestBody != null ? (
-        <details className="report-section">
+        <details className={sectionClass}>
           <summary>Request body</summary>
           <DebugJsonView value={detail.requestBody} />
         </details>
       ) : null}
       {detail.responseBody != null ? (
-        <details className="report-section">
+        <details className={sectionClass}>
           <summary>Response body</summary>
           <DebugJsonView value={detail.responseBody} />
         </details>
       ) : null}
       {detail.sections.map((section) => (
-        <details key={section.title} className="report-section">
+        <details key={section.title} className={sectionClass}>
           <summary>{section.title}</summary>
-          <pre className="report-pre">{section.body}</pre>
+          <pre className={cn(preClass, "max-h-[280px] rounded-none border-t border-border")}>
+            {section.body}
+          </pre>
         </details>
       ))}
-      <details className="report-section">
+      <details className={sectionClass}>
         <summary>Output</summary>
         <DebugJsonView value={detail.output.content || "(empty)"} />
       </details>
-      <details className="report-section" open={Boolean(detail.output.reasoning)}>
+      <details className={sectionClass} open={Boolean(detail.output.reasoning)}>
         <summary>
           Reasoning{detail.output.reasoning ? "" : " (none)"}
         </summary>
@@ -134,23 +159,33 @@ function PhaseDetail({ detail }: { detail: ReportDetail }) {
 export function PhaseRow({ phase }: { phase: ReportPhase }) {
   const isWaiting = phase.status === "waiting";
   return (
-    <details className="report-phase" open={isWaiting}>
-      <summary className="report-phase-summary">
-        <span className={`report-phase-status ${phaseStatusClass(phase.status)}`}>
+    <details
+      className="overflow-hidden rounded-lg border border-border bg-black/12"
+      open={isWaiting}
+    >
+      <summary className="grid cursor-pointer grid-cols-[auto_1fr_auto] grid-rows-2 items-center gap-x-2.5 gap-y-0.5 px-3.5 py-2.5 list-none [&::-webkit-details-marker]:hidden">
+        <span
+          className={cn(
+            "row-span-2 text-[0.68rem] font-bold uppercase tracking-wide",
+            phaseStatusColor(phase.status),
+          )}
+        >
           {phaseStatusLabel(phase.status)}
         </span>
-        <span className="report-phase-title">{phase.title}</span>
-        <span className="report-phase-oneline">{phase.summary}</span>
-        {phase.durationMs != null ? (
-          <span className="report-phase-duration">
-            {formatDuration(phase.durationMs)}
-          </span>
-        ) : isWaiting ? (
-          <span className="report-phase-duration report-phase-live">live</span>
-        ) : null}
+        <span className="text-sm font-semibold">{phase.title}</span>
+        <span className="row-span-2 text-xs tabular-nums text-muted">
+          {phase.durationMs != null ? (
+            formatDuration(phase.durationMs)
+          ) : isWaiting ? (
+            <span className="text-xs uppercase tracking-wide text-warning">
+              live
+            </span>
+          ) : null}
+        </span>
+        <span className="col-start-2 text-sm text-muted">{phase.summary}</span>
       </summary>
       {phase.detail ? (
-        <div className="report-phase-body">
+        <div className="border-t border-border px-3.5 pb-3.5">
           <PhaseDetail detail={phase.detail} />
         </div>
       ) : null}

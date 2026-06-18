@@ -1,4 +1,5 @@
 import React from "react";
+import { Hint, SectionTitle } from "../ui/Layout";
 
 interface BotBehaviorSectionProps {
   maintenanceModeEnabled: boolean;
@@ -16,6 +17,9 @@ interface BotBehaviorSectionProps {
   onSendThinkingEnabledChange: (value: boolean) => void;
   onReasoningEffortChange: (value: "none" | "low" | "medium" | "high") => void;
 }
+
+const checkboxLabelClass =
+  "mb-0 flex cursor-pointer items-center gap-2.5 text-[0.95rem] text-text";
 
 const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
   maintenanceModeEnabled,
@@ -35,9 +39,9 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
 }) => {
   return (
     <>
-      <h3 className="section-title">Bot behavior</h3>
-      <div className="field toggle-row">
-        <label className="checkbox">
+      <SectionTitle className="mt-6">Bot behavior</SectionTitle>
+      <div className="flex flex-col gap-1">
+        <label className={checkboxLabelClass}>
           <input
             type="checkbox"
             checked={thinkingEnabled}
@@ -45,16 +49,16 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
           />
           Enable thinking
         </label>
-        <p className="hint">
+        <Hint>
           Requests separate model reasoning when the backend supports{" "}
-          <code>reasoning_effort</code>.
-        </p>
+          <code className="font-mono text-[0.85em]">reasoning_effort</code>.
+        </Hint>
       </div>
 
       {thinkingEnabled && (
         <>
-          <div className="field toggle-row nested">
-            <label className="checkbox">
+          <div className="ml-4 flex flex-col gap-1 border-l border-border pl-4">
+            <label className={checkboxLabelClass}>
               <input
                 type="checkbox"
                 checked={sendThinkingEnabled}
@@ -62,12 +66,12 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
               />
               Send reasoning to Telegram
             </label>
-            <p className="hint">
+            <Hint>
               Post reasoning as a separate message before the reply.
-            </p>
+            </Hint>
           </div>
 
-          <div className="field nested">
+          <div className="ml-4 flex flex-col gap-1 border-l border-border pl-4">
             <label htmlFor="reasoningEffort">Reasoning effort</label>
             <select
               id="reasoningEffort"
@@ -83,15 +87,15 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
               <option value="medium">Medium</option>
               <option value="high">High</option>
             </select>
-            <p className="hint">
+            <Hint>
               Controls how much computation the model spends on reasoning.
-            </p>
+            </Hint>
           </div>
         </>
       )}
 
-      <div className="field toggle-row">
-        <label className="checkbox">
+      <div className="flex flex-col gap-1">
+        <label className={checkboxLabelClass}>
           <input
             type="checkbox"
             checked={maintenanceModeEnabled}
@@ -99,15 +103,16 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
           />
           Maintenance mode
         </label>
-        <p className="hint">
+        <Hint>
           When enabled, only the owner can trigger LLM-backed behavior. In
           groups, the owner must also @mention the bot (e.g.{" "}
-          <code>@your_bot hello</code>). Other users are ignored silently.
-        </p>
+          <code className="font-mono text-[0.85em]">@your_bot hello</code>).
+          Other users are ignored silently.
+        </Hint>
       </div>
 
-      <div className="field toggle-row">
-        <label className="checkbox">
+      <div className="flex flex-col gap-1">
+        <label className={checkboxLabelClass}>
           <input
             type="checkbox"
             checked={randomReplyEnabled}
@@ -118,7 +123,7 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
       </div>
 
       {randomReplyEnabled && (
-        <div className="field">
+        <div className="flex flex-col gap-1">
           <label htmlFor="chance">
             Random reply chance ({randomReplyChance}%)
           </label>
@@ -133,8 +138,8 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
         </div>
       )}
 
-      <div className="field toggle-row">
-        <label className="checkbox">
+      <div className="flex flex-col gap-1">
+        <label className={checkboxLabelClass}>
           <input
             type="checkbox"
             checked={reactToEveryImage}
@@ -142,10 +147,10 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
           />
           React to every image
         </label>
-        <p className="hint">
+        <Hint>
           In group chats, comment on photos and image files even when
           they are not addressed to the bot (requires a vision model).
-        </p>
+        </Hint>
       </div>
     </>
   );

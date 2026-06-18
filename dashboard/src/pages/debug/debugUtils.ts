@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { DebugChatSummary, MessageReportListItem } from "../../api";
+import type { BadgeVariant } from "../../components/ui/Badge";
 
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleString();
@@ -53,7 +54,7 @@ export function useLiveClock(active: boolean): number {
   return now;
 }
 
-export function statusClass(status: string): string {
+export function statusClass(status: string): BadgeVariant {
   if (status === "processed") return "ok";
   if (status === "processing") return "warn";
   if (status === "error") return "danger";

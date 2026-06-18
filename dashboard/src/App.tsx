@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { isApiError } from "./api";
 import { DashboardProvider, useDashboard } from "./context/DashboardContext";
 import { AppLayout } from "./layout/AppLayout";
+import { LoadingState } from "./components/ui/Layout";
 import { OfflinePage } from "./pages/OfflinePage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { CharacterPage } from "./pages/CharacterPage";
@@ -12,7 +13,6 @@ import { WorkflowPage } from "./pages/WorkflowPage";
 import { ModulesPage } from "./pages/ModulesPage";
 import { ModuleDetailPage } from "./pages/ModuleDetailPage";
 import { ModuleDebugPage } from "./pages/ModuleDebugPage";
-import "./App.css";
 
 function DashboardRoutes() {
   const {
@@ -26,8 +26,8 @@ function DashboardRoutes() {
 
   if (loading) {
     return (
-      <div className="layout">
-        <p className="loading">Loading dashboard…</p>
+      <div className="mx-auto max-w-[1100px] px-6 py-8">
+        <LoadingState>Loading dashboard…</LoadingState>
       </div>
     );
   }

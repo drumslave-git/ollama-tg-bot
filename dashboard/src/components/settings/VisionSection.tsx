@@ -1,5 +1,6 @@
 import React from "react";
 import { SettingsNumberField } from "../../SettingsNumberField";
+import { SectionTitle } from "../ui/Layout";
 
 interface VisionSectionProps {
   visionMaxDimension: number;
@@ -14,7 +15,7 @@ const VisionSection: React.FC<VisionSectionProps> = ({
 }) => {
   return (
     <>
-      <h3 className="section-title">Vision</h3>
+      <SectionTitle className="mt-6">Vision</SectionTitle>
       <SettingsNumberField
         id="visionMaxDimension"
         label="Image max edge (px)"

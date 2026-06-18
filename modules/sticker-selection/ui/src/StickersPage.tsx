@@ -10,6 +10,11 @@ interface StickerSettingsDraft {
   stickerPackName: string;
 }
 
+const primaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+
 function stickerFieldsFromSettings(
   settings: Pick<
     StickerSettingsDraft,
@@ -96,16 +101,20 @@ export function StickersPage() {
 
   if (loading && !draft) {
     return (
-      <div className="page">
-        <p className="loading">Loading sticker settings…</p>
+      <div className="flex flex-col gap-5">
+        <p className="py-16 text-center text-muted">
+          Loading sticker settings…
+        </p>
       </div>
     );
   }
 
   if (!draft) {
     return (
-      <div className="page">
-        <p className="hint">Sticker settings are not available.</p>
+      <div className="flex flex-col gap-5">
+        <p className="mt-1.5 text-xs text-muted">
+          Sticker settings are not available.
+        </p>
       </div>
     );
   }
@@ -114,14 +123,16 @@ export function StickersPage() {
     draft.stickersEnabled && draft.stickerPackName.trim() === "";
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h2>Stickers</h2>
-        <p className="page-desc">
-          Configure outgoing Telegram sticker replies: enable the feature, set
-          how often stickers are sent, and load a sticker pack for the model to
-          choose from.
-        </p>
+    <div className="flex flex-col gap-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Stickers</h2>
+          <p className="m-0 max-w-xl text-[0.92rem] text-muted">
+            Configure outgoing Telegram sticker replies: enable the feature, set
+            how often stickers are sent, and load a sticker pack for the model to
+            choose from.
+          </p>
+        </div>
       </header>
 
       {error != null ? (
@@ -129,11 +140,16 @@ export function StickersPage() {
       ) : null}
 
       {saveOk ? (
-        <div className="alert success page-alert">Saved</div>
+        <div className="mb-4 rounded-lg border border-accent/35 bg-accent/10 px-4 py-3 text-sm text-accent">
+          Saved
+        </div>
       ) : null}
 
-      <section className="card">
-        <fieldset disabled={configBlocked} className="form-fieldset">
+      <section className="rounded-lg border border-border bg-surface p-6">
+        <fieldset
+          disabled={configBlocked}
+          className="m-0 min-w-0 border-none p-0 disabled:pointer-events-none disabled:opacity-55"
+        >
           <StickersSection
             stickersEnabled={draft.stickersEnabled}
             stickerReplyChance={draft.stickerReplyChance}
@@ -159,15 +175,15 @@ export function StickersPage() {
           />
 
           {stickerPackRequired ? (
-            <p className="field-error model-config-save-block">
+            <p className="mb-3 mt-1.5 text-sm leading-snug text-danger">
               Sticker pack name is required when stickers are enabled.
             </p>
           ) : null}
 
-          <div className="actions">
+          <div className="mt-2 flex flex-wrap gap-3">
             <button
               type="button"
-              className="primary"
+              className={primaryBtn}
               onClick={() => void save()}
               disabled={saving || configBlocked || stickerPackRequired}
             >
@@ -175,7 +191,7 @@ export function StickersPage() {
             </button>
             <button
               type="button"
-              className="secondary"
+              className={secondaryBtn}
               onClick={() =>
                 settings && applySettings(stickerFieldsFromSettings(settings))
               }

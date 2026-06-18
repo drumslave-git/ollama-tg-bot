@@ -4,6 +4,9 @@ import { api, type MessageReportDetail } from "../../api";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { useDashboard } from "../../context/DashboardContext";
 import { useLiveDebug } from "../../liveSocket";
+import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
+import { Card, LoadingState } from "../../components/ui/Layout";
 import {
   decodeRouteChatId,
   parseRouteMessageId,
@@ -14,6 +17,15 @@ import {
   PhaseRow,
   statusClass,
 } from "./DebugReportParts";
+
+const metaGridClass =
+  "m-0 mt-4 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-x-4 gap-y-3";
+
+const fieldsGridClass =
+  "m-0 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-x-4 gap-y-3";
+
+const fieldLabelClass =
+  "mb-0.5 text-xs font-semibold uppercase tracking-wide text-muted";
 
 export function DebugMessageDetail() {
   const { chatId: chatIdParam, messageId: messageIdParam } = useParams();
@@ -87,167 +99,161 @@ export function DebugMessageDetail() {
         <ErrorBanner error={error} compact onRetry={() => void load()} />
       ) : null}
 
-      {loading ? <p className="loading">Loading…</p> : null}
+      {loading ? <LoadingState /> : null}
 
       {!loading && detail && report ? (
         <>
-          <div className="debug-header-actions debug-detail-actions">
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() => downloadReportLog(detail)}
-            >
+          <div className="mb-4 flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => downloadReportLog(detail)}>
               Download log
-            </button>
+            </Button>
           </div>
 
-          <section
-            className={`card report-outcome report-outcome-${report.status}`}
-          >
-            <div className="report-outcome-head">
-              <span className={`badge ${statusClass(report.status)}`}>
-                {report.status}
-              </span>
-              <h3>{report.headline}</h3>
+          <Card>
+            <div className="mb-3 flex flex-col gap-2">
+              <Badge variant={statusClass(report.status)}>{report.status}</Badge>
+              <h3 className="m-0 text-lg font-semibold">{report.headline}</h3>
             </div>
-            <p className="report-preview report-preview-large">
+            <p className="m-0 break-words text-base leading-snug text-text">
               {report.intake.messagePreview}
             </p>
-            <dl className="report-meta">
+            <dl className={metaGridClass}>
               <div>
-                <dt>When</dt>
-                <dd>{formatTime(detail.createdAt)}</dd>
+                <dt className={fieldLabelClass}>When</dt>
+                <dd className="m-0 text-sm">{formatTime(detail.createdAt)}</dd>
               </div>
               <div>
-                <dt>Duration</dt>
-                <dd>{formatDuration(reportDuration)}</dd>
+                <dt className={fieldLabelClass}>Duration</dt>
+                <dd className="m-0 text-sm">{formatDuration(reportDuration)}</dd>
               </div>
               <div>
-                <dt>Chat</dt>
-                <dd>
+                <dt className={fieldLabelClass}>Chat</dt>
+                <dd className="m-0 text-sm">
                   {detail.chatType} · {detail.chatId}
                 </dd>
               </div>
               {detail.messageId != null ? (
                 <div>
-                  <dt>Telegram msg</dt>
-                  <dd>{detail.messageId}</dd>
+                  <dt className={fieldLabelClass}>Telegram msg</dt>
+                  <dd className="m-0 text-sm">{detail.messageId}</dd>
                 </div>
               ) : null}
             </dl>
-          </section>
+          </Card>
 
-          <section className="card">
-            <h3>Routing</h3>
+          <Card>
+            <h3 className="m-0 mb-4 text-base font-semibold text-text">Routing</h3>
             {report.routing.decision === "pending" ? (
-              <dl className="report-fields">
+              <dl className={fieldsGridClass}>
                 <div>
-                  <dt>Decision</dt>
-                  <dd>Evaluating</dd>
+                  <dt className={fieldLabelClass}>Decision</dt>
+                  <dd className="m-0 text-sm">Evaluating</dd>
                 </div>
                 <div>
-                  <dt>Status</dt>
-                  <dd>{report.routing.pendingLabel}</dd>
+                  <dt className={fieldLabelClass}>Status</dt>
+                  <dd className="m-0 text-sm">{report.routing.pendingLabel}</dd>
                 </div>
               </dl>
             ) : report.routing.decision === "queued" ? (
-              <dl className="report-fields">
+              <dl className={fieldsGridClass}>
                 <div>
-                  <dt>Decision</dt>
-                  <dd>Queued</dd>
+                  <dt className={fieldLabelClass}>Decision</dt>
+                  <dd className="m-0 text-sm">Queued</dd>
                 </div>
                 <div>
-                  <dt>Position</dt>
-                  <dd>{report.routing.position}</dd>
+                  <dt className={fieldLabelClass}>Position</dt>
+                  <dd className="m-0 text-sm">{report.routing.position}</dd>
                 </div>
                 <div>
-                  <dt>Status</dt>
-                  <dd>{report.routing.queueLabel}</dd>
+                  <dt className={fieldLabelClass}>Status</dt>
+                  <dd className="m-0 text-sm">{report.routing.queueLabel}</dd>
                 </div>
               </dl>
             ) : report.routing.decision === "ignored" ? (
-              <dl className="report-fields">
+              <dl className={fieldsGridClass}>
                 <div>
-                  <dt>Decision</dt>
-                  <dd>Ignored</dd>
+                  <dt className={fieldLabelClass}>Decision</dt>
+                  <dd className="m-0 text-sm">Ignored</dd>
                 </div>
                 <div>
-                  <dt>Reason</dt>
-                  <dd>{report.routing.ignoreLabel}</dd>
+                  <dt className={fieldLabelClass}>Reason</dt>
+                  <dd className="m-0 text-sm">{report.routing.ignoreLabel}</dd>
                 </div>
                 {report.routing.addressSource ? (
                   <div>
-                    <dt>Address check</dt>
-                    <dd>{report.routing.addressSource}</dd>
+                    <dt className={fieldLabelClass}>Address check</dt>
+                    <dd className="m-0 text-sm">{report.routing.addressSource}</dd>
                   </div>
                 ) : null}
               </dl>
             ) : (
-              <dl className="report-fields">
+              <dl className={fieldsGridClass}>
                 <div>
-                  <dt>Decision</dt>
-                  <dd>Accepted</dd>
+                  <dt className={fieldLabelClass}>Decision</dt>
+                  <dd className="m-0 text-sm">Accepted</dd>
                 </div>
                 <div>
-                  <dt>Trigger</dt>
-                  <dd>{report.routing.triggerLabel}</dd>
+                  <dt className={fieldLabelClass}>Trigger</dt>
+                  <dd className="m-0 text-sm">{report.routing.triggerLabel}</dd>
                 </div>
                 {report.routing.addressSource ? (
                   <div>
-                    <dt>Address match</dt>
-                    <dd>{report.routing.addressSource}</dd>
+                    <dt className={fieldLabelClass}>Address match</dt>
+                    <dd className="m-0 text-sm">{report.routing.addressSource}</dd>
                   </div>
                 ) : null}
               </dl>
             )}
             {report.intake.hasMedia ? (
-              <p className="muted report-note">
+              <p className="m-0 mt-3 text-sm text-muted">
                 Media attached
                 {report.intake.mediaKind ? `: ${report.intake.mediaKind}` : ""}
               </p>
             ) : null}
-          </section>
+          </Card>
 
           {report.result.replyChars != null ||
           report.result.sticker ||
           report.result.error ||
           report.result.memory ? (
-            <section className="card">
-              <h3>Result</h3>
-              <dl className="report-fields">
+            <Card>
+              <h3 className="m-0 mb-4 text-base font-semibold text-text">Result</h3>
+              <dl className={fieldsGridClass}>
                 {report.result.replyChars != null ? (
                   <div>
-                    <dt>Reply length</dt>
-                    <dd>{report.result.replyChars} chars</dd>
+                    <dt className={fieldLabelClass}>Reply length</dt>
+                    <dd className="m-0 text-sm">{report.result.replyChars} chars</dd>
                   </div>
                 ) : null}
                 {report.result.chunks != null ? (
                   <div>
-                    <dt>Chunks sent</dt>
-                    <dd>{report.result.chunks}</dd>
+                    <dt className={fieldLabelClass}>Chunks sent</dt>
+                    <dd className="m-0 text-sm">{report.result.chunks}</dd>
                   </div>
                 ) : null}
                 {report.result.sticker ? (
                   <div>
-                    <dt>Sticker</dt>
-                    <dd>{report.result.sticker}</dd>
+                    <dt className={fieldLabelClass}>Sticker</dt>
+                    <dd className="m-0 text-sm">{report.result.sticker}</dd>
                   </div>
                 ) : null}
                 {report.result.thinkingSent ? (
                   <div>
-                    <dt>Thinking sent</dt>
-                    <dd>Yes</dd>
+                    <dt className={fieldLabelClass}>Thinking sent</dt>
+                    <dd className="m-0 text-sm">Yes</dd>
                   </div>
                 ) : report.phases.some((p) => p.id === "reasoning") ? (
                   <div>
-                    <dt>Thinking sent</dt>
-                    <dd>No (reasoning not returned or send disabled)</dd>
+                    <dt className={fieldLabelClass}>Thinking sent</dt>
+                    <dd className="m-0 text-sm">
+                      No (reasoning not returned or send disabled)
+                    </dd>
                   </div>
                 ) : null}
                 {report.result.memory ? (
                   <div>
-                    <dt>Memory</dt>
-                    <dd>
+                    <dt className={fieldLabelClass}>Memory</dt>
+                    <dd className="m-0 text-sm">
                       {report.result.memory.status === "pending"
                         ? "Pending…"
                         : report.result.memory.updated
@@ -261,31 +267,31 @@ export function DebugMessageDetail() {
                 ) : null}
                 {report.result.error ? (
                   <div>
-                    <dt>Error</dt>
-                    <dd>{report.result.error}</dd>
+                    <dt className={fieldLabelClass}>Error</dt>
+                    <dd className="m-0 text-sm">{report.result.error}</dd>
                   </div>
                 ) : null}
               </dl>
-            </section>
+            </Card>
           ) : null}
 
-          <section className="card">
-            <h3>Pipeline</h3>
+          <Card>
+            <h3 className="m-0 mb-4 text-base font-semibold text-text">Pipeline</h3>
             {report.phases.length === 0 ? (
-              <p className="muted">No pipeline steps recorded.</p>
+              <p className="m-0 text-muted">No pipeline steps recorded.</p>
             ) : (
-              <div className="report-phase-list">
+              <div className="flex flex-col gap-2">
                 {report.phases.map((phase) => (
                   <PhaseRow key={phase.id} phase={phase} />
                 ))}
               </div>
             )}
-          </section>
+          </Card>
         </>
       ) : null}
 
       {!loading && !detail && error == null ? (
-        <p className="muted">Report not found.</p>
+        <p className="m-0 text-muted">Report not found.</p>
       ) : null}
     </>
   );

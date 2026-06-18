@@ -4,9 +4,14 @@ import { api, type DebugChatSummary, type MessageReportListItem } from "../../ap
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { useDashboard } from "../../context/DashboardContext";
 import { useLiveDebug } from "../../liveSocket";
+import { Badge } from "../../components/ui/Badge";
+import { Card, LoadingState } from "../../components/ui/Layout";
+import { cn } from "../../lib/cn";
 import { debugMessagePath, decodeRouteChatId } from "./debugPaths";
-import { formatDuration, formatTime, liveDurationMs, upsertListItem, useLiveClock } from "./debugUtils";
-import { statusClass } from "./DebugReportParts";
+import { formatDuration, formatTime, liveDurationMs, statusClass, upsertListItem, useLiveClock } from "./debugUtils";
+
+const messageItemClass =
+  "flex w-full flex-col gap-1.5 rounded-[10px] border border-border bg-surface-hover p-3.5 px-4 text-left text-inherit no-underline hover:border-accent hover:bg-accent/6";
 
 export function DebugChatMessages() {
   const { chatId: chatIdParam } = useParams();
@@ -76,15 +81,15 @@ export function DebugChatMessages() {
         <ErrorBanner error={error} compact onRetry={() => void load()} />
       ) : null}
 
-      {loading ? <p className="loading">Loading…</p> : null}
+      {loading ? <LoadingState /> : null}
 
       {!loading ? (
-        <section className="card">
-          <h3>{title}</h3>
+        <Card>
+          <h3 className="m-0 mb-4 text-base font-semibold text-text">{title}</h3>
           {messages.length === 0 ? (
-            <p className="muted">No reports for this chat.</p>
+            <p className="m-0 text-muted">No reports for this chat.</p>
           ) : (
-            <div className="report-message-list">
+            <div className="flex flex-col gap-2">
               {messages.map((item) => {
                 const duration = liveDurationMs(
                   item.createdAt,
@@ -92,35 +97,49 @@ export function DebugChatMessages() {
                   item.status,
                   now,
                 );
+                const isLive = item.status === "processing";
                 return (
-                <Link
-                  key={item.id}
-                  to={debugMessagePath(chatId, item.id)}
-                  className={`report-message-item${item.status === "processing" ? " report-message-item-live" : ""}`}
-                >
-                  <div className="report-message-top">
-                    <span className={`badge ${statusClass(item.status)}`}>
-                      {item.status}
-                    </span>
-                    <span className="muted">#{item.id}</span>
-                    <span className="report-message-time">
-                      {formatTime(item.createdAt)}
-                    </span>
-                    <span className="report-message-duration">
-                      {formatDuration(duration)}
-                    </span>
-                  </div>
-                  <p className="report-headline">{item.headline}</p>
-                  <p className="report-preview">{item.messagePreview}</p>
-                  {item.userLabel ? (
-                    <span className="report-badge">{item.userLabel}</span>
-                  ) : null}
-                </Link>
+                  <Link
+                    key={item.id}
+                    to={debugMessagePath(chatId, item.id)}
+                    className={cn(
+                      messageItemClass,
+                      isLive &&
+                        "border-warning/45 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-warning)_20%,transparent)]",
+                    )}
+                  >
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <Badge
+                        variant={statusClass(item.status)}
+                        className={cn(isLive && "animate-debug-live-pulse")}
+                      >
+                        {item.status}
+                      </Badge>
+                      <span className="text-muted">#{item.id}</span>
+                      <span className="text-sm tabular-nums text-muted">
+                        {formatTime(item.createdAt)}
+                      </span>
+                      <span className="ml-auto text-sm tabular-nums text-muted">
+                        {formatDuration(duration)}
+                      </span>
+                    </div>
+                    <p className="m-0 text-[0.95rem] font-semibold">
+                      {item.headline}
+                    </p>
+                    <p className="m-0 break-words text-sm leading-snug text-muted">
+                      {item.messagePreview}
+                    </p>
+                    {item.userLabel ? (
+                      <span className="self-start rounded-full bg-slate-400/15 px-1.5 py-0.5 text-xs text-muted">
+                        {item.userLabel}
+                      </span>
+                    ) : null}
+                  </Link>
                 );
               })}
             </div>
           )}
-        </section>
+        </Card>
       ) : null}
     </>
   );

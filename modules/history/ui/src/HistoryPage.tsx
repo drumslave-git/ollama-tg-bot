@@ -9,6 +9,9 @@ interface StoredMessage {
   compressedAt?: number;
 }
 
+const secondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+
 function formatTime(value: unknown): string {
   if (typeof value !== "string" || !value) return "—";
   const date = new Date(value);
@@ -124,31 +127,37 @@ export function HistoryPage() {
   };
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h1>Chat history</h1>
-        <p className="page-lead">
-          Stored transcripts per Telegram chat. Limits are derived from context
-          window settings on the Settings page. Use Compress to summarize a chat
-          into one narrative row (same as automatic overflow compression).
-        </p>
+    <div className="flex flex-col gap-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="mb-1.5 text-2xl font-bold tracking-tight">
+            Chat history
+          </h1>
+          <p className="m-0 max-w-xl text-[0.92rem] text-muted">
+            Stored transcripts per Telegram chat. Limits are derived from context
+            window settings on the Settings page. Use Compress to summarize a chat
+            into one narrative row (same as automatic overflow compression).
+          </p>
+        </div>
       </header>
 
       {error ? <ErrorBanner error={error} /> : null}
-      {compressNotice ? <p className="hint">{compressNotice}</p> : null}
+      {compressNotice ? (
+        <p className="mt-1.5 text-xs text-muted">{compressNotice}</p>
+      ) : null}
 
-      <section className="card">
-        <div className="toolbar">
+      <section className="rounded-lg border border-border bg-surface p-6">
+        <div className="mb-3.5 flex flex-wrap items-center gap-2">
           <input
             type="search"
-            className="input"
+            className="min-w-0 flex-1 basis-56"
             placeholder="Search chat key or message text…"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
           <button
             type="button"
-            className="button secondary"
+            className={secondaryBtn}
             onClick={() => void load()}
             disabled={loading}
           >
@@ -157,37 +166,42 @@ export function HistoryPage() {
         </div>
 
         {loading && !payload ? (
-          <p className="muted">Loading…</p>
+          <p className="text-muted">Loading…</p>
         ) : !payload ? (
-          <p className="muted">No history data.</p>
+          <p className="text-muted">No history data.</p>
         ) : (
           <>
-            <p className="muted">
+            <p className="text-muted">
               {filteredRows.length} of {payload.total} chats
               {payload.truncated ? " (list truncated)" : ""}
             </p>
 
             {filteredRows.length === 0 ? (
-              <p className="muted">No chats match your search.</p>
+              <p className="text-muted">No chats match your search.</p>
             ) : (
-              <div className="history-groups">
+              <div className="flex flex-col gap-4">
                 {filteredRows.map((row) => {
                   const chatKey = String(row.chatKey ?? "—");
                   const messages = parseMessages(row.messages);
                   const isCompressing = compressingChatKey === chatKey;
 
                   return (
-                    <article key={chatKey} className="history-group">
-                      <header className="history-group-head">
-                        <div className="history-group-meta">
-                          <code className="history-chat-key">{chatKey}</code>
-                          <span className="label-meta">
+                    <article
+                      key={chatKey}
+                      className="overflow-hidden rounded-lg border border-border"
+                    >
+                      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3.5 py-2.5">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <code className="font-mono text-[0.88em]">
+                            {chatKey}
+                          </code>
+                          <span className="ml-0.5 text-xs font-normal text-muted">
                             {messages.length} message
                             {messages.length === 1 ? "" : "s"}
                           </span>
                         </div>
-                        <div className="history-group-actions">
-                          <div className="history-group-times">
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                          <div className="flex flex-wrap gap-3 text-xs text-muted">
                             <span>
                               Updated{" "}
                               <time dateTime={String(row.updatedAt ?? "")}>
@@ -205,7 +219,7 @@ export function HistoryPage() {
                           </div>
                           <button
                             type="button"
-                            className="button secondary"
+                            className={secondaryBtn}
                             disabled={
                               messages.length === 0 ||
                               isCompressing ||
@@ -219,21 +233,23 @@ export function HistoryPage() {
                       </header>
 
                       {messages.length === 0 ? (
-                        <p className="history-empty muted">No messages stored.</p>
+                        <p className="m-0 px-3.5 py-3 text-muted">
+                          No messages stored.
+                        </p>
                       ) : (
-                        <ol className="history-message-list">
+                        <ol className="m-0 list-none p-0">
                           {messages.map((message, index) => (
                             <li
                               key={`${chatKey}-${index}`}
-                              className="history-message"
+                              className="border-b border-border px-3.5 py-3 last:border-b-0"
                             >
-                              <div className="history-message-head">
-                                <span className="history-message-role">
+                              <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+                                <span className="font-mono text-xs text-accent">
                                   {message.role}
                                 </span>
                                 {message.compressedAt ? (
                                   <time
-                                    className="history-message-time"
+                                    className="text-xs text-muted"
                                     dateTime={new Date(
                                       message.compressedAt * 1000,
                                     ).toISOString()}
@@ -242,7 +258,7 @@ export function HistoryPage() {
                                   </time>
                                 ) : null}
                               </div>
-                              <pre className="history-message-content">
+                              <pre className="m-0 whitespace-pre-wrap break-words font-[inherit] text-sm leading-snug">
                                 {message.content}
                               </pre>
                             </li>

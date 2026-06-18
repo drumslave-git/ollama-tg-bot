@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { api, type DashboardModuleSummary } from "../api";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { getModuleUi } from "../moduleUiRegistry";
+import { ButtonLink } from "../components/ui/Button";
+import { Card, Hint, LoadingState, Page } from "../components/ui/Layout";
 
 export function ModuleDetailPage() {
   const { moduleId = "" } = useParams();
@@ -31,72 +33,82 @@ export function ModuleDetailPage() {
   }, [moduleId]);
 
   const ui = getModuleUi(moduleId);
-  const Page = ui?.Page;
+  const PageComponent = ui?.Page;
 
   if (loading) {
     return (
-      <div className="page">
-        <p className="loading">Loading module…</p>
-      </div>
+      <Page>
+        <LoadingState>Loading module…</LoadingState>
+      </Page>
     );
   }
 
   if (error != null) {
     return (
-      <div className="page">
+      <Page>
         <ErrorBanner error={error} onRetry={() => window.location.reload()} />
-      </div>
+      </Page>
     );
   }
 
   if (!module) {
     return (
-      <div className="page">
-        <p className="hint">Module not found.</p>
-        <Link to="/modules">Back to modules</Link>
-      </div>
+      <Page>
+        <Hint>Module not found.</Hint>
+        <Link to="/modules" className="text-accent no-underline hover:underline">
+          Back to modules
+        </Link>
+      </Page>
     );
   }
 
   return (
-    <div className="module-detail">
-      <header className="page-header module-detail-header">
+    <Page>
+      <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="breadcrumb">
-            <Link to="/modules">Modules</Link>
+          <p className="m-0 mb-1 text-sm text-muted">
+            <Link to="/modules" className="text-accent no-underline hover:underline">
+              Modules
+            </Link>
             <span aria-hidden="true"> / </span>
             <span>{module.dashboard?.label ?? module.name}</span>
           </p>
-          <h2>{module.dashboard?.label ?? module.name}</h2>
+          <h2 className="m-0 text-2xl font-bold tracking-tight">
+            {module.dashboard?.label ?? module.name}
+          </h2>
           {module.dashboard?.description ? (
-            <p className="page-desc">{module.dashboard.description}</p>
+            <p className="m-0 mt-1.5 max-w-xl text-sm text-muted">
+              {module.dashboard.description}
+            </p>
           ) : (
-            <p className="page-desc">{module.description}</p>
+            <p className="m-0 mt-1.5 max-w-xl text-sm text-muted">
+              {module.description}
+            </p>
           )}
         </div>
       </header>
 
-      {Page ? (
+      {PageComponent ? (
         <>
-          <div className="module-detail-tabs">
+          <div className="mb-4 flex gap-2">
             {ui?.DebugPage ? (
-              <Link className="btn secondary" to={`/modules/${moduleId}/debug`}>
+              <ButtonLink variant="secondary" to={`/modules/${moduleId}/debug`}>
                 Job debug
-              </Link>
+              </ButtonLink>
             ) : null}
           </div>
-          <Page />
+          <PageComponent />
         </>
       ) : (
-        <section className="card">
-          <p className="hint">
+        <Card>
+          <Hint>
             This module has no dashboard UI registered. Data tables:{" "}
             {module.dataTables.length > 0
               ? module.dataTables.join(", ")
               : "none"}
-          </p>
-        </section>
+          </Hint>
+        </Card>
       )}
-    </div>
+    </Page>
   );
 }

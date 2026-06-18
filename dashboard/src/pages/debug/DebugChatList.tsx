@@ -4,8 +4,12 @@ import { api, type DebugChatSummary } from "../../api";
 import { ErrorBanner } from "../../components/ErrorBanner";
 import { useDashboard } from "../../context/DashboardContext";
 import { useLiveDebug } from "../../liveSocket";
+import { Card, LoadingState } from "../../components/ui/Layout";
 import { debugChatPath } from "./debugPaths";
 import { formatTime, patchChatSummaries } from "./debugUtils";
+
+const chatItemClass =
+  "flex w-full cursor-pointer flex-row items-center justify-between gap-3 rounded-[10px] border border-border bg-surface-hover p-3.5 px-4 text-left text-inherit no-underline hover:border-accent hover:bg-accent/6";
 
 export function DebugChatList() {
   const { apiOnline } = useDashboard();
@@ -58,38 +62,38 @@ export function DebugChatList() {
         />
       ) : null}
 
-      {loading ? <p className="loading">Loading…</p> : null}
+      {loading ? <LoadingState /> : null}
 
       {!loading ? (
-        <section className="card">
-          <h3>Chats</h3>
+        <Card>
+          <h3 className="m-0 mb-4 text-base font-semibold text-text">Chats</h3>
           {chats.length === 0 ? (
-            <p className="muted">
+            <p className="m-0 text-muted">
               No reports yet. Send messages to the bot to populate this view.
             </p>
           ) : (
-            <div className="report-chat-list">
+            <div className="flex flex-col gap-2">
               {chats.map((chat) => (
                 <Link
                   key={chat.chatId}
                   to={debugChatPath(chat.chatId)}
-                  className="report-chat-item"
+                  className={chatItemClass}
                 >
                   <div>
-                    <strong>{chat.label}</strong>
-                    <span className="muted">
+                    <strong className="block">{chat.label}</strong>
+                    <span className="text-muted">
                       {chat.chatType === "private" ? "Private" : "Group"} ·{" "}
                       {chat.traceCount} reports
                     </span>
                   </div>
-                  <span className="muted">
+                  <span className="text-sm text-muted">
                     {chat.latestAt ? formatTime(chat.latestAt) : "—"}
                   </span>
                 </Link>
               ))}
             </div>
           )}
-        </section>
+        </Card>
       ) : null}
     </>
   );

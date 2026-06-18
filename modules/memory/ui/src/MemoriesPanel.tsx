@@ -22,6 +22,16 @@ type ChatGroup = {
   facts: GroupMemoryFact[];
 };
 
+const primaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const dangerBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-danger/40 bg-surface-hover px-4 py-2.5 text-sm font-semibold text-danger transition-opacity hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50";
+const sectionShell = (embedded: boolean) =>
+  embedded ? "flex flex-col gap-4" : "rounded-lg border border-border bg-surface p-6";
+const pageDesc = "m-0 max-w-xl text-[0.92rem] text-muted";
+
 const COPY: Record<
   MemoryKind,
   {
@@ -276,10 +286,10 @@ export function MemoriesPanel({
   ) => {
     if (isEditing) {
       return (
-        <div className="memory-item-actions">
+        <div className="flex shrink-0 flex-wrap gap-1.5">
           <button
             type="button"
-            className="primary"
+            className={primaryBtn}
             disabled={savingId === item.id || editText.trim().length < 2}
             onClick={() => void saveEdit(item.id)}
           >
@@ -287,7 +297,7 @@ export function MemoriesPanel({
           </button>
           <button
             type="button"
-            className="secondary"
+            className={secondaryBtn}
             disabled={savingId === item.id}
             onClick={cancelEdit}
           >
@@ -298,10 +308,10 @@ export function MemoriesPanel({
     }
 
     return (
-      <div className="memory-item-actions">
+      <div className="flex shrink-0 flex-wrap gap-1.5">
         <button
           type="button"
-          className="secondary"
+          className={secondaryBtn}
           title="Edit this memory"
           disabled={deletingId === item.id}
           onClick={() => startEdit(item.id, item.fact)}
@@ -310,7 +320,7 @@ export function MemoriesPanel({
         </button>
         <button
           type="button"
-          className="secondary danger-btn"
+          className={dangerBtn}
           title="Delete this memory"
           disabled={deletingId === item.id}
           onClick={() => void removeFact(item.id)}
@@ -325,19 +335,22 @@ export function MemoriesPanel({
     const isEditing = editingId === item.id;
 
     return (
-      <li key={item.id} className="memory-item">
-        <div className="memory-item-body">
+      <li
+        key={item.id}
+        className="flex items-start justify-between gap-3 border-b border-border px-3.5 py-3 last:border-b-0"
+      >
+        <div className="min-w-0 flex-1">
           {isEditing ? (
             <textarea
-              className="memory-edit-input"
+              className="min-h-10 w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
               rows={6}
               value={editText}
               onChange={(e) => setEditText(e.target.value)}
             />
           ) : (
-            <p className="memory-fact">{item.fact}</p>
+            <p className="mb-1.5 break-words leading-snug">{item.fact}</p>
           )}
-          <time className="memory-time" dateTime={item.createdAt}>
+          <time className="text-xs text-muted" dateTime={item.createdAt}>
             {new Date(item.createdAt).toLocaleString()}
           </time>
         </div>
@@ -348,34 +361,46 @@ export function MemoriesPanel({
 
   if (!apiOnline) {
     return (
-      <section className={embedded ? "page-block" : "card memories-card"}>
+      <section className={sectionShell(embedded)}>
         {!embedded ? (
-          <h2>{copy.title}</h2>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+            {copy.title}
+          </h2>
         ) : (
-          <header className="page-header">
-            <h2>{copy.title}</h2>
-            <p className="page-desc">{copy.offlineDesc}</p>
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+                {copy.title}
+              </h2>
+              <p className={pageDesc}>{copy.offlineDesc}</p>
+            </div>
           </header>
         )}
-        <p className="hint">API must be online to view stored memories.</p>
+        <p className="mt-1.5 text-xs text-muted">
+          API must be online to view stored memories.
+        </p>
       </section>
     );
   }
 
   const header = embedded ? (
-    <header className="page-header memories-page-header">
+    <header className="mb-1 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2>{copy.title}</h2>
-        <p className="page-desc">
+        <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+          {copy.title}
+        </h2>
+        <p className={pageDesc}>
           {copy.desc} {facts.length} total. Updates live.
         </p>
       </div>
     </header>
   ) : (
-    <div className="memories-header">
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2>{copy.title}</h2>
-        <p className="hint">
+        <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+          {copy.title}
+        </h2>
+        <p className="mt-1.5 text-xs text-muted">
           {copy.desc} {facts.length} total. Updates live.
         </p>
       </div>
@@ -383,7 +408,7 @@ export function MemoriesPanel({
   );
 
   return (
-    <section className={embedded ? "page-block" : "card memories-card"}>
+    <section className={sectionShell(embedded)}>
       {header}
 
       {error != null ? (
@@ -396,100 +421,119 @@ export function MemoriesPanel({
       ) : null}
 
       <form
-        className="memory-add-form"
+        className="mb-5 rounded-lg border border-border bg-bg p-3.5"
         onSubmit={(e) => {
           e.preventDefault();
           void addFact();
         }}
       >
-          <p className="hint memory-add-hint">{copy.addHint}</p>
-          <div className="memory-add-row">
-            <label className="memory-add-field">
-              <span>{copy.entityLabel} ID</span>
-              <input
-                type="text"
-                value={addEntityId}
-                onChange={(e) => setAddEntityId(e.target.value)}
-                placeholder={
-                  kind === "user" ? "Telegram user ID" : "Telegram group ID"
-                }
-              />
-            </label>
-            <label className="memory-add-field memory-add-fact-field">
-              <span>Memory</span>
-              <textarea
-                className="memory-edit-input"
-                rows={3}
-                value={addFactText}
-                onChange={(e) => setAddFactText(e.target.value)}
-                placeholder="New fact to store…"
-              />
-            </label>
-            <button
-              type="submit"
-              className="primary"
-              disabled={
-                savingId === "new" ||
-                addFactText.trim().length < 2 ||
-                !addEntityId.trim()
+        <p className="mb-2.5 mt-0 text-xs text-muted">{copy.addHint}</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1.5 text-xs text-muted">
+            <span>{copy.entityLabel} ID</span>
+            <input
+              type="text"
+              className="min-w-40 rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+              value={addEntityId}
+              onChange={(e) => setAddEntityId(e.target.value)}
+              placeholder={
+                kind === "user" ? "Telegram user ID" : "Telegram group ID"
               }
-            >
-              {savingId === "new" ? "…" : "Add"}
-            </button>
+            />
+          </label>
+          <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-xs text-muted">
+            <span>Memory</span>
+            <textarea
+              className="min-h-10 w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+              rows={3}
+              value={addFactText}
+              onChange={(e) => setAddFactText(e.target.value)}
+              placeholder="New fact to store…"
+            />
+          </label>
+          <button
+            type="submit"
+            className={primaryBtn}
+            disabled={
+              savingId === "new" ||
+              addFactText.trim().length < 2 ||
+              !addEntityId.trim()
+            }
+          >
+            {savingId === "new" ? "…" : "Add"}
+          </button>
         </div>
       </form>
 
       {loading && facts.length === 0 ? (
-        <p className="hint">Loading memories…</p>
+        <p className="mt-1.5 text-xs text-muted">Loading memories…</p>
       ) : null}
 
       {!loading && facts.length === 0 && error == null ? (
-        <p className="hint">
+        <p className="mt-1.5 text-xs text-muted">
           No memories stored yet. Create one above or let the bot learn from
           chat.
         </p>
       ) : null}
 
-      <div className="memory-groups">
+      <div className="flex flex-col gap-4">
         {kind === "user"
           ? userGroups.map((group) => (
-              <div key={group.userId} className="memory-group">
-                <div className="memory-group-head">
-                  <span className="memory-user">
-                    {copy.entityLabel} <code>{group.userId}</code>
-                    <span className="label-meta"> ({group.facts.length})</span>
+              <div
+                key={group.userId}
+                className="overflow-hidden rounded-lg border border-border"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3.5 py-2.5">
+                  <span>
+                    {copy.entityLabel}{" "}
+                    <code className="font-mono text-[0.88em]">
+                      {group.userId}
+                    </code>
+                    <span className="ml-2 text-xs font-normal text-muted">
+                      {" "}
+                      ({group.facts.length})
+                    </span>
                   </span>
                   <button
                     type="button"
-                    className="secondary danger-btn"
+                    className={dangerBtn}
                     disabled={clearingId === group.userId}
                     onClick={() => void clearEntity(group.userId)}
                   >
                     {clearingId === group.userId ? "…" : copy.clearLabel}
                   </button>
                 </div>
-                <ul className="memory-list">
+                <ul className="m-0 list-none p-0">
                   {group.facts.map((item) => renderFactItem(item))}
                 </ul>
               </div>
             ))
           : chatGroups.map((group) => (
-              <div key={group.groupId} className="memory-group">
-                <div className="memory-group-head">
-                  <span className="memory-user">
-                    {copy.entityLabel} <code>{group.groupId}</code>
-                    <span className="label-meta"> ({group.facts.length})</span>
+              <div
+                key={group.groupId}
+                className="overflow-hidden rounded-lg border border-border"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3.5 py-2.5">
+                  <span>
+                    {copy.entityLabel}{" "}
+                    <code className="font-mono text-[0.88em]">
+                      {group.groupId}
+                    </code>
+                    <span className="ml-2 text-xs font-normal text-muted">
+                      {" "}
+                      ({group.facts.length})
+                    </span>
                   </span>
                   <button
                     type="button"
-                    className="secondary danger-btn"
+                    className={dangerBtn}
                     disabled={clearingId === group.groupId}
                     onClick={() => void clearEntity(group.groupId)}
                   >
                     {clearingId === group.groupId ? "…" : copy.clearLabel}
                   </button>
                 </div>
-                <ul className="memory-list">
+                <ul className="m-0 list-none p-0">
                   {group.facts.map((item) => renderFactItem(item))}
                 </ul>
               </div>

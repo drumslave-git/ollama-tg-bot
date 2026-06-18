@@ -220,6 +220,8 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 
 State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/api.ts`.
 
+**Styling** — Tailwind CSS v4 (`@tailwindcss/vite`). Theme tokens in `dashboard/src/index.css` (`@theme`: `bg-bg`, `bg-surface`, `text-muted`, `text-accent`, etc.). Shared primitives in `dashboard/src/components/ui/` (`Badge`, `Button`, `ButtonLink`, `Card`, `Page`, `PageHeader`, …) and `cn()` in `dashboard/src/lib/cn.ts`. Module UI packages use the same Tailwind tokens via the dashboard Vite build (no separate CSS files). Layout: sidebar is `sticky` on mobile and `fixed` (`md:w-60`) on desktop; main content uses `md:ml-60`.
+
 ## Telegram specifics
 
 - Entity offsets are **UTF-16 code units** (same as JS strings) — see `sliceEntity` in `@llm-tg-bot/modules-addressing-detection`.

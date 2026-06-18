@@ -23,6 +23,13 @@ const MOOD_KEYS: MoodKey[] = [
   "suspicious",
 ];
 
+const primaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const dangerSecondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-danger/40 bg-surface-hover px-4 py-2.5 text-sm font-semibold text-danger transition-opacity hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50";
+
 function formatTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return iso;
@@ -131,8 +138,8 @@ export function MoodPage() {
 
   if (loading && !payload) {
     return (
-      <div className="page">
-        <p className="loading">Loading mood…</p>
+      <div className="flex flex-col gap-5">
+        <p className="py-16 text-center text-muted">Loading mood…</p>
       </div>
     );
   }
@@ -143,14 +150,16 @@ export function MoodPage() {
     : "base mood defaults";
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h2>Mood</h2>
-        <p className="page-desc">
-          Global mood state, cooldown, and per-character mood default baselines.
-          Cooldown drifts current mood back toward the active character&apos;s
-          defaults in the background.
-        </p>
+    <div className="flex flex-col gap-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Mood</h2>
+          <p className="m-0 max-w-xl text-[0.92rem] text-muted">
+            Global mood state, cooldown, and per-character mood default baselines.
+            Cooldown drifts current mood back toward the active character&apos;s
+            defaults in the background.
+          </p>
+        </div>
       </header>
 
       {error != null ? (
@@ -158,13 +167,15 @@ export function MoodPage() {
       ) : null}
 
       {saveOk ? (
-        <div className="alert success page-alert">Saved</div>
+        <div className="mb-4 rounded-lg border border-accent/35 bg-accent/10 px-4 py-3 text-sm text-accent">
+          Saved
+        </div>
       ) : null}
 
       {draftCooldown != null ? (
-        <section className="card">
-          <h3>Cooldown</h3>
-          <p className="hint">
+        <section className="rounded-lg border border-border bg-surface p-6">
+          <h3 className="mb-5 text-[1.1rem] font-semibold">Cooldown</h3>
+          <p className="mt-1.5 text-xs text-muted">
             After inactivity, each trait drifts back toward {defaultsLabel} over
             this period.
           </p>
@@ -181,10 +192,10 @@ export function MoodPage() {
             onChange={setDraftCooldown}
           />
 
-          <div className="actions">
+          <div className="mt-2 flex gap-3">
             <button
               type="button"
-              className="primary"
+              className={primaryBtn}
               disabled={saving}
               onClick={() => void saveCooldown()}
             >
@@ -195,19 +206,21 @@ export function MoodPage() {
       ) : null}
 
       {draftCurrent ? (
-        <section className="card">
-          <div className="section-head">
-            <h3 className="section-title">Current mood</h3>
+        <section className="rounded-lg border border-border bg-surface p-6">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h3 className="m-0 text-[0.95rem] font-semibold text-text">
+              Current mood
+            </h3>
             <button
               type="button"
-              className="secondary"
+              className={secondaryBtn}
               disabled={refreshing || saving}
               onClick={() => void refreshCurrent()}
             >
               {refreshing ? "Applying…" : "Apply cooldown now"}
             </button>
           </div>
-          <p className="hint">
+          <p className="mt-1.5 text-xs text-muted">
             Background cooldown updates these values toward {defaultsLabel}.
             {payload?.current?.updatedAt
               ? ` Last interaction ${formatTime(payload.current.updatedAt)}.`
@@ -217,9 +230,9 @@ export function MoodPage() {
           {effective &&
           payload?.current &&
           MOOD_KEYS.some((key) => effective[key] !== payload.current!.values[key]) ? (
-            <p className="hint">
+            <p className="mt-1.5 text-xs text-muted">
               Live decay (next background tick):{" "}
-              <span className="mood-summary">
+              <span className="inline-flex flex-wrap gap-x-2 gap-y-1 font-mono text-xs [&_span]:text-muted">
                 {MOOD_KEYS.map((key) => (
                   <span key={key} title={payload?.traitHints[key]}>
                     {key.slice(0, 3)}:{effective[key]}
@@ -229,7 +242,7 @@ export function MoodPage() {
             </p>
           ) : null}
 
-          <div className="mood-grid">
+          <div className="mt-4 grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 sm:gap-x-4">
             {MOOD_KEYS.map((key) => (
               <SettingsNumberField
                 key={key}
@@ -249,10 +262,10 @@ export function MoodPage() {
             ))}
           </div>
 
-          <div className="actions">
+          <div className="mt-2 flex flex-wrap gap-3">
             <button
               type="button"
-              className="secondary danger"
+              className={dangerSecondaryBtn}
               disabled={saving || !payload?.current}
               onClick={() => void resetCurrent()}
             >
@@ -260,7 +273,7 @@ export function MoodPage() {
             </button>
             <button
               type="button"
-              className="primary"
+              className={primaryBtn}
               disabled={saving}
               onClick={() => void saveCurrent()}
             >

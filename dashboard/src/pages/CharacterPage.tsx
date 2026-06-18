@@ -3,6 +3,16 @@ import { api, type Personality } from "../api";
 import { useDashboard } from "../context/DashboardContext";
 import { useLivePersonalities } from "../liveSocket";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
+import {
+  Card,
+  Hint,
+  Page,
+  PageHeader,
+  SectionTitle,
+} from "../components/ui/Layout";
+import { cn } from "../lib/cn";
 
 export function CharacterPage() {
   const {
@@ -147,32 +157,34 @@ export function CharacterPage() {
   }
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h2>Character</h2>
-        <p className="page-desc">
-          Manage personalities and choose which one the bot uses for every
-          reply. Per-character mood default baselines are configured under
-          Modules → Mood.
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        title="Character"
+        description={
+          <>
+            Manage personalities and choose which one the bot uses for every
+            reply. Per-character mood default baselines are configured under
+            Modules → Mood.
+          </>
+        }
+      />
 
-      <section className="card">
-        <div className="field">
+      <Card>
+        <div className="flex flex-col gap-1">
           <label>Default system prompt</label>
-          <pre className="prompt-preview">
+          <pre className="m-0 max-h-40 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-bg p-3 font-mono text-[0.78rem] leading-snug text-muted">
             {settings?.baseSystemPrompt ?? "…"}
           </pre>
-          <p className="hint">
+          <Hint>
             Always applied. Each personality below adds tone, role, and extra
             rules on top of this base.
-          </p>
+          </Hint>
         </div>
-      </section>
+      </Card>
 
-      <section className="card">
-        <div className="section-head">
-          <h3 className="section-title">Personalities</h3>
+      <Card>
+        <div className="mb-4 flex items-center justify-between gap-4">
+          <SectionTitle className="m-0">Personalities</SectionTitle>
         </div>
 
         {error != null ? (
@@ -193,17 +205,17 @@ export function CharacterPage() {
         ) : null}
 
         {personalities.length === 0 && !loading ? (
-          <p className="hint">
+          <Hint>
             No personalities yet — the bot uses only the base system prompt.
             Create one below when you want a custom character layer.
-          </p>
+          </Hint>
         ) : activeId === 0 && !loading ? (
-          <p className="hint">
+          <Hint>
             No active personality — the bot uses only the base system prompt.
-          </p>
+          </Hint>
         ) : null}
 
-        <div className="personality-list">
+        <div className="flex flex-col gap-4">
           {personalities.map((personality) => {
             const isActive = personality.id === activeId;
             const isEditing = editingId === personality.id;
@@ -211,10 +223,14 @@ export function CharacterPage() {
             return (
               <article
                 key={personality.id}
-                className={`personality-card${isActive ? " personality-card-active" : ""}`}
+                className={cn(
+                  "rounded-[10px] border border-border bg-bg p-4",
+                  isActive &&
+                    "border-accent/45 shadow-[inset_0_0_0_1px_rgba(110,231,183,0.15)]",
+                )}
               >
-                <div className="personality-card-head">
-                  <div className="personality-card-title">
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     {isEditing ? (
                       <input
                         type="text"
@@ -224,18 +240,15 @@ export function CharacterPage() {
                         aria-label="Personality name"
                       />
                     ) : (
-                      <h4>{personality.name}</h4>
+                      <h4 className="m-0 text-base">{personality.name}</h4>
                     )}
-                    {isActive ? (
-                      <span className="badge badge-ok">Active</span>
-                    ) : null}
+                    {isActive ? <Badge variant="ok">Active</Badge> : null}
                   </div>
 
-                  <div className="personality-card-actions">
+                  <div className="flex flex-wrap gap-2">
                     {!isActive ? (
-                      <button
-                        type="button"
-                        className="secondary"
+                      <Button
+                        variant="secondary"
                         onClick={() => void activatePersonality(personality.id)}
                         disabled={
                           configBlocked || activatingId === personality.id
@@ -244,12 +257,11 @@ export function CharacterPage() {
                         {activatingId === personality.id
                           ? "Activating…"
                           : "Use this"}
-                      </button>
+                      </Button>
                     ) : null}
                     {isEditing ? (
                       <>
-                        <button
-                          type="button"
+                        <Button
                           onClick={() => void saveEdit(personality.id)}
                           disabled={
                             configBlocked ||
@@ -258,36 +270,33 @@ export function CharacterPage() {
                           }
                         >
                           {savingId === personality.id ? "Saving…" : "Save"}
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary"
+                        </Button>
+                        <Button
+                          variant="secondary"
                           onClick={cancelEdit}
                           disabled={savingId === personality.id}
                         >
                           Cancel
-                        </button>
+                        </Button>
                       </>
                     ) : (
-                      <button
-                        type="button"
-                        className="secondary"
+                      <Button
+                        variant="secondary"
                         onClick={() => startEdit(personality)}
                         disabled={configBlocked}
                       >
                         Edit
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      type="button"
-                      className="secondary danger-btn"
+                    <Button
+                      variant="danger"
                       onClick={() => void removePersonality(personality.id)}
                       disabled={
                         configBlocked || deletingId === personality.id
                       }
                     >
                       {deletingId === personality.id ? "Deleting…" : "Delete"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
@@ -300,7 +309,7 @@ export function CharacterPage() {
                     placeholder="Personality, tone, topics, extra rules…"
                   />
                 ) : (
-                  <pre className="personality-prompt-preview">
+                  <pre className="m-0 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-border bg-surface p-3 font-mono text-[0.78rem] leading-snug text-text">
                     {personality.prompt.trim() || "(empty — base prompt only)"}
                   </pre>
                 )}
@@ -309,9 +318,9 @@ export function CharacterPage() {
           })}
         </div>
 
-        <div className="personality-create">
-          <h4 className="section-title">New personality</h4>
-          <div className="field">
+        <div className="mt-6 border-t border-border pt-6">
+          <SectionTitle className="mt-0">New personality</SectionTitle>
+          <div className="flex flex-col gap-1">
             <label htmlFor="new-personality-name">Name</label>
             <input
               id="new-personality-name"
@@ -322,7 +331,7 @@ export function CharacterPage() {
               placeholder="e.g. Friendly helper"
             />
           </div>
-          <div className="field">
+          <div className="mt-3 flex flex-col gap-1">
             <label htmlFor="new-personality-prompt">Custom prompt</label>
             <textarea
               id="new-personality-prompt"
@@ -333,15 +342,15 @@ export function CharacterPage() {
               placeholder="Personality, tone, topics, extra rules…"
             />
           </div>
-          <button
-            type="button"
+          <Button
+            className="mt-3"
             onClick={() => void createPersonality()}
             disabled={configBlocked || savingId === "new" || !newName.trim()}
           >
             {savingId === "new" ? "Creating…" : "Create personality"}
-          </button>
+          </Button>
         </div>
-      </section>
-    </div>
+      </Card>
+    </Page>
   );
 }

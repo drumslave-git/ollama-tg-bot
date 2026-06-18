@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { api, type DashboardModuleSummary } from "../api";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { getModuleUi } from "../moduleUiRegistry";
+import { ButtonLink } from "../components/ui/Button";
+import { Card, Hint, LoadingState, Page } from "../components/ui/Layout";
 
 export function ModuleDebugPage() {
   const { moduleId = "" } = useParams();
@@ -31,69 +33,80 @@ export function ModuleDebugPage() {
   }, [moduleId]);
 
   const ui = getModuleUi(moduleId);
-  const DebugPage = ui?.DebugPage;
+  const DebugPageComponent = ui?.DebugPage;
 
   if (loading) {
     return (
-      <div className="page">
-        <p className="loading">Loading module debug…</p>
-      </div>
+      <Page>
+        <LoadingState>Loading module debug…</LoadingState>
+      </Page>
     );
   }
 
   if (error != null) {
     return (
-      <div className="page">
+      <Page>
         <ErrorBanner error={error} onRetry={() => window.location.reload()} />
-      </div>
+      </Page>
     );
   }
 
   if (!module) {
     return (
-      <div className="page">
-        <p className="hint">Module not found.</p>
-        <Link to="/modules">Back to modules</Link>
-      </div>
+      <Page>
+        <Hint>Module not found.</Hint>
+        <Link to="/modules" className="text-accent no-underline hover:underline">
+          Back to modules
+        </Link>
+      </Page>
     );
   }
 
   const label = module.dashboard?.label ?? module.name;
 
   return (
-    <div className="module-detail">
-      <header className="page-header module-detail-header">
+    <Page>
+      <header className="mb-2 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="breadcrumb">
-            <Link to="/modules">Modules</Link>
+          <p className="m-0 mb-1 text-sm text-muted">
+            <Link to="/modules" className="text-accent no-underline hover:underline">
+              Modules
+            </Link>
             <span aria-hidden="true"> / </span>
-            <Link to={`/modules/${moduleId}`}>{label}</Link>
+            <Link
+              to={`/modules/${moduleId}`}
+              className="text-accent no-underline hover:underline"
+            >
+              {label}
+            </Link>
             <span aria-hidden="true"> / </span>
             <span>Debug</span>
           </p>
-          {!DebugPage ? (
+          {!DebugPageComponent ? (
             <>
-              <h2>{label} debug</h2>
-              <p className="page-desc">
+              <h2 className="m-0 text-2xl font-bold tracking-tight">
+                {label} debug
+              </h2>
+              <p className="m-0 mt-1.5 max-w-xl text-sm text-muted">
                 Background job runs and step detail for this module.
               </p>
             </>
           ) : null}
         </div>
-        <div className="module-detail-tabs">
-          <Link className="btn secondary" to={`/modules/${moduleId}`}>
+        <div className="flex gap-2">
+          <ButtonLink variant="secondary" to={`/modules/${moduleId}`}>
             Module data
-          </Link>
+          </ButtonLink>
         </div>
       </header>
 
-      {DebugPage ? (
-        <DebugPage />
+      {DebugPageComponent ? (
+        <DebugPageComponent />
       ) : (
-        <section className="card">
-          <p className="hint">This module has no debug UI registered.</p>
-        </section>
+        <Card>
+          <Hint>This module has no debug UI registered.</Hint>
+        </Card>
       )}
-    </div>
+    </Page>
   );
 }

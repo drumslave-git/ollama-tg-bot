@@ -3,7 +3,9 @@ import {
   describeApiError,
   isApiError,
 } from "../api";
-import "../App.css";
+import { Badge } from "../components/ui/Badge";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Layout";
 
 interface OfflinePageProps {
   primaryLoadError: unknown;
@@ -28,56 +30,65 @@ export function OfflinePage({ primaryLoadError, onRetry }: OfflinePageProps) {
   const badgeLabel = isNetwork ? "API offline" : "Startup error";
 
   return (
-    <div className="layout layout-narrow">
-      <header className="header">
+    <div className="mx-auto max-w-[560px] px-6 py-8 pb-12">
+      <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1>OpenAI-compatible Telegram Bot</h1>
-          <p className="subtitle">Dashboard</p>
+          <h1 className="m-0 mb-1 text-[1.75rem] font-bold tracking-tight">
+            OpenAI-compatible Telegram Bot
+          </h1>
+          <p className="m-0 text-sm text-muted">Dashboard</p>
         </div>
-        <span className="badge danger">{badgeLabel}</span>
+        <Badge variant="danger">{badgeLabel}</Badge>
       </header>
-      <section className="card empty-state">
-        <h2>{title}</h2>
-        <p>{message}</p>
+      <Card>
+        <h2 className="m-0 mb-3 text-lg font-semibold">{title}</h2>
+        <p className="m-0 mb-1.5">{message}</p>
         {(status || path) && (
-          <p className="error-meta">
+          <p className="m-0 mb-3 font-mono text-xs text-muted">
             {path}
             {status ? ` · HTTP ${status}` : ""}
           </p>
         )}
-        {hint ? <p className="error-hint">{hint}</p> : null}
+        {hint ? (
+          <p className="m-0 mb-4 text-sm leading-snug text-muted">{hint}</p>
+        ) : null}
         {isNetwork ? (
           <>
-            <h3 className="empty-state-subhead">If the server is not running</h3>
-            <ol>
-              <li>
-                Copy <code>.env.example</code> to <code>.env</code>
+            <h3 className="mb-3 mt-5 text-[0.95rem] font-semibold text-text">
+              If the server is not running
+            </h3>
+            <ol className="mb-5 list-decimal pl-5 text-sm text-muted">
+              <li className="mb-2">
+                Copy <code className="font-mono text-sm text-text">.env.example</code> to{" "}
+                <code className="font-mono text-sm text-text">.env</code>
               </li>
-              <li>
-                Set <code>BOT_TOKEN</code> and <code>VRAM_AVAILABLE</code> (GPU
-                VRAM in GB, e.g. <code>24</code>)
+              <li className="mb-2">
+                Set <code className="font-mono text-sm text-text">BOT_TOKEN</code> and{" "}
+                <code className="font-mono text-sm text-text">VRAM_AVAILABLE</code> (GPU
+                VRAM in GB, e.g. <code className="font-mono text-sm text-text">24</code>)
               </li>
-              <li>
-                Run <code>npm run dev</code> (or{" "}
-                <code>npm run dev -w server</code> in another terminal)
+              <li className="mb-2">
+                Run <code className="font-mono text-sm text-text">npm run dev</code> (or{" "}
+                <code className="font-mono text-sm text-text">npm run dev -w server</code>{" "}
+                in another terminal)
               </li>
             </ol>
-            <p className="error-hint">
-              In dev the API listens on port 3000 (Vite proxies <code>/api</code>
-              ). <code>PORT</code> in <code>.env</code> applies to production
+            <p className="m-0 mb-4 text-sm leading-snug text-muted">
+              In dev the API listens on port 3000 (Vite proxies{" "}
+              <code className="font-mono text-sm text-text">/api</code>).{" "}
+              <code className="font-mono text-sm text-text">PORT</code> in{" "}
+              <code className="font-mono text-sm text-text">.env</code> applies to production
               only.
             </p>
           </>
         ) : (
-          <p className="error-hint">
-            Fix the issue in the server terminal or <code>.env</code>, then
-            retry.
+          <p className="m-0 mb-4 text-sm leading-snug text-muted">
+            Fix the issue in the server terminal or{" "}
+            <code className="font-mono text-sm text-text">.env</code>, then retry.
           </p>
         )}
-        <button type="button" onClick={onRetry}>
-          Retry connection
-        </button>
-      </section>
+        <Button onClick={onRetry}>Retry connection</Button>
+      </Card>
     </div>
   );
 }

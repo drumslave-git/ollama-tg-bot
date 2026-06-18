@@ -10,13 +10,13 @@ import {
   numPredictHint,
   type ModelConfigIssue,
 } from "../modelConfig";
+import { FieldError, Hint, SectionTitle } from "./ui/Layout";
 
 interface ModelConfigPanelProps {
   draft: Settings;
   disabled?: boolean;
   onChange: (settings: Settings) => void;
 }
-
 
 function limiterLabel(limitedBy: ContextBudget["limitedBy"]): string {
   switch (limitedBy) {
@@ -32,6 +32,9 @@ function limiterLabel(limitedBy: ContextBudget["limitedBy"]): string {
       return "Minimum context floor";
   }
 }
+
+const metaGridClass =
+  "grid grid-cols-[repeat(auto-fit,minmax(9rem,1fr))] gap-x-4 gap-y-2";
 
 export function ModelConfigPanel({
   draft,
@@ -62,31 +65,29 @@ export function ModelConfigPanel({
 
   if (vramAvailableGb == null) {
     return (
-      <div className="model-config">
-        <header className="model-config-header">
-          <h3 className="section-title">Model parameters</h3>
-        </header>
-        <p className="field-error">
-          VRAM_AVAILABLE is required on the server. Add it to <code>.env</code>{" "}
-          (e.g. <code>VRAM_AVAILABLE=24</code>) and restart the bot.
-        </p>
+      <div className="flex flex-col gap-1">
+        <SectionTitle className="mt-6">Model parameters</SectionTitle>
+        <FieldError>
+          VRAM_AVAILABLE is required on the server. Add it to{" "}
+          <code className="font-mono text-[0.85em]">.env</code> (e.g.{" "}
+          <code className="font-mono text-[0.85em]">VRAM_AVAILABLE=24</code>) and
+          restart the bot.
+        </FieldError>
       </div>
     );
   }
 
   if (!contextBudget || !analysis) {
     return (
-      <div className="model-config">
-        <header className="model-config-header">
-          <h3 className="section-title">Model parameters</h3>
-        </header>
-        <p className="hint">
+      <div className="flex flex-col gap-1">
+        <SectionTitle className="mt-6">Model parameters</SectionTitle>
+        <Hint>
           {budgetLoading
             ? "Computing context budget…"
             : draft.model
               ? "Could not compute context budget. Check the selected model and try refreshing."
               : "Select a model to see context budget."}
-        </p>
+        </Hint>
       </div>
     );
   }
@@ -98,53 +99,72 @@ export function ModelConfigPanel({
       : predictIssues[0]?.message;
 
   return (
-    <div className="model-config">
-      <header className="model-config-header">
-        <h3 className="section-title">Model parameters</h3>
-        <p className="hint section-hint">
+    <div className="flex flex-col gap-1">
+      <header className="mb-2">
+        <SectionTitle className="mt-6">Model parameters</SectionTitle>
+        <Hint className="mb-3">
           Context is computed automatically from VRAM and the selected model.
           Adjust generation budget, thinking, and sampling below.
-        </p>
+        </Hint>
       </header>
 
-      <section className="model-config-group" aria-labelledby="model-ctx">
-        <h4 id="model-ctx" className="model-config-group-title">
+      <section
+        className="mt-4 border-t border-border pt-4"
+        aria-labelledby="model-ctx"
+      >
+        <h4 id="model-ctx" className="m-0 mb-1.5 text-sm font-semibold">
           {MODEL_CONFIG_GROUPS[0].title}
         </h4>
-        <p className="hint model-config-group-desc">
-          {MODEL_CONFIG_GROUPS[0].description}
-        </p>
-        <div className="context-budget-card">
-          <div className="context-budget-value">
-            <span className="context-budget-label">Context window</span>
-            <strong>{contextBudget.effectiveNumCtx.toLocaleString()}</strong>
-            <span className="context-budget-unit">tokens</span>
+        <Hint className="mb-3">{MODEL_CONFIG_GROUPS[0].description}</Hint>
+        <div className="rounded-lg border border-border bg-surface-2 px-4 py-3.5">
+          <div className="mb-3 flex items-baseline gap-2">
+            <span className="text-xs uppercase tracking-wide text-muted">
+              Context window
+            </span>
+            <strong className="text-2xl leading-none">
+              {contextBudget.effectiveNumCtx.toLocaleString()}
+            </strong>
+            <span className="text-sm text-muted">tokens</span>
           </div>
-          <dl className="context-budget-meta">
-            <div>
-              <dt>VRAM</dt>
-              <dd>{contextBudget.vramGb} GB</dd>
+          <dl className={metaGridClass}>
+            <div className="flex flex-col gap-0.5">
+              <dt className="m-0 text-xs uppercase tracking-wide text-muted">
+                VRAM
+              </dt>
+              <dd className="m-0 text-sm">{contextBudget.vramGb} GB</dd>
             </div>
-            <div>
-              <dt>Model</dt>
-              <dd>{contextBudget.modelName || "—"}</dd>
+            <div className="flex flex-col gap-0.5">
+              <dt className="m-0 text-xs uppercase tracking-wide text-muted">
+                Model
+              </dt>
+              <dd className="m-0 text-sm">{contextBudget.modelName || "—"}</dd>
             </div>
             {contextBudget.modelWeightGb != null ? (
-              <div>
-                <dt>Weights</dt>
-                <dd>~{contextBudget.modelWeightGb.toFixed(1)} GB</dd>
+              <div className="flex flex-col gap-0.5">
+                <dt className="m-0 text-xs uppercase tracking-wide text-muted">
+                  Weights
+                </dt>
+                <dd className="m-0 text-sm">
+                  ~{contextBudget.modelWeightGb.toFixed(1)} GB
+                </dd>
               </div>
             ) : null}
-            <div>
-              <dt>Limited by</dt>
-              <dd>{limiterLabel(contextBudget.limitedBy)}</dd>
+            <div className="flex flex-col gap-0.5">
+              <dt className="m-0 text-xs uppercase tracking-wide text-muted">
+                Limited by
+              </dt>
+              <dd className="m-0 text-sm">{limiterLabel(contextBudget.limitedBy)}</dd>
             </div>
-            <div>
-              <dt>Generation max</dt>
-              <dd>{analysis.maxNumPredict.toLocaleString()} tokens</dd>
+            <div className="flex flex-col gap-0.5">
+              <dt className="m-0 text-xs uppercase tracking-wide text-muted">
+                Generation max
+              </dt>
+              <dd className="m-0 text-sm">
+                {analysis.maxNumPredict.toLocaleString()} tokens
+              </dd>
             </div>
           </dl>
-          <ul className="context-budget-notes">
+          <ul className="m-0 mt-2 list-disc pl-4 text-sm leading-relaxed text-muted">
             {contextBudget.notes.map((note) => (
               <li key={note}>{note}</li>
             ))}
@@ -152,13 +172,14 @@ export function ModelConfigPanel({
         </div>
       </section>
 
-      <section className="model-config-group" aria-labelledby="model-gen">
-        <h4 id="model-gen" className="model-config-group-title">
+      <section
+        className="mt-4 border-t border-border pt-4"
+        aria-labelledby="model-gen"
+      >
+        <h4 id="model-gen" className="m-0 mb-1.5 text-sm font-semibold">
           {MODEL_CONFIG_GROUPS[1].title}
         </h4>
-        <p className="hint model-config-group-desc">
-          {MODEL_CONFIG_GROUPS[1].description}
-        </p>
+        <Hint className="mb-3">{MODEL_CONFIG_GROUPS[1].description}</Hint>
         <SettingsNumberField
           id="numPredict"
           label="Max generation tokens"
@@ -174,13 +195,14 @@ export function ModelConfigPanel({
         />
       </section>
 
-      <section className="model-config-group" aria-labelledby="model-sample">
-        <h4 id="model-sample" className="model-config-group-title">
+      <section
+        className="mt-4 border-t border-border pt-4"
+        aria-labelledby="model-sample"
+      >
+        <h4 id="model-sample" className="m-0 mb-1.5 text-sm font-semibold">
           {MODEL_CONFIG_GROUPS[2].title}
         </h4>
-        <p className="hint model-config-group-desc">
-          {MODEL_CONFIG_GROUPS[2].description}
-        </p>
+        <Hint className="mb-3">{MODEL_CONFIG_GROUPS[2].description}</Hint>
         <SettingsNumberField
           id="temperature"
           label="Temperature"
@@ -231,13 +253,14 @@ export function ModelConfigPanel({
         />
       </section>
 
-      <section className="model-config-group" aria-labelledby="model-timeout">
-        <h4 id="model-timeout" className="model-config-group-title">
+      <section
+        className="mt-4 border-t border-border pt-4"
+        aria-labelledby="model-timeout"
+      >
+        <h4 id="model-timeout" className="m-0 mb-1.5 text-sm font-semibold">
           {MODEL_CONFIG_GROUPS[3].title}
         </h4>
-        <p className="hint model-config-group-desc">
-          {MODEL_CONFIG_GROUPS[3].description}
-        </p>
+        <Hint className="mb-3">{MODEL_CONFIG_GROUPS[3].description}</Hint>
         <SettingsNumberField
           id="chatTimeoutSec"
           label="Timeout (seconds)"
@@ -250,25 +273,26 @@ export function ModelConfigPanel({
         />
       </section>
 
-      <aside className="model-config-derived">
-        <h4 className="model-config-group-title">Derived chat history</h4>
-        <ul className="model-config-derived-list">
+      <aside className="mt-5 rounded-lg border border-border bg-surface-2 px-4 py-3.5">
+        <h4 className="m-0 mb-1.5 text-sm font-semibold">Derived chat history</h4>
+        <ul className="m-0 mt-2 list-disc pl-4 text-sm leading-relaxed text-muted">
           <li>
-            <strong>
+            <strong className="text-text">
               {analysis.derived.historyMaxTokens.toLocaleString()}
             </strong>{" "}
             tokens of history (compressed when exceeded)
           </li>
           <li>
             Replies stored to{" "}
-            <strong>
+            <strong className="text-text">
               {analysis.derived.historyMaxReplyChars.toLocaleString()}
             </strong>{" "}
             chars
           </li>
           <li>
             Generation budget:{" "}
-            <strong>{analysis.derived.numPredict}</strong> tokens
+            <strong className="text-text">{analysis.derived.numPredict}</strong>{" "}
+            tokens
           </li>
         </ul>
       </aside>

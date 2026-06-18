@@ -17,6 +17,9 @@ interface StickersSectionProps {
   onDismissStickersError: () => void;
 }
 
+const secondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+
 export function StickersSection({
   stickersEnabled,
   stickerReplyChance,
@@ -34,8 +37,8 @@ export function StickersSection({
 }: StickersSectionProps) {
   return (
     <>
-      <div className="field toggle-row">
-        <label className="checkbox">
+      <div className="mb-4">
+        <label className="flex cursor-pointer items-center gap-2.5 text-[0.95rem] text-text">
           <input
             type="checkbox"
             checked={stickersEnabled}
@@ -43,7 +46,7 @@ export function StickersSection({
           />
           Let the bot send stickers from a pack
         </label>
-        <p className="hint">
+        <p className="mt-1.5 text-xs text-muted">
           After a text reply, a separate pass picks the best-matching sticker
           from your pack. Whether that pass runs is rolled locally from the
           frequency setting.
@@ -52,7 +55,7 @@ export function StickersSection({
 
       {stickersEnabled ? (
         <>
-          <div className="field">
+          <div className="mb-4">
             <label htmlFor="stickerReplyChance">
               Sticker frequency ({stickerReplyChance}%)
             </label>
@@ -66,18 +69,18 @@ export function StickersSection({
                 onStickerReplyChanceChange(Number(e.target.value))
               }
             />
-            <p className="hint">
+            <p className="mt-1.5 text-xs text-muted">
               How often the bot should add a sticker after replying. Higher =
               stickers on most messages.
             </p>
           </div>
 
-          <div className="field">
+          <div className="mb-4">
             <label htmlFor="stickerPackName">Sticker pack name</label>
-            <div className="field row">
+            <div className="flex items-end gap-3">
               <input
                 id="stickerPackName"
-                className="grow"
+                className="min-w-0 flex-1"
                 value={stickerPackName}
                 onChange={(e) =>
                   onStickerPackNameChange(e.target.value.replace(/^@/, ""))
@@ -86,7 +89,7 @@ export function StickersSection({
               />
               <button
                 type="button"
-                className="secondary"
+                className={secondaryBtn}
                 onClick={onRefreshStickers}
                 disabled={
                   stickersLoading || configBlocked || !stickerPackName.trim()
@@ -95,10 +98,11 @@ export function StickersSection({
                 {stickersLoading ? "Loading…" : "Load pack"}
               </button>
             </div>
-            <p className="hint">
+            <p className="mt-1.5 text-xs text-muted">
               Public set name from Telegram (the part after{" "}
-              <code>t.me/addstickers/</code>). Save configuration after
-              changing the name, then load the pack to preview stickers.
+              <code className="font-mono text-[0.85em]">t.me/addstickers/</code>
+              ). Save configuration after changing the name, then load the pack
+              to preview stickers.
             </p>
           </div>
 
@@ -112,37 +116,37 @@ export function StickersSection({
           ) : null}
 
           {stickerCatalog?.loaded && stickerCatalog.stickers.length > 0 ? (
-            <div className="field">
+            <div className="mb-4">
               <label>
                 Stickers in pack ({stickerCatalog.stickers.length})
               </label>
-              <p className="hint">
+              <p className="mt-1.5 text-xs text-muted">
                 Emojis are loaded from your sticker pack in Telegram. Reload
                 the pack after you change them in @Stickers.
               </p>
-              <div className="sticker-preview-grid">
+              <div className="mt-1 grid grid-cols-[repeat(auto-fill,minmax(88px,1fr))] gap-2.5 sm:gap-3">
                 {stickerCatalog.stickers.map((s) => (
                   <div
                     key={s.index}
-                    className="sticker-preview-card"
+                    className="flex flex-col items-center gap-1.5 rounded-lg border border-border bg-surface-2 p-2"
                     title={`Sticker ${s.index + 1}: ${s.emoji}`}
                   >
-                    <span className="sticker-preview-index">
+                    <span className="text-xs font-semibold text-muted">
                       #{s.index + 1}
                     </span>
                     <img
                       src={api.stickerPreviewUrl(s.index)}
                       alt={`Sticker ${s.index + 1}`}
-                      className="sticker-preview-image"
+                      className="h-16 w-16 object-contain"
                       loading="lazy"
                     />
-                    <span className="sticker-pack-emoji">{s.emoji}</span>
+                    <span className="text-2xl leading-none">{s.emoji}</span>
                   </div>
                 ))}
               </div>
             </div>
           ) : stickerCatalog && !stickersLoading ? (
-            <p className="hint">
+            <p className="mt-1.5 text-xs text-muted">
               {stickerCatalog.error
                 ? `Could not load pack: ${stickerCatalog.error}`
                 : "Load the pack to preview stickers."}
@@ -150,10 +154,10 @@ export function StickersSection({
           ) : null}
 
           {!stickerCatalog && !stickersLoading ? (
-            <div className="actions compact-actions">
+            <div className="mb-2 mt-0 flex flex-wrap gap-3">
               <button
                 type="button"
-                className="secondary"
+                className={secondaryBtn}
                 onClick={onLoadStickers}
                 disabled={configBlocked || stickersLoading}
               >

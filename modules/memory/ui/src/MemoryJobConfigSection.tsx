@@ -2,6 +2,9 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@llm-tg-bot/dashboard/api";
 import { SettingsNumberField } from "@llm-tg-bot/dashboard/SettingsNumberField";
 
+const primaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+
 export function MemoryJobConfigSection({
   apiOnline,
 }: {
@@ -50,14 +53,16 @@ export function MemoryJobConfigSection({
   };
 
   return (
-    <section className="card">
-      <h3>Background extraction</h3>
-      <p className="hint">
+    <section className="rounded-lg border border-border bg-surface p-6">
+      <h3 className="mb-5 text-[1.1rem] font-semibold">Background extraction</h3>
+      <p className="mt-1.5 text-xs text-muted">
         After the message queue is idle, wait this long before extracting
         memories from recent history.
       </p>
-      {loading ? <p className="muted">Loading…</p> : null}
-      {error ? <p className="field-error">{error}</p> : null}
+      {loading ? <p className="text-muted">Loading…</p> : null}
+      {error ? (
+        <p className="mt-1.5 text-sm leading-snug text-danger">{error}</p>
+      ) : null}
       {!loading ? (
         <>
           <SettingsNumberField
@@ -70,15 +75,16 @@ export function MemoryJobConfigSection({
             disabled={!apiOnline || saving}
             onChange={setExtractionDebounceSec}
           />
-          <div className="actions">
+          <div className="mt-2 flex gap-3">
             <button
               type="button"
+              className={primaryBtn}
               onClick={() => void save()}
               disabled={!apiOnline || saving}
             >
               {saving ? "Saving…" : "Save module settings"}
             </button>
-            {saved ? <span className="muted">Saved</span> : null}
+            {saved ? <span className="text-muted">Saved</span> : null}
           </div>
         </>
       ) : null}

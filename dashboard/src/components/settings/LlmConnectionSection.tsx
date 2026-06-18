@@ -1,5 +1,7 @@
 import React from "react";
 import { ErrorBanner } from "../ErrorBanner";
+import { Button } from "../ui/Button";
+import { Hint, SectionTitle } from "../ui/Layout";
 
 interface LlmConnectionSectionProps {
   llmBaseUrl: string;
@@ -42,28 +44,28 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
 }) => {
   return (
     <>
-      <h3 className="section-title">LLM connection</h3>
-      <div className="field">
+      <SectionTitle className="mt-0">LLM connection</SectionTitle>
+      <div className="flex flex-col gap-1">
         <label>OpenAI-compatible API base URL</label>
-        <p className="hint">
-          Set <code>LLM_BASE_URL</code> in <code>.env</code> and restart the
+        <Hint>
+          Set <code className="font-mono text-[0.85em]">LLM_BASE_URL</code> in{" "}
+          <code className="font-mono text-[0.85em]">.env</code> and restart the
           server.
-        </p>
-        <p className="mono">{llmBaseUrl || "(not configured)"}</p>
-        <p className="hint">
+        </Hint>
+        <p className="m-0 font-mono text-sm">{llmBaseUrl || "(not configured)"}</p>
+        <Hint>
           {llmApiKeyConfigured
             ? "API key configured via LLM_API_KEY."
             : "No LLM_API_KEY set (local servers usually skip this)."}
-        </p>
-        <div className="field row">
-          <button
-            type="button"
-            className="secondary"
+        </Hint>
+        <div className="flex items-end gap-3">
+          <Button
+            variant="secondary"
             onClick={onTestConnection}
             disabled={testingLlm || modelsLoading || configBlocked || !llmBaseUrl}
           >
             {testingLlm ? "Testing…" : "Test connection"}
-          </button>
+          </Button>
         </div>
         {sectionErrorLlm != null ? (
           <ErrorBanner
@@ -74,24 +76,22 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
           />
         ) : null}
         {llmConnectionVerified ? (
-          <p className="hint success-inline">
+          <Hint variant="success" className="mt-2">
             Connected to LLM at {llmBaseUrl}
-          </p>
+          </Hint>
         ) : llmBaseUrl ? (
-          <p className="hint">
-            Test the connection before choosing a model.
-          </p>
+          <Hint>Test the connection before choosing a model.</Hint>
         ) : null}
       </div>
 
       {showModelSelection ? (
         <>
-          <div className="field row">
-            <div className="grow">
+          <div className="flex items-end gap-3">
+            <div className="min-w-0 flex-1">
               <label htmlFor="model">
                 Model
                 {models.length > 0 && (
-                  <span className="label-meta">
+                  <span className="ml-2 text-xs font-normal text-muted">
                     {models.length} pulled locally
                   </span>
                 )}
@@ -119,15 +119,14 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
                 )}
               </select>
             </div>
-            <button
-              type="button"
-              className="secondary"
+            <Button
+              variant="secondary"
               onClick={onRefreshModels}
               disabled={modelsLoading || configBlocked}
               title="Fetch models from /v1/models"
             >
               {modelsLoading ? "…" : "Refresh"}
-            </button>
+            </Button>
           </div>
 
           {sectionErrorModels != null ? (
@@ -142,14 +141,14 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
           {!modelsLoading &&
             models.length === 0 &&
             sectionErrorModels == null && (
-              <p className="hint warn">
+              <Hint variant="warn">
                 No models returned by this API base URL.
-              </p>
+              </Hint>
             )}
 
-          <p className="hint">
+          <Hint>
             Use a vision model (e.g. llava) for images and stickers.
-          </p>
+          </Hint>
         </>
       ) : null}
     </>

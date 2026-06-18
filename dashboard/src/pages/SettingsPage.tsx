@@ -10,6 +10,15 @@ import LlmConnectionSection from "../components/settings/LlmConnectionSection";
 import OwnerSection from "../components/settings/OwnerSection";
 import BotBehaviorSection from "../components/settings/BotBehaviorSection";
 import VisionSection from "../components/settings/VisionSection";
+import { Button } from "../components/ui/Button";
+import {
+  Actions,
+  Card,
+  FieldError,
+  Hint,
+  Page,
+  PageHeader,
+} from "../components/ui/Layout";
 
 export function SettingsPage() {
   const {
@@ -44,8 +53,8 @@ export function SettingsPage() {
 
   if (!draft) {
     return (
-      <div className="page">
-        <section className="card">
+      <Page>
+        <Card>
           {sectionErrors.settings != null ? (
             <ErrorBanner
               error={sectionErrors.settings}
@@ -53,25 +62,30 @@ export function SettingsPage() {
               onRetry={() => void load()}
             />
           ) : (
-            <p className="hint">No settings loaded.</p>
+            <Hint>No settings loaded.</Hint>
           )}
-        </section>
-      </div>
+        </Card>
+      </Page>
     );
   }
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h2>Settings</h2>
-        <p className="page-desc">
-          LLM connection, model, owner account, and performance limits. Module
-          features (memory, mood, stickers, etc.) are configured under Modules.
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        title="Settings"
+        description={
+          <>
+            LLM connection, model, owner account, and performance limits. Module
+            features (memory, mood, stickers, etc.) are configured under Modules.
+          </>
+        }
+      />
 
-      <section className="card">
-        <fieldset disabled={configBlocked} className="form-fieldset">
+      <Card>
+        <fieldset
+          disabled={configBlocked}
+          className="m-0 min-w-0 border-0 p-0 disabled:pointer-events-none disabled:opacity-55"
+        >
           <LlmConnectionSection
             llmBaseUrl={draft.llmBaseUrl}
             llmApiKeyConfigured={draft.llmApiKeyConfigured}
@@ -136,34 +150,32 @@ export function SettingsPage() {
           ) : null}
 
           {modelConfigInvalid ? (
-            <p className="field-error model-config-save-block">
+            <FieldError>
               {vramAvailableGb == null
                 ? "VRAM_AVAILABLE must be set on the server before saving model settings."
                 : "Fix model parameter errors before saving."}
-            </p>
+            </FieldError>
           ) : null}
 
-          <div className="actions">
-            <button
-              type="button"
+          <Actions>
+            <Button
               onClick={() => void save()}
               disabled={
                 saving || !draft || configBlocked || modelConfigInvalid
               }
             >
               {saving ? "Saving…" : "Save settings"}
-            </button>
-            <button
-              type="button"
-              className="secondary"
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => settings && setDraft(settings)}
               disabled={!settings}
             >
               Reset
-            </button>
-          </div>
+            </Button>
+          </Actions>
         </fieldset>
-      </section>
-    </div>
+      </Card>
+    </Page>
   );
 }

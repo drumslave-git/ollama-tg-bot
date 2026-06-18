@@ -44,6 +44,22 @@ function runListFromSnapshot(
   return [...current, ...recent].sort((a, b) => b.id - a.id);
 }
 
+function badgeClass(status: string): string {
+  const base =
+    "rounded-full border bg-surface px-3 py-1.5 text-xs font-semibold";
+  if (status === "ok") return `${base} border-accent/35 text-accent`;
+  if (status === "warn") return `${base} border-warning/35 text-warning`;
+  if (status === "danger") return `${base} border-danger/35 text-danger`;
+  return `${base} text-muted`;
+}
+
+const messageItemClass = (live: boolean) =>
+  `flex w-full flex-col gap-1.5 rounded-[10px] border bg-surface-hover p-3.5 text-left text-inherit no-underline hover:border-accent hover:bg-accent/[0.06] ${
+    live
+      ? "border-warning/45 shadow-[0_0_0_1px_color-mix(in_srgb,var(--color-warning)_20%,transparent)]"
+      : "border-border"
+  }`;
+
 export function VisionDebugRunList() {
   const { apiOnline, stats } = useDashboard();
   const [snapshot, setSnapshot] = useState<VisionJobDebugSnapshot | null>(null);
@@ -92,12 +108,14 @@ export function VisionDebugRunList() {
       ) : null}
 
       {snapshot && snapshot.pendingMediaRows > 0 ? (
-        <section className="card report-outcome report-outcome-processing">
-          <div className="report-outcome-head">
-            <span className="badge warn">pending</span>
-            <h3>Base64 media awaiting backfill</h3>
+        <section className="rounded-lg border border-border bg-surface p-6">
+          <div className="mb-3 flex flex-col gap-2">
+            <span className={badgeClass("warn")}>pending</span>
+            <h3 className="m-0 text-[1.1rem] font-semibold">
+              Base64 media awaiting backfill
+            </h3>
           </div>
-          <p className="report-preview report-preview-large">
+          <p className="m-0 text-base leading-snug">
             {snapshot.pendingMediaRows} row
             {snapshot.pendingMediaRows === 1 ? "" : "s"} across{" "}
             {snapshot.chatsWithPending} chat
@@ -107,30 +125,34 @@ export function VisionDebugRunList() {
       ) : null}
 
       {scheduled && countdown ? (
-        <section className="card report-outcome report-outcome-processing">
-          <div className="report-outcome-head">
-            <span className="badge warn">scheduled</span>
-            <h3>Vision backfill scheduled</h3>
+        <section className="rounded-lg border border-border bg-surface p-6">
+          <div className="mb-3 flex flex-col gap-2">
+            <span className={badgeClass("warn")}>scheduled</span>
+            <h3 className="m-0 text-[1.1rem] font-semibold">
+              Vision backfill scheduled
+            </h3>
           </div>
-          <p className="report-preview report-preview-large">
+          <p className="m-0 text-base leading-snug">
             Job runs in <strong>{countdown}</strong>
             {runAt ? ` (${formatTime(runAt)})` : ""}
           </p>
         </section>
       ) : null}
 
-      {loading ? <p className="loading">Loading…</p> : null}
+      {loading ? (
+        <p className="py-16 text-center text-muted">Loading…</p>
+      ) : null}
 
       {!loading ? (
-        <section className="card">
-          <h3>Job runs</h3>
+        <section className="rounded-lg border border-border bg-surface p-6">
+          <h3 className="mb-5 text-[1.1rem] font-semibold">Job runs</h3>
           {runs.length === 0 ? (
-            <p className="muted">
+            <p className="text-muted">
               No vision backfill runs yet. Activity appears after debounced queue
               drains.
             </p>
           ) : (
-            <div className="report-message-list">
+            <div className="flex flex-col gap-2">
               {runs.map((item) => {
                 const duration = liveDurationMs(
                   item.createdAt,
@@ -146,28 +168,33 @@ export function VisionDebugRunList() {
                       : item.status === "failed"
                         ? "error"
                         : item.status;
+                const isLive = item.status === "running";
                 return (
                   <Link
                     key={item.id}
                     to={visionDebugRunPath(item.id)}
-                    className={`report-message-item${item.status === "running" ? " report-message-item-live" : ""}`}
+                    className={messageItemClass(isLive)}
                   >
-                    <div className="report-message-top">
-                      <span className={`badge ${statusClass(status)}`}>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span
+                        className={`${badgeClass(statusClass(status))}${isLive ? " animate-debug-live-pulse" : ""}`}
+                      >
                         {item.status}
                       </span>
-                      <span className="muted">#{item.id}</span>
-                      <span className="report-message-time">
+                      <span className="text-muted">#{item.id}</span>
+                      <span className="text-[0.82rem] tabular-nums text-muted">
                         {formatTime(item.createdAt)}
                       </span>
-                      <span className="report-message-duration">
+                      <span className="ml-auto text-[0.82rem] tabular-nums text-muted">
                         {item.status === "scheduled" && item.runAt
                           ? formatCountdown(item.runAt, now) ?? "—"
                           : formatDuration(duration)}
                       </span>
                     </div>
-                    <p className="report-headline">{item.headline}</p>
-                    <p className="report-preview">
+                    <p className="m-0 text-[0.95rem] font-semibold">
+                      {item.headline}
+                    </p>
+                    <p className="m-0 break-words text-sm leading-snug text-muted">
                       {item.mediaBackfilled} backfilled
                       {item.mediaFailed > 0 ? ` · ${item.mediaFailed} failed` : ""}
                     </p>

@@ -19,6 +19,15 @@ import {
 } from "../api";
 import { useDashboard } from "../context/DashboardContext";
 import { layoutWorkflowNodes } from "../workflowLayout";
+import { Button } from "../components/ui/Button";
+import {
+  Actions,
+  Card,
+  Hint,
+  Page,
+  PageHeader,
+} from "../components/ui/Layout";
+import { cn } from "../lib/cn";
 
 type WorkflowNodeData = {
   label: string;
@@ -29,15 +38,73 @@ type WorkflowNodeData = {
 
 type WorkflowNode = Node<WorkflowNodeData, "workflow">;
 
+const workflowNodeKindClasses: Record<
+  WorkflowNodeKind,
+  { container: string; label: string }
+> = {
+  input: {
+    container: "border-emerald-400 bg-emerald-400/8",
+    label: "text-emerald-400",
+  },
+  output: {
+    container: "border-emerald-400 bg-emerald-400/8",
+    label: "text-emerald-400",
+  },
+  decision: {
+    container: "border-warning bg-warning/8",
+    label: "text-warning",
+  },
+  optional: {
+    container: "border-slate-500 bg-slate-500/8",
+    label: "text-slate-400",
+  },
+  process: {
+    container: "border-blue-400 bg-blue-400/8",
+    label: "text-blue-400",
+  },
+  llm: {
+    container: "border-violet-400 bg-violet-400/8",
+    label: "text-violet-400",
+  },
+  side: {
+    container: "border-pink-400 bg-pink-400/8",
+    label: "text-pink-400",
+  },
+};
+
+const legendItems: {
+  kind: WorkflowNodeKind | "input";
+  label: string;
+  colorClass: string;
+}[] = [
+  { kind: "input", label: "Input / Output", colorClass: "bg-emerald-400" },
+  { kind: "decision", label: "Decision", colorClass: "bg-warning" },
+  { kind: "optional", label: "Optional module", colorClass: "bg-slate-500" },
+  { kind: "process", label: "Process", colorClass: "bg-blue-400" },
+  { kind: "llm", label: "LLM", colorClass: "bg-violet-400" },
+  { kind: "side", label: "Side effect", colorClass: "bg-pink-400" },
+];
+
 function WorkflowNode({ data }: NodeProps<WorkflowNode>) {
+  const kindClasses = workflowNodeKindClasses[data.kind];
   const isEnabled = data.enabled;
+
   return (
     <div
-      className={`workflow-node workflow-node--${data.kind} ${!isEnabled ? "workflow-node--disabled" : ""}`}
+      className={cn(
+        "min-w-[140px] rounded-[10px] border-2 border-border bg-surface px-4 py-2.5 text-center text-sm leading-snug",
+        kindClasses.container,
+        !isEnabled &&
+          "border-dashed border-muted bg-bg opacity-45 [&_.workflow-node-label]:!text-muted [&_.workflow-node-sublabel]:!text-muted",
+      )}
     >
-      <div className="workflow-node-label">{data.label}</div>
+      <div className={cn("workflow-node-label text-sm font-bold", kindClasses.label)}>
+        {data.label}
+      </div>
       {data.sublabel ? (
-        <div className="workflow-node-sublabel">{data.sublabel}</div>
+        <div className="workflow-node-sublabel mt-0.5 text-xs text-muted">
+          {data.sublabel}
+        </div>
       ) : null}
       <Handle type="target" position={Position.Top} />
       <Handle type="source" position={Position.Bottom} />
@@ -192,47 +259,50 @@ export function WorkflowPage() {
 
   if (loading && !definition) {
     return (
-      <div className="page">
-        <section className="card">
-          <p className="hint">Loading workflow…</p>
-        </section>
-      </div>
+      <Page>
+        <Card>
+          <Hint>Loading workflow…</Hint>
+        </Card>
+      </Page>
     );
   }
 
   if (loadError) {
     return (
-      <div className="page">
-        <section className="card">
-          <p className="error">Could not load workflow definition.</p>
-          <button type="button" onClick={() => void loadWorkflow()}>
-            Retry
-          </button>
-        </section>
-      </div>
+      <Page>
+        <Card>
+          <p className="m-0 mb-3 text-danger">
+            Could not load workflow definition.
+          </p>
+          <Button onClick={() => void loadWorkflow()}>Retry</Button>
+        </Card>
+      </Page>
     );
   }
 
   return (
-    <div className="page workflow-page">
-      <header className="page-header">
-        <h2>Workflow</h2>
-        <p className="page-desc">
-          Live view of the message pipeline discovered from loaded modules. The
-          diagram updates automatically when pipeline hosts change.
-        </p>
-      </header>
+    <Page className="gap-4">
+      <PageHeader
+        title="Workflow"
+        description="Live view of the message pipeline discovered from loaded modules. The diagram updates automatically when pipeline hosts change."
+      />
 
-      <div className="workflow-legend">
-        <span className="legend-item legend-item--input">Input / Output</span>
-        <span className="legend-item legend-item--decision">Decision</span>
-        <span className="legend-item legend-item--optional">Optional module</span>
-        <span className="legend-item legend-item--process">Process</span>
-        <span className="legend-item legend-item--llm">LLM</span>
-        <span className="legend-item legend-item--side">Side effect</span>
+      <div className="flex flex-wrap gap-3 text-sm">
+        {legendItems.map((item) => (
+          <span
+            key={item.label}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1 text-muted"
+          >
+            <span
+              className={cn("h-2.5 w-2.5 shrink-0 rounded-sm", item.colorClass)}
+              aria-hidden
+            />
+            {item.label}
+          </span>
+        ))}
       </div>
 
-      <div className="workflow-canvas" style={{ height: "720px" }}>
+      <div className="h-[720px] overflow-hidden rounded-lg border border-border bg-bg">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -254,47 +324,42 @@ export function WorkflowPage() {
         </ReactFlow>
       </div>
 
-      <section className="card" style={{ marginTop: "2rem" }}>
-        <div className="actions">
-          <button
-            type="button"
+      <Card className="mt-8">
+        <Actions className="mt-0">
+          <Button
             onClick={() => void save()}
             disabled={saving || !draft || configBlocked}
           >
             {saving ? "Saving…" : "Save layout"}
-          </button>
-          <button
-            type="button"
-            className="secondary"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => settings && setDraft(settings)}
             disabled={!settings}
           >
             Reset
-          </button>
-          <button
-            type="button"
-            className="secondary"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={resetLayout}
             disabled={configBlocked || !definition}
           >
             Auto layout
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => void loadWorkflow()}
-          >
+          </Button>
+          <Button variant="secondary" onClick={() => void loadWorkflow()}>
             Refresh pipeline
-          </button>
-        </div>
-      </section>
+          </Button>
+        </Actions>
+      </Card>
 
-      <details className="workflow-details" style={{ marginTop: "2rem" }}>
-        <summary>About this pipeline</summary>
-        <ol>
+      <details className="mt-8 text-sm leading-relaxed">
+        <summary className="mb-2 cursor-pointer font-semibold text-muted">
+          About this pipeline
+        </summary>
+        <ol className="m-0 list-decimal pl-5 text-muted">
           {aboutItems.map((item) => (
-            <li key={item.stepId}>
-              <strong>{item.label}</strong>
+            <li key={item.stepId} className="mb-1">
+              <strong className="text-text">{item.label}</strong>
               {item.optional ? " — optional module" : null}
               {!item.enabled ? " — disabled in settings" : null}
               {item.sublabel ? <> — {item.sublabel}</> : null}
@@ -302,6 +367,6 @@ export function WorkflowPage() {
           ))}
         </ol>
       </details>
-    </div>
+    </Page>
   );
 }

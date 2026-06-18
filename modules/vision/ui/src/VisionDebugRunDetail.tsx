@@ -17,6 +17,23 @@ import {
 } from "@llm-tg-bot/dashboard/pages/debug/DebugReportParts";
 import { parseVisionDebugRunId } from "./debugPaths";
 
+function badgeClass(status: string): string {
+  const base =
+    "rounded-full border bg-surface px-3 py-1.5 text-xs font-semibold";
+  if (status === "ok") return `${base} border-accent/35 text-accent`;
+  if (status === "warn") return `${base} border-warning/35 text-warning`;
+  if (status === "danger") return `${base} border-danger/35 text-danger`;
+  return `${base} text-muted`;
+}
+
+const metaGrid =
+  "mt-4 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-x-4 gap-y-3";
+const metaDt =
+  "mb-0.5 text-[0.72rem] font-semibold uppercase tracking-wide text-muted";
+const metaDd = "m-0 text-[0.92rem]";
+const fieldsGrid =
+  "m-0 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-x-4 gap-y-3";
+
 export function VisionDebugRunDetail() {
   const { runId: runIdParam } = useParams();
   const runId = parseVisionDebugRunId(runIdParam);
@@ -92,80 +109,84 @@ export function VisionDebugRunDetail() {
         <ErrorBanner error={error} compact onRetry={() => void load()} />
       ) : null}
 
-      {loading ? <p className="loading">Loading…</p> : null}
+      {loading ? (
+        <p className="py-16 text-center text-muted">Loading…</p>
+      ) : null}
 
       {!loading && detail && report ? (
         <>
-          <section
-            className={`card report-outcome report-outcome-${outcomeStatus}`}
-          >
-            <div className="report-outcome-head">
-              <span className={`badge ${statusClass(outcomeStatus)}`}>
+          <section className="rounded-lg border border-border bg-surface p-6">
+            <div className="mb-3 flex flex-col gap-2">
+              <span className={badgeClass(statusClass(outcomeStatus))}>
                 {detail.status}
               </span>
-              <h3>{report.headline}</h3>
+              <h3 className="m-0 text-[1.1rem] font-semibold">
+                {report.headline}
+              </h3>
             </div>
             {isScheduled && countdown ? (
-              <p className="report-preview report-preview-large">
+              <p className="m-0 text-base leading-snug">
                 Runs in <strong>{countdown}</strong>
               </p>
             ) : null}
-            <dl className="report-meta">
+            <dl className={metaGrid}>
               <div>
-                <dt>When</dt>
-                <dd>{formatTime(detail.createdAt)}</dd>
+                <dt className={metaDt}>When</dt>
+                <dd className={metaDd}>{formatTime(detail.createdAt)}</dd>
               </div>
               <div>
-                <dt>Duration</dt>
-                <dd>{formatDuration(reportDuration)}</dd>
+                <dt className={metaDt}>Duration</dt>
+                <dd className={metaDd}>{formatDuration(reportDuration)}</dd>
               </div>
               <div>
-                <dt>Chats scanned</dt>
-                <dd>{report.chatsScanned}</dd>
+                <dt className={metaDt}>Chats scanned</dt>
+                <dd className={metaDd}>{report.chatsScanned}</dd>
               </div>
               <div>
-                <dt>Backfilled</dt>
-                <dd>{report.mediaBackfilled}</dd>
+                <dt className={metaDt}>Backfilled</dt>
+                <dd className={metaDd}>{report.mediaBackfilled}</dd>
               </div>
               <div>
-                <dt>Failed</dt>
-                <dd>{report.mediaFailed}</dd>
+                <dt className={metaDt}>Failed</dt>
+                <dd className={metaDd}>{report.mediaFailed}</dd>
               </div>
               {detail.runAt ? (
                 <div>
-                  <dt>Scheduled for</dt>
-                  <dd>{formatTime(detail.runAt)}</dd>
+                  <dt className={metaDt}>Scheduled for</dt>
+                  <dd className={metaDd}>{formatTime(detail.runAt)}</dd>
                 </div>
               ) : null}
             </dl>
           </section>
 
           {(report.error || report.interrupted) && (
-            <section className="card">
-              <h3>Result</h3>
-              <dl className="report-fields">
+            <section className="rounded-lg border border-border bg-surface p-6">
+              <h3 className="mb-5 text-[1.1rem] font-semibold">Result</h3>
+              <dl className={fieldsGrid}>
                 {report.interrupted ? (
                   <div>
-                    <dt>Interrupted</dt>
-                    <dd>Queue activity resumed before completion</dd>
+                    <dt className={metaDt}>Interrupted</dt>
+                    <dd className={metaDd}>
+                      Queue activity resumed before completion
+                    </dd>
                   </div>
                 ) : null}
                 {report.error ? (
                   <div>
-                    <dt>Error</dt>
-                    <dd>{report.error}</dd>
+                    <dt className={metaDt}>Error</dt>
+                    <dd className={metaDd}>{report.error}</dd>
                   </div>
                 ) : null}
               </dl>
             </section>
           )}
 
-          <section className="card">
-            <h3>Pipeline</h3>
+          <section className="rounded-lg border border-border bg-surface p-6">
+            <h3 className="mb-5 text-[1.1rem] font-semibold">Pipeline</h3>
             {report.phases.length === 0 ? (
-              <p className="muted">No pipeline steps recorded.</p>
+              <p className="text-muted">No pipeline steps recorded.</p>
             ) : (
-              <div className="report-phase-list">
+              <div className="flex flex-col gap-2">
                 {report.phases.map((phase) => (
                   <PhaseRow key={phase.id} phase={phase} />
                 ))}
@@ -176,7 +197,7 @@ export function VisionDebugRunDetail() {
       ) : null}
 
       {!loading && !detail && error == null ? (
-        <p className="muted">Run not found.</p>
+        <p className="text-muted">Run not found.</p>
       ) : null}
     </>
   );

@@ -8,6 +8,16 @@ interface GeneralMemoriesPanelProps {
   embedded?: boolean;
 }
 
+const primaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const dangerBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-danger/40 bg-surface-hover px-4 py-2.5 text-sm font-semibold text-danger transition-opacity hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50";
+const sectionShell = (embedded: boolean) =>
+  embedded ? "flex flex-col gap-4" : "rounded-lg border border-border bg-surface p-6";
+const pageDesc = "m-0 max-w-xl text-[0.92rem] text-muted";
+
 export function GeneralMemoriesPanel({
   apiOnline,
   embedded = false,
@@ -140,27 +150,37 @@ export function GeneralMemoriesPanel({
 
   if (!apiOnline) {
     return (
-      <section className={embedded ? "page-block" : "card memories-card"}>
+      <section className={sectionShell(embedded)}>
         {embedded ? (
-          <header className="page-header">
-            <h2>General memory</h2>
-            <p className="page-desc">
-              Shared facts, terms, and knowledge used in every chat.
-            </p>
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+                General memory
+              </h2>
+              <p className={pageDesc}>
+                Shared facts, terms, and knowledge used in every chat.
+              </p>
+            </div>
           </header>
         ) : (
-          <h2>General memory</h2>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+            General memory
+          </h2>
         )}
-        <p className="hint">API must be online to view stored memories.</p>
+        <p className="mt-1.5 text-xs text-muted">
+          API must be online to view stored memories.
+        </p>
       </section>
     );
   }
 
   const header = embedded ? (
-    <header className="page-header memories-page-header">
+    <header className="mb-1 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2>General memory</h2>
-        <p className="page-desc">
+        <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+          General memory
+        </h2>
+        <p className={pageDesc}>
           Facts, terms, and knowledge shared across all chats. {facts.length}{" "}
           total. Updates live.
         </p>
@@ -168,7 +188,7 @@ export function GeneralMemoriesPanel({
       {facts.length > 0 ? (
         <button
           type="button"
-          className="secondary danger-btn"
+          className={dangerBtn}
           disabled={clearing}
           onClick={() => void clearAll()}
         >
@@ -177,19 +197,21 @@ export function GeneralMemoriesPanel({
       ) : null}
     </header>
   ) : (
-    <div className="memories-header">
+    <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2>General memory</h2>
-        <p className="hint">
+        <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
+          General memory
+        </h2>
+        <p className="mt-1.5 text-xs text-muted">
           Facts, terms, and knowledge shared across all chats. {facts.length}{" "}
           total. Updates live.
         </p>
       </div>
       {facts.length > 0 ? (
-        <div className="memories-header-actions">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            className="secondary danger-btn"
+            className={dangerBtn}
             disabled={clearing}
             onClick={() => void clearAll()}
           >
@@ -201,7 +223,7 @@ export function GeneralMemoriesPanel({
   );
 
   return (
-    <section className={embedded ? "page-block" : "card memories-card"}>
+    <section className={sectionShell(embedded)}>
       {header}
 
       {error != null ? (
@@ -214,21 +236,22 @@ export function GeneralMemoriesPanel({
       ) : null}
 
       <form
-        className="memory-add-form"
+        className="mb-5 rounded-lg border border-border bg-bg p-3.5"
         onSubmit={(e) => {
           e.preventDefault();
           void addFact();
         }}
       >
-        <p className="hint memory-add-hint">
+        <p className="mb-2.5 mt-0 text-xs text-muted">
           Add glossary terms, project facts, or standing instructions that apply
           everywhere.
         </p>
-        <div className="memory-add-row">
-          <label className="memory-add-field memory-add-fact-field">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex min-w-48 flex-1 flex-col gap-1.5 text-xs text-muted">
             <span>Fact</span>
             <input
               type="text"
+              className="w-full min-w-40 resize-y rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
               value={addFactText}
               onChange={(e) => setAddFactText(e.target.value)}
               placeholder="e.g. API means Application Programming Interface here"
@@ -237,7 +260,7 @@ export function GeneralMemoriesPanel({
           </label>
           <button
             type="submit"
-            className="primary"
+            className={primaryBtn}
             disabled={savingId === "new" || addFactText.trim().length < 2}
           >
             {savingId === "new" ? "…" : "Add"}
@@ -246,44 +269,47 @@ export function GeneralMemoriesPanel({
       </form>
 
       {loading && facts.length === 0 ? (
-        <p className="hint">Loading memories…</p>
+        <p className="mt-1.5 text-xs text-muted">Loading memories…</p>
       ) : null}
 
       {!loading && facts.length === 0 && error == null ? (
-        <p className="hint">
+        <p className="mt-1.5 text-xs text-muted">
           No general memories yet. The bot can learn them from chat, or add facts
           above.
         </p>
       ) : null}
 
       {facts.length > 0 ? (
-        <ul className="memory-list">
+        <ul className="m-0 list-none p-0">
           {facts.map((item) => {
             const isEditing = editingId === item.id;
             return (
-              <li key={item.id} className="memory-item">
-                <div className="memory-item-body">
+              <li
+                key={item.id}
+                className="flex items-start justify-between gap-3 border-b border-border px-3.5 py-3 last:border-b-0"
+              >
+                <div className="min-w-0 flex-1">
                   {isEditing ? (
                     <textarea
-                      className="memory-edit-input"
+                      className="min-h-10 w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
                       rows={2}
                       value={editText}
                       onChange={(e) => setEditText(e.target.value)}
                       maxLength={500}
                     />
                   ) : (
-                    <p className="memory-fact">{item.fact}</p>
+                    <p className="mb-1.5 break-words leading-snug">{item.fact}</p>
                   )}
-                  <time className="memory-time" dateTime={item.createdAt}>
+                  <time className="text-xs text-muted" dateTime={item.createdAt}>
                     {new Date(item.createdAt).toLocaleString()}
                   </time>
                 </div>
-                <div className="memory-item-actions">
+                <div className="flex shrink-0 flex-wrap gap-1.5">
                   {isEditing ? (
                     <>
                       <button
                         type="button"
-                        className="primary"
+                        className={primaryBtn}
                         disabled={
                           savingId === item.id || editText.trim().length < 2
                         }
@@ -293,7 +319,7 @@ export function GeneralMemoriesPanel({
                       </button>
                       <button
                         type="button"
-                        className="secondary"
+                        className={secondaryBtn}
                         disabled={savingId === item.id}
                         onClick={cancelEdit}
                       >
@@ -304,7 +330,7 @@ export function GeneralMemoriesPanel({
                     <>
                       <button
                         type="button"
-                        className="secondary"
+                        className={secondaryBtn}
                         title="Edit this memory"
                         disabled={deletingId === item.id}
                         onClick={() => startEdit(item.id, item.fact)}
@@ -313,7 +339,7 @@ export function GeneralMemoriesPanel({
                       </button>
                       <button
                         type="button"
-                        className="secondary danger-btn"
+                        className={dangerBtn}
                         title="Delete this memory"
                         disabled={deletingId === item.id}
                         onClick={() => void removeFact(item.id)}

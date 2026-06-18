@@ -14,9 +14,14 @@ function isJsonObject(value: unknown): value is object {
   return value != null && typeof value === "object";
 }
 
+const preClasses =
+  "m-0 max-h-[360px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/25 p-3 font-mono text-[0.78rem] leading-snug";
+
 export function DebugJsonView({ value }: { value: unknown }) {
   if (value == null) {
-    return <span className="report-empty">(empty)</span>;
+    return (
+      <span className="block p-3 text-sm text-muted">(empty)</span>
+    );
   }
 
   let src: unknown = value;
@@ -25,16 +30,16 @@ export function DebugJsonView({ value }: { value: unknown }) {
     if (parsed != null && isJsonObject(parsed)) {
       src = parsed;
     } else {
-      return <pre className="report-pre">{value || "(empty)"}</pre>;
+      return <pre className={preClasses}>{value || "(empty)"}</pre>;
     }
   }
 
   if (!isJsonObject(src)) {
-    return <pre className="report-pre">{String(value)}</pre>;
+    return <pre className={preClasses}>{String(value)}</pre>;
   }
 
   return (
-    <div className="report-json-view">
+    <div className="max-h-[480px] overflow-auto border-t border-border p-2.5 px-3 pb-3 text-[0.78rem] [&_.react-json-view]:!bg-transparent">
       <ReactJson
         src={src}
         name={false}

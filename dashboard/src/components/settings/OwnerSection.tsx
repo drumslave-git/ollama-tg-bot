@@ -1,4 +1,5 @@
 import React from "react";
+import { Hint, SectionTitle } from "../ui/Layout";
 
 interface OwnerSectionProps {
   ownerUsername: string;
@@ -13,8 +14,8 @@ const OwnerSection: React.FC<OwnerSectionProps> = ({
 }) => {
   return (
     <>
-      <h3 className="section-title">Owner account</h3>
-      <div className="field">
+      <SectionTitle className="mt-6">Owner account</SectionTitle>
+      <div className="flex flex-col gap-1">
         <label htmlFor="ownerUsername">Telegram username</label>
         <input
           id="ownerUsername"
@@ -23,27 +24,26 @@ const OwnerSection: React.FC<OwnerSectionProps> = ({
           onChange={(e) => onOwnerUsernameChange(e.target.value.replace(/^@+/, ""))}
           placeholder="username (without @)"
         />
-        <p className="hint">
+        <Hint>
           The person who runs this bot. Their numeric id is resolved via
           the Telegram API when you save — they must message the bot at
-          least once first (e.g. <code>/start</code> or <code>/id</code>).
+          least once first (e.g. <code className="font-mono text-[0.85em]">/start</code> or{" "}
+          <code className="font-mono text-[0.85em]">/id</code>).
           Leave empty to disable.
-        </p>
+        </Hint>
       </div>
-      <div className="field">
+      <div className="flex flex-col gap-1">
         <label htmlFor="ownerUserId">Resolved user id</label>
         <input
           id="ownerUserId"
-          className="input-readonly"
+          className="cursor-default bg-bg font-mono text-muted focus:outline-none"
           type="text"
           readOnly
           tabIndex={-1}
           value={ownerUserId}
           placeholder="Not resolved yet"
         />
-        <p className="hint">
-          Set automatically when you save a username. Read-only.
-        </p>
+        <Hint>Set automatically when you save a username. Read-only.</Hint>
       </div>
     </>
   );

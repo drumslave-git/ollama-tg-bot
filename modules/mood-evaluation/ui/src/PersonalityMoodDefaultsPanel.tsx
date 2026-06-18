@@ -12,6 +12,13 @@ import {
 } from "@llm-tg-bot/dashboard/api";
 import { useLiveMood, useLivePersonalities } from "@llm-tg-bot/dashboard/liveSocket";
 
+const primaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const secondaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+const badgeOk =
+  "rounded-full border border-accent/35 bg-surface px-3 py-1.5 text-xs font-semibold text-accent";
+
 function moodDraftKey(personalityId: number): string {
   return String(personalityId);
 }
@@ -120,15 +127,21 @@ export function PersonalityMoodDefaultsPanel() {
   }
 
   if (loading && personalities.length === 0) {
-    return <p className="loading">Loading character mood defaults…</p>;
+    return (
+      <p className="py-16 text-center text-muted">
+        Loading character mood defaults…
+      </p>
+    );
   }
 
   return (
-    <section className="card">
-      <div className="section-head">
-        <h3 className="section-title">Character mood defaults</h3>
+    <section className="rounded-lg border border-border bg-surface p-6">
+      <div className="mb-4 flex items-center justify-between gap-4">
+        <h3 className="m-0 text-[0.95rem] font-semibold text-text">
+          Character mood defaults
+        </h3>
       </div>
-      <p className="hint">
+      <p className="mt-1.5 text-xs text-muted">
         Baseline mood (0–5 per trait) for each character personality. Global
         mood drifts back toward the active character&apos;s defaults during
         cooldown. Create and name personalities on the Character page.
@@ -144,12 +157,12 @@ export function PersonalityMoodDefaultsPanel() {
       ) : null}
 
       {personalities.length === 0 ? (
-        <p className="hint">
+        <p className="mt-1.5 text-xs text-muted">
           No personalities yet — mood defaults apply once you create a character
           on the Character page.
         </p>
       ) : (
-        <div className="personality-list">
+        <div className="flex flex-col gap-4">
           {personalities.map((personality) => {
             const draft =
               drafts[moodDraftKey(personality.id)] ??
@@ -163,19 +176,23 @@ export function PersonalityMoodDefaultsPanel() {
             return (
               <article
                 key={personality.id}
-                className={`personality-card${isActive ? " personality-card-active" : ""}`}
+                className={`rounded-[10px] border bg-bg p-4 ${
+                  isActive
+                    ? "border-accent/45 shadow-[inset_0_0_0_1px_rgba(110,231,183,0.15)]"
+                    : "border-border"
+                }`}
               >
-                <div className="personality-card-head">
-                  <div className="personality-card-title">
-                    <h4>{personality.name}</h4>
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="m-0 text-base">{personality.name}</h4>
                     {isActive ? (
-                      <span className="badge badge-ok">Active character</span>
+                      <span className={badgeOk}>Active character</span>
                     ) : null}
                   </div>
                 </div>
 
-                <div className="personality-mood-section">
-                  <div className="mood-grid">
+                <div className="mt-4">
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(14rem,1fr))] gap-3 sm:gap-x-4">
                     {MOOD_KEYS.map((key) => (
                       <SettingsNumberField
                         key={key}
@@ -199,10 +216,10 @@ export function PersonalityMoodDefaultsPanel() {
                   </div>
                 </div>
 
-                <div className="actions compact-actions">
+                <div className="mb-2 mt-0 flex flex-wrap gap-3">
                   <button
                     type="button"
-                    className="primary"
+                    className={primaryBtn}
                     disabled={
                       configBlocked ||
                       savingId === personality.id ||
@@ -214,7 +231,7 @@ export function PersonalityMoodDefaultsPanel() {
                   </button>
                   <button
                     type="button"
-                    className="secondary"
+                    className={secondaryBtn}
                     disabled={
                       configBlocked || savingId === personality.id || !isDirty
                     }
@@ -223,7 +240,7 @@ export function PersonalityMoodDefaultsPanel() {
                     Reset
                   </button>
                   {saveOkId === personality.id ? (
-                    <span className="hint">Saved</span>
+                    <span className="mt-1.5 text-xs text-muted">Saved</span>
                   ) : null}
                 </div>
               </article>

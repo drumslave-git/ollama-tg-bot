@@ -3,6 +3,9 @@ import { api, type DataTablePayload, type DataTableSummary } from "../api";
 import { useDashboard } from "../context/DashboardContext";
 import { useLiveData } from "../liveSocket";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { Button } from "../components/ui/Button";
+import { Card, Hint, Page, PageHeader } from "../components/ui/Layout";
+import { cn } from "../lib/cn";
 
 type SortDirection = "asc" | "desc";
 
@@ -78,6 +81,9 @@ function sortRows(
   });
   return sorted;
 }
+
+const tabButtonClass =
+  "inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-border bg-transparent px-3.5 py-1.5 font-inherit text-muted hover:border-muted hover:text-text";
 
 export function DataPage() {
   const { apiOnline } = useDashboard();
@@ -185,8 +191,7 @@ export function DataPage() {
   );
 
   const activeSummary = tables.find((t) => t.id === activeTable);
-  const isTableLoading =
-    loadingTable;
+  const isTableLoading = loadingTable;
 
   const displayedRows = useMemo(() => {
     if (!payload) return [];
@@ -234,14 +239,16 @@ export function DataPage() {
   };
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h2>Data</h2>
-        <p className="page-desc">
-          Raw SQLite contents — one tab per table. Large tables show the newest{" "}
-          {2000} rows. Updates live.
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        title="Data"
+        description={
+          <>
+            Raw SQLite contents — one tab per table. Large tables show the newest{" "}
+            {2000} rows. Updates live.
+          </>
+        }
+      />
 
       {error != null ? (
         <ErrorBanner
@@ -255,46 +262,58 @@ export function DataPage() {
       ) : null}
 
       {loadingMeta && tables.length === 0 ? (
-        <p className="hint">Loading tables…</p>
+        <Hint>Loading tables…</Hint>
       ) : null}
 
       {tables.length > 0 ? (
         <>
           <div
-            className="data-tabs"
+            className="mb-3 flex flex-wrap gap-2"
             role="tablist"
             aria-label="Database tables"
           >
-            {tables.map((table) => (
-              <div
-                key={table.id}
-                className={
-                  activeTable === table.id
-                    ? "data-tab-item active"
-                    : "data-tab-item"
-                }
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTable === table.id}
-                  className={
-                    activeTable === table.id ? "data-tab active" : "data-tab"
-                  }
-                  onClick={() => setActiveTable(table.id)}
+            {tables.map((table) => {
+              const isActive = activeTable === table.id;
+              return (
+                <div
+                  key={table.id}
+                  className={cn(
+                    "inline-flex items-stretch rounded-md",
+                    isActive && "shadow-[0_0_0_1px_var(--color-accent)]",
+                  )}
                 >
-                  {table.label}
-                  <span className="data-tab-count">{table.count}</span>
-                </button>
-              </div>
-            ))}
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={cn(
+                      tabButtonClass,
+                      isActive && "border-accent bg-accent/12 text-text",
+                    )}
+                    onClick={() => setActiveTable(table.id)}
+                  >
+                    {table.label}
+                    <span
+                      className={cn(
+                        "rounded-full bg-surface-2 px-1.5 py-0.5 text-xs text-muted",
+                        isActive && "text-text",
+                      )}
+                    >
+                      {table.count}
+                    </span>
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
-          <section className="card data-card">
-            <div className="data-card-header">
-              <h3>{activeSummary?.label ?? "Table"}</h3>
+          <Card>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+              <h3 className="m-0 text-base font-semibold text-text">
+                {activeSummary?.label ?? "Table"}
+              </h3>
               {payload ? (
-                <p className="hint data-card-meta">
+                <Hint className="m-0">
                   {hasActiveFilters
                     ? `${displayedRows.length} of ${payload.rows.length} loaded row${
                         payload.rows.length === 1 ? "" : "s"
@@ -303,65 +322,68 @@ export function DataPage() {
                   {payload.truncated
                     ? ` — newest ${payload.rows.length} loaded`
                     : null}
-                </p>
+                </Hint>
               ) : null}
             </div>
 
-            {isTableLoading ? <p className="hint">Loading rows…</p> : null}
+            {isTableLoading ? <Hint>Loading rows…</Hint> : null}
 
             {!isTableLoading && payload && payload.rows.length === 0 ? (
-              <p className="hint">No rows in this table.</p>
+              <Hint>No rows in this table.</Hint>
             ) : null}
 
             {!isTableLoading && payload && payload.rows.length > 0 ? (
               <>
-                <div className="data-toolbar">
-                  <label className="data-search">
+                <div className="mb-3.5 flex flex-wrap items-center gap-2">
+                  <label className="mb-0 min-w-0 flex-[1_1_14rem]">
                     <span className="sr-only">Search table</span>
                     <input
                       type="search"
+                      className="py-2"
                       placeholder="Search all columns…"
                       value={searchQuery}
                       onChange={(event) => setSearchQuery(event.target.value)}
                     />
                   </label>
-                  <button
-                    type="button"
-                    className={
-                      showColumnFilters ? "secondary active" : "secondary"
-                    }
+                  <Button
+                    variant="secondary"
+                    className={cn(showColumnFilters && "border-accent text-accent")}
                     onClick={() => setShowColumnFilters((current) => !current)}
                   >
                     Column filters
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary"
+                  </Button>
+                  <Button
+                    variant="secondary"
                     disabled={!hasActiveFilters}
                     onClick={clearFilters}
                   >
                     Clear
-                  </button>
+                  </Button>
                 </div>
 
                 {displayedRows.length === 0 ? (
-                  <p className="hint">No rows match the current search or filters.</p>
+                  <Hint>
+                    No rows match the current search or filters.
+                  </Hint>
                 ) : (
-                  <div className="data-table-wrap">
-                    <table className="data-table">
+                  <div className="overflow-x-auto rounded-md border border-border">
+                    <table className="w-full border-collapse text-[0.82rem]">
                       <thead>
                         <tr>
                           {payload.columns.map((column) => {
                             const isSorted = sortColumn === column;
                             return (
-                              <th key={column} scope="col">
+                              <th
+                                key={column}
+                                scope="col"
+                                className="sticky top-0 border-b border-border bg-surface px-2.5 py-2 text-left align-top font-semibold whitespace-nowrap"
+                              >
                                 <button
                                   type="button"
-                                  className={
-                                    isSorted
-                                      ? "data-sort-button active"
-                                      : "data-sort-button"
-                                  }
+                                  className={cn(
+                                    "inline-flex w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-left font-inherit font-semibold hover:text-accent",
+                                    isSorted && "text-accent",
+                                  )}
                                   aria-sort={
                                     isSorted
                                       ? sortDirection === "asc"
@@ -373,7 +395,10 @@ export function DataPage() {
                                 >
                                   <span>{column}</span>
                                   <span
-                                    className="data-sort-indicator"
+                                    className={cn(
+                                      "text-[0.72rem] leading-none text-muted",
+                                      isSorted && "text-accent",
+                                    )}
                                     aria-hidden
                                   >
                                     {isSorted
@@ -388,12 +413,15 @@ export function DataPage() {
                           })}
                         </tr>
                         {showColumnFilters ? (
-                          <tr className="data-filter-row">
+                          <tr>
                             {payload.columns.map((column) => (
-                              <th key={column}>
+                              <th
+                                key={column}
+                                className="sticky top-9 border-b border-border bg-surface px-2.5 pt-1.5 pb-2 align-top font-normal"
+                              >
                                 <input
                                   type="search"
-                                  className="data-col-filter"
+                                  className="min-w-[4.5rem] px-2 py-1.5 text-xs"
                                   placeholder="Filter…"
                                   value={columnFilters[column] ?? ""}
                                   onChange={(event) =>
@@ -411,13 +439,18 @@ export function DataPage() {
                       </thead>
                       <tbody>
                         {displayedRows.map((row, index) => (
-                          <tr key={index}>
+                          <tr
+                            key={index}
+                            className="hover:bg-accent/6 last:[&_td]:border-b-0"
+                          >
                             {payload.columns.map((column) => (
                               <td
                                 key={column}
-                                className={
-                                  isLongColumn(column) ? "cell-long" : undefined
-                                }
+                                className={cn(
+                                  "border-b border-border px-2.5 py-2 align-top text-left",
+                                  isLongColumn(column) &&
+                                    "min-w-48 max-w-md whitespace-pre-wrap break-words font-mono text-[0.78rem]",
+                                )}
                               >
                                 {formatCell(row[column])}
                               </td>
@@ -430,13 +463,13 @@ export function DataPage() {
                 )}
               </>
             ) : null}
-          </section>
+          </Card>
         </>
       ) : null}
 
       {!loadingMeta && tables.length === 0 && apiOnline && error == null ? (
-        <p className="hint">No tables found.</p>
+        <Hint>No tables found.</Hint>
       ) : null}
-    </div>
+    </Page>
   );
 }

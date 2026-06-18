@@ -1,8 +1,9 @@
-import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, type DashboardModuleSummary } from "../api";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { getModuleUi } from "../moduleUiRegistry";
+import { ButtonLink } from "../components/ui/Button";
+import { Card, Hint, LoadingState, Page, PageHeader } from "../components/ui/Layout";
 
 export function ModulesPage() {
   const [modules, setModules] = useState<DashboardModuleSummary[]>([]);
@@ -30,74 +31,82 @@ export function ModulesPage() {
 
   if (loading) {
     return (
-      <div className="page">
-        <p className="loading">Loading modules…</p>
-      </div>
+      <Page>
+        <LoadingState>Loading modules…</LoadingState>
+      </Page>
     );
   }
 
   return (
-    <div className="page">
-      <header className="page-header">
-        <h2>Modules</h2>
-        <p className="page-desc">
-          Feature packages discovered from the project <code>modules/</code>{" "}
-          folder. Each module can expose server logic, database tables, and
-          dashboard UI via its manifest.
-        </p>
-      </header>
+    <Page>
+      <PageHeader
+        title="Modules"
+        description={
+          <>
+            Feature packages discovered from the project{" "}
+            <code className="font-mono text-[0.85em]">modules/</code> folder.
+            Each module can expose server logic, database tables, and dashboard
+            UI via its manifest.
+          </>
+        }
+      />
 
       {error != null ? (
         <ErrorBanner error={error} compact onRetry={() => window.location.reload()} />
       ) : null}
 
-      <div className="module-grid">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
         {modules.map((module) => (
-          <article key={module.id} className="card module-card">
-            <h3>{module.dashboard?.label ?? module.name}</h3>
-            <p className="hint">{module.description}</p>
-            <dl className="module-meta">
-              <div>
-                <dt>ID</dt>
-                <dd>
-                  <code>{module.id}</code>
+          <Card key={module.id} className="flex flex-col gap-3">
+            <h3 className="m-0 text-base font-semibold text-text">
+              {module.dashboard?.label ?? module.name}
+            </h3>
+            <Hint className="mt-0">{module.description}</Hint>
+            <dl className="m-0 grid gap-2">
+              <div className="grid grid-cols-[5rem_1fr] items-baseline gap-2">
+                <dt className="m-0 text-xs font-semibold uppercase tracking-wide text-muted">
+                  ID
+                </dt>
+                <dd className="m-0 text-sm">
+                  <code className="font-mono text-[0.88em]">{module.id}</code>
                 </dd>
               </div>
               {module.apiBasePath ? (
-                <div>
-                  <dt>API</dt>
-                  <dd>
-                    <code>{module.apiBasePath}</code>
+                <div className="grid grid-cols-[5rem_1fr] items-baseline gap-2">
+                  <dt className="m-0 text-xs font-semibold uppercase tracking-wide text-muted">
+                    API
+                  </dt>
+                  <dd className="m-0 text-sm">
+                    <code className="font-mono text-[0.88em]">
+                      {module.apiBasePath}
+                    </code>
                   </dd>
                 </div>
               ) : null}
               {module.dataTables.length > 0 ? (
-                <div>
-                  <dt>Tables</dt>
-                  <dd>{module.dataTables.join(", ")}</dd>
+                <div className="grid grid-cols-[5rem_1fr] items-baseline gap-2">
+                  <dt className="m-0 text-xs font-semibold uppercase tracking-wide text-muted">
+                    Tables
+                  </dt>
+                  <dd className="m-0 text-sm">{module.dataTables.join(", ")}</dd>
                 </div>
               ) : null}
             </dl>
             {module.hasUi ? (
-              <div className="module-card-actions">
-                <Link className="button-link primary" to={`/modules/${module.id}`}>
-                  Open module
-                </Link>
+              <div className="flex flex-wrap gap-2">
+                <ButtonLink to={`/modules/${module.id}`}>Open module</ButtonLink>
                 {getModuleUi(module.id)?.DebugPage ? (
-                  <Link
-                    className="button-link secondary"
-                    to={`/modules/${module.id}/debug`}
-                  >
+                  <ButtonLink variant="secondary" to={`/modules/${module.id}/debug`}>
                     Job debug
-                  </Link>
+                  </ButtonLink>
                 ) : null}
               </div>
             ) : (
-              <p className="hint module-no-ui">No dashboard UI for this module.</p>
+              <Hint className="m-0">No dashboard UI for this module.</Hint>
             )}
-          </article>
+          </Card>
         ))}
       </div>
-    </div>
+    </Page>
   );
 }

@@ -1,3 +1,6 @@
+import { FieldError, Hint } from "./components/ui/Layout";
+import { cn } from "./lib/cn";
+
 interface SettingsNumberFieldProps {
   id: string;
   label: string;
@@ -40,10 +43,17 @@ export function SettingsNumberField({
   if (variant === "slider") {
     const display = formatSliderValue(value, step);
     return (
-      <div className={`field slider-field${invalid ? " field-invalid" : ""}`}>
-        <label htmlFor={id}>
+      <div
+        className={cn(
+          "flex flex-col gap-1",
+          invalid && "[&_input[type=range]]:outline [&_input[type=range]]:outline-1 [&_input[type=range]]:outline-danger",
+        )}
+      >
+        <label htmlFor={id} className="flex items-baseline justify-between gap-3">
           {label}
-          <span className="slider-value">{display}</span>
+          <span className="font-mono text-sm font-semibold text-accent">
+            {display}
+          </span>
         </label>
         <input
           id={id}
@@ -56,18 +66,21 @@ export function SettingsNumberField({
           aria-invalid={invalid}
           onChange={(e) => onChange(Number(e.target.value))}
         />
-        <div className="slider-bounds" aria-hidden="true">
+        <div
+          className="mt-1 flex justify-between font-mono text-xs text-muted"
+          aria-hidden="true"
+        >
           <span>{min}</span>
           <span>{max}</span>
         </div>
-        {hint ? <p className="hint">{hint}</p> : null}
-        {error ? <p className="field-error">{error}</p> : null}
+        {hint ? <Hint>{hint}</Hint> : null}
+        {error ? <FieldError>{error}</FieldError> : null}
       </div>
     );
   }
 
   return (
-    <div className={`field${invalid ? " field-invalid" : ""}`}>
+    <div className="flex flex-col gap-1">
       <label htmlFor={id}>{label}</label>
       <input
         id={id}
@@ -80,8 +93,8 @@ export function SettingsNumberField({
         aria-invalid={invalid}
         onChange={(e) => onChange(Number(e.target.value))}
       />
-      {hint ? <p className="hint">{hint}</p> : null}
-      {error ? <p className="field-error">{error}</p> : null}
+      {hint ? <Hint>{hint}</Hint> : null}
+      {error ? <FieldError>{error}</FieldError> : null}
     </div>
   );
 }
