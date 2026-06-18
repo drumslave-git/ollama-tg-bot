@@ -3,9 +3,10 @@ import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
 import { api, type DataTablePayload } from "@llm-tg-bot/dashboard/api";
 
-interface StoredMessagePreview {
+interface StoredMessage {
   role: string;
   content: string;
+  compressedAt?: number;
 }
 
 function formatTime(value: unknown): string {
@@ -15,32 +16,28 @@ function formatTime(value: unknown): string {
   return date.toLocaleString();
 }
 
-function parseMessages(raw: unknown): StoredMessagePreview[] {
+function formatUnixTime(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  const date = new Date(value * 1000);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString();
+}
+
+function parseMessages(raw: unknown): StoredMessage[] {
   if (typeof raw !== "string" || !raw.trim()) return [];
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(
-        (m): m is StoredMessagePreview =>
-          m != null &&
-          typeof m === "object" &&
-          typeof (m as StoredMessagePreview).role === "string" &&
-          typeof (m as StoredMessagePreview).content === "string",
-      )
-      .slice(-5);
+    return parsed.filter(
+      (m): m is StoredMessage =>
+        m != null &&
+        typeof m === "object" &&
+        typeof (m as StoredMessage).role === "string" &&
+        typeof (m as StoredMessage).content === "string",
+    );
   } catch {
     return [];
   }
-}
-
-function messagePreview(raw: unknown): string {
-  const messages = parseMessages(raw);
-  if (messages.length === 0) return "—";
-  const last = messages[messages.length - 1];
-  const text = last.content.replace(/\s+/g, " ").trim();
-  const clipped = text.length > 120 ? `${text.slice(0, 120)}…` : text;
-  return `[${last.role}] ${clipped}`;
 }
 
 export function HistoryPage() {
@@ -127,30 +124,79 @@ export function HistoryPage() {
               {filteredRows.length} of {payload.total} chats
               {payload.truncated ? " (list truncated)" : ""}
             </p>
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Chat key</th>
-                    <th>Updated</th>
-                    <th>Compressed</th>
-                    <th>Latest message</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredRows.map((row) => (
-                    <tr key={String(row.chatKey)}>
-                      <td>
-                        <code>{String(row.chatKey ?? "—")}</code>
-                      </td>
-                      <td>{formatTime(row.updatedAt)}</td>
-                      <td>{formatTime(row.compressedAt)}</td>
-                      <td className="long-cell">{messagePreview(row.messages)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+
+            {filteredRows.length === 0 ? (
+              <p className="muted">No chats match your search.</p>
+            ) : (
+              <div className="history-groups">
+                {filteredRows.map((row) => {
+                  const chatKey = String(row.chatKey ?? "—");
+                  const messages = parseMessages(row.messages);
+
+                  return (
+                    <article key={chatKey} className="history-group">
+                      <header className="history-group-head">
+                        <div className="history-group-meta">
+                          <code className="history-chat-key">{chatKey}</code>
+                          <span className="label-meta">
+                            {messages.length} message
+                            {messages.length === 1 ? "" : "s"}
+                          </span>
+                        </div>
+                        <div className="history-group-times">
+                          <span>
+                            Updated{" "}
+                            <time dateTime={String(row.updatedAt ?? "")}>
+                              {formatTime(row.updatedAt)}
+                            </time>
+                          </span>
+                          {row.compressedAt ? (
+                            <span>
+                              Compressed{" "}
+                              <time dateTime={String(row.compressedAt ?? "")}>
+                                {formatTime(row.compressedAt)}
+                              </time>
+                            </span>
+                          ) : null}
+                        </div>
+                      </header>
+
+                      {messages.length === 0 ? (
+                        <p className="history-empty muted">No messages stored.</p>
+                      ) : (
+                        <ol className="history-message-list">
+                          {messages.map((message, index) => (
+                            <li
+                              key={`${chatKey}-${index}`}
+                              className="history-message"
+                            >
+                              <div className="history-message-head">
+                                <span className="history-message-role">
+                                  {message.role}
+                                </span>
+                                {message.compressedAt ? (
+                                  <time
+                                    className="history-message-time"
+                                    dateTime={new Date(
+                                      message.compressedAt * 1000,
+                                    ).toISOString()}
+                                  >
+                                    compressed {formatUnixTime(message.compressedAt)}
+                                  </time>
+                                ) : null}
+                              </div>
+                              <pre className="history-message-content">
+                                {message.content}
+                              </pre>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </section>
