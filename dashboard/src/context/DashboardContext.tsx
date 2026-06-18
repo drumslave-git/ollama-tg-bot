@@ -30,15 +30,6 @@ import { buildModelOptions, resolveModelSelection } from "../modelOptions";
 
 export type SectionKey = "settings" | "stats" | "llm" | "models" | "save";
 
-export function isValidApiBaseUrl(host: string): boolean {
-  try {
-    const url = new URL(host.trim());
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 interface DashboardContextValue {
   settings: Settings | null;
   draft: Settings | null;
@@ -53,14 +44,13 @@ interface DashboardContextValue {
   saving: boolean;
   modelsLoading: boolean;
   testingLlm: boolean;
-  verifiedApiBaseUrl: string | null;
+  llmConnectionVerified: boolean;
   sectionErrors: Partial<Record<SectionKey, unknown>>;
   saveOk: boolean;
   setSectionError: (key: SectionKey, err: unknown | null) => void;
   load: () => Promise<void>;
-  fetchModelsForHost: (host: string) => Promise<void>;
+  fetchModels: () => Promise<void>;
   testLlmConnection: () => Promise<void>;
-  invalidateLlmVerification: (newHost: string) => void;
   save: () => Promise<void>;
   modelOptions: ReturnType<typeof buildModelOptions>;
   showModelSelection: boolean;
@@ -91,9 +81,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [saving, setSaving] = useState(false);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [testingLlm, settestingLlm] = useState(false);
-  const [verifiedApiBaseUrl, setVerifiedApiBaseUrl] = useState<string | null>(
-    null,
-  );
+  const [llmConnectionVerified, setLlmConnectionVerified] = useState(false);
   const [sectionErrors, setSectionErrors] = useState<
     Partial<Record<SectionKey, unknown>>
   >({});
@@ -115,11 +103,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshBudget = useCallback(
-    async (model: string, numPredict: number, host?: string) => {
+    async (model: string, numPredict: number) => {
       if (!model || numPredict == null) return null;
       setBudgetLoading(true);
       try {
-        const result = await api.getBudget(model, numPredict, host);
+        const result = await api.getBudget(model, numPredict);
         setContextBudget(result.contextBudget);
         setDerivedHistoryLimits(result.derivedHistoryLimits);
         setSectionError("models", null);
@@ -170,21 +158,15 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       nextErrors.settings = settingsRes.reason;
     }
 
-    if (statsRes.status === "fulfilled") {
-      setStats(statsRes.value);
-    } else {
-      nextErrors.stats = statsRes.reason;
-    }
-
-    const savedHost =
+    const llmBaseUrl =
       settingsRes.status === "fulfilled"
-        ? settingsRes.value.apiBaseUrl.trim()
+        ? settingsRes.value.llmBaseUrl.trim()
         : "";
 
     let llmReachable = false;
-    if (savedHost) {
+    if (llmBaseUrl) {
       try {
-        await api.llmHealth(savedHost);
+        await api.llmHealth();
         llmReachable = true;
         setLlmOk(true);
       } catch (err) {
@@ -195,18 +177,18 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setLlmOk(false);
     }
 
-    if (savedHost && llmReachable) {
+    if (llmBaseUrl && llmReachable) {
       try {
-        const list = await api.getModels(savedHost);
-        setVerifiedApiBaseUrl(savedHost);
+        const list = await api.getModels();
+        setLlmConnectionVerified(true);
         applyModels(list);
       } catch (err) {
-        setVerifiedApiBaseUrl(null);
+        setLlmConnectionVerified(false);
         setModels([]);
         nextErrors.models = err;
       }
     } else {
-      setVerifiedApiBaseUrl(null);
+      setLlmConnectionVerified(false);
       setModels([]);
     }
 
@@ -225,8 +207,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     void load();
   }, [load]);
 
-  // Debounced budget fetch for live UI preview when model or
-  // generation budget changes.
   useEffect(() => {
     if (!draft?.model || draft.numPredict == null || vramAvailableGb == null) {
       setContextBudget(null);
@@ -235,12 +215,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
     if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
     budgetTimerRef.current = setTimeout(() => {
-      void refreshBudget(draft.model, draft.numPredict, draft.apiBaseUrl);
+      void refreshBudget(draft.model, draft.numPredict);
     }, 300);
     return () => {
       if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
     };
-  }, [draft?.model, draft?.numPredict, draft?.apiBaseUrl, vramAvailableGb, refreshBudget]);
+  }, [draft?.model, draft?.numPredict, vramAvailableGb, refreshBudget]);
 
   const handleSocketConnected = useCallback((connected: boolean) => {
     setApiOnline(connected);
@@ -277,12 +257,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
             JSON.stringify(current) === JSON.stringify(settingsRef.current);
           return draftMatchesSaved ? updated : current;
         });
-        const host = updated.apiBaseUrl.trim();
-        if (host && verifiedApiBaseUrl === host) {
-          void api.llmHealth(host).then(() => setLlmOk(true)).catch(() => setLlmOk(false));
+        if (llmConnectionVerified) {
+          void api.llmHealth().then(() => setLlmOk(true)).catch(() => setLlmOk(false));
         }
       },
-      [saving, verifiedApiBaseUrl],
+      [saving, llmConnectionVerified],
     ),
   );
 
@@ -297,11 +276,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     };
   }, [load]);
 
-  const fetchModelsForHost = async (host: string) => {
+  const fetchModels = async () => {
     setModelsLoading(true);
     setSectionError("models", null);
     try {
-      const list = await api.getModels(host);
+      const list = await api.getModels();
       applyModels(list);
       setSectionErrors((prev) => {
         const next = { ...prev };
@@ -319,55 +298,38 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const testLlmConnection = async () => {
     if (!draft) return;
-    const host = draft.apiBaseUrl.trim();
     setSectionError("llm", null);
     setSectionError("models", null);
 
-    if (!host) {
+    if (!draft.llmBaseUrl.trim()) {
       setSectionError(
         "llm",
-        new Error("Enter an LLM host URL before testing"),
-      );
-      return;
-    }
-    if (!isValidApiBaseUrl(host)) {
-      setSectionError(
-        "llm",
-        new Error("Host must be a valid http:// or https:// URL"),
+        new Error("LLM_BASE_URL is not configured on the server"),
       );
       return;
     }
 
     settestingLlm(true);
-    setVerifiedApiBaseUrl(null);
+    setLlmConnectionVerified(false);
     setModels([]);
 
     try {
-      await api.llmHealth(host);
-      setVerifiedApiBaseUrl(host);
+      await api.llmHealth();
+      setLlmConnectionVerified(true);
       setLlmOk(true);
-      await fetchModelsForHost(host);
+      await fetchModels();
       setSectionErrors((prev) => {
         const next = { ...prev };
         delete next.llm;
         return next;
       });
     } catch (err) {
-      setVerifiedApiBaseUrl(null);
+      setLlmConnectionVerified(false);
       setModels([]);
       setLlmOk(false);
       setSectionError("llm", err);
     } finally {
       settestingLlm(false);
-    }
-  };
-
-  const invalidateLlmVerification = (newHost: string) => {
-    if (verifiedApiBaseUrl && newHost.trim() !== verifiedApiBaseUrl) {
-      setVerifiedApiBaseUrl(null);
-      setModels([]);
-      setSectionError("models", null);
-      setSectionError("llm", null);
     }
   };
 
@@ -382,8 +344,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       );
       return;
     }
-    // Fetch fresh budget from server (also updates cached state for UI).
-    const budgetResult = await refreshBudget(draft.model, draft.numPredict, draft.apiBaseUrl);
+    const budgetResult = await refreshBudget(draft.model, draft.numPredict);
     if (!budgetResult) {
       setSectionError(
         "save",
@@ -427,12 +388,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const modelOptions = useMemo(() => buildModelOptions(models), [models]);
 
-  const draftHost = draft?.apiBaseUrl.trim() ?? "";
-  const apiBaseUrlReady =
-    draftHost.length > 0 && isValidApiBaseUrl(draftHost);
-  const llmVerified =
-    apiBaseUrlReady && verifiedApiBaseUrl === draftHost;
-  const showModelSelection = llmVerified;
+  const showModelSelection = llmConnectionVerified;
 
   const apiUnreachable = apiOnline === false;
   const configBlocked = apiUnreachable || !!sectionErrors.settings;
@@ -454,14 +410,13 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     saving,
     modelsLoading,
     testingLlm,
-    verifiedApiBaseUrl,
+    llmConnectionVerified,
     sectionErrors,
     saveOk,
     setSectionError,
     load,
-    fetchModelsForHost,
+    fetchModels,
     testLlmConnection,
-    invalidateLlmVerification,
     save,
     modelOptions,
     showModelSelection,

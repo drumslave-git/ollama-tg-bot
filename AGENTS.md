@@ -99,14 +99,15 @@ To add a module: create `modules/<name>/` with `manifest.json`, implement `serve
 | Variable | Purpose |
 |----------|---------|
 | `BOT_TOKEN` | Telegram bot token (required) |
+| `LLM_BASE_URL` | OpenAI-compatible API base URL (required) |
 | `VRAM_AVAILABLE` | GPU VRAM in GB (required); derives context window budget |
-| `OPENAI_API_KEY` | Optional API key for authenticated OpenAI-compatible endpoints |
+| `LLM_API_KEY` | Optional API key for authenticated OpenAI-compatible endpoints |
 | `LOGGING_LEVEL` | `ERROR` (default), `DEBUG` (lifecycle events to console) |
 | `TAVILY_API_KEY` | Optional web search via Tavily |
 | `PORT` | Docker/production listen port only — not for local dev |
 | `DATABASE_PATH` | Optional SQLite path (default `data/bot.db`) |
 
-API base URL, model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (SQLite), not `.env`.
+Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (SQLite), not `.env`.
 
 ## Architecture
 
@@ -254,7 +255,7 @@ Maintain test coverage for all new features and bug fixes. Update `AGENTS.md` wh
 
 ### Opt-in live LLM suites
 
-Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `OPENAI_API_KEY`); suites self-skip when unset. Module live tests: addressing-detection, search-decision, memory, mood-evaluation. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `LLM_API_KEY`); suites self-skip when unset. Module live tests: addressing-detection, search-decision, memory, mood-evaluation. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
 
 ### Auxiliary generation budget
 

@@ -1,5 +1,5 @@
 import { getBot, getBotUsername } from "../bot/index.js";
-import { getVramAvailableGb } from "../config/index.js";
+import { config, getVramAvailableGb } from "../config/index.js";
 import { getSettings, getStats } from "../db/index.js";
 import { listRecentErrors } from "../db/debug/error-log.js";
 import { getMoodStateView } from "../db/mood/index.js";
@@ -61,10 +61,12 @@ export function buildMoodPayload() {
 
 export async function buildSettingsPayload() {
   const settings = getSettings();
-  await ensureModelContextCache(settings.model, settings.apiBaseUrl);
+  await ensureModelContextCache(settings.model, config.llmBaseUrl);
   const resolved = getResolvedSettings(settings);
   return {
     ...resolved,
+    llmBaseUrl: config.llmBaseUrl,
+    llmApiKeyConfigured: config.llmApiKey.length > 0,
     baseSystemPrompt: buildBaseSystemPrompt(resolved),
     derivedHistoryLimits: getResolvedHistoryLimits(settings),
     contextBudget: getContextBudgetForSettings(settings),

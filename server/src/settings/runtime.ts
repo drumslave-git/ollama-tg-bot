@@ -1,5 +1,6 @@
 import type { Settings } from "../db/index.js";
 import { getSettings } from "../db/index.js";
+import { config } from "../config/index.js";
 import {
   buildContextBudget,
   getEffectiveNumCtx,
@@ -16,7 +17,7 @@ export function getResolvedSettings(settings: Settings = getSettings()): Setting
   const normalized = normalizeTokenBudget(settings);
   const model = getModelContextForBudget(
     normalized.model,
-    normalized.apiBaseUrl,
+    config.llmBaseUrl,
   );
   const numCtx = getEffectiveNumCtx(normalized, model);
   return { ...normalized, numCtx };
@@ -34,7 +35,7 @@ export function getContextBudgetForSettings(
   const normalized = normalizeTokenBudget(settings);
   const model = getModelContextForBudget(
     normalized.model,
-    normalized.apiBaseUrl,
+    config.llmBaseUrl,
   );
   return buildContextBudget(normalized, model);
 }

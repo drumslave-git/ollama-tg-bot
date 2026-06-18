@@ -29,9 +29,9 @@ function toReportWriter(turnId: number): PipelineReportWriter | null {
 function createLlmServices(): PipelineLlmServices {
   const settings = getResolvedSettings();
   return {
-    baseUrl: settings.apiBaseUrl,
+    baseUrl: config.llmBaseUrl,
     model: settings.model,
-    apiKey: config.openAiApiKey || undefined,
+    apiKey: config.llmApiKey || undefined,
     createAuxiliaryChatComplete: (options) => (messages) =>
       chatComplete(messages as ChatMessage[], {
         numPredict: options.numPredict,
@@ -66,7 +66,7 @@ export function createPipelineServices(): PipelineHostServices {
     getReport: toReportWriter,
     getSecret: (name) => {
       if (name === "tavily") return config.tavilyApiKey;
-      if (name === "openai") return config.openAiApiKey;
+      if (name === "openai") return config.llmApiKey;
       return "";
     },
     callbacks: createPipelineCallbacks(),

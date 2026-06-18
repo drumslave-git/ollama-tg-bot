@@ -25,13 +25,12 @@ export function SettingsPage() {
     configBlocked,
     showModelSelection,
     modelOptions,
-    verifiedApiBaseUrl,
+    llmConnectionVerified,
     testingLlm,
     modelsLoading,
     saving,
     testLlmConnection,
-    invalidateLlmVerification,
-    fetchModelsForHost,
+    fetchModels,
     save,
     load,
   } = useDashboard();
@@ -74,8 +73,9 @@ export function SettingsPage() {
       <section className="card">
         <fieldset disabled={configBlocked} className="form-fieldset">
           <LlmConnectionSection
-            apiBaseUrl={draft.apiBaseUrl}
-            verifiedApiBaseUrl={verifiedApiBaseUrl}
+            llmBaseUrl={draft.llmBaseUrl}
+            llmApiKeyConfigured={draft.llmApiKeyConfigured}
+            llmConnectionVerified={llmConnectionVerified}
             testingLlm={testingLlm}
             modelsLoading={modelsLoading}
             configBlocked={configBlocked}
@@ -85,12 +85,8 @@ export function SettingsPage() {
             draftModel={draft.model}
             sectionErrorLlm={sectionErrors.llm}
             sectionErrorModels={sectionErrors.models}
-            onApiBaseUrlChange={(apiBaseUrl) => {
-              invalidateLlmVerification(apiBaseUrl);
-              setDraft({ ...draft, apiBaseUrl });
-            }}
             onTestConnection={() => void testLlmConnection()}
-            onRefreshModels={() => verifiedApiBaseUrl && void fetchModelsForHost(verifiedApiBaseUrl)}
+            onRefreshModels={() => void fetchModels()}
             onModelChange={(model) => setDraft({ ...draft, model })}
             onDismissLlmError={() => setSectionError("llm", null)}
             onDismissModelsError={() => setSectionError("models", null)}

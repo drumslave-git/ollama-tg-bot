@@ -2,8 +2,9 @@ import React from "react";
 import { ErrorBanner } from "../ErrorBanner";
 
 interface LlmConnectionSectionProps {
-  apiBaseUrl: string;
-  verifiedApiBaseUrl: string | null;
+  llmBaseUrl: string;
+  llmApiKeyConfigured: boolean;
+  llmConnectionVerified: boolean;
   testingLlm: boolean;
   modelsLoading: boolean;
   configBlocked: boolean;
@@ -13,7 +14,6 @@ interface LlmConnectionSectionProps {
   draftModel: string;
   sectionErrorLlm: any;
   sectionErrorModels: any;
-  onApiBaseUrlChange: (value: string) => void;
   onTestConnection: () => void;
   onRefreshModels: () => void;
   onModelChange: (value: string) => void;
@@ -22,8 +22,9 @@ interface LlmConnectionSectionProps {
 }
 
 const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
-  apiBaseUrl,
-  verifiedApiBaseUrl,
+  llmBaseUrl,
+  llmApiKeyConfigured,
+  llmConnectionVerified,
   testingLlm,
   modelsLoading,
   configBlocked,
@@ -33,7 +34,6 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
   draftModel,
   sectionErrorLlm,
   sectionErrorModels,
-  onApiBaseUrlChange,
   onTestConnection,
   onRefreshModels,
   onModelChange,
@@ -44,21 +44,23 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
     <>
       <h3 className="section-title">LLM connection</h3>
       <div className="field">
-        <label htmlFor="apiBaseUrl">OpenAI-compatible API base URL</label>
+        <label>OpenAI-compatible API base URL</label>
+        <p className="hint">
+          Set <code>LLM_BASE_URL</code> in <code>.env</code> and restart the
+          server.
+        </p>
+        <p className="mono">{llmBaseUrl || "(not configured)"}</p>
+        <p className="hint">
+          {llmApiKeyConfigured
+            ? "API key configured via LLM_API_KEY."
+            : "No LLM_API_KEY set (local servers usually skip this)."}
+        </p>
         <div className="field row">
-          <input
-            id="apiBaseUrl"
-            className="grow"
-            type="url"
-            value={apiBaseUrl}
-            onChange={(e) => onApiBaseUrlChange(e.target.value)}
-            placeholder="http://localhost:8080"
-          />
           <button
             type="button"
             className="secondary"
             onClick={onTestConnection}
-            disabled={testingLlm || modelsLoading || configBlocked}
+            disabled={testingLlm || modelsLoading || configBlocked || !llmBaseUrl}
           >
             {testingLlm ? "Testing…" : "Test connection"}
           </button>
@@ -71,16 +73,15 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
             onDismiss={onDismissLlmError}
           />
         ) : null}
-        {showModelSelection ? (
+        {llmConnectionVerified ? (
           <p className="hint success-inline">
-            Connected to LLM at {verifiedApiBaseUrl}
+            Connected to LLM at {llmBaseUrl}
           </p>
-        ) : (
+        ) : llmBaseUrl ? (
           <p className="hint">
-            Enter your OpenAI-compatible API URL and test the connection before
-            choosing a model.
+            Test the connection before choosing a model.
           </p>
-        )}
+        ) : null}
       </div>
 
       {showModelSelection ? (

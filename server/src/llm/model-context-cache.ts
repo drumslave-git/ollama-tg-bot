@@ -31,8 +31,8 @@ async function fetchModelContext(
   host: string,
 ): Promise<ModelContextInput> {
   const [show, catalogEntry] = await Promise.all([
-    showModel(model, host).catch(() => null),
-    fetchOptionalModelCatalogEntry(model, host).catch(() => null),
+    showModel(model).catch(() => null),
+    fetchOptionalModelCatalogEntry(model).catch(() => null),
   ]);
 
   const input = modelContextInputFromTags(model, {

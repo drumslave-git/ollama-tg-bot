@@ -41,7 +41,7 @@ async function main(): Promise<void> {
   await loadBotHosts();
   const moduleRouters = await createModuleRouters();
   const bootSettings = getSettings();
-  void refreshModelContextCache(bootSettings.model, bootSettings.apiBaseUrl);
+  void refreshModelContextCache(bootSettings.model, config.llmBaseUrl);
   startMoodCooldownWorker();
 
   const app = express();

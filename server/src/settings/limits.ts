@@ -146,7 +146,6 @@ export function validateSettingsFields(settings: Settings): void {
     typeof value === "string";
 
   const checks: [string, boolean][] = [
-    ["apiBaseUrl must be a string", isString(settings.apiBaseUrl)],
     ["model must be a string", isString(settings.model)],
     ["randomReplyEnabled must be true or false", isBoolean(settings.randomReplyEnabled)],
     ["reactToEveryImage must be true or false", isBoolean(settings.reactToEveryImage)],

@@ -9,7 +9,6 @@ import type { Settings } from "../../src/db/index.js";
  */
 export function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
-    apiBaseUrl: "",
     model: "gpt-4o-mini",
     activePersonalityId: 0,
     randomReplyEnabled: false,

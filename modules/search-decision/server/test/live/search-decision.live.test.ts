@@ -15,7 +15,7 @@ function liveConfig(): LiveConfig | null {
   return {
     baseURL,
     model,
-    apiKey: (process.env.OPENAI_API_KEY ?? "").trim() || "not-needed",
+    apiKey: (process.env.LLM_API_KEY ?? "").trim() || "not-needed",
   };
 }
 

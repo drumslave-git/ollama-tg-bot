@@ -100,23 +100,23 @@ function toChatResponse(
   };
 }
 
-function resolveBaseUrl(hostOverride?: string): string {
-  const host = (hostOverride ?? getSettings().apiBaseUrl).trim();
+function resolveBaseUrl(): string {
+  const host = config.llmBaseUrl.trim();
   if (!host) {
-    throw new Error("LLM base URL is not configured");
+    throw new Error("LLM base URL is not configured (set LLM_BASE_URL in .env)");
   }
   return host.replace(/\/$/, "");
 }
 
-function resolveOpenAiBaseUrl(hostOverride?: string): string {
-  const base = resolveBaseUrl(hostOverride);
+function resolveOpenAiBaseUrl(): string {
+  const base = resolveBaseUrl();
   return base.endsWith("/v1") ? base : `${base}/v1`;
 }
 
-function openAiClient(hostOverride?: string): OpenAI {
+function openAiClient(): OpenAI {
   return new OpenAI({
-    apiKey: config.openAiApiKey || "not-needed",
-    baseURL: resolveOpenAiBaseUrl(hostOverride),
+    apiKey: config.llmApiKey || "not-needed",
+    baseURL: resolveOpenAiBaseUrl(),
     maxRetries: 0,
   });
 }
@@ -156,14 +156,14 @@ function emptyResponseError(
   );
 }
 
-export async function listModels(hostOverride?: string): Promise<LlmModel[]> {
+export async function listModels(): Promise<LlmModel[]> {
   try {
-    const page = await openAiClient(hostOverride).models.list({
+    const page = await openAiClient().models.list({
       timeout: LIST_MODELS_TIMEOUT_MS,
     });
     return normalizeModels(page.data ?? []);
   } catch (err) {
-    throw wrapModelListError(err, hostOverride);
+    throw wrapModelListError(err);
   }
 }
 
@@ -198,10 +198,9 @@ export function findModelCatalogEntry(
 /** Optional catalog endpoint some OpenAI-compatible servers expose for model size metadata. */
 export async function fetchOptionalModelCatalogEntry(
   name: string,
-  hostOverride?: string,
 ): Promise<ModelCatalogEntry | null> {
   try {
-    const base = resolveBaseUrl(hostOverride);
+    const base = resolveBaseUrl();
     const res = await fetch(`${base}/api/tags`, {
       signal: AbortSignal.timeout(10_000),
     });
@@ -216,11 +215,10 @@ export async function fetchOptionalModelCatalogEntry(
 
 export async function showModel(
   name: string,
-  hostOverride?: string,
 ): Promise<ModelShowResult> {
   const empty: ModelShowResult = { modelMaxCtx: null };
   try {
-    const base = resolveBaseUrl(hostOverride);
+    const base = resolveBaseUrl();
     const url = `${base}/api/show`;
     const res = await fetch(url, {
       method: "POST",
@@ -519,12 +517,12 @@ function wrapChatError(err: unknown, auxiliary = false): Error {
       );
     }
     return new Error(
-      `LLM request timed out after ${timeoutSec}s (${apiUrl}). Check the API URL in dashboard Settings, confirm the server is running, and verify the model name matches GET /v1/models.`,
+      `LLM request timed out after ${timeoutSec}s (${apiUrl}). Confirm the server is running and verify the model name matches GET /v1/models.`,
     );
   }
   if (err instanceof APIConnectionError) {
     return new Error(
-      `LLM connection failed (${apiUrl}): ${err.message}. Check the API URL in dashboard Settings.`,
+      `LLM connection failed (${apiUrl}): ${err.message}. Check LLM_BASE_URL in .env.`,
     );
   }
   if (err instanceof Error) return err;
@@ -539,8 +537,8 @@ function apiErrorDetails(err: APIError): string {
   return err.message;
 }
 
-function wrapModelListError(err: unknown, hostOverride?: string): Error {
-  const apiUrl = resolveBaseUrl(hostOverride);
+function wrapModelListError(err: unknown): Error {
+  const apiUrl = resolveBaseUrl();
   if (err instanceof APIConnectionTimeoutError) {
     return new Error(
       `Model listing timed out (${apiUrl}): ${err.message}`,
@@ -560,10 +558,10 @@ function wrapModelListError(err: unknown, hostOverride?: string): Error {
   return new Error(String(err));
 }
 
-export async function checkHealth(hostOverride?: string): Promise<void> {
+export async function checkHealth(): Promise<void> {
   try {
-    await openAiClient(hostOverride).models.list({ timeout: 5000 });
+    await openAiClient().models.list({ timeout: 5000 });
   } catch (err) {
-    throw wrapModelListError(err, hostOverride);
+    throw wrapModelListError(err);
   }
 }

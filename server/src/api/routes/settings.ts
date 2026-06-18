@@ -76,7 +76,6 @@ settingsRouter.patch("/", async (req, res) => {
   try {
     const body = req.body as Partial<Settings>;
     const allowed: (keyof Settings)[] = [
-      "apiBaseUrl",
       "model",
       "activePersonalityId",
       "randomReplyEnabled",
@@ -119,7 +118,7 @@ settingsRouter.patch("/", async (req, res) => {
     }
 
     const updated = updateSettings(patch);
-    await ensureModelContextCache(updated.model, updated.apiBaseUrl);
+    await ensureModelContextCache(updated.model, config.llmBaseUrl);
 
     if (
       body.stickersEnabled !== undefined ||
@@ -140,6 +139,8 @@ settingsRouter.patch("/", async (req, res) => {
     const resolved = getResolvedSettings(updated);
     res.json({
       ...resolved,
+      llmBaseUrl: config.llmBaseUrl,
+      llmApiKeyConfigured: config.llmApiKey.length > 0,
       baseSystemPrompt: buildBaseSystemPrompt(resolved),
       derivedHistoryLimits: getResolvedHistoryLimits(updated),
       contextBudget: getContextBudgetForSettings(updated),
@@ -152,10 +153,9 @@ settingsRouter.patch("/", async (req, res) => {
   }
 });
 
-settingsRouter.get("/models", async (req, res) => {
+settingsRouter.get("/models", async (_req, res) => {
   try {
-    const host = typeof req.query.host === "string" ? req.query.host : undefined;
-    const models = await listModels(host);
+    const models = await listModels();
     res.json({ models });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Failed to fetch models";
@@ -176,12 +176,8 @@ settingsRouter.get("/budget", async (req, res) => {
         ? parseInt(req.query.numPredict, 10)
         : settings.numPredict;
     const numPredict = snapNumPredict(numPredictRaw);
-    const apiBaseUrl =
-      typeof req.query.host === "string" && req.query.host.trim()
-        ? req.query.host.trim()
-        : settings.apiBaseUrl;
 
-    const modelInput = await ensureModelContextCache(model, apiBaseUrl);
+    const modelInput = await ensureModelContextCache(model, config.llmBaseUrl);
     const budget = await calculateContextBudget(
       getVramAvailableGb(),
       modelInput,
@@ -204,10 +200,9 @@ settingsRouter.get("/budget", async (req, res) => {
   }
 });
 
-settingsRouter.post("/test-llm", async (req, res) => {
+settingsRouter.post("/test-llm", async (_req, res) => {
   try {
-    const host = typeof req.body.host === "string" ? req.body.host : undefined;
-    await checkHealth(host);
+    await checkHealth();
     res.json({ ok: true });
   } catch (err) {
     res.status(400).json({

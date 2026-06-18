@@ -5,7 +5,8 @@ export interface DerivedHistoryLimits {
 }
 
 export interface Settings {
-  apiBaseUrl: string;
+  llmBaseUrl: string;
+  llmApiKeyConfigured: boolean;
   model: string;
   activePersonalityId: number;
   baseSystemPrompt?: string;
@@ -403,7 +404,7 @@ export function describeApiError(err: unknown): {
 function hintForPath(path: string, status: number): string | undefined {
   if (path === "/api/health" || path.startsWith("/api/settings") || path === "/api/stats") {
     if (status >= 500) {
-      return "Check the server terminal and .env — common causes are missing BOT_TOKEN or VRAM_AVAILABLE. In dev: npm run dev -w server (port 3000).";
+      return "Check the server terminal and .env — common causes are missing BOT_TOKEN, LLM_BASE_URL, or VRAM_AVAILABLE. In dev: npm run dev -w server (port 3000).";
     }
     if (status === 404) {
       return "API route not found — is the server running on :3000? Vite proxies /api in dev.";
@@ -414,7 +415,7 @@ function hintForPath(path: string, status: number): string | undefined {
   }
   if (path === "/api/models" || path === "/api/llm/health") {
     if (status === 502) {
-      return "Could not reach the LLM. Open Settings and verify the OpenAI-compatible API base URL.";
+      return "Could not reach the LLM. Check LLM_BASE_URL in .env and restart the server.";
     }
   }
   return undefined;
@@ -446,7 +447,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       path,
       message: "Could not connect to the API",
       hint:
-        "The server may not be running, or it exited on startup — check the server terminal for errors (often missing BOT_TOKEN or VRAM_AVAILABLE in .env). In dev: npm run dev or npm run dev -w server (listens on :3000; Vite proxies /api).",
+        "The server may not be running, or it exited on startup — check the server terminal for errors (often missing BOT_TOKEN, LLM_BASE_URL, or VRAM_AVAILABLE in .env). In dev: npm run dev or npm run dev -w server (listens on :3000; Vite proxies /api).",
     });
   }
 
@@ -482,11 +483,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
-function withHostQuery(path: string, host?: string): string {
-  if (!host?.trim()) return path;
-  return `${path}?host=${encodeURIComponent(host.trim())}`;
-}
-
 export const api = {
   stickerPreviewUrl: (index: number) => `/api/settings/stickers/${index}/preview`,
   checkHealth: () => request<{ ok: boolean }>("/api/health"),
@@ -496,19 +492,16 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
-  getModels: (host?: string) =>
-    request<{ models: LlmModel[] }>(withHostQuery("/api/settings/models", host)).then(
+  getModels: () =>
+    request<{ models: LlmModel[] }>("/api/settings/models").then(
       (r) => r.models,
     ),
-  getBudget: (model: string, numPredict: number, host?: string) =>
+  getBudget: (model: string, numPredict: number) =>
     request<{
       contextBudget: ContextBudget;
       derivedHistoryLimits: DerivedHistoryLimits;
     }>(
-      withHostQuery(
-        `/api/settings/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}`,
-        host,
-      ),
+      `/api/settings/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}`,
     ),
   getStats: () => request<Stats>("/api/stats"),
   getModules: () =>
@@ -577,10 +570,10 @@ export const api = {
     request<{ ok: boolean }>("/api/memories/general", {
       method: "DELETE",
     }),
-  llmHealth: async (host?: string) => {
+  llmHealth: async () => {
     await request<{ ok: boolean }>("/api/settings/test-llm", {
       method: "POST",
-      body: JSON.stringify({ host }),
+      body: JSON.stringify({}),
     });
   },
   tavilyStatus: () =>

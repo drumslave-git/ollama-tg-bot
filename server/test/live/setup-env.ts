@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 
 /**
  * Load `.env` from the repo root for the live suite so `LLM_BASE_URL`,
- * `LLM_MODEL`, and an optional `OPENAI_API_KEY` are available. Values already
+ * `LLM_MODEL`, and an optional `LLM_API_KEY` are available. Values already
  * present in the process environment win over the file.
  */
 const here = dirname(fileURLToPath(import.meta.url));

@@ -9,13 +9,13 @@ Telegram bot backed by any **OpenAI-compatible chat completions API** (LocalAI, 
 docker compose up -d --build
 ```
 
-Open `http://localhost:3000` (or your `PORT`). Configure an OpenAI-compatible API base URL in Settings.
+Open `http://localhost:3000` (or your `PORT`). Set `LLM_BASE_URL` in `.env` before starting.
 
 ## Local dev
 
 ```bash
 npm install
-cp .env.example .env   # BOT_TOKEN only
+cp .env.example .env   # BOT_TOKEN, LLM_BASE_URL, VRAM_AVAILABLE
 npm run dev
 ```
 
@@ -27,15 +27,16 @@ npm run dev
 | Variable | Where | Default |
 |----------|-------|---------|
 | `BOT_TOKEN` | everywhere | required |
+| `LLM_BASE_URL` | everywhere | required (OpenAI-compatible API base URL) |
 | `VRAM_AVAILABLE` | everywhere | required (GPU GB, e.g. `24`) |
-| `OPENAI_API_KEY` | optional | empty (local servers usually skip this) |
+| `LLM_API_KEY` | optional | empty (local servers usually skip this) |
 | `TAVILY_API_KEY` | optional | empty (web search off) |
 | `LOGGING_LEVEL` | optional | `ERROR` (`DEBUG`) |
 | `PORT` | Docker / Portainer only | `3000` |
 
 Do not put `PORT` in `.env` for local dev — it is only for `docker-compose.yml` (`PORT:PORT` mapping + app listen).
 
-API base URL is set in the **dashboard** (Settings). Tavily is configured via **`TAVILY_API_KEY`** in `.env`.
+LLM base URL and API key are set in **`.env`** (`LLM_BASE_URL`, optional `LLM_API_KEY`). Model, prompts, owner, maintenance mode, and performance limits live in the **dashboard** (SQLite). Tavily is configured via **`TAVILY_API_KEY`** in `.env`.
 
 ### Web search (Tavily)
 
@@ -51,7 +52,7 @@ When an addressed message contains `http(s)` links, the bot detects them, opens 
 - Optional web search via Tavily (model decides when to search)
 - Opens links in addressed messages via Playwright (auto-detected URLs)
 - **Maintenance mode** — dashboard toggle; when on, only the configured owner can trigger LLM-backed behavior (others are ignored silently)
-- Dashboard: API base URL, model, owner, prompts, stats
+- Dashboard: model, owner, prompts, stats (LLM URL from `LLM_BASE_URL` in `.env`)
 - **Modular features** — LLM side passes packaged as stateless workspace modules under `modules/` (see [Feature modules](#feature-modules))
 
 ## Feature modules

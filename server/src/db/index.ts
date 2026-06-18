@@ -28,7 +28,6 @@ import {
 import { buildMoodPayload } from "../dashboard/payloads.js";
 
 export interface Settings {
-  apiBaseUrl: string;
   model: string;
   /** Id of the personality whose prompt is layered on the base system prompt (0 = none). */
   activePersonalityId: number;
@@ -86,7 +85,6 @@ export interface Stats {
 }
 
 const DEFAULT_SETTINGS: Settings = {
-  apiBaseUrl: "",
   model: "gpt-4o-mini",
   activePersonalityId: 0,
   randomReplyEnabled: false,
@@ -232,7 +230,6 @@ function setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void 
 
 export function getSettings(): Settings {
   return {
-    apiBaseUrl: getSetting<string>("apiBaseUrl"),
     model: getSetting<string>("model"),
     activePersonalityId: getSetting<number>("activePersonalityId"),
     randomReplyEnabled: getSetting<boolean>("randomReplyEnabled"),
@@ -283,7 +280,7 @@ export function updateSettings(partial: Partial<Settings>): Settings {
   if (partial.topK !== undefined) {
     next.topK = Math.round(partial.topK);
   }
-  if (partial.model !== undefined || partial.apiBaseUrl !== undefined) {
+  if (partial.model !== undefined) {
     invalidateModelContextCache();
   }
 
@@ -299,7 +296,7 @@ export function updateSettings(partial: Partial<Settings>): Settings {
     setSetting(key, resolved[key]);
   }
 
-  void refreshModelContextCache(resolved.model, resolved.apiBaseUrl);
+  void refreshModelContextCache(resolved.model, config.llmBaseUrl);
   void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitMoodUpdated, emitSettingsUpdated }) => {
     void emitSettingsUpdated();
     emitMoodUpdated();
