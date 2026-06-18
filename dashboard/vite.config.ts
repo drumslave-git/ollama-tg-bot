@@ -23,6 +23,14 @@ export default defineConfig({
         __dirname,
         "../modules/sticker-selection/ui/src/index.tsx",
       ),
+      "@llm-tg-bot/modules-vision-ui": path.resolve(
+        __dirname,
+        "../modules/vision/ui/src/index.tsx",
+      ),
+      "@llm-tg-bot/modules-history-ui": path.resolve(
+        __dirname,
+        "../modules/history/ui/src/index.tsx",
+      ),
     },
   },
   server: {

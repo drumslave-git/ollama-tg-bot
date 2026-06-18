@@ -58,3 +58,7 @@ export {
   type MemoryJobStatus,
   type MemoryQueueSchedulerDeps,
 } from "./queue-scheduler.js";
+export {
+  getMemoryJobDebugSnapshot,
+  memoryJobDebug,
+} from "./job-debug.js";

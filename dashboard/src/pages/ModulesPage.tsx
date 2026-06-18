@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { api, type DashboardModuleSummary } from "../api";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { getModuleUi } from "../moduleUiRegistry";
 
 export function ModulesPage() {
   const [modules, setModules] = useState<DashboardModuleSummary[]>([]);
@@ -78,9 +79,19 @@ export function ModulesPage() {
               ) : null}
             </dl>
             {module.hasUi ? (
-              <Link className="button-link primary" to={`/modules/${module.id}`}>
-                Open module
-              </Link>
+              <div className="module-card-actions">
+                <Link className="button-link primary" to={`/modules/${module.id}`}>
+                  Open module
+                </Link>
+                {getModuleUi(module.id)?.DebugPage ? (
+                  <Link
+                    className="button-link secondary"
+                    to={`/modules/${module.id}/debug`}
+                  >
+                    Job debug
+                  </Link>
+                ) : null}
+              </div>
             ) : (
               <p className="hint module-no-ui">No dashboard UI for this module.</p>
             )}

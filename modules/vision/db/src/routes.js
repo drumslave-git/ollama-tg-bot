@@ -1,8 +1,12 @@
 import { Router } from "express";
+import { getVisionJobDebugSnapshot } from "@llm-tg-bot/modules-vision";
 import { getVisionModuleConfig, updateVisionModuleConfig, } from "./module-config.js";
 export const visionRouter = Router();
 visionRouter.get("/config", (_req, res) => {
     res.json(getVisionModuleConfig());
+});
+visionRouter.get("/debug", (_req, res) => {
+    res.json(getVisionJobDebugSnapshot());
 });
 visionRouter.patch("/config", (req, res) => {
     try {

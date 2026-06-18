@@ -6,6 +6,7 @@ import {
 } from "@llm-tg-bot/modules-history";
 import { describeVisionImages, type VisionDescribeConfig } from "./describe.js";
 import type { VisionModuleConfig } from "./module-config.js";
+import { visionJobDebug } from "./job-debug.js";
 
 export type VisionJobStatus = "idle" | "scheduled" | "running";
 
@@ -36,18 +37,25 @@ export function createVisionQueueScheduler(deps: VisionQueueSchedulerDeps) {
 
   function setStatus(next: VisionJobStatus): void {
     status = next;
+    visionJobDebug.setStatus(next);
     deps.onStatusChange?.(next);
   }
 
   async function runJob(): Promise<void> {
     if (deps.getQueueSize() > 0) return;
     setStatus("running");
+    visionJobDebug.startRun();
     abort = false;
     deps.logEvent?.("vision_backfill_started", {});
 
     try {
-      for (const convKey of deps.listHistoryChatKeys(50)) {
-        if (deps.getQueueSize() > 0 || abort) break;
+      const convKeys = deps.listHistoryChatKeys(50);
+      visionJobDebug.addStep("Scan chats", { chatCount: convKeys.length });
+      for (const convKey of convKeys) {
+        if (deps.getQueueSize() > 0 || abort) {
+          visionJobDebug.addStep("Interrupted by queue activity", { convKey });
+          break;
+        }
 
         const messages = deps.getHistory(convKey);
         for (const row of messages) {
@@ -57,6 +65,10 @@ export function createVisionQueueScheduler(deps: VisionQueueSchedulerDeps) {
           const parsed = parseBase64MediaHistoryContent(row.content);
           if (!parsed) continue;
 
+          visionJobDebug.addStep("Describe media", {
+            convKey,
+            mediaKind: parsed.mediaKind,
+          });
           const description = await describeVisionImages(
             {
               images: [{ base64: parsed.base64, mimeHint: parsed.mimeHint }],
@@ -64,7 +76,10 @@ export function createVisionQueueScheduler(deps: VisionQueueSchedulerDeps) {
             },
             deps.describeConfig,
           );
-          if (!description) continue;
+          if (!description) {
+            visionJobDebug.addStep("Describe failed", { convKey });
+            continue;
+          }
 
           deps.mapHistoryBase64Media(
             convKey,
@@ -72,10 +87,17 @@ export function createVisionQueueScheduler(deps: VisionQueueSchedulerDeps) {
             (content) =>
               replaceBase64WithVisionDescription(content, description),
           );
+          visionJobDebug.addStep("Backfilled media", {
+            convKey,
+            mediaKind: parsed.mediaKind,
+            descriptionChars: description.length,
+          });
         }
       }
+      visionJobDebug.completeRun();
       deps.logEvent?.("vision_backfill_finished", {});
     } catch (err) {
+      visionJobDebug.failRun(err);
       deps.logEventError?.("vision_backfill_failed", err, {});
     } finally {
       if (deps.getQueueSize() === 0) setStatus("idle");
@@ -85,10 +107,12 @@ export function createVisionQueueScheduler(deps: VisionQueueSchedulerDeps) {
   function schedule(): void {
     if (timer) clearTimeout(timer);
     if (deps.getQueueSize() > 0) {
+      visionJobDebug.cancelScheduled();
       setStatus("idle");
       return;
     }
     setStatus("scheduled");
+    visionJobDebug.scheduleRun();
     const delayMs = deps.getConfig().backfillDebounceSec * 1000;
     timer = setTimeout(() => {
       timer = null;
@@ -108,6 +132,7 @@ export function createVisionQueueScheduler(deps: VisionQueueSchedulerDeps) {
       }
       abort = true;
       if (deps.getQueueSize() > 0) {
+        visionJobDebug.cancelScheduled();
         setStatus("idle");
         return;
       }

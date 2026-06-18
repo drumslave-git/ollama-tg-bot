@@ -6,7 +6,9 @@ import {
   MEMORY_MERGE_RESPONSE_FORMAT,
 } from "@llm-tg-bot/modules-memory";
 import { createVisionQueueScheduler } from "@llm-tg-bot/modules-vision";
+import { configureVisionJobDebugStats } from "@llm-tg-bot/modules-vision";
 import { responseFormatForThinking } from "@llm-tg-bot/modules-utils";
+import { isBase64MediaHistoryContent } from "@llm-tg-bot/modules-history";
 import { getMemoryModuleConfig } from "@llm-tg-bot/modules-memory-db";
 import { getVisionModuleConfig } from "@llm-tg-bot/modules-vision-db";
 import {
@@ -38,6 +40,21 @@ function getPipelineServices(): PipelineHostServices {
   pipelineServices ??= createPipelineServices();
   return pipelineServices;
 }
+
+configureVisionJobDebugStats(() => {
+  let pendingMediaRows = 0;
+  let chatsWithPending = 0;
+  for (const chatKey of listHistoryChatKeys(100)) {
+    const pending = getHistory(chatKey).filter((row) =>
+      isBase64MediaHistoryContent(row.content),
+    ).length;
+    if (pending > 0) {
+      pendingMediaRows += pending;
+      chatsWithPending += 1;
+    }
+  }
+  return { pendingMediaRows, chatsWithPending };
+});
 
 const memoryScheduler = createMemoryQueueScheduler({
   getQueueSize: getMessageQueueSize,

@@ -4,7 +4,7 @@ import { api, type DashboardModuleSummary } from "../api";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { getModuleUi } from "../moduleUiRegistry";
 
-export function ModuleDetailPage() {
+export function ModuleDebugPage() {
   const { moduleId = "" } = useParams();
   const [module, setModule] = useState<DashboardModuleSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,12 +31,12 @@ export function ModuleDetailPage() {
   }, [moduleId]);
 
   const ui = getModuleUi(moduleId);
-  const Page = ui?.Page;
+  const DebugPage = ui?.DebugPage;
 
   if (loading) {
     return (
       <div className="page">
-        <p className="loading">Loading module…</p>
+        <p className="loading">Loading module debug…</p>
       </div>
     );
   }
@@ -58,6 +58,8 @@ export function ModuleDetailPage() {
     );
   }
 
+  const label = module.dashboard?.label ?? module.name;
+
   return (
     <div className="module-detail">
       <header className="page-header module-detail-header">
@@ -65,36 +67,27 @@ export function ModuleDetailPage() {
           <p className="breadcrumb">
             <Link to="/modules">Modules</Link>
             <span aria-hidden="true"> / </span>
-            <span>{module.dashboard?.label ?? module.name}</span>
+            <Link to={`/modules/${moduleId}`}>{label}</Link>
+            <span aria-hidden="true"> / </span>
+            <span>Debug</span>
           </p>
-          <h2>{module.dashboard?.label ?? module.name}</h2>
-          {module.dashboard?.description ? (
-            <p className="page-desc">{module.dashboard.description}</p>
-          ) : (
-            <p className="page-desc">{module.description}</p>
-          )}
+          <h2>{label} debug</h2>
+          <p className="page-desc">
+            Background job runs and step detail for this module.
+          </p>
+        </div>
+        <div className="module-detail-tabs">
+          <Link className="btn secondary" to={`/modules/${moduleId}`}>
+            Module data
+          </Link>
         </div>
       </header>
 
-      {Page ? (
-        <>
-          <div className="module-detail-tabs">
-            {ui?.DebugPage ? (
-              <Link className="btn secondary" to={`/modules/${moduleId}/debug`}>
-                Job debug
-              </Link>
-            ) : null}
-          </div>
-          <Page />
-        </>
+      {DebugPage ? (
+        <DebugPage />
       ) : (
         <section className="card">
-          <p className="hint">
-            This module has no dashboard UI registered. Data tables:{" "}
-            {module.dataTables.length > 0
-              ? module.dataTables.join(", ")
-              : "none"}
-          </p>
+          <p className="hint">This module has no debug UI registered.</p>
         </section>
       )}
     </div>

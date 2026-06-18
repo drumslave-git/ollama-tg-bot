@@ -213,6 +213,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 | `/settings` | LLM, model, owner, maintenance mode, performance, vision |
 | `/modules` | Discovered feature modules list |
 | `/modules/:id` | Per-module config/data UI (from module `ui/`) |
+| `/modules/:id/debug` | Per-module background job debug (when module registers `DebugPage`) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
 | `/data` | Raw SQLite table browser |
 

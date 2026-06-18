@@ -46,3 +46,9 @@ export {
   type VisionJobStatus,
   type VisionQueueSchedulerDeps,
 } from "./queue-scheduler.js";
+export {
+  getVisionJobDebugSnapshot,
+  configureVisionJobDebugStats,
+  visionJobDebug,
+  type VisionJobDebugSnapshot,
+} from "./job-debug.js";

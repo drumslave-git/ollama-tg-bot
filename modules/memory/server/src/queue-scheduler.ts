@@ -4,6 +4,7 @@ import {
 } from "./persist.js";
 import type { MemoryModuleConfig } from "./module-config.js";
 import type { KnownParticipant, MemoryExtractInput } from "./extract-prompt.js";
+import { memoryJobDebug } from "./job-debug.js";
 
 export type MemoryJobStatus = "idle" | "scheduled" | "running";
 
@@ -99,18 +100,25 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
 
   function setStatus(next: MemoryJobStatus): void {
     status = next;
+    memoryJobDebug.setStatus(next);
     deps.onStatusChange?.(next);
   }
 
   async function runJob(): Promise<void> {
     if (deps.getQueueSize() > 0) return;
     setStatus("running");
+    memoryJobDebug.startRun();
     deps.logEvent?.("memory_job_started", {});
 
     try {
       const llm = deps.buildPersistConfig();
-      for (const convKey of deps.listHistoryChatKeys(30)) {
-        if (deps.getQueueSize() > 0) break;
+      const convKeys = deps.listHistoryChatKeys(30);
+      memoryJobDebug.addStep("Scan chats", { chatCount: convKeys.length });
+      for (const convKey of convKeys) {
+        if (deps.getQueueSize() > 0) {
+          memoryJobDebug.addStep("Interrupted by queue activity", { convKey });
+          break;
+        }
         const messages = deps.getHistory(convKey);
         const input = buildMemoryInputFromHistory(convKey, messages, deps);
         if (!input) continue;
@@ -120,14 +128,23 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
           ? (convKey.match(/group:([^:]+)/)?.[1] ?? null)
           : null;
 
+        memoryJobDebug.addStep("Extract memories", {
+          convKey,
+          userId,
+          groupChatId,
+          isGroupChat: input.isGroupChat,
+        });
         await persistMemories(
           { userId, groupChatId, input },
           llm,
           deps.memoryCallbacks,
         );
+        memoryJobDebug.addStep("Persisted memories", { convKey, userId, groupChatId });
       }
+      memoryJobDebug.completeRun();
       deps.logEvent?.("memory_job_finished", {});
     } catch (err) {
+      memoryJobDebug.failRun(err);
       deps.logEventError?.("memory_job_failed", err, {});
     } finally {
       if (deps.getQueueSize() === 0) setStatus("idle");
@@ -137,10 +154,12 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
   function schedule(): void {
     if (timer) clearTimeout(timer);
     if (deps.getQueueSize() > 0) {
+      memoryJobDebug.cancelScheduled();
       setStatus("idle");
       return;
     }
     setStatus("scheduled");
+    memoryJobDebug.scheduleRun();
     const delayMs = deps.getConfig().extractionDebounceSec * 1000;
     timer = setTimeout(() => {
       timer = null;
@@ -159,6 +178,7 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
         timer = null;
       }
       if (deps.getQueueSize() > 0) {
+        memoryJobDebug.cancelScheduled();
         setStatus("idle");
         return;
       }

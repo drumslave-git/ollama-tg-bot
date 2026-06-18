@@ -8,3 +8,4 @@ export { visionReplyHost, visionPreprocessHost } from "./pipeline.js";
 export { pipelineHosts } from "./pipeline-hosts.js";
 export { DEFAULT_VISION_MODULE_CONFIG, validateVisionModuleConfig, } from "./module-config.js";
 export { createVisionQueueScheduler, } from "./queue-scheduler.js";
+export { getVisionJobDebugSnapshot, configureVisionJobDebugStats, visionJobDebug, } from "./job-debug.js";

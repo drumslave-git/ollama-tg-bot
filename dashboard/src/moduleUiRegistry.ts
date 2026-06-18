@@ -3,6 +3,7 @@ import type { ComponentType } from "react";
 export interface ModuleUiEntry {
   id: string;
   Page: ComponentType;
+  DebugPage?: ComponentType;
 }
 
 const uiModules = import.meta.glob<{ moduleUi: ModuleUiEntry }>(
@@ -20,4 +21,8 @@ export function getModuleUi(id: string): ModuleUiEntry | undefined {
 
 export function listModuleUiEntries(): ModuleUiEntry[] {
   return [...moduleUiRegistry.values()];
+}
+
+export function listModuleDebugEntries(): ModuleUiEntry[] {
+  return listModuleUiEntries().filter((entry) => entry.DebugPage != null);
 }

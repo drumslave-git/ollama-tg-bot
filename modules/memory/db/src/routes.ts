@@ -36,6 +36,7 @@ import {
   getMemoryModuleConfig,
   updateMemoryModuleConfig,
 } from "./module-config.js";
+import { getMemoryJobDebugSnapshot } from "@llm-tg-bot/modules-memory";
 
 export const memoriesRouter = Router();
 memoriesRouter.get("/user", (_req, res) => {
@@ -152,6 +153,10 @@ memoriesRouter.delete("/general", (_req, res) => {
 
 memoriesRouter.get("/config", (_req, res) => {
   res.json(getMemoryModuleConfig());
+});
+
+memoriesRouter.get("/debug", (_req, res) => {
+  res.json(getMemoryJobDebugSnapshot());
 });
 
 memoriesRouter.patch("/config", (req, res) => {

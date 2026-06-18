@@ -276,6 +276,44 @@ export interface Stats {
   recentErrors: BotErrorRecord[];
 }
 
+export type ModuleJobStatus = "idle" | "scheduled" | "running";
+
+export type ModuleJobRunStatus =
+  | "scheduled"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export interface ModuleJobStep {
+  at: string;
+  label: string;
+  detail?: Record<string, unknown>;
+}
+
+export interface ModuleJobRun {
+  id: number;
+  status: ModuleJobRunStatus;
+  scheduledAt: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  error: string | null;
+  steps: ModuleJobStep[];
+}
+
+export interface ModuleJobDebugSnapshot {
+  moduleId: string;
+  status: ModuleJobStatus;
+  currentRun: ModuleJobRun | null;
+  recentRuns: ModuleJobRun[];
+  lastUpdatedAt: string;
+}
+
+export interface VisionJobDebugSnapshot extends ModuleJobDebugSnapshot {
+  pendingMediaRows: number;
+  chatsWithPending: number;
+}
+
 export interface UserMemoryFact {
   id: number;
   userId: string;
@@ -601,6 +639,10 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
+  getMemoryJobDebug: () =>
+    request<ModuleJobDebugSnapshot>("/api/memories/debug"),
+  getVisionJobDebug: () =>
+    request<VisionJobDebugSnapshot>("/api/vision/debug"),
   llmHealth: async () => {
     await request<{ ok: boolean }>("/api/settings/test-llm", {
       method: "POST",

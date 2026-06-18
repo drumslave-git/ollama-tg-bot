@@ -26,6 +26,9 @@
       ],
       "@llm-tg-bot/modules-history-ui": [
         "../modules/history/ui/src/index.tsx"
+      ],
+      "@llm-tg-bot/modules-vision-ui": [
+        "../modules/vision/ui/src/index.tsx"
       ]
     }
   },
