@@ -10,6 +10,7 @@ import {
   normalizePersonalityName,
   normalizePersonalityPrompt,
   normalizePersonalityMoodDefaults,
+  resolveActivePersonalityId,
 } from "./personalities.js";
 import {
   getMoodStateView,
@@ -44,7 +45,20 @@ moodRouter.get("/", (_req, res) => {
 });
 
 moodRouter.get("/personalities", (_req, res) => {
-  res.json({ personalities: listPersonalities() });
+  try {
+    const h = requireHost();
+    const settings = h.getSettings();
+    res.json({
+      personalities: listPersonalities(),
+      activePersonalityId: resolveActivePersonalityId(
+        Number(settings.activePersonalityId ?? 0),
+      ),
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "Failed to load personalities",
+    });
+  }
 });
 
 moodRouter.get("/personality/:id", (req, res) => {
@@ -77,8 +91,32 @@ moodRouter.patch("/personality/:id", (req, res) => {
 });
 
 moodRouter.delete("/personality/:id", (req, res) => {
-  deletePersonalityById(Number(req.params.id));
-  res.json({ ok: true });
+  try {
+    const h = requireHost();
+    const id = Number(req.params.id);
+    const settings = h.getSettings();
+    const wasActive = Number(settings.activePersonalityId ?? 0) === id;
+
+    if (!deletePersonalityById(id)) {
+      return res.status(404).json({ error: "Personality not found" });
+    }
+
+    let activePersonalityId = resolveActivePersonalityId(
+      Number(settings.activePersonalityId ?? 0),
+    );
+    if (wasActive) {
+      const updated = h.updateSettings({ activePersonalityId: 0 });
+      activePersonalityId = resolveActivePersonalityId(
+        Number(updated.activePersonalityId ?? 0),
+      );
+    }
+
+    res.json({ ok: true, activePersonalityId });
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Failed to delete personality",
+    });
+  }
 });
 
 moodRouter.get("/state", (_req, res) => {
