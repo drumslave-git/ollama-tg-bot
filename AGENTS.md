@@ -216,6 +216,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 | `/modules/:id/debug` | Per-module background job debug (memory: run list + phase/LLM detail like `/debug`; vision: same pattern; live countdown when scheduled) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
 | `/data` | Raw SQLite table browser |
+| `/workflow` | Live pipeline diagram from `GET /api/workflow` (discovered module hosts + queue order) |
 
 State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/api.ts`.
 

@@ -4,6 +4,7 @@ import { statsRouter } from "./routes/stats.js";
 import { debugRouter } from "./routes/debug.js";
 import { dataRouter } from "./routes/data.js";
 import { modulesRouter } from "./routes/modules.js";
+import { workflowRouter } from "./routes/workflow.js";
 import type { ModuleManifest } from "@llm-tg-bot/modules-registry";
 import type { Router as ExpressRouter } from "express";
 
@@ -17,6 +18,7 @@ export function createApiRouter(
   });
 
   router.use("/modules", modulesRouter);
+  router.use("/workflow", workflowRouter);
   router.use("/settings", settingsRouter);
   router.use("/stats", statsRouter);
   router.use("/debug", debugRouter);

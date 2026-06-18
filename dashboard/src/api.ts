@@ -39,6 +39,42 @@ export interface Settings {
   vramAvailableGb: number;
 }
 
+export type WorkflowNodeKind =
+  | "input"
+  | "decision"
+  | "optional"
+  | "process"
+  | "llm"
+  | "side"
+  | "output";
+
+export type WorkflowStage = "intake" | "queue" | "background";
+
+export type WorkflowEdgeStyle = "primary" | "branch" | "side";
+
+export interface WorkflowNodeSpec {
+  stepId: string;
+  moduleId?: string;
+  label: string;
+  sublabel?: string;
+  kind: WorkflowNodeKind;
+  stage: WorkflowStage;
+  alwaysOn: boolean;
+  enabled: boolean;
+}
+
+export interface WorkflowEdgeSpec {
+  id: string;
+  source: string;
+  target: string;
+  style: WorkflowEdgeStyle;
+}
+
+export interface WorkflowDefinition {
+  nodes: WorkflowNodeSpec[];
+  edges: WorkflowEdgeSpec[];
+}
+
 export interface ContextBudget {
   effectiveNumCtx: number;
   vramGb: number;
@@ -647,6 +683,7 @@ export const api = {
   getStats: () => request<Stats>("/api/stats"),
   getModules: () =>
     request<{ modules: DashboardModuleSummary[] }>("/api/modules"),
+  getWorkflow: () => request<WorkflowDefinition>("/api/workflow"),
   clearErrors: () =>
     request<{ ok: boolean }>("/api/stats/errors/clear", {
       method: "POST",

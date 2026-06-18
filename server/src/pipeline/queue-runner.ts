@@ -20,21 +20,10 @@ import { getMessageReport } from "../debug/message-report.js";
 import { logEvent } from "../logging/event-log.js";
 import { startTypingForMessage } from "../bot/replies/typing.js";
 import type { QueuedMessage } from "../runtime/message-queue.js";
-
-const INTAKE_PHASES = ["preprocess", "gate"] as const;
-
-const QUEUE_STEP_ORDER = [
-  "vision",
-  "links",
-  "search",
-  "system",
-  "personality",
-  "history",
-  "mood",
-  "completions",
-  "sticker",
-  "history-record",
-] as const;
+import {
+  INTAKE_PHASES,
+  QUEUE_STEP_ORDER,
+} from "./workflow-definition.js";
 
 function hostByStepId(stepId: string): PipelineModuleHost | undefined {
   return getPipelineHosts().find((host) => host.stepId === stepId);

@@ -1,0 +1,144 @@
+import { describe, expect, it } from "vitest";
+import type { PipelineModuleHost } from "@llm-tg-bot/modules-registry";
+import { buildWorkflowDefinitionFromHosts } from "../../src/pipeline/workflow-definition.js";
+
+const manifests = new Map([
+  ["history", { name: "History", description: "Chat history module" }],
+  ["link-fetch", { name: "Link fetch", description: "Scrape URLs" }],
+  ["completions", { name: "Completions", description: "Main reply" }],
+]);
+
+const fixtureHosts: PipelineModuleHost[] = [
+  {
+    id: "history",
+    stepId: "intake",
+    phase: "preprocess",
+    order: 0,
+    alwaysOn: true,
+    run: async () => ({
+      status: "ok",
+      phaseId: "intake",
+      phaseTitle: "Turn setup",
+      summary: "ok",
+    }),
+  },
+  {
+    id: "addressing-detection",
+    stepId: "address",
+    phase: "gate",
+    order: 10,
+    alwaysOn: true,
+    run: async () => ({
+      status: "ok",
+      phaseId: "address",
+      phaseTitle: "Address check",
+      summary: "ok",
+    }),
+  },
+  {
+    id: "link-fetch",
+    stepId: "links",
+    phase: "pre-reply",
+    order: 20,
+    run: async () => ({
+      status: "ok",
+      phaseId: "links",
+      phaseTitle: "Links",
+      summary: "ok",
+    }),
+  },
+  {
+    id: "completions",
+    stepId: "completions",
+    phase: "reply",
+    order: 0,
+    alwaysOn: true,
+    run: async () => ({
+      status: "ok",
+      phaseId: "completions",
+      phaseTitle: "Main reply",
+      summary: "ok",
+    }),
+  },
+];
+
+describe("buildWorkflowDefinitionFromHosts", () => {
+  it("includes intake, queue, and background nodes", () => {
+    const definition = buildWorkflowDefinitionFromHosts(
+      fixtureHosts,
+      manifests,
+      ["links"],
+    );
+
+    expect(definition.nodes.some((node) => node.stepId === "message")).toBe(true);
+    expect(definition.nodes.some((node) => node.stepId === "queue")).toBe(true);
+    expect(definition.nodes.some((node) => node.stepId === "delivery")).toBe(true);
+    expect(definition.nodes.some((node) => node.stepId === "memory-job")).toBe(
+      true,
+    );
+    expect(
+      definition.nodes.some((node) => node.stepId === "vision-backfill"),
+    ).toBe(true);
+    expect(definition.nodes.some((node) => node.stepId === "completions")).toBe(
+      true,
+    );
+  });
+
+  it("marks optional queue modules by enabled state", () => {
+    const enabled = buildWorkflowDefinitionFromHosts(
+      fixtureHosts,
+      manifests,
+      ["links"],
+    );
+    const disabled = buildWorkflowDefinitionFromHosts(
+      fixtureHosts,
+      manifests,
+      [],
+    );
+
+    expect(enabled.nodes.find((node) => node.stepId === "links")?.enabled).toBe(
+      true,
+    );
+    expect(
+      disabled.nodes.find((node) => node.stepId === "links")?.enabled,
+    ).toBe(false);
+    expect(
+      enabled.nodes.find((node) => node.stepId === "completions")?.alwaysOn,
+    ).toBe(true);
+  });
+
+  it("chains intake, branches, queue, and side-effect edges", () => {
+    const definition = buildWorkflowDefinitionFromHosts(
+      fixtureHosts,
+      manifests,
+      ["links"],
+    );
+
+    expect(
+      definition.edges.some(
+        (edge) =>
+          edge.source === "message" &&
+          edge.target === "maintenance" &&
+          edge.style === "primary",
+      ),
+    ).toBe(true);
+    expect(
+      definition.edges.some(
+        (edge) => edge.target === "not-addressed" && edge.style === "branch",
+      ),
+    ).toBe(true);
+    expect(
+      definition.edges.some(
+        (edge) => edge.source === "queue" && edge.style === "primary",
+      ),
+    ).toBe(true);
+    expect(
+      definition.edges.some(
+        (edge) =>
+          edge.source === "delivery" &&
+          edge.target === "memory-job" &&
+          edge.style === "side",
+      ),
+    ).toBe(true);
+  });
+});
