@@ -44,6 +44,15 @@ export function listHistoryChatKeys(limit = 100): string[] {
   return rows.map((row) => row.chat_key);
 }
 
+export function listDistinctHistoryChatIds(): number[] {
+  const rows = db
+    .prepare(`SELECT DISTINCT chat_key FROM chat_history`)
+    .all() as { chat_key: string }[];
+  return rows
+    .map((row) => Number(row.chat_key))
+    .filter((chatId) => Number.isFinite(chatId));
+}
+
 export function getHistory(chatKey: string): StoredMessage[] {
   const row = db
     .prepare(`SELECT messages FROM chat_history WHERE chat_key = ?`)

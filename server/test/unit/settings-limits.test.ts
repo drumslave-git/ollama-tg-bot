@@ -3,9 +3,11 @@ import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_REASONING_NUM_PREDICT,
   MAX_NUM_PREDICT,
+  MAINTENANCE_ANNOUNCE_REASONING_NUM_PREDICT,
   MIN_NUM_CTX,
   MIN_NUM_PREDICT,
   getAuxiliaryNumPredict,
+  getMaintenanceAnnounceNumPredict,
   getChatTimeoutMs,
   getEffectiveNumPredict,
   getHistoryLimits,
@@ -73,6 +75,22 @@ describe("getAuxiliaryNumPredict", () => {
     expect(getAuxiliaryNumPredict(makeSettings({ numPredict: 1024 }))).toBe(
       1024,
     );
+  });
+});
+
+describe("getMaintenanceAnnounceNumPredict", () => {
+  it("matches auxiliary budget when thinking is off", () => {
+    expect(
+      getMaintenanceAnnounceNumPredict(makeSettings({ numPredict: 64 })),
+    ).toBe(AUXILIARY_NUM_PREDICT);
+  });
+
+  it("raises the floor when thinking is on", () => {
+    expect(
+      getMaintenanceAnnounceNumPredict(
+        makeSettings({ numPredict: 64, thinkingEnabled: true }),
+      ),
+    ).toBe(MAINTENANCE_ANNOUNCE_REASONING_NUM_PREDICT);
   });
 });
 

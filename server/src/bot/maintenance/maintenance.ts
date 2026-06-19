@@ -3,6 +3,8 @@ import { messageHasBotUsernameMention } from "@llm-tg-bot/modules-addressing-det
 import { getSettings } from "../../db/index.js";
 import { isOwner } from "../owner/owner.js";
 
+export { MAINTENANCE_MODE_ON_BEHAVIOR } from "./maintenance-mode.js";
+
 function isGroupChat(ctx: Context): boolean {
   const type = ctx.chat?.type;
   return type === "group" || type === "supergroup";

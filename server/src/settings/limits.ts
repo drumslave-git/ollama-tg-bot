@@ -10,6 +10,8 @@ export const MIN_NUM_PREDICT = 32;
 export const AUXILIARY_NUM_PREDICT = 768;
 /** Higher auxiliary floor when thinking is on — reasoning tokens precede structured JSON. */
 export const AUXILIARY_REASONING_NUM_PREDICT = 1024;
+/** Extra headroom for maintenance announcements when thinking is on. */
+export const MAINTENANCE_ANNOUNCE_REASONING_NUM_PREDICT = 1536;
 /** Hard cap on generated tokens; also limited by context size minus prompt headroom. */
 export const MAX_NUM_PREDICT = 8192;
 export const NUM_CTX_GENERATION_HEADROOM = 512;
@@ -73,6 +75,13 @@ export function getAuxiliaryNumPredict(
     floor,
     getEffectiveNumPredict(settings, { baseNumPredict }),
   );
+}
+
+/** Generation budget for maintenance-mode toggle announcements. */
+export function getMaintenanceAnnounceNumPredict(settings: Settings): number {
+  const auxiliary = getAuxiliaryNumPredict(settings);
+  if (!settings.thinkingEnabled) return auxiliary;
+  return Math.max(auxiliary, MAINTENANCE_ANNOUNCE_REASONING_NUM_PREDICT);
 }
 
 /** Normalize token budget fields after settings changes. */

@@ -161,7 +161,7 @@ Three layers, extracted in a **debounced background job** (`modules/memory/serve
 - Bot responds when @mentioned, replied to, display name is spoken (regex or LLM for other languages), or on random/image toggles.
 - Per-member history in groups (`conversationKey` includes `userId`).
 - Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain` (completions module), `/remember`.
-- **Maintenance mode** (`maintenanceModeEnabled`): only the owner can reach the pipeline; in groups the owner must also include a direct @mention of the bot — gate in `handlers/message.ts`.
+- **Maintenance mode** (`maintenanceModeEnabled`): only the owner can reach the pipeline; in groups the owner must also include a direct @mention of the bot — gate in `handlers/message.ts`. Toggling maintenance mode from the dashboard triggers an LLM-generated in-character announcement broadcast to every distinct `chat_history` chat key.
 
 ### Structured LLM output (JSON schema)
 
@@ -235,7 +235,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Bot entry | `server/src/bot/index.ts`, `handlers/index.ts`, `handlers/message.ts` |
 | Pipeline | `server/src/pipeline/queue-runner.ts`, `deliver.ts`, `context.ts`, `server/src/runtime/message-queue.ts`, `server/src/runtime/background-jobs.ts`, `runtime/module-hosts.ts` |
 | Address detection | `modules/addressing-detection/server/` (pipeline hosts + `bot-identity.ts`) |
-| Maintenance | `server/src/bot/maintenance/maintenance.ts`, `owner/owner.ts` |
+| Maintenance | `server/src/bot/maintenance/maintenance.ts`, `server/src/bot/maintenance/announce.ts`, `owner/owner.ts` |
 | Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
 | History | `modules/history/server/` (pipeline hosts); SQLite in `server/src/db/history/` |
 | Vision | `modules/vision/server/`; vision describe wired in `server/src/pipeline/adapters/callbacks.ts` |

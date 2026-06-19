@@ -265,6 +265,18 @@ export function updateSettings(partial: Partial<Settings>): Settings {
     emitMoodUpdated();
     emitDataUpdated(["settings"]);
   });
+
+  const maintenanceToggled =
+    partial.maintenanceModeEnabled !== undefined &&
+    partial.maintenanceModeEnabled !== current.maintenanceModeEnabled;
+  if (maintenanceToggled) {
+    void import("../bot/maintenance/announce.js").then(
+      ({ broadcastMaintenanceAnnouncement }) => {
+        void broadcastMaintenanceAnnouncement(resolved.maintenanceModeEnabled);
+      },
+    );
+  }
+
   return resolved;
 }
 
