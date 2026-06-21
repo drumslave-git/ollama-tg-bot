@@ -324,6 +324,11 @@ export interface PipelineHostCallbacks {
   ) => { userId: string; label: string }[];
 }
 
+export interface PipelineMcpServices {
+  listOpenAiTools: () => Promise<unknown[]>;
+  callTool: (name: string, args: Record<string, unknown>) => Promise<string>;
+}
+
 export interface PipelineHostServices {
   logging: {
     logEvent: (event: string, fields?: Record<string, unknown>) => void;
@@ -334,6 +339,7 @@ export interface PipelineHostServices {
     ) => void;
   };
   llm: PipelineLlmServices;
+  mcp?: PipelineMcpServices;
   getWorkflowSteps: () => string[];
   getReport: (turnId: number) => PipelineReportWriter | null;
   getSecret: (name: "tavily" | "openai") => string;

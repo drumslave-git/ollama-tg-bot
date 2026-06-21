@@ -7,7 +7,6 @@ export const INTAKE_PHASES = ["preprocess", "gate"] as const;
 
 export const QUEUE_STEP_ORDER = [
   "vision",
-  "links",
   "search",
   "system",
   "personality",
@@ -69,7 +68,7 @@ const HOST_SUBLABELS: Record<string, string> = {
   triggers: "Random reply / image reaction",
   address: "@mention, reply, or name match",
   vision: "Describe photos and stickers",
-  links: "Scrape URLs in the message",
+  links: "MCP fetch_link tool during main reply",
   search: "LLM decides + Tavily fetch",
   system: "System prompt + memories",
   personality: "Active personality prompt",

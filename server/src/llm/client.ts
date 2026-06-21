@@ -9,6 +9,8 @@ import type {
   ChatCompletion,
   ChatCompletionCreateParamsNonStreaming,
   ChatCompletionMessageParam,
+  ChatCompletionMessageToolCall,
+  ChatCompletionTool,
 } from "openai/resources/chat/completions";
 import type { Model } from "openai/resources/models";
 import { config } from "../config/index.js";
@@ -278,18 +280,23 @@ export interface ChatCompleteOptions {
   traceLayout?: VerbosePromptLayout;
   /** Force JSON output via OpenAI-compatible response_format. */
   responseFormat?: JsonSchemaResponseFormat;
+  /** OpenAI-compatible tools for MCP tool rounds. */
+  tools?: ChatCompletionTool[];
+  /** When true, return tool_calls instead of failing on empty content. */
+  allowToolCalls?: boolean;
 }
 
 async function requestChat(
   model: string,
-  prepared: ChatMessage[],
+  prepared: ChatMessage[] | ChatCompletionMessageParam[],
   numPredict: number,
   auxiliary: boolean,
   traceTurnId?: number,
   traceLayout?: VerbosePromptLayout,
   traceLabel?: string,
   responseFormat?: JsonSchemaResponseFormat,
-): Promise<ChatResponse> {
+  tools?: ChatCompletionTool[],
+): Promise<{ data: ChatResponse; choice: ChatCompletion["choices"][number] | undefined }> {
   const settings = getResolvedSettings();
   const requestBody = chatCompletionBody(
     model,
@@ -297,6 +304,7 @@ async function requestChat(
     numPredict,
     auxiliary,
     responseFormat,
+    tools,
   );
   const traceLabelText = traceLabel ?? "llm";
   const llmStarted = performance.now();
@@ -346,7 +354,8 @@ async function requestChat(
   }
 
   const llmDurationMs = performance.now() - llmStarted;
-  const data = toChatResponse(response.choices?.[0], response.usage);
+  const choice = response.choices?.[0];
+  const data = toChatResponse(choice, response.usage);
   if (traceTurnId != null) {
     const report = getMessageReport(traceTurnId);
     if (report) {
@@ -354,22 +363,23 @@ async function requestChat(
         traceLabelText,
         model,
         numPredict,
-        prepared,
+        prepared as ChatMessage[],
         data,
         traceLayout,
-        formatTraceSamplingLine(settings, auxiliary, responseFormat),
+        formatTraceSamplingLine(settings, auxiliary, responseFormat, tools),
         sanitizeLlmPayloadForDebug(requestBody),
         sanitizeLlmPayloadForDebug(response),
         llmDurationMs,
       );
     }
   }
-  return data;
+  return { data, choice };
 }
 function formatTraceSamplingLine(
   settings: Settings,
   auxiliary: boolean,
   responseFormat?: JsonSchemaResponseFormat,
+  tools?: ChatCompletionTool[],
 ): string {
   const temp = auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature;
   const extensions = providerChatExtensions(settings, auxiliary);
@@ -379,6 +389,8 @@ function formatTraceSamplingLine(
   const responseFormatLine = responseFormat
     ? "response_format: json_schema"
     : null;
+  const toolsLine =
+    tools && tools.length > 0 ? `tools: ${tools.length}` : null;
   return [
     `temperature: ${temp}`,
     `top_p: ${settings.topP}`,
@@ -388,22 +400,44 @@ function formatTraceSamplingLine(
     `enable_thinking: ${enableThinking}`,
     `reasoning_effort: ${reasoningEffort}`,
     responseFormatLine,
+    toolsLine,
   ]
     .filter(Boolean)
     .join(", ");
 }
 
+function normalizeOpenAiMessages(
+  messages: ChatMessage[] | ChatCompletionMessageParam[],
+): ChatCompletionMessageParam[] {
+  if (messages.length === 0) return [];
+  const first = messages[0];
+  if (!first) return [];
+  if ("images" in first) {
+    return (messages as ChatMessage[]).map(toOpenAiMessage);
+  }
+  if (
+    first.role === "tool" ||
+    (first.role === "assistant" &&
+      "tool_calls" in first &&
+      first.tool_calls?.length)
+  ) {
+    return messages as ChatCompletionMessageParam[];
+  }
+  return (messages as ChatMessage[]).map(toOpenAiMessage);
+}
+
 function chatCompletionBody(
   model: string,
-  messages: ChatMessage[],
+  messages: ChatMessage[] | ChatCompletionMessageParam[],
   numPredict: number,
   auxiliary: boolean,
   responseFormat?: JsonSchemaResponseFormat,
+  tools?: ChatCompletionTool[],
 ): ChatCompletionCreateParamsNonStreaming {
   const settings = getResolvedSettings();
   return {
     model,
-    messages: messages.map(toOpenAiMessage),
+    messages: normalizeOpenAiMessages(messages),
     stream: false,
     max_completion_tokens: numPredict,
     temperature: auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature,
@@ -412,6 +446,7 @@ function chatCompletionBody(
     ...(shouldUseResponseFormat(settings, auxiliary, responseFormat)
       ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
+    ...(tools && tools.length > 0 ? { tools, tool_choice: "auto" as const } : {}),
   } as ChatCompletionCreateParamsNonStreaming;
 }
 
@@ -448,16 +483,21 @@ export interface ChatCompleteResult {
   raw: string;
   /** Optional model reasoning when the API returns it separately. */
   thinking: string;
+  toolCalls?: ChatCompletionMessageToolCall[];
+  conversationMessages?: ChatCompletionMessageParam[];
 }
 
 /** Full model output (JSON reply object in content when responseFormat is set). */
 export async function chatCompleteDetailed(
-  messages: ChatMessage[],
+  messages: ChatMessage[] | ChatCompletionMessageParam[],
   options?: ChatCompleteOptions,
 ): Promise<ChatCompleteResult> {
   const settings = getResolvedSettings();
   const model = options?.model ?? settings.model;
-  const prepared = await prepareMessages(messages);
+  const prepared =
+    messages.length > 0 && "images" in messages[0]!
+      ? await prepareMessages(messages as ChatMessage[])
+      : messages;
   const traceTurnId = options?.traceTurnId;
   const traceLayout = options?.traceLayout;
   const traceLabel = options?.traceLabel;
@@ -469,7 +509,7 @@ export async function chatCompleteDetailed(
       : getEffectiveNumPredict(settings, {
           baseNumPredict: options?.numPredict,
         });
-    const data = await requestChat(
+    const { data, choice } = await requestChat(
       model,
       prepared,
       numPredict,
@@ -478,9 +518,22 @@ export async function chatCompleteDetailed(
       traceLayout,
       traceLabel,
       options?.responseFormat,
+      options?.tools,
     );
     const content = pickAssistantContent(data);
     const thinking = mergeAssistantReasoning(content, pickReasoning(data));
+    const toolCalls = choice?.message?.tool_calls ?? [];
+    if (toolCalls.length > 0 && options?.allowToolCalls) {
+      const assistantMessage = choice?.message;
+      return {
+        raw: content,
+        thinking,
+        toolCalls,
+        conversationMessages: assistantMessage
+          ? [...normalizeOpenAiMessages(prepared), assistantMessage]
+          : undefined,
+      };
+    }
     if (content) {
       return { raw: content, thinking };
     }

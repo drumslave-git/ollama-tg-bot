@@ -19,6 +19,7 @@ import {
   wireModuleLiveHooks,
 } from "./runtime/modules.js";
 import { loadBotHosts, loadPipelineHosts } from "./runtime/module-hosts.js";
+import { loadMcpTools } from "./runtime/mcp-tools.js";
 import {
   emitDataUpdated,
   emitMemoryUpdated,
@@ -38,6 +39,7 @@ async function main(): Promise<void> {
 
   await initDatabase();
   await loadPipelineHosts();
+  await loadMcpTools();
   await loadBotHosts();
   const moduleRouters = await createModuleRouters();
   const bootSettings = getSettings();

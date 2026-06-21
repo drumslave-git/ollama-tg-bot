@@ -1,11 +1,10 @@
 {
   "id": "link-fetch",
   "name": "Link fetch",
-  "description": "Fetch linked pages with Playwright and inject readable context into the chat turn.",
+  "description": "Fetch linked pages on demand via the fetch_link MCP tool during the main reply.",
   "serverPackage": "@llm-tg-bot/modules-link-fetch",
-  "pipeline": {
-    "stepId": "links",
-    "phase": "pre-reply",
-    "order": 20
+  "mcpTools": {
+    "workflowStepId": "links",
+    "toolNames": ["fetch_link"]
   }
 }

@@ -94,6 +94,8 @@ Rules:
 - **Shared code** — cross-module helpers live in `@llm-tg-bot/modules-utils`, not in `server/src`.
 - **Prompt-first output** — modules define strict `ANALYZER_SYSTEM` / `build*Messages()` specs; parsers stay strict (see **Structured LLM output**).
 
+**MCP tools (migration in progress):** Feature modules may expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod instead of (or in addition to) pipeline pre-reply steps. Shared registry: `BotMcpRegistry` in `@llm-tg-bot/modules-utils`. Manifest `mcpTools: { workflowStepId, toolNames }` + server export `registerMcpTools(server)`. Host loads tools in `server/src/runtime/mcp-tools.ts`; the main reply invokes them through `server/src/llm/tool-loop.ts`. First migrated module: **link-fetch** → `fetch_link(url)`.
+
 To add a module: create `modules/<name>/` with `manifest.json`, implement `server/` (`package.json` name `@llm-tg-bot/modules-<name>`), optionally `db/` and `ui/`, register workspaces in root `package.json`, add to `build:modules`, declare server deps in `server/package.json`, add dev `paths` in `server/tsconfig.json`, implement `run`, and cover with tests. The server discovers manifests at startup; the dashboard globs `modules/*/ui/src/index.tsx` for UI pages.
 
 
@@ -129,11 +131,12 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 1. **`server/src/bot/handlers/index.ts`** — Register **commands before** the catch-all `bot.on("message")`. Module commands via `registerModuleCommands()` from `server/src/runtime/module-hosts.ts`.
 2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then **intake pipeline** (`runIntakePipeline` in `server/src/pipeline/queue-runner.ts`). Addressed messages are **enqueued** (`server/src/runtime/message-queue.ts`) and processed **one at a time**.
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
-4. **Queue processing (addressed only)** — synchronous order: vision (media) → links/search (text) → system + personality → history inject → mood → main reply → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
+4. **Queue processing (addressed only)** — synchronous order: vision (media) → search (text) → system + personality → history inject → mood → main reply (with optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
 5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory extraction from recent history (skips chats whose extraction fingerprint is unchanged since the last successful run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
 6. **`server/src/runtime/module-hosts.ts`** — Loads `pipelineHosts` from manifests at startup. Queue runner invokes hosts by `stepId` in fixed order (not full phase runner).
-7. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
-8. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
+7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from manifests (`mcpTools` + `registerMcpTools`). Enabled tools are gated by `workflowSteps` (e.g. `links` enables `fetch_link`). The main reply runs a tool loop (`server/src/llm/tool-loop.ts`) before the structured JSON reply when tools are available.
+8. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
+9. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
 
 ### LLM
 
@@ -243,7 +246,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Search decision | `modules/search-decision/server/` |
 | Web search | `modules/web-search/server/`; Tavily adapter in pipeline callbacks |
 | Memory | `modules/memory/server/` (extract/merge logic + `queue-scheduler.ts`); wired in `server/src/runtime/queue-schedulers.ts` |
-| Link fetch | `modules/link-fetch/server/` |
+| Link fetch | `modules/link-fetch/server/` (`fetch_link` MCP tool; Playwright) |
 | Sticker selection | `modules/sticker-selection/server/` |
 | Mood evaluation | `modules/mood-evaluation/server/` (personality + mood pipeline hosts, `/mood` bot host) |
 | HTML replies | `server/src/telegram/html.ts`, `server/src/bot/replies/delivery.ts` |

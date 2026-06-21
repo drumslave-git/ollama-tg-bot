@@ -47,15 +47,6 @@ export const pipelineHost: PipelineModuleHost = {
       };
     }
 
-    if (state.linkFetchResolved) {
-      return {
-        status: "skipped",
-        phaseId: "search",
-        phaseTitle: "Web search",
-        summary: "Skipped because link content was fetched",
-      };
-    }
-
     const settings = services.callbacks.getSettings?.() ?? {};
     const thinkingEnabled = Boolean(settings.thinkingEnabled);
     const responseFormat = getSearchResponseFormat(thinkingEnabled);

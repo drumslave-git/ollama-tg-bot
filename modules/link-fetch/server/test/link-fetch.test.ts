@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   extractUrls,
+  fetchLink,
   formatLinkFetchContext,
   formatLinkFetchFailure,
   isSafePublicUrl,
@@ -77,6 +78,29 @@ describe("formatLinkFetchFailure", () => {
         new Error("browser down"),
       ),
     ).toContain("browser down");
+  });
+});
+
+describe("fetchLink", () => {
+  it("blocks unsafe URLs without fetching", async () => {
+    const fetchPages = vi.fn();
+    const result = await fetchLink("http://127.0.0.1/secret", { fetchPages });
+    expect(fetchPages).not.toHaveBeenCalled();
+    expect(result.resolved).toBe(false);
+    expect(result.context).toContain("Failed to load");
+  });
+
+  it("returns formatted context when page loads", async () => {
+    const fetchPages = vi.fn(async () => [
+      {
+        url: "https://example.com",
+        title: "Example",
+        text: "Body",
+      },
+    ]);
+    const result = await fetchLink("https://example.com", { fetchPages });
+    expect(result.resolved).toBe(true);
+    expect(result.context).toContain("Body");
   });
 });
 

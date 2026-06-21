@@ -4,8 +4,8 @@ import { buildWorkflowDefinitionFromHosts } from "../../src/pipeline/workflow-de
 
 const manifests = new Map([
   ["history", { name: "History", description: "Chat history module" }],
-  ["link-fetch", { name: "Link fetch", description: "Scrape URLs" }],
   ["completions", { name: "Completions", description: "Main reply" }],
+  ["search-decision", { name: "Web search", description: "Search decision" }],
 ]);
 
 const fixtureHosts: PipelineModuleHost[] = [
@@ -36,14 +36,14 @@ const fixtureHosts: PipelineModuleHost[] = [
     }),
   },
   {
-    id: "link-fetch",
-    stepId: "links",
+    id: "search-decision",
+    stepId: "search",
     phase: "pre-reply",
-    order: 20,
+    order: 30,
     run: async () => ({
       status: "ok",
-      phaseId: "links",
-      phaseTitle: "Links",
+      phaseId: "search",
+      phaseTitle: "Web search",
       summary: "ok",
     }),
   },
@@ -67,7 +67,7 @@ describe("buildWorkflowDefinitionFromHosts", () => {
     const definition = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
       manifests,
-      ["links"],
+      ["search"],
     );
 
     expect(definition.nodes.some((node) => node.stepId === "message")).toBe(true);
@@ -88,7 +88,7 @@ describe("buildWorkflowDefinitionFromHosts", () => {
     const enabled = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
       manifests,
-      ["links"],
+      ["search"],
     );
     const disabled = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
@@ -96,11 +96,11 @@ describe("buildWorkflowDefinitionFromHosts", () => {
       [],
     );
 
-    expect(enabled.nodes.find((node) => node.stepId === "links")?.enabled).toBe(
+    expect(enabled.nodes.find((node) => node.stepId === "search")?.enabled).toBe(
       true,
     );
     expect(
-      disabled.nodes.find((node) => node.stepId === "links")?.enabled,
+      disabled.nodes.find((node) => node.stepId === "search")?.enabled,
     ).toBe(false);
     expect(
       enabled.nodes.find((node) => node.stepId === "completions")?.alwaysOn,
@@ -111,7 +111,7 @@ describe("buildWorkflowDefinitionFromHosts", () => {
     const definition = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
       manifests,
-      ["links"],
+      ["search"],
     );
 
     expect(

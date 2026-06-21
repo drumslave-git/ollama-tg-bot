@@ -76,3 +76,13 @@ export {
   type ModuleJobStatus,
   type ModuleJobStep,
 } from "./job-debug.js";
+export {
+  BotMcpRegistry,
+  type McpToolRegistrar,
+} from "./mcp/bot-mcp-registry.js";
+export {
+  callToolResultToText,
+  mcpToolToOpenAi,
+  type McpListedTool,
+} from "./mcp/openai-tools.js";
+export { InProcessTransport } from "./mcp/in-process-transport.js";

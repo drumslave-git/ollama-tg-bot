@@ -3,6 +3,7 @@ export {
   runLinkFetch,
   type LinkFetchConfig,
 } from "./fetch.js";
+export { fetchLink, type FetchLinkOutput } from "./fetch-link.js";
 export { extractUrls, isSafePublicUrl } from "./extract.js";
 export {
   formatLinkFetchContext,
@@ -18,4 +19,8 @@ export type {
   LinkFetchInput,
   LinkFetchOutput,
 } from "./types.js";
-export { pipelineHost } from "./pipeline.js";
+export {
+  FETCH_LINK_TOOL_NAME,
+  registerLinkFetchMcpTools,
+  registerLinkFetchMcpTools as registerMcpTools,
+} from "./mcp-tools.js";

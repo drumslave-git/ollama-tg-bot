@@ -14,7 +14,9 @@
   "dependencies": {
     "@llm-tg-bot/modules-registry": "*",
     "@llm-tg-bot/modules-utils": "*",
-    "playwright": "^1.52.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "playwright": "^1.52.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",

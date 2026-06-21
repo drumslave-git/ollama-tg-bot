@@ -28,7 +28,6 @@ export interface LatestTurnOptions {
   speakerTag?: string | null;
   mentionedUsersContext?: string | null;
   replyContext?: string | null;
-  linkFetchContext?: string | null;
   webSearchContext?: string | null;
   currentSpeaker?: CurrentSpeaker | null;
   currentSpeakerIsOwner?: boolean;
@@ -67,12 +66,6 @@ function buildLatestTurnMessage(options: LatestTurnOptions): string {
 
   if (options.replyContext?.trim()) {
     parts.push(`[REPLY CONTEXT]\n${options.replyContext.trim()}`);
-  }
-
-  if (options.linkFetchContext?.trim()) {
-    parts.push(
-      `[LINK CONTENT — answer from this for your reply]\n${options.linkFetchContext.trim()}`,
-    );
   }
 
   if (options.webSearchContext?.trim()) {

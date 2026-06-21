@@ -6,11 +6,16 @@ import type {
   PipelineTelegramContext,
 } from "@llm-tg-bot/modules-registry";
 import { chatComplete, chatCompleteDetailed } from "../llm/client.js";
+import { chatCompleteWithTools } from "../llm/tool-loop.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { createPipelineCallbacks } from "./adapters/callbacks.js";
+import {
+  getMcpRegistry,
+  resolveEnabledMcpToolNames,
+} from "../runtime/mcp-tools.js";
 
 function toReportWriter(turnId: number): PipelineReportWriter | null {
   const report = getMessageReport(turnId);
@@ -42,12 +47,38 @@ function createLlmServices(): PipelineLlmServices {
         traceLabel: options.traceLabel,
       }),
     createMainChatComplete: (options) => async (messages) => {
-      const result = await chatCompleteDetailed(messages as ChatMessage[], {
+      const workflowSteps = getResolvedSettings().workflowSteps ?? [];
+      const registry = getMcpRegistry();
+      registry.setEnabledToolNames(resolveEnabledMcpToolNames(workflowSteps));
+      const tools = await registry.listOpenAiTools();
+
+      if (tools.length === 0) {
+        const result = await chatCompleteDetailed(messages as ChatMessage[], {
+          think: options.think,
+          responseFormat: options.responseFormat as JsonSchemaResponseFormat,
+          traceTurnId: options.traceTurnId,
+          traceLabel: options.traceLabel,
+          traceLayout: options.traceLayout as never,
+        });
+        return { raw: result.raw, thinking: result.thinking };
+      }
+
+      const result = await chatCompleteWithTools(messages as ChatMessage[], {
         think: options.think,
         responseFormat: options.responseFormat as JsonSchemaResponseFormat,
         traceTurnId: options.traceTurnId,
         traceLabel: options.traceLabel,
         traceLayout: options.traceLayout as never,
+        tools,
+        callTool: (name, args) => registry.callTool(name, args),
+        onToolCall: ({ name, result }) => {
+          if (options.traceTurnId == null) return;
+          getMessageReport(options.traceTurnId)?.okPhase(
+            "links",
+            "Link fetch",
+            `MCP tool ${name}: ${result.slice(0, 120)}`,
+          );
+        },
       });
       return { raw: result.raw, thinking: result.thinking };
     },
@@ -68,6 +99,22 @@ export function createPipelineServices(): PipelineHostServices {
       if (name === "tavily") return config.tavilyApiKey;
       if (name === "openai") return config.llmApiKey;
       return "";
+    },
+    mcp: {
+      listOpenAiTools: async () => {
+        const registry = getMcpRegistry();
+        registry.setEnabledToolNames(
+          resolveEnabledMcpToolNames(getResolvedSettings().workflowSteps ?? []),
+        );
+        return registry.listOpenAiTools();
+      },
+      callTool: (name, args) => {
+        const registry = getMcpRegistry();
+        registry.setEnabledToolNames(
+          resolveEnabledMcpToolNames(getResolvedSettings().workflowSteps ?? []),
+        );
+        return registry.callTool(name, args);
+      },
     },
     callbacks: createPipelineCallbacks(),
   };
