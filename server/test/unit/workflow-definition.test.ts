@@ -5,7 +5,7 @@ import { buildWorkflowDefinitionFromHosts } from "../../src/pipeline/workflow-de
 const manifests = new Map([
   ["history", { name: "History", description: "Chat history module" }],
   ["completions", { name: "Completions", description: "Main reply" }],
-  ["search-decision", { name: "Web search", description: "Search decision" }],
+  ["sticker-selection", { name: "Stickers", description: "Sticker pick" }],
 ]);
 
 const fixtureHosts: PipelineModuleHost[] = [
@@ -36,14 +36,14 @@ const fixtureHosts: PipelineModuleHost[] = [
     }),
   },
   {
-    id: "search-decision",
-    stepId: "search",
-    phase: "pre-reply",
-    order: 30,
+    id: "sticker-selection",
+    stepId: "sticker",
+    phase: "post-reply",
+    order: 10,
     run: async () => ({
       status: "ok",
-      phaseId: "search",
-      phaseTitle: "Web search",
+      phaseId: "sticker",
+      phaseTitle: "Sticker",
       summary: "ok",
     }),
   },
@@ -67,7 +67,7 @@ describe("buildWorkflowDefinitionFromHosts", () => {
     const definition = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
       manifests,
-      ["search"],
+      ["sticker"],
     );
 
     expect(definition.nodes.some((node) => node.stepId === "message")).toBe(true);
@@ -88,7 +88,7 @@ describe("buildWorkflowDefinitionFromHosts", () => {
     const enabled = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
       manifests,
-      ["search"],
+      ["sticker"],
     );
     const disabled = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
@@ -96,11 +96,11 @@ describe("buildWorkflowDefinitionFromHosts", () => {
       [],
     );
 
-    expect(enabled.nodes.find((node) => node.stepId === "search")?.enabled).toBe(
-      true,
-    );
     expect(
-      disabled.nodes.find((node) => node.stepId === "search")?.enabled,
+      enabled.nodes.find((node) => node.stepId === "sticker")?.enabled,
+    ).toBe(true);
+    expect(
+      disabled.nodes.find((node) => node.stepId === "sticker")?.enabled,
     ).toBe(false);
     expect(
       enabled.nodes.find((node) => node.stepId === "completions")?.alwaysOn,
@@ -111,7 +111,7 @@ describe("buildWorkflowDefinitionFromHosts", () => {
     const definition = buildWorkflowDefinitionFromHosts(
       fixtureHosts,
       manifests,
-      ["search"],
+      ["sticker"],
     );
 
     expect(

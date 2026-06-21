@@ -7,7 +7,6 @@ export const INTAKE_PHASES = ["preprocess", "gate"] as const;
 
 export const QUEUE_STEP_ORDER = [
   "vision",
-  "search",
   "system",
   "personality",
   "history",
@@ -69,7 +68,7 @@ const HOST_SUBLABELS: Record<string, string> = {
   address: "@mention, reply, or name match",
   vision: "Describe photos and stickers",
   links: "MCP fetch_link tool during main reply",
-  search: "LLM decides + Tavily fetch",
+  search: "MCP search_web tool during main reply",
   system: "System prompt + memories",
   personality: "Active personality prompt",
   history: "Inject compressed chat history",

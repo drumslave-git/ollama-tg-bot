@@ -12,7 +12,6 @@
     "test": "vitest run --config vitest.config.ts"
   },
   "dependencies": {
-    "@llm-tg-bot/modules-registry": "*",
     "@llm-tg-bot/modules-utils": "*",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "playwright": "^1.52.0",

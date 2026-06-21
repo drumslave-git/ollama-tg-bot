@@ -2,9 +2,11 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ChatCompletionTool } from "openai/resources/chat/completions";
 import { InProcessTransport } from "./in-process-transport.js";
+import type { McpToolHostContext, McpToolRegistrar } from "./host-context.js";
 import { callToolResultToText, mcpToolToOpenAi } from "./openai-tools.js";
+import type { McpToolCallResult } from "./tool-result.js";
 
-export type McpToolRegistrar = (server: McpServer) => void;
+export type { McpToolHostContext, McpToolRegistrar } from "./host-context.js";
 
 export class BotMcpRegistry {
   readonly server: McpServer;
@@ -16,8 +18,8 @@ export class BotMcpRegistry {
     this.server = new McpServer({ name: "llm-tg-bot", version: "1.0.0" });
   }
 
-  registerTools(registrar: McpToolRegistrar): void {
-    registrar(this.server);
+  registerTools(registrar: McpToolRegistrar, context: McpToolHostContext): void {
+    registrar(this.server, context);
   }
 
   async finishRegistration(): Promise<void> {
@@ -58,7 +60,7 @@ export class BotMcpRegistry {
   async callTool(
     name: string,
     args: Record<string, unknown>,
-  ): Promise<string> {
+  ): Promise<McpToolCallResult> {
     const client = await this.ensureConnected();
     if (!this.enabledToolNames.has(name)) {
       throw new Error(`MCP tool "${name}" is not enabled for this turn`);
@@ -67,6 +69,12 @@ export class BotMcpRegistry {
       name,
       arguments: args,
     });
-    return callToolResultToText(result);
+    const payload = result as {
+      structuredContent?: unknown;
+    };
+    return {
+      text: callToolResultToText(result),
+      structuredContent: payload.structuredContent,
+    };
   }
 }

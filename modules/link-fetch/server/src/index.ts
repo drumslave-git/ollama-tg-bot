@@ -22,5 +22,5 @@ export type {
 export {
   FETCH_LINK_TOOL_NAME,
   registerLinkFetchMcpTools,
-  registerLinkFetchMcpTools as registerMcpTools,
 } from "./mcp-tools.js";
+export { registerMcpTools } from "./register-mcp-tools.js";

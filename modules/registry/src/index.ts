@@ -5,7 +5,7 @@ export type {
   BotModuleHost,
 } from "./bot.js";
 export type { ModuleManifest, ModuleDashboardMeta } from "./manifest.js";
-export type { McpToolRegistrar, ModuleMcpToolsMeta } from "./mcp.js";
+export type { ModuleMcpToolsMeta } from "./mcp.js";
 export type {
   MessagePipelineResult,
   ModulePipelineMeta,

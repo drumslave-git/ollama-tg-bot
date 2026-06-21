@@ -3,6 +3,11 @@ import { BotMcpRegistry } from "../src/mcp/bot-mcp-registry.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+const testContext = {
+  getSecret: () => "",
+  logging: {},
+};
+
 describe("BotMcpRegistry", () => {
   it("lists and calls a registered tool", async () => {
     const registry = new BotMcpRegistry();
@@ -20,7 +25,7 @@ describe("BotMcpRegistry", () => {
           content: [{ type: "text", text: `echo:${text}` }],
         }),
       );
-    });
+    }, testContext);
     await registry.finishRegistration();
 
     registry.setEnabledToolNames(["echo"]);
@@ -31,14 +36,15 @@ describe("BotMcpRegistry", () => {
       expect(tools[0].function.name).toBe("echo");
     }
 
-    await expect(registry.callTool("echo", { text: "hi" })).resolves.toBe(
-      "echo:hi",
-    );
+    await expect(registry.callTool("echo", { text: "hi" })).resolves.toEqual({
+      text: "echo:hi",
+      structuredContent: undefined,
+    });
   });
 
   it("blocks disabled tools", async () => {
     const registry = new BotMcpRegistry();
-    registry.registerTools((server) => {
+    registry.registerTools((server: McpServer) => {
       server.registerTool(
         "secret",
         {
@@ -47,7 +53,7 @@ describe("BotMcpRegistry", () => {
         },
         async () => ({ content: [{ type: "text", text: "ok" }] }),
       );
-    });
+    }, testContext);
     await registry.finishRegistration();
     registry.setEnabledToolNames([]);
     await expect(

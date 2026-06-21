@@ -56,7 +56,7 @@ Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, r
 |---------|---------|
 | `@llm-tg-bot/modules-utils` | Shared `ModuleDefinition` contract, structured-output helpers, stateless auxiliary LLM client |
 | `@llm-tg-bot/modules-addressing-detection` | Group address detection (@mention, reply, display name + LLM) |
-| `@llm-tg-bot/modules-search-decision` | Whether a message needs web search + query extraction (LLM side pass) |
+| `@llm-tg-bot/modules-web-search` | Tavily web search via `search_web` MCP tool during the main reply |
 | `@llm-tg-bot/modules-vision` | Telegram media download, sticker previews, and vision-model image description |
 | `@llm-tg-bot/modules-completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` bot command |
 | `@llm-tg-bot/modules-history` | Turn setup, history intake (all messages), history inject/record (queue); inject/compress skip pending base64 media; LLM compression via `compressHistoryChat()` |
@@ -70,12 +70,7 @@ input:  { message: string; sender?: string; chatType?: string }
 config: { baseUrl: string; model: string; botUsername: string; botDisplayName: string; apiKey?: string; chatComplete?: … }
 output: { result: boolean; reason: string }
 
-// search-decision
-input:  { message: string; replyContext?: string }
-config: { baseUrl: string; model: string; apiKey?: string; chatComplete?: … }
-output: { needsSearch: boolean; query: string | null; reason: string }
-
-// web-search
+// web-search (MCP tool search_web)
 input:  { query: string }
 config: { apiKey: string; maxResults?: number }
 output: { ok: boolean; results: …; sources: …; context: string; answer: string | null; reason: string }
@@ -92,9 +87,10 @@ Rules:
 - **Own tests** — unit tests in `<module>/test/`; optional live LLM tests in `<module>/test/live/`.
 - **Host adapter** — Telegram routing, settings, debug traces, and maintenance gates stay in `server/src/bot/*`; the host builds `config` from dashboard settings and may inject `chatComplete` for tracing.
 - **Shared code** — cross-module helpers live in `@llm-tg-bot/modules-utils`, not in `server/src`.
+- **No dead code** — when a feature is replaced or removed, delete its module, manifest, workspace entry, build/test scripts, Dockerfile lines, tsconfig paths, and docs in the same task. Do not leave “legacy” packages, orphaned pipeline hosts, or “kept for live tests” stubs.
 - **Prompt-first output** — modules define strict `ANALYZER_SYSTEM` / `build*Messages()` specs; parsers stay strict (see **Structured LLM output**).
 
-**MCP tools (migration in progress):** Feature modules may expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod instead of (or in addition to) pipeline pre-reply steps. Shared registry: `BotMcpRegistry` in `@llm-tg-bot/modules-utils`. Manifest `mcpTools: { workflowStepId, toolNames }` + server export `registerMcpTools(server)`. Host loads tools in `server/src/runtime/mcp-tools.ts`; the main reply invokes them through `server/src/llm/tool-loop.ts`. First migrated module: **link-fetch** → `fetch_link(url)`.
+**MCP tools (migration in progress):** Feature modules may expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod instead of pipeline pre-reply steps. Shared registry: `BotMcpRegistry` in `@llm-tg-bot/modules-utils`. Manifest `mcpTools: { workflowStepId, toolNames }` + server export `registerMcpTools(server, context)` with `McpToolHostContext` from utils. Host loads tools in `server/src/runtime/mcp-tools.ts`; the main reply invokes them through `server/src/llm/tool-loop.ts`. Migrated modules: **link-fetch** → `fetch_link(url)`; **web-search** → `search_web(query)` (explicit user request only).
 
 To add a module: create `modules/<name>/` with `manifest.json`, implement `server/` (`package.json` name `@llm-tg-bot/modules-<name>`), optionally `db/` and `ui/`, register workspaces in root `package.json`, add to `build:modules`, declare server deps in `server/package.json`, add dev `paths` in `server/tsconfig.json`, implement `run`, and cover with tests. The server discovers manifests at startup; the dashboard globs `modules/*/ui/src/index.tsx` for UI pages.
 
@@ -185,7 +181,6 @@ Reference implementations:
 
 - **Schema helpers:** `@llm-tg-bot/modules-utils` (`json-schema.ts`: `strictObjectSchema`, `parseJsonContent`, typed readers)
 - **Address detection:** `@llm-tg-bot/modules-addressing-detection` (`ADDRESS_RESPONSE_FORMAT`, `{ addressed: boolean }`)
-- **Search decision:** `@llm-tg-bot/modules-search-decision` (`SEARCH_RESPONSE_FORMAT`, `{ needs_search, query }`)
 - **Main reply:** `MAIN_REPLY_RESPONSE_FORMAT` + `buildReplyFormatSpec()` in `modules/completions/server/src/response-format.ts` (`{ reply: string }`)
 
 ### Response format
@@ -243,9 +238,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | History | `modules/history/server/` (pipeline hosts); SQLite in `server/src/db/history/` |
 | Vision | `modules/vision/server/`; vision describe wired in `server/src/pipeline/adapters/callbacks.ts` |
 | Completions | `modules/completions/server/` (system prompt + LLM reply pipeline hosts, `/explain` bot host, reply JSON schema); host adapter `server/src/pipeline/adapters/system-prompt.ts` |
-| Search decision | `modules/search-decision/server/` |
-| Web search | `modules/web-search/server/`; Tavily adapter in pipeline callbacks |
-| Memory | `modules/memory/server/` (extract/merge logic + `queue-scheduler.ts`); wired in `server/src/runtime/queue-schedulers.ts` |
+| Web search | `modules/web-search/server/` (`search_web` MCP tool; Tavily) |
 | Link fetch | `modules/link-fetch/server/` (`fetch_link` MCP tool; Playwright) |
 | Sticker selection | `modules/sticker-selection/server/` |
 | Mood evaluation | `modules/mood-evaluation/server/` (personality + mood pipeline hosts, `/mood` bot host) |
@@ -283,7 +276,7 @@ Split files with `describe.skipIf(!cfg \|\| liveReasoningMode())` vs `describe.s
 
 Register both scripts in the workspace `package.json` and wire `test:llm:reasoning` into the root `package.json` when adding a new LLM-backed package.
 
-Current module live tests: addressing-detection, search-decision, memory, mood-evaluation, history (compression). Reasoning live: history compression, mood-evaluation, server main reply. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+Current module live tests: addressing-detection, memory, mood-evaluation, history (compression). Reasoning live: history compression, mood-evaluation, server main reply. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
 
 ### Auxiliary generation budget
 

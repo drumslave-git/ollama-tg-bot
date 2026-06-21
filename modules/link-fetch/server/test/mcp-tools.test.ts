@@ -16,14 +16,14 @@ describe("registerLinkFetchMcpTools", () => {
 
     registry.registerTools((server: McpServer) => {
       registerLinkFetchMcpTools(server, { fetchPages });
-    });
+    }, { getSecret: () => "", logging: {} });
     await registry.finishRegistration();
     registry.setEnabledToolNames([FETCH_LINK_TOOL_NAME]);
 
-    const text = await registry.callTool(FETCH_LINK_TOOL_NAME, {
+    const result = await registry.callTool(FETCH_LINK_TOOL_NAME, {
       url: "https://example.com/article",
     });
-    expect(text).toContain("Article body");
+    expect(result.text).toContain("Article body");
     expect(fetchPages).toHaveBeenCalledWith(["https://example.com/article"]);
   });
 });

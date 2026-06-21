@@ -1,3 +1,4 @@
+import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
 import {
   BotMcpRegistry,
   type McpToolRegistrar,
@@ -6,6 +7,8 @@ import {
   discoverModuleManifests,
   type ModuleManifest,
 } from "@llm-tg-bot/modules-registry";
+import { config } from "../config/index.js";
+import { logEvent, logEventError } from "../logging/event-log.js";
 import { resolveModulesRoot } from "./modules.js";
 
 type ServerManifest = ModuleManifest & {
@@ -28,10 +31,29 @@ function mcpManifests(): ServerManifest[] {
   );
 }
 
+function mcpHostContext(): {
+  getSecret: (name: "tavily" | "openai") => string;
+  logging: ModuleLogging;
+} {
+  return {
+    getSecret: (name) => {
+      if (name === "tavily") return config.tavilyApiKey;
+      if (name === "openai") return config.llmApiKey;
+      return "";
+    },
+    logging: {
+      logEvent: (event, fields) => logEvent(event, fields as never),
+      logEventError: (event, err, fields) =>
+        logEventError(event, err, fields as never),
+    },
+  };
+}
+
 export async function loadMcpTools(): Promise<BotMcpRegistry> {
   if (registry) return registry;
 
   registry = new BotMcpRegistry();
+  const context = mcpHostContext();
 
   for (const manifest of mcpManifests()) {
     const mod = (await import(manifest.serverPackage)) as {
@@ -42,7 +64,7 @@ export async function loadMcpTools(): Promise<BotMcpRegistry> {
         `Module ${manifest.id} declares mcpTools but does not export registerMcpTools`,
       );
     }
-    registry.registerTools(mod.registerMcpTools);
+    registry.registerTools(mod.registerMcpTools, context);
     registeredModules.push({
       workflowStepId: manifest.mcpTools.workflowStepId,
       toolNames: [...manifest.mcpTools.toolNames],

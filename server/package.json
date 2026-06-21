@@ -32,7 +32,6 @@
     "@llm-tg-bot/modules-link-fetch": "*",
     "@llm-tg-bot/modules-memory": "*",
     "@llm-tg-bot/modules-memory-db": "*",
-    "@llm-tg-bot/modules-search-decision": "*",
     "@llm-tg-bot/modules-registry": "*",
     "@llm-tg-bot/modules-utils": "*",
     "@llm-tg-bot/modules-completions": "*",

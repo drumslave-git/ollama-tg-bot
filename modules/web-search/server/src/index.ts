@@ -6,6 +6,12 @@ export {
   type WebSearchOutput,
 } from "./search.js";
 export {
+  SEARCH_WEB_TOOL_NAME,
+  readSearchWebSources,
+  registerWebSearchMcpTools,
+} from "./mcp-tools.js";
+export { registerMcpTools } from "./register-mcp-tools.js";
+export {
   extractWebSearchSources,
   formatWebSearchContext,
   formatWebSearchFailure,

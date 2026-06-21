@@ -1,3 +1,4 @@
+import type { McpToolCallResult } from "@llm-tg-bot/modules-utils";
 import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
 import type {
   ChatCompletionMessageParam,
@@ -15,11 +16,14 @@ const MAX_TOOL_ROUNDS = 6;
 
 export interface ToolLoopOptions extends ChatCompleteOptions {
   tools: ChatCompletionTool[];
-  callTool: (name: string, args: Record<string, unknown>) => Promise<string>;
+  callTool: (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<McpToolCallResult>;
   onToolCall?: (input: {
     name: string;
     args: Record<string, unknown>;
-    result: string;
+    result: McpToolCallResult;
     round: number;
   }) => void;
 }
@@ -81,25 +85,27 @@ export async function chatCompleteWithTools(
       if (!fn?.name) continue;
 
       const args = parseToolArguments(fn.arguments ?? "{}");
-      let resultText: string;
+      let toolResult: McpToolCallResult;
       try {
-        resultText = await options.callTool(fn.name, args);
+        toolResult = await options.callTool(fn.name, args);
       } catch (err) {
-        resultText =
-          err instanceof Error ? err.message : "Tool execution failed";
+        toolResult = {
+          text:
+            err instanceof Error ? err.message : "Tool execution failed",
+        };
       }
 
       options.onToolCall?.({
         name: fn.name,
         args,
-        result: resultText,
+        result: toolResult,
         round,
       });
 
       conversation.push({
         role: "tool",
         tool_call_id: toolCall.id,
-        content: resultText,
+        content: toolResult.text,
       });
     }
   }

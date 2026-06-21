@@ -228,7 +228,11 @@ export interface PipelineLlmServices {
       history: unknown[];
       latest: string;
     };
-  }): (messages: unknown[]) => Promise<{ raw: string; thinking?: string }>;
+  }): (messages: unknown[]) => Promise<{
+    raw: string;
+    thinking?: string;
+    webSearchSources?: unknown[];
+  }>;
 }
 
 export interface PipelineHostCallbacks {

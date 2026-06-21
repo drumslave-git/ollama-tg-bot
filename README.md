@@ -63,8 +63,7 @@ Bot capabilities are split into small **stateless npm packages** (microservice-s
 |--------|------|
 | `@llm-tg-bot/modules-utils` | Shared contract types and auxiliary LLM helpers |
 | `@llm-tg-bot/modules-addressing-detection` | Group address detection (@mention, reply, display name + LLM) |
-| `@llm-tg-bot/modules-search-decision` | Decides whether a message needs web search and extracts the query (LLM) |
-| `@llm-tg-bot/modules-web-search` | Runs web search and formats context/sources for the main reply |
+| `@llm-tg-bot/modules-web-search` | Tavily web search via `search_web` MCP tool during the main reply |
 
 Example (`addressing-detection`):
 

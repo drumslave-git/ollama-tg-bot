@@ -28,7 +28,6 @@ export interface LatestTurnOptions {
   speakerTag?: string | null;
   mentionedUsersContext?: string | null;
   replyContext?: string | null;
-  webSearchContext?: string | null;
   currentSpeaker?: CurrentSpeaker | null;
   currentSpeakerIsOwner?: boolean;
   isGroupChat?: boolean;
@@ -66,12 +65,6 @@ function buildLatestTurnMessage(options: LatestTurnOptions): string {
 
   if (options.replyContext?.trim()) {
     parts.push(`[REPLY CONTEXT]\n${options.replyContext.trim()}`);
-  }
-
-  if (options.webSearchContext?.trim()) {
-    parts.push(
-      `[WEB SEARCH — answer from this for your reply]\n${options.webSearchContext.trim()}`,
-    );
   }
 
   if (!hasReplyThread) {

@@ -5,6 +5,8 @@ import type {
   PipelineReportWriter,
   PipelineTelegramContext,
 } from "@llm-tg-bot/modules-registry";
+import { readSearchWebSources } from "@llm-tg-bot/modules-web-search";
+import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
 import { chatComplete, chatCompleteDetailed } from "../llm/client.js";
 import { chatCompleteWithTools } from "../llm/tool-loop.js";
 import { config } from "../config/index.js";
@@ -16,6 +18,18 @@ import {
   getMcpRegistry,
   resolveEnabledMcpToolNames,
 } from "../runtime/mcp-tools.js";
+import { SEARCH_WEB_TOOL_NAME } from "@llm-tg-bot/modules-web-search";
+import { FETCH_LINK_TOOL_NAME } from "@llm-tg-bot/modules-link-fetch";
+
+function mcpToolTrace(name: string): { phaseId: string; phaseTitle: string } {
+  if (name === SEARCH_WEB_TOOL_NAME) {
+    return { phaseId: "search", phaseTitle: "Web search" };
+  }
+  if (name === FETCH_LINK_TOOL_NAME) {
+    return { phaseId: "links", phaseTitle: "Link fetch" };
+  }
+  return { phaseId: "mcp", phaseTitle: "MCP tool" };
+}
 
 function toReportWriter(turnId: number): PipelineReportWriter | null {
   const report = getMessageReport(turnId);
@@ -51,6 +65,7 @@ function createLlmServices(): PipelineLlmServices {
       const registry = getMcpRegistry();
       registry.setEnabledToolNames(resolveEnabledMcpToolNames(workflowSteps));
       const tools = await registry.listOpenAiTools();
+      const webSearchSources: WebSearchSource[] = [];
 
       if (tools.length === 0) {
         const result = await chatCompleteDetailed(messages as ChatMessage[], {
@@ -71,16 +86,26 @@ function createLlmServices(): PipelineLlmServices {
         traceLayout: options.traceLayout as never,
         tools,
         callTool: (name, args) => registry.callTool(name, args),
-        onToolCall: ({ name, result }) => {
+        onToolCall: ({ name, result: toolResult }) => {
+          if (name === SEARCH_WEB_TOOL_NAME) {
+            webSearchSources.push(
+              ...readSearchWebSources(toolResult.structuredContent),
+            );
+          }
           if (options.traceTurnId == null) return;
+          const trace = mcpToolTrace(name);
           getMessageReport(options.traceTurnId)?.okPhase(
-            "links",
-            "Link fetch",
-            `MCP tool ${name}: ${result.slice(0, 120)}`,
+            trace.phaseId,
+            trace.phaseTitle,
+            `MCP tool ${name}: ${toolResult.text.slice(0, 120)}`,
           );
         },
       });
-      return { raw: result.raw, thinking: result.thinking };
+      return {
+        raw: result.raw,
+        thinking: result.thinking,
+        webSearchSources,
+      };
     },
   };
 }
@@ -108,12 +133,13 @@ export function createPipelineServices(): PipelineHostServices {
         );
         return registry.listOpenAiTools();
       },
-      callTool: (name, args) => {
+      callTool: async (name, args) => {
         const registry = getMcpRegistry();
         registry.setEnabledToolNames(
           resolveEnabledMcpToolNames(getResolvedSettings().workflowSteps ?? []),
         );
-        return registry.callTool(name, args);
+        const result = await registry.callTool(name, args);
+        return result.text;
       },
     },
     callbacks: createPipelineCallbacks(),

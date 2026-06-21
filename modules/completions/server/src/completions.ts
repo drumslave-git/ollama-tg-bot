@@ -62,8 +62,12 @@ export const completionsHost: PipelineModuleHost = {
       },
     });
 
-    const { raw: modelOutput, thinking } = await complete(built.messages);
+    const { raw: modelOutput, thinking, webSearchSources } =
+      await complete(built.messages);
     state.thinking = thinking;
+    if (webSearchSources?.length) {
+      state.webSearchSources = webSearchSources;
+    }
 
     const replyBody = extractTelegramReply(modelOutput);
     state.replyBody = replyBody;

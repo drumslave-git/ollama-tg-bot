@@ -79,7 +79,9 @@ export {
 export {
   BotMcpRegistry,
   type McpToolRegistrar,
+  type McpToolHostContext,
 } from "./mcp/bot-mcp-registry.js";
+export type { McpToolCallResult } from "./mcp/tool-result.js";
 export {
   callToolResultToText,
   mcpToolToOpenAi,

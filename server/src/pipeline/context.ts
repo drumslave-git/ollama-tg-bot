@@ -77,7 +77,6 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
     speakerTag: state.userRole,
     mentionedUsersContext: state.mentionedUsersContext,
     replyContext: state.replyContext,
-    webSearchContext: state.webSearchContext,
     currentSpeaker: state.currentSpeaker as LatestTurnOptions["currentSpeaker"],
     currentSpeakerIsOwner: state.currentSpeakerIsOwner,
     isGroupChat: state.inGroup,

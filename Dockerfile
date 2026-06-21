@@ -10,7 +10,6 @@ COPY dashboard/package.json ./dashboard/
 COPY modules/registry/package.json ./modules/registry/
 COPY modules/utils/server/package.json ./modules/utils/server/
 COPY modules/addressing-detection/server/package.json ./modules/addressing-detection/server/
-COPY modules/search-decision/server/package.json ./modules/search-decision/server/
 COPY modules/web-search/server/package.json ./modules/web-search/server/
 COPY modules/memory/server/package.json ./modules/memory/server/
 COPY modules/memory/db/package.json ./modules/memory/db/
@@ -47,7 +46,6 @@ COPY server/package.json ./server/
 COPY modules/registry/package.json ./modules/registry/
 COPY modules/utils/server/package.json ./modules/utils/server/
 COPY modules/addressing-detection/server/package.json ./modules/addressing-detection/server/
-COPY modules/search-decision/server/package.json ./modules/search-decision/server/
 COPY modules/web-search/server/package.json ./modules/web-search/server/
 COPY modules/memory/server/package.json ./modules/memory/server/
 COPY modules/memory/db/package.json ./modules/memory/db/
@@ -71,7 +69,6 @@ COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/modules/registry/dist ./modules/registry/dist
 COPY --from=build /app/modules/utils/server/dist ./modules/utils/server/dist
 COPY --from=build /app/modules/addressing-detection/server/dist ./modules/addressing-detection/server/dist
-COPY --from=build /app/modules/search-decision/server/dist ./modules/search-decision/server/dist
 COPY --from=build /app/modules/web-search/server/dist ./modules/web-search/server/dist
 COPY --from=build /app/modules/memory/server/dist ./modules/memory/server/dist
 COPY --from=build /app/modules/memory/db/dist ./modules/memory/db/dist

@@ -18,10 +18,6 @@ export const liveVitestAliases = {
     modulesRoot,
     "addressing-detection/server/src/index.ts",
   ),
-  "@llm-tg-bot/modules-search-decision": path.join(
-    modulesRoot,
-    "search-decision/server/src/index.ts",
-  ),
   "@llm-tg-bot/modules-web-search": path.join(
     modulesRoot,
     "web-search/server/src/index.ts",
