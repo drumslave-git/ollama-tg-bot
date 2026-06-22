@@ -20,7 +20,7 @@ import {
 } from "./adapters/system-prompt.js";
 import { resolveEnabledMcpToolNames } from "../runtime/mcp-tools.js";
 import type { MoodValues } from "../mood/index.js";
-import { extractParticipantUserIds, filterInjectableHistory, historyBeforeMessageId } from "@llm-tg-bot/modules-history";
+import { extractParticipantUserIds, filterInjectableHistory, historyBeforeMessageId } from "../features/history/index.js";
 import { isReplyThreadContext } from "../bot/replies/replies.js";
 import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 

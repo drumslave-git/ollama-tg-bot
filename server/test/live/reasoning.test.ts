@@ -5,7 +5,7 @@ import {
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "../../src/llm/openai-compat.js";
-import { getMainReplyResponseFormat } from "@llm-tg-bot/modules-completions";
+import { getMainReplyResponseFormat } from "../../src/features/completions/index.js";
 import { hasVisibleTelegramReply, prepareTelegramHtml } from "../../src/telegram/html.js";
 import { makeSettings } from "../helpers/settings.js";
 import { liveClient, liveConfig, liveReasoningMode, runTurn } from "./helpers.js";

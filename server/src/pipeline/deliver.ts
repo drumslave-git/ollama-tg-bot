@@ -1,6 +1,6 @@
 import type { Context } from "grammy";
-import type { PipelineDeliveryResult } from "@llm-tg-bot/modules-registry";
-import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
+import type { PipelineDeliveryResult } from "../contracts/index.js";
+import type { WebSearchSource } from "../features/web-search/index.js";
 import { recordReply } from "../db/index.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { logEvent, logEventError } from "../logging/event-log.js";

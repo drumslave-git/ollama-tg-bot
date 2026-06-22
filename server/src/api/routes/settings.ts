@@ -8,16 +8,16 @@ import {
   syncStickerCatalogFromSettings,
   getStickerCatalogState,
   refreshStickerCatalog,
-} from "@llm-tg-bot/modules-sticker-selection";
+} from "../../features/sticker/index.js";
 import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
-import type { BotHostLogging } from "@llm-tg-bot/modules-registry";
+import type { BotHostLogging } from "../../contracts/index.js";
 import { getResolvedSettings, getResolvedHistoryLimits, getContextBudgetForSettings } from "../../settings/runtime.js";
 import { buildBaseSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
 import { getVramAvailableGb, config } from "../../config/index.js";
 import { listModels, checkHealth } from "../../llm/client.js";
 import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings/limits.js";
 import { calculateContextBudget, modelContextInputFromTags } from "../../settings/context-budget.js";
-import { runWebSearch } from "@llm-tg-bot/modules-web-search";
+import { runWebSearch } from "../../features/web-search/index.js";
 
 const stickerCatalogLog: BotHostLogging = {
   logEvent: (event, fields) => logEvent(event, fields as EventFields),

@@ -1,5 +1,5 @@
-import { extractTelegramReply } from "@llm-tg-bot/modules-completions";
-import { asObject, parseJsonContent } from "@llm-tg-bot/modules-utils";
+import { extractTelegramReply } from "../../features/completions/index.js";
+import { asObject, parseJsonContent } from "../../shared/index.js";
 import { listDistinctHistoryChatIds } from "../../db/history/index.js";
 import { MAINTENANCE_MODE_ON_BEHAVIOR } from "./maintenance-mode.js";
 

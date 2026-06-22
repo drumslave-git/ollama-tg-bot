@@ -1,1 +1,1 @@
-export * from "@llm-tg-bot/modules-mood-evaluation-db";
+export * from "../../features/mood/db/index.js";

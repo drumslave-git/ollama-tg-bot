@@ -1,5 +1,5 @@
-import type { ExplainExtension } from "@llm-tg-bot/modules-completions";
-import { EXPLAIN_EXTENSION_ID } from "@llm-tg-bot/modules-completions";
+import type { ExplainExtension } from "../features/completions/index.js";
+import { EXPLAIN_EXTENSION_ID } from "../features/completions/index.js";
 import {
   getSettings,
   recordError,
@@ -18,7 +18,7 @@ import { chatCompleteDetailed } from "../llm/client.js";
 import {
   extractTelegramReply,
   getMainReplyResponseFormat,
-} from "@llm-tg-bot/modules-completions";
+} from "../features/completions/index.js";
 import {
   hasVisibleTelegramReply,
   prepareTelegramHtml,
@@ -34,7 +34,7 @@ import {
   resolveUserId,
 } from "../bot/telegram/keys.js";
 import { resolveCommandInlineOrReplyText } from "../bot/commands/command-utils.js";
-import { userRoleTag } from "@llm-tg-bot/modules-history";
+import { userRoleTag } from "../features/history/index.js";
 import {
   deliverHtmlErrorReply,
   sendChunkedHtmlReply,

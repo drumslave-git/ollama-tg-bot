@@ -3,4 +3,4 @@ export {
   hasVisibleTelegramReply,
   prepareTelegramHtml,
   visibleTelegramText,
-} from "@llm-tg-bot/modules-utils";
+} from "../shared/index.js";

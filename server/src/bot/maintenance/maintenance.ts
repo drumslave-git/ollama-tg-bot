@@ -1,5 +1,5 @@
 import type { Context } from "grammy";
-import { messageHasBotUsernameMention } from "@llm-tg-bot/modules-addressing-detection";
+import { messageHasBotUsernameMention } from "../../features/addressing/index.js";
 import { getSettings } from "../../db/index.js";
 import { isOwner } from "../owner/owner.js";
 

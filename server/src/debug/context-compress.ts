@@ -1,7 +1,7 @@
 import {
   scheduleHistoryCompression,
   type HistoryCompressResult,
-} from "@llm-tg-bot/modules-history";
+} from "../features/history/index.js";
 import { getHistory, replaceHistory } from "../db/history/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { chatComplete } from "../llm/client.js";

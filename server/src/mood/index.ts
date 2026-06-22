@@ -9,4 +9,4 @@ export {
   formatMoodForPrompt,
   type MoodKey,
   type MoodValues,
-} from "@llm-tg-bot/modules-mood-evaluation";
+} from "../features/mood/index.js";

@@ -5,8 +5,8 @@ import { beginMessageReport } from "../../debug/message-report.js";
 import { extractText } from "../messages/message-content.js";
 import { summarizeMessageContent } from "../replies/replies.js";
 import { isSlashCommandMessage } from "../commands/slash-command.js";
-import { messageHasVisionMedia } from "@llm-tg-bot/modules-vision";
-import { mediaKindForMessage, formatHistoryPointer } from "@llm-tg-bot/modules-history";
+import { messageHasVisionMedia } from "../../features/vision/index.js";
+import { mediaKindForMessage, formatHistoryPointer } from "../../features/history/index.js";
 import { isMaintenanceBlocked } from "../maintenance/maintenance.js";
 import {
   createInitialPipelineState,

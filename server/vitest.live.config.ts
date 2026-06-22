@@ -15,7 +15,10 @@ export default defineConfig({
   },
   test: {
     ...liveVitestTestDefaults,
-    include: ["test/live/**/*.test.ts"],
-    exclude: ["test/live/reasoning.test.ts"],
+    include: [
+      "test/live/**/*.test.ts",
+      "test/features/**/live/**/*.live.test.ts",
+    ],
+    exclude: ["test/live/reasoning.test.ts", "**/*.reasoning.live.test.ts"],
   },
 });

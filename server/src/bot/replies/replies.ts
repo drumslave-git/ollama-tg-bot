@@ -1,7 +1,7 @@
 import type { Context } from "grammy";
 import type { Message, User } from "grammy/types";
 import type { CurrentSpeaker } from "../messages/speaker.js";
-import { stickerHistoryLabel } from "@llm-tg-bot/modules-vision";
+import { stickerHistoryLabel } from "../../features/vision/index.js";
 
 export function formatReplyContext(
   ctx: Context,

@@ -6,20 +6,20 @@ import {
   MEMORY_MERGE_RESPONSE_FORMAT,
   configureMemoryJobDebugStats,
   getMemoryJobScheduledRunAt,
-} from "@llm-tg-bot/modules-memory";
-import { createVisionQueueScheduler } from "@llm-tg-bot/modules-vision";
+} from "../features/memory/index.js";
+import { createVisionQueueScheduler } from "../features/vision/index.js";
 import {
   configureVisionJobDebugStats,
   getVisionJobScheduledRunAt,
-} from "@llm-tg-bot/modules-vision";
-import { responseFormatForThinking } from "@llm-tg-bot/modules-utils";
-import { isBase64MediaHistoryContent } from "@llm-tg-bot/modules-history";
+} from "../features/vision/index.js";
+import { responseFormatForThinking } from "../shared/index.js";
+import { isBase64MediaHistoryContent } from "../features/history/index.js";
 import {
   getMemoryChatFingerprint,
   getMemoryModuleConfig,
   setMemoryChatFingerprint,
-} from "@llm-tg-bot/modules-memory-db";
-import { getVisionModuleConfig } from "@llm-tg-bot/modules-vision-db";
+} from "../features/memory/db/index.js";
+import { getVisionModuleConfig } from "../features/vision/db/index.js";
 import {
   getHistory,
   listHistoryChatKeys,
@@ -35,7 +35,7 @@ import { chatComplete } from "../llm/client.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { createPipelineServices } from "../pipeline/services.js";
-import type { PipelineHostServices } from "@llm-tg-bot/modules-registry";
+import type { PipelineHostServices } from "../contracts/index.js";
 import { loadChatParticipants } from "../pipeline/chat-messages.js";
 import { getMessageQueueSize } from "./message-queue.js";
 import {
@@ -52,37 +52,50 @@ function getPipelineServices(): PipelineHostServices {
   return pipelineServices;
 }
 
-configureVisionJobDebugStats(
-  () => {
-    let pendingMediaRows = 0;
-    let chatsWithPending = 0;
-    for (const chatKey of listHistoryChatKeys(100)) {
-      const pending = getHistory(chatKey).filter((row) =>
-        isBase64MediaHistoryContent(row.content),
-      ).length;
-      if (pending > 0) {
-        pendingMediaRows += pending;
-        chatsWithPending += 1;
+type QueueScheduler = { onQueueActivity(): void };
+
+let memoryScheduler: QueueScheduler | null = null;
+let visionScheduler: QueueScheduler | null = null;
+
+/**
+ * Wire the debounced background-job schedulers. Called once at startup.
+ * Kept out of module top-level so importing this file has no side effects
+ * (avoids import-order traps in the feature/runtime dependency graph).
+ */
+export function initQueueSchedulers(): void {
+  if (memoryScheduler && visionScheduler) return;
+
+  configureVisionJobDebugStats(
+    () => {
+      let pendingMediaRows = 0;
+      let chatsWithPending = 0;
+      for (const chatKey of listHistoryChatKeys(100)) {
+        const pending = getHistory(chatKey).filter((row) =>
+          isBase64MediaHistoryContent(row.content),
+        ).length;
+        if (pending > 0) {
+          pendingMediaRows += pending;
+          chatsWithPending += 1;
+        }
       }
-    }
-    return { pendingMediaRows, chatsWithPending };
-  },
-  () => {
-    setVisionJobRunAt(getVisionJobScheduledRunAt());
+      return { pendingMediaRows, chatsWithPending };
+    },
+    () => {
+      setVisionJobRunAt(getVisionJobScheduledRunAt());
+      void import("../dashboard/live-events.js").then(({ emitStatsUpdated }) => {
+        emitStatsUpdated();
+      });
+    },
+  );
+
+  configureMemoryJobDebugStats(() => {
+    setMemoryJobRunAt(getMemoryJobScheduledRunAt());
     void import("../dashboard/live-events.js").then(({ emitStatsUpdated }) => {
       emitStatsUpdated();
     });
-  },
-);
-
-configureMemoryJobDebugStats(() => {
-  setMemoryJobRunAt(getMemoryJobScheduledRunAt());
-  void import("../dashboard/live-events.js").then(({ emitStatsUpdated }) => {
-    emitStatsUpdated();
   });
-});
 
-const memoryScheduler = createMemoryQueueScheduler({
+  memoryScheduler = createMemoryQueueScheduler({
   getQueueSize: getMessageQueueSize,
   getConfig: getMemoryModuleConfig,
   listHistoryChatKeys,
@@ -147,7 +160,7 @@ const memoryScheduler = createMemoryQueueScheduler({
     logEventError(event, err, fields as never),
 });
 
-const visionScheduler = createVisionQueueScheduler({
+  visionScheduler = createVisionQueueScheduler({
   getQueueSize: getMessageQueueSize,
   getConfig: getVisionModuleConfig,
   listHistoryChatKeys,
@@ -177,9 +190,11 @@ const visionScheduler = createVisionQueueScheduler({
     logEventError(event, err, fields as never),
 });
 
+}
+
 export function onQueueActivity(): void {
-  memoryScheduler.onQueueActivity();
-  visionScheduler.onQueueActivity();
+  memoryScheduler?.onQueueActivity();
+  visionScheduler?.onQueueActivity();
 }
 
 export function onQueueDrained(): void {

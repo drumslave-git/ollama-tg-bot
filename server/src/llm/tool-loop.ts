@@ -1,5 +1,5 @@
-import type { McpToolCallResult } from "@llm-tg-bot/modules-utils";
-import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+import type { McpToolCallResult } from "../shared/index.js";
+import type { JsonSchemaResponseFormat } from "../shared/index.js";
 import type {
   ChatCompletionMessageParam,
   ChatCompletionTool,

@@ -6,11 +6,11 @@ import {
 import {
   getMainReplyResponseFormat,
   MAIN_REPLY_RESPONSE_FORMAT,
-} from "@llm-tg-bot/modules-completions";
+} from "../../src/features/completions/index.js";
 import {
   REASONING_JSON_FIELD,
   withReasoningInSchema,
-} from "@llm-tg-bot/modules-utils";
+} from "../../src/shared/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("main reply thinking request policy", () => {

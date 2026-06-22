@@ -7,20 +7,20 @@ import {
   buildParticipantMemoriesSection,
   MEMORY_USAGE_PREAMBLE,
   type ParticipantMemoryFacts,
-} from "@llm-tg-bot/modules-memory";
+} from "../../features/memory/index.js";
 import {
   buildExplainFormatSpec,
   buildReplyFormatSpec,
-} from "@llm-tg-bot/modules-completions";
-import { FETCH_LINK_TOOL_NAME } from "@llm-tg-bot/modules-link-fetch";
-import { SEARCH_WEB_TOOL_NAME } from "@llm-tg-bot/modules-web-search";
+} from "../../features/completions/index.js";
+import { FETCH_LINK_TOOL_NAME } from "../../features/link-fetch/index.js";
+import { SEARCH_WEB_TOOL_NAME } from "../../features/web-search/index.js";
 import type { Settings } from "../../db/index.js";
 import {
   formatKnownUserLabel,
   type KnownUserRecord,
 } from "../../db/users/known-users.js";
 import { getReplyLengthGuidance } from "../../settings/limits.js";
-import { userRoleTagFromKnown } from "@llm-tg-bot/modules-history";
+import { userRoleTagFromKnown } from "../../features/history/index.js";
 import { formatMoodForPrompt, type MoodValues } from "../../mood/index.js";
 
 export const BASE_SYSTEM_PROMPT_CORE = `You are a character in a Telegram chat. You receive prior messages from this chat — use them for context and continuity.

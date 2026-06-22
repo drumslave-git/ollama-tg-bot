@@ -5,7 +5,7 @@ import type {
   PipelineShouldRunResult,
   PipelineStepResult,
   PipelineTurnState,
-} from "@llm-tg-bot/modules-registry";
+} from "../contracts/index.js";
 
 export function isPipelineStepEnabled(
   host: PipelineModuleHost,

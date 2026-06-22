@@ -1,20 +1,8 @@
-import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
-import {
-  BotMcpRegistry,
-  type McpToolRegistrar,
-} from "@llm-tg-bot/modules-utils";
-import {
-  discoverModuleManifests,
-  type ModuleManifest,
-} from "@llm-tg-bot/modules-registry";
+import type { ModuleLogging } from "../shared/index.js";
+import { BotMcpRegistry } from "../shared/index.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
-import { resolveModulesRoot } from "./modules.js";
-
-type ServerManifest = ModuleManifest & {
-  serverPackage: string;
-  mcpTools: NonNullable<ModuleManifest["mcpTools"]>;
-};
+import { MODULE_REGISTRY } from "./module-registry.js";
 
 interface RegisteredMcpModule {
   workflowStepId: string;
@@ -23,13 +11,6 @@ interface RegisteredMcpModule {
 
 let registry: BotMcpRegistry | null = null;
 const registeredModules: RegisteredMcpModule[] = [];
-
-function mcpManifests(): ServerManifest[] {
-  return discoverModuleManifests(resolveModulesRoot()).filter(
-    (manifest): manifest is ServerManifest =>
-      Boolean(manifest.serverPackage && manifest.mcpTools),
-  );
-}
 
 function mcpHostContext(): {
   getSecret: (name: "tavily" | "openai") => string;
@@ -55,19 +36,12 @@ export async function loadMcpTools(): Promise<BotMcpRegistry> {
   registry = new BotMcpRegistry();
   const context = mcpHostContext();
 
-  for (const manifest of mcpManifests()) {
-    const mod = (await import(manifest.serverPackage)) as {
-      registerMcpTools?: McpToolRegistrar;
-    };
-    if (!mod.registerMcpTools) {
-      throw new Error(
-        `Module ${manifest.id} declares mcpTools but does not export registerMcpTools`,
-      );
-    }
-    registry.registerTools(mod.registerMcpTools, context);
+  for (const entry of MODULE_REGISTRY) {
+    if (!entry.mcpTools) continue;
+    registry.registerTools(entry.mcpTools.registrar, context);
     registeredModules.push({
-      workflowStepId: manifest.mcpTools.workflowStepId,
-      toolNames: [...manifest.mcpTools.toolNames],
+      workflowStepId: entry.mcpTools.workflowStepId,
+      toolNames: [...entry.mcpTools.toolNames],
     });
   }
 

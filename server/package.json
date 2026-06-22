@@ -7,7 +7,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "tsx watch --tsconfig tsconfig.json --include ../modules/**/server/** --include ../modules/**/db/** src/index.ts",
+    "dev": "tsx watch --tsconfig tsconfig.json src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "node ../scripts/typecheck-package.mjs",
     "start": "node dist/index.js",
@@ -17,29 +17,17 @@
     "test:llm:reasoning": "vitest run --config vitest.live.reasoning.config.ts"
   },
   "dependencies": {
+    "@grammyjs/types": "^3.22.2",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "grammy": "^1.35.0",
-    "@llm-tg-bot/modules-addressing-detection": "*",
-    "@llm-tg-bot/modules-mood-evaluation": "*",
-    "@llm-tg-bot/modules-mood-evaluation-db": "*",
-    "@llm-tg-bot/modules-history": "*",
-    "@llm-tg-bot/modules-history-db": "*",
-    "@llm-tg-bot/modules-vision": "*",
-    "@llm-tg-bot/modules-vision-db": "*",
-    "@llm-tg-bot/modules-sticker-selection": "*",
-    "@llm-tg-bot/modules-link-fetch": "*",
-    "@llm-tg-bot/modules-memory": "*",
-    "@llm-tg-bot/modules-memory-db": "*",
-    "@llm-tg-bot/modules-registry": "*",
-    "@llm-tg-bot/modules-utils": "*",
-    "@llm-tg-bot/modules-completions": "*",
-    "@llm-tg-bot/modules-web-search": "*",
     "openai": "^6.42.0",
     "playwright": "^1.52.0",
     "sharp": "^0.33.5",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

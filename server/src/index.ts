@@ -8,7 +8,7 @@ import { initDatabase, getSettings } from "./db/index.js";
 import { refreshModelContextCache } from "./llm/model-context-cache.js";
 import { createApiRouter } from "./api/routes.js";
 import { startBot, stopBot } from "./bot/index.js";
-import { closePlaywrightBrowser } from "@llm-tg-bot/modules-link-fetch";
+import { closePlaywrightBrowser } from "./features/link-fetch/index.js";
 import {
   startMoodCooldownWorker,
   stopMoodCooldownWorker,
@@ -19,6 +19,7 @@ import {
   wireModuleLiveHooks,
 } from "./runtime/modules.js";
 import { loadMcpTools } from "./runtime/mcp-tools.js";
+import { initQueueSchedulers } from "./runtime/background-jobs.js";
 import {
   emitDataUpdated,
   emitMemoryUpdated,
@@ -37,6 +38,7 @@ async function main(): Promise<void> {
   });
 
   await initDatabase();
+  initQueueSchedulers();
   await loadMcpTools();
   const moduleRouters = await createModuleRouters();
   const bootSettings = getSettings();

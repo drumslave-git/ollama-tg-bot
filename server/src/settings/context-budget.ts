@@ -12,7 +12,7 @@ import {
   type ContextBudget,
   type ContextBudgetLimiter,
   type ModelContextInput,
-} from "@llm-tg-bot/modules-utils";
+} from "../shared/index.js";
 
 export {
   calculateContextBudget,

@@ -1,4 +1,4 @@
-import type { PipelineModuleHost } from "@llm-tg-bot/modules-registry";
+import type { PipelineModuleHost } from "../contracts/index.js";
 
 export type WorkflowNodeKind =
   | "input"

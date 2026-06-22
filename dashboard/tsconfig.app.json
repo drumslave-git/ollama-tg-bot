@@ -16,21 +16,8 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
-      "@llm-tg-bot/dashboard/*": ["src/*"],
-      "@llm-tg-bot/modules-memory-ui": ["../modules/memory/ui/src/index.tsx"],
-      "@llm-tg-bot/modules-mood-evaluation-ui": [
-        "../modules/mood-evaluation/ui/src/index.tsx"
-      ],
-      "@llm-tg-bot/modules-sticker-selection-ui": [
-        "../modules/sticker-selection/ui/src/index.tsx"
-      ],
-      "@llm-tg-bot/modules-history-ui": [
-        "../modules/history/ui/src/index.tsx"
-      ],
-      "@llm-tg-bot/modules-vision-ui": [
-        "../modules/vision/ui/src/index.tsx"
-      ]
+      "@llm-tg-bot/dashboard/*": ["src/*"]
     }
   },
-  "include": ["src", "../modules/*/ui/src"]
+  "include": ["src"]
 }

@@ -1,1 +1,1 @@
-export * from "@llm-tg-bot/modules-history-db";
+export * from "../../features/history/db/index.js";

@@ -8,47 +8,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "baseUrl": ".",
-    "paths": {
-      "@llm-tg-bot/modules-registry": ["../modules/registry/src/index.ts"],
-      "@llm-tg-bot/modules-utils": ["../modules/utils/server/src/index.ts"],
-      "@llm-tg-bot/modules-addressing-detection": [
-        "../modules/addressing-detection/server/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-web-search": [
-        "../modules/web-search/server/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-memory": ["../modules/memory/server/src/index.ts"],
-      "@llm-tg-bot/modules-memory-db": ["../modules/memory/db/src/index.ts"],
-      "@llm-tg-bot/modules-link-fetch": [
-        "../modules/link-fetch/server/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-sticker-selection": [
-        "../modules/sticker-selection/server/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-mood-evaluation": [
-        "../modules/mood-evaluation/server/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-mood-evaluation-db": [
-        "../modules/mood-evaluation/db/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-history": [
-        "../modules/history/server/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-history-db": [
-        "../modules/history/db/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-vision": [
-        "../modules/vision/server/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-vision-db": [
-        "../modules/vision/db/src/index.ts"
-      ],
-      "@llm-tg-bot/modules-completions": [
-        "../modules/completions/server/src/index.ts"
-      ]
-    }
+    "resolveJsonModule": true
   },
   "include": ["src"]
 }

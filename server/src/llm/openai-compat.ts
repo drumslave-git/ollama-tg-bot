@@ -9,4 +9,4 @@ export {
   type ProviderChatOptions,
   type ProviderChatSettings,
   type ReasoningEffort,
-} from "@llm-tg-bot/modules-utils";
+} from "../shared/index.js";

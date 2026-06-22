@@ -10,20 +10,20 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 
 | Workspace | Role |
 |-----------|------|
-| `server/` | Bot, LLM client, SQLite, REST API |
-| `modules/*` | Feature packages (`server/`, optional `ui/`, `db/`, `manifest.json`) |
-| `dashboard/` | Vite + React admin UI |
+| `server/` | Bot, LLM client, SQLite, REST API, and **all feature logic** under `src/features/*` |
+| `dashboard/` | Vite + React admin UI (per-module pages under `src/modules/*`) |
+
+There are only **two workspaces** (`server`, `dashboard`). Features are plain folders inside `server/src/features/<name>` — not separate npm packages. (`modules/yt-dlp` is an unwired placeholder for a planned MCP tool.)
 
 ## Commands
 
 ```bash
 npm install
 cp .env.example .env          # BOT_TOKEN required
-npm run dev                   # server :3000 + dashboard :5173 (modules watched from src)
-npm test                      # post-task gate: all module + server unit tests
-npm run typecheck             # post-task gate: server, dashboard, and all modules
-npm run build                 # production compile (modules + dashboard + server)
-npm run build:modules         # compile feature packages only (production / start)
+npm run dev                   # server :3000 + dashboard :5173
+npm test                      # post-task gate: server unit/integration suite
+npm run typecheck             # post-task gate: server + dashboard
+npm run build                 # production compile (dashboard + server)
 npm run start                 # production server only
 ```
 
@@ -34,66 +34,49 @@ npm run dev -w server
 npm run build -w server
 npm run build -w dashboard
 npm run test -w server
-npm run typecheck -w @llm-tg-bot/modules-addressing-detection
 ```
 
 Docker: `docker compose up -d --build` (see `README.md`).
 
 ### Feature modules
 
-LLM-backed bot features live in **npm workspace packages** under `modules/<name>/`. Each feature module has:
+LLM-backed bot features live as **plain folders** in `server/src/features/<name>/`. A feature may contain:
 
-| Subfolder | Package | Role |
-|-----------|---------|------|
-| `server/` | `@llm-tg-bot/modules-<name>` | Stateless runtime logic (`run`, prompts, parsers) |
-| `db/` | `@llm-tg-bot/modules-<name>-db` | SQLite tables + REST routes (optional) |
-| `ui/` | `@llm-tg-bot/modules-<name>-ui` | Dashboard React page(s) (optional) |
-| `manifest.json` | — | Discovery metadata for server + dashboard |
+| Path | Role |
+|------|------|
+| `server/src/features/<name>/*.ts` | Runtime logic — pipeline hosts (`run`, `shouldRun`), prompts, parsers |
+| `server/src/features/<name>/db/*.ts` | SQLite tables + REST routes (optional; exports a `ModuleDbExports` object) |
+| `server/src/features/<name>/register-mcp-tools.ts` | MCP tool registrar (optional) |
+| `dashboard/src/modules/<name>/index.tsx` | Dashboard React page(s) (optional; exports `moduleUi`) |
 
-Shared infrastructure: `@llm-tg-bot/modules-utils` in `modules/utils/server/`, registry in `@llm-tg-bot/modules-registry` (`modules/registry/`).
+Shared infrastructure: `server/src/shared/` (structured-output helpers, auxiliary LLM client, `BotMcpRegistry`); pipeline contracts/types in `server/src/contracts/`. Features import server code (db, bot, llm, pipeline helpers) **directly** — there is no callback wall.
 
-| Package | Purpose |
-|---------|---------|
-| `@llm-tg-bot/modules-utils` | Shared `ModuleDefinition` contract, structured-output helpers, stateless auxiliary LLM client |
-| `@llm-tg-bot/modules-addressing-detection` | Group address detection (@mention, reply, display name + LLM) |
-| `@llm-tg-bot/modules-web-search` | Tavily web search via `search_web` MCP tool during the main reply |
-| `@llm-tg-bot/modules-vision` | Telegram media download, sticker previews, and vision-model image description |
-| `@llm-tg-bot/modules-completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` bot command |
-| `@llm-tg-bot/modules-history` | Turn setup, history intake (all messages), history inject/record (queue); inject/compress skip pending base64 media; LLM compression via `compressHistoryChat()` |
-| `@llm-tg-bot/modules-mood-evaluation` | Personality + mood injection; `/mood` bot command |
+| Feature folder | Purpose |
+|----------------|---------|
+| `features/addressing` | Group address detection (@mention, reply, display name + LLM) |
+| `features/web-search` | Tavily web search via `search_web` MCP tool during the main reply |
+| `features/link-fetch` | Playwright page fetch via `fetch_link` MCP tool |
+| `features/vision` | Telegram media download, sticker previews, vision-model image description |
+| `features/completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` command |
+| `features/history` | Turn setup, history intake/inject/record; LLM compression |
+| `features/mood` | Personality + mood injection; `/mood` command |
+| `features/sticker` | Sticker selection pass; `/explain`-style picks |
+| `features/memory` | Per-user/group/general fact extraction (debounced background job) |
 
-**Contract** — every module defines typed `input`, `config`, and `output`, and exposes a `run(input, config)` function (plus a `ModuleDefinition` object with `id`):
-
-```typescript
-// addressing-detection
-input:  { message: string; sender?: string; chatType?: string }
-config: { baseUrl: string; model: string; botUsername: string; botDisplayName: string; apiKey?: string; chatComplete?: … }
-output: { result: boolean; reason: string }
-
-// web-search (MCP tool search_web)
-input:  { query: string }
-config: { apiKey: string; maxResults?: number }
-output: { ok: boolean; results: …; sources: …; context: string; answer: string | null; reason: string }
-
-// mood-evaluation
-input:  { currentMood: MoodValues; personality: string; latestMessage: string; thinkingEnabled?: boolean }
-config: { baseUrl: string; model: string; apiKey?: string; numPredict?: number; chatComplete?: … }
-output: { mood: MoodValues; reason: string }
-```
+The static module registry (`server/src/runtime/module-registry.ts`) lists each feature's metadata, db exports, and MCP registrar. Pipeline order is declared explicitly in `server/src/runtime/module-hosts.ts`.
 
 Rules:
 
-- **Stateless** — no SQLite, no Grammy `Context`, no global mutable state inside the package.
-- **Own tests** — unit tests in `<module>/test/`; optional live LLM tests in `<module>/test/live/`.
-- **Host adapter** — Telegram routing, settings, debug traces, and maintenance gates stay in `server/src/bot/*`; the host builds `config` from dashboard settings and may inject `chatComplete` for tracing.
-- **Shared code** — cross-module helpers live in `@llm-tg-bot/modules-utils`, not in `server/src`.
-- **No dead code** — when a feature is replaced or removed, delete its module, manifest, workspace entry, build/test scripts, Dockerfile lines, tsconfig paths, and docs in the same task. Do not leave “legacy” packages, orphaned pipeline hosts, or “kept for live tests” stubs.
-- **MCP tools are LLM-only** — MCP tools (`fetch_link`, `search_web`, etc.) are invoked **only** when the main-reply model calls them in the tool loop. The host registers tools, exposes them to the LLM with `tool_choice: auto`, and executes `callTool` when the model requests it. `PipelineHostServices` does not expose MCP tool calls to modules. **Never** prefetch URLs, auto-run MCP tools, force a specific tool based on message content, or inject tool results into prompts/history without an LLM `tool_calls` round. No host-side “helpful” shortcuts.
-- **Prompt-first output** — modules define strict `ANALYZER_SYSTEM` / `build*Messages()` specs; parsers stay strict (see **Structured LLM output**).
+- **Pipeline host shape** — a host is a `PipelineModuleHost` (`id`, `stepId`, optional `shouldRun`, `run(state, services)`) returning a `PipelineStepResult`. Hosts read/write the shared `PipelineTurnState` and call server functions directly (imported, e.g. from `server/src/pipeline/turn-services.ts`).
+- **Tests** — co-located under `server/test/features/<name>/`; optional live LLM tests in `server/test/features/<name>/live/`.
+- **Shared code** — cross-feature helpers live in `server/src/shared/`.
+- **No dead code** — when a feature is removed, delete its `features/<name>` folder, `module-registry.ts` entry, `module-hosts.ts` host(s), dashboard page, tests, and docs in the same task.
+- **MCP tools are LLM-only** — MCP tools (`fetch_link`, `search_web`, etc.) are invoked **only** when the main-reply model calls them in the tool loop. The host registers tools, exposes them to the LLM with `tool_choice: auto`, and executes `callTool` when the model requests it. **Never** prefetch URLs, auto-run MCP tools, force a specific tool based on message content, or inject tool results into prompts/history without an LLM `tool_calls` round.
+- **Prompt-first output** — features define strict `ANALYZER_SYSTEM` / `build*Messages()` specs; parsers stay strict (see **Structured LLM output**).
 
-**MCP tools (migration in progress):** Feature modules expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod. Shared registry: `BotMcpRegistry` in `@llm-tg-bot/modules-utils`. Manifest `mcpTools: { workflowStepId, toolNames }` + `registerMcpTools(server, context)`. Host loads tools in `server/src/runtime/mcp-tools.ts`; the main reply exposes enabled tools to the LLM and runs them through `server/src/llm/tool-loop.ts` (generic tool rounds with `tool_choice: auto` and a dedicated `buildToolRoundSystemPrompt()` — no personality/mood/reply-format on tool passes; thinking off + auxiliary temperature; then always a structured JSON final pass with the full system prompt). Migrated modules: **link-fetch** → `fetch_link(url)`; **web-search** → `search_web(query)` (explicit user request only). System prompt adds MCP usage guidance when those workflow steps are enabled (`buildMcpToolsPromptSection` in `server/src/pipeline/adapters/system-prompt.ts`).
+**MCP tools:** Features expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod. Shared registry: `BotMcpRegistry` in `server/src/shared/`. A feature with tools exports `registerMcpTools(server, context)` and is listed in `module-registry.ts` with `mcpTools: { workflowStepId, toolNames, registrar }`. Host loads them in `server/src/runtime/mcp-tools.ts`; the main reply runs them through `server/src/llm/tool-loop.ts` (generic tool rounds with `tool_choice: auto` and `buildToolRoundSystemPrompt()` — no personality/mood/reply-format on tool passes; thinking off + auxiliary temperature; then always a structured JSON final pass). Tools: **link-fetch** → `fetch_link(url)`; **web-search** → `search_web(query)` (explicit user request only). System prompt adds usage guidance via `buildMcpToolsPromptSection` in `server/src/pipeline/adapters/system-prompt.ts`.
 
-To add a module: create `modules/<name>/` with `manifest.json`, implement `server/` (`package.json` name `@llm-tg-bot/modules-<name>`), optionally `db/` and `ui/`, register workspaces in root `package.json`, add to `build:modules`, declare server deps in `server/package.json`, add dev `paths` in `server/tsconfig.json`, implement `run`, and cover with tests. Add any core pipeline or bot command host explicitly in `server/src/runtime/module-hosts.ts`; manifests are still used for DB/API/UI discovery and MCP tool registration. The dashboard globs `modules/*/ui/src/index.tsx` for UI pages.
+To add a feature: create `server/src/features/<name>/`, implement the pipeline host(s), add them to the order in `server/src/runtime/module-hosts.ts`, register metadata/db/MCP in `server/src/runtime/module-registry.ts`, add any new external deps to `server/package.json`, add a dashboard page under `dashboard/src/modules/<name>/index.tsx` if needed, and cover with tests in `server/test/features/<name>/`.
 
 
 **Node:** `>=22.13.0` (see `.nvmrc`).
@@ -130,9 +113,9 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
 4. **Queue processing (addressed only)** — synchronous order: vision (media) → system + personality → history inject → mood → main reply (optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
 5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory extraction from recent history (skips chats whose extraction fingerprint is unchanged since the last successful run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
-6. **`server/src/runtime/module-hosts.ts`** — Explicitly imports the core pipeline and bot command hosts. Intake and queue host arrays define the processing order directly.
-7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from manifests (`mcpTools` + `registerMcpTools`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
-8. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
+6. **`server/src/runtime/module-hosts.ts`** — Explicitly imports the feature pipeline and bot command hosts from `server/src/features/*`. Intake and queue host arrays define the processing order directly. Static feature metadata/db/MCP wiring is in `server/src/runtime/module-registry.ts`. Background schedulers are wired in `server/src/runtime/queue-schedulers.ts` via `initQueueSchedulers()` (called at startup — the module has no import-time side effects).
+7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from the static `module-registry.ts` (`mcpTools.registrar`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
+8. **`server/src/pipeline/turn-services.ts`** — Concrete, typed functions (SQLite, Telegram helpers, vision, LLM adapters) that pipeline hosts import directly. Replaces the former `PipelineHostCallbacks` indirection.
 9. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
 
 ### LLM
@@ -143,13 +126,13 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
-**OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (dashboard `reasoningEffort` on the main reply when `thinkingEnabled` is on; **`"low"` on all auxiliary side passes**; `"none"` when thinking is off). JSON replies require the full answer in `message.content`. When thinking is on, every pass keeps `response_format: json_schema` with an extra required **`reasoning`** string field in the schema; chain-of-thought is read from that JSON field (API `reasoning` / `reasoning_content` is a fallback). Parse decision/reply fields from `content` JSON only — never merge `reasoning` into user-facing text. Extensions: `providerChatExtensions()` and `responseFormatForThinking()` in `@llm-tg-bot/modules-utils`.
+**OpenAI-compatible backends:** Chat requests send provider-specific `options` plus `reasoning_effort` (dashboard `reasoningEffort` on the main reply when `thinkingEnabled` is on; **`"low"` on all auxiliary side passes**; `"none"` when thinking is off). JSON replies require the full answer in `message.content`. When thinking is on, every pass keeps `response_format: json_schema` with an extra required **`reasoning`** string field in the schema; chain-of-thought is read from that JSON field (API `reasoning` / `reasoning_content` is a fallback). Parse decision/reply fields from `content` JSON only — never merge `reasoning` into user-facing text. Extensions: `providerChatExtensions()` and `responseFormatForThinking()` in `server/src/shared/`.
 
 **Terminology — OpenAI-compatible only:** This project targets **any OpenAI-compatible API** (LocalAI, vLLM, llama.cpp server, cloud providers, etc.). Do **not** use vendor-specific names in code, comments, docs, or agent replies — especially **“Ollama”**. Describe behavior in neutral terms: “OpenAI-compatible API”, “provider”, “backend”, “optional model metadata endpoints”. Some servers expose non-standard routes such as `POST /api/show` or `GET /api/tags` for context length and model size; treat these as **optional provider extensions** (best-effort, fail silently if absent). Primary integration is always `/v1/models` and `/v1/chat/completions`.
 
 ### Memory
 
-Three layers, extracted in a **debounced background job** (`modules/memory/server/src/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) from recent history when the message queue has been idle — not per-message in the reply path. Per-chat fingerprints in `memory_job_chat_state` skip unchanged chats.
+Three layers, extracted in a **debounced background job** (`server/src/features/memory/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) from recent history when the message queue has been idle — not per-message in the reply path. Per-chat fingerprints in `memory_job_chat_state` skip unchanged chats.
 
 - Per-user, per-group, general — see `server/src/db/*-memory.ts`
 - User/group memories are merged into one entity document during persistence.
@@ -180,13 +163,13 @@ If output is unparseable after a prompt fix, treat it as a failed pass (ignore, 
 
 Reference implementations:
 
-- **Schema helpers:** `@llm-tg-bot/modules-utils` (`json-schema.ts`: `strictObjectSchema`, `parseJsonContent`, typed readers)
-- **Address detection:** `@llm-tg-bot/modules-addressing-detection` (`ADDRESS_RESPONSE_FORMAT`, `{ addressed: boolean }`)
-- **Main reply:** `MAIN_REPLY_RESPONSE_FORMAT` + `buildReplyFormatSpec()` in `modules/completions/server/src/response-format.ts` (`{ reply: string }`)
+- **Schema helpers:** `server/src/shared/json-schema.ts` (`strictObjectSchema`, `parseJsonContent`, typed readers)
+- **Address detection:** `server/src/features/addressing/` (`ADDRESS_RESPONSE_FORMAT`, `{ addressed: boolean }`)
+- **Main reply:** `MAIN_REPLY_RESPONSE_FORMAT` + `buildReplyFormatSpec()` in `server/src/features/completions/response-format.ts` (`{ reply: string }`)
 
 ### Response format
 
-Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `modules/completions/server/src/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
+Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `server/src/features/completions/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
 
 **LLM response fields:** User-facing text comes from the API `content` JSON (`reply`, `addressed`, etc.). Chain-of-thought comes from the JSON `reasoning` field when thinking is on (`mergeAssistantReasoning()` prefers JSON, then API `reasoning` / `reasoning_content`) — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
 
@@ -201,7 +184,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 - **NEVER use real or user-provided data in committed code** — do not copy Telegram user IDs, usernames, chat IDs, display names, message text, conversation excerpts, `.env` values, API keys, or any other personal or environment-specific data from bug reports, traces, dashboards, ACP context, or chat into source, tests, fixtures, prompts, or comments. Always invent clearly fictional placeholders (e.g. `user:alice:424242`, `testuser`, `-100999001`).
 - **English-only source** — tests, prompts, comments, and code must be written in proper English. No Cyrillic and no transliteration of foreign words.
 - **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.
-- **SQLite settings** — add new keys to `DEFAULT_SETTINGS` in `server/src/db/database.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
+- **SQLite settings** — add new keys to `DEFAULT_SETTINGS` in `server/src/db/index.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
 
 ## Dashboard pages
 
@@ -223,7 +206,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 
 ## Telegram specifics
 
-- Entity offsets are **UTF-16 code units** (same as JS strings) — see `sliceEntity` in `@llm-tg-bot/modules-addressing-detection`.
+- Entity offsets are **UTF-16 code units** (same as JS strings) — see `sliceEntity` in `server/src/features/addressing/`.
 - Group commands often need `/cmd@BotUsername` when privacy mode is on.
 - Mention handling: `server/src/bot/messages/mentions.ts` (skip self-mentions and bot mention for address detection).
 
@@ -232,17 +215,18 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Area | Files |
 |------|-------|
 | Bot entry | `server/src/bot/index.ts`, `handlers/index.ts`, `handlers/message.ts` |
-| Pipeline | `server/src/pipeline/queue-runner.ts`, `deliver.ts`, `context.ts`, `server/src/runtime/message-queue.ts`, `server/src/runtime/background-jobs.ts`, `runtime/module-hosts.ts` |
-| Address detection | `modules/addressing-detection/server/` (pipeline hosts + `bot-identity.ts`) |
+| Pipeline | `server/src/pipeline/queue-runner.ts`, `deliver.ts`, `context.ts`, `turn-services.ts`; `runtime/message-queue.ts`, `runtime/background-jobs.ts`, `runtime/module-hosts.ts`, `runtime/module-registry.ts` |
+| Shared / contracts | `server/src/shared/` (LLM helpers, MCP registry), `server/src/contracts/` (pipeline + db + bot types) |
+| Address detection | `server/src/features/addressing/` (pipeline hosts + `bot-identity.ts`) |
 | Maintenance | `server/src/bot/maintenance/maintenance.ts`, `server/src/bot/maintenance/announce.ts`, `owner/owner.ts` |
-| Settings DB | `server/src/db/database.ts`, `server/src/api/routes.ts` |
-| History | `modules/history/server/` (pipeline hosts); SQLite in `server/src/db/history/` |
-| Vision | `modules/vision/server/`; vision describe wired in `server/src/pipeline/adapters/callbacks.ts` |
-| Completions | `modules/completions/server/` (system prompt + LLM reply pipeline hosts, `/explain` bot host, reply JSON schema); host adapter `server/src/pipeline/adapters/system-prompt.ts` |
-| Web search | `modules/web-search/server/` (`search_web` MCP tool; Tavily) |
-| Link fetch | `modules/link-fetch/server/` (`fetch_link` MCP tool; Playwright) |
-| Sticker selection | `modules/sticker-selection/server/` |
-| Mood evaluation | `modules/mood-evaluation/server/` (personality + mood pipeline hosts, `/mood` bot host) |
+| Settings DB | `server/src/db/index.ts`, `server/src/api/routes.ts` |
+| History | `server/src/features/history/` (pipeline hosts) + `server/src/features/history/db/`; runtime accessors in `server/src/db/history/` |
+| Vision | `server/src/features/vision/` (+ `db/`); describe wiring in `server/src/pipeline/turn-services.ts` |
+| Completions | `server/src/features/completions/` (system prompt + LLM reply hosts, `/explain` bot host, reply JSON schema); prompt assembly `server/src/pipeline/adapters/system-prompt.ts` |
+| Web search | `server/src/features/web-search/` (`search_web` MCP tool; Tavily) |
+| Link fetch | `server/src/features/link-fetch/` (`fetch_link` MCP tool; Playwright) |
+| Sticker selection | `server/src/features/sticker/` |
+| Mood evaluation | `server/src/features/mood/` (+ `db/`; personality + mood hosts, `/mood` bot host) |
 | HTML replies | `server/src/telegram/html.ts`, `server/src/bot/replies/delivery.ts` |
 
 ## Testing
@@ -260,28 +244,24 @@ Maintain test coverage for all new features and bug fixes. Update `AGENTS.md` wh
 
 ### What `npm test` covers
 
-[Vitest](https://vitest.dev) runs every `@llm-tg-bot/modules-*` unit suite (`<module>/test/`) plus the mocked server suite (`server/test/unit/**`; fixture in `server/test/helpers/settings.ts`; config `server/vitest.config.ts`).
+[Vitest](https://vitest.dev) runs the single server suite — every `server/test/**/*.test.ts` (feature suites in `server/test/features/<name>/`, shared in `server/test/shared/`, server units in `server/test/unit/**`; fixture in `server/test/helpers/settings.ts`; config `server/vitest.config.ts`). Live tests (`**/live/**`) are excluded. Note: `server/test/shims/node-sqlite.mjs` is aliased in for `node:sqlite` because the bundled Vite predates that builtin.
 
 ### Opt-in live LLM suites
 
 Not part of the post-task gate unless the user asks. Root: `npm run test:llm`. Requires `LLM_BASE_URL` and `LLM_MODEL` (optional `LLM_API_KEY`); suites self-skip when unset.
 
-**Every package that calls an LLM** (module `run()`, pipeline host, or server path) must ship **both** live suites:
+**Every feature that calls an LLM** (pipeline host or server path) should ship live coverage:
 
-| Script | When it runs | Config |
-|--------|----------------|--------|
-| `test:llm` | Thinking **off** (`LLM_THINKING_ENABLED` unset) | `vitest.live.config.ts` → `test/live/**/*.live.test.ts` |
-| `test:llm:reasoning` | Thinking **on** (`LLM_THINKING_ENABLED=1` in config) | `vitest.live.reasoning.config.ts` → `test/live/**/*.reasoning.live.test.ts` |
+| Script | When it runs | Config (globs) |
+|--------|----------------|----------------|
+| `test:llm` | Thinking **off** | `vitest.live.config.ts` → `test/live/**` + `test/features/**/live/**/*.live.test.ts` |
+| `test:llm:reasoning` | Thinking **on** (`LLM_THINKING_ENABLED=1`) | `vitest.live.reasoning.config.ts` → `test/live/reasoning.test.ts` + `test/features/**/live/**/*.reasoning.live.test.ts` |
 
-Split files with `describe.skipIf(!cfg \|\| liveReasoningMode())` vs `describe.skipIf(!cfg \|\| !liveReasoningMode())` so the two root commands never double-run the same cases. Shared helpers live in `test/live/helpers.ts` (`liveConfig()`, `liveReasoningMode()`, and a `runLive…()` wrapper around the production code path).
-
-Register both scripts in the workspace `package.json` and wire `test:llm:reasoning` into the root `package.json` when adding a new LLM-backed package.
-
-Current module live tests: addressing-detection, memory, mood-evaluation, history (compression). Reasoning live: history compression, mood-evaluation, server main reply. Server live config: `server/vitest.live.config.ts`; `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
+Split files with `describe.skipIf(!cfg \|\| liveReasoningMode())` vs `describe.skipIf(!cfg \|\| !liveReasoningMode())` so the two commands never double-run the same cases. `TAVILY_API_KEY` is force-cleared in `test/live/setup-env.ts`.
 
 ### Auxiliary generation budget
 
-Reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` when thinking is off and `AUXILIARY_REASONING_NUM_PREDICT` when it is on (`server/src/settings/limits.ts` on server, `@llm-tg-bot/modules-utils` for packages); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
+Reasoning backends spend tokens on hidden chain-of-thought before emitting the structured block, so side passes need a generous `max_completion_tokens`. The floor is `AUXILIARY_NUM_PREDICT` when thinking is off and `AUXILIARY_REASONING_NUM_PREDICT` when it is on (`server/src/settings/limits.ts` and `server/src/shared/`); memory merge raises its own budget (`MEMORY_MERGE_NUM_PREDICT`). Too low a budget makes a pass return empty `content` and silently fail.
 
 ## Common pitfalls
 

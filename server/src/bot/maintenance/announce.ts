@@ -1,4 +1,4 @@
-import { getMainReplyResponseFormat } from "@llm-tg-bot/modules-completions";
+import { getMainReplyResponseFormat } from "../../features/completions/index.js";
 import { getBot } from "../index.js";
 import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
 import { appendAssistantMessage } from "../../db/history/index.js";

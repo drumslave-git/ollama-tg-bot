@@ -1,1 +1,1 @@
-export * from "@llm-tg-bot/modules-memory-db";
+export * from "../../features/memory/db/index.js";

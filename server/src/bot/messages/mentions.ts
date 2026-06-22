@@ -7,9 +7,9 @@ import {
   type KnownUserRecord,
 } from "../../db/users/known-users.js";
 import { getUserFacts } from "../../db/memory/user.js";
-import { userRoleTagFromKnown } from "@llm-tg-bot/modules-history";
+import { userRoleTagFromKnown } from "../../features/history/index.js";
 import { formatSpeakerLabel } from "./speaker.js";
-import { sliceEntity } from "@llm-tg-bot/modules-addressing-detection";
+import { sliceEntity } from "../../features/addressing/index.js";
 
 export interface MentionedKnownUser {
   userId: string;

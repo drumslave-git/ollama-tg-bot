@@ -5,74 +5,64 @@ import {
   type BotHostServices,
   type BotModuleHost,
   type PipelineModuleHost,
-} from "@llm-tg-bot/modules-registry";
+} from "../contracts/index.js";
 import {
   addressingHost,
   replyTriggersHost,
-} from "@llm-tg-bot/modules-addressing-detection";
+} from "../features/addressing/index.js";
 import {
   historyInjectHost,
   historyRecordHost,
   intakeHistoryHost,
   turnSetupHost,
-} from "@llm-tg-bot/modules-history";
-import { visionReplyHost } from "@llm-tg-bot/modules-vision";
+} from "../features/history/index.js";
+import { visionReplyHost } from "../features/vision/index.js";
 import {
   moodPipelineHost,
   personalityHost,
-} from "@llm-tg-bot/modules-mood-evaluation";
+} from "../features/mood/index.js";
 import {
   completionsHost,
   systemPromptHost,
-} from "@llm-tg-bot/modules-completions";
-import { stickerPipelineHost } from "@llm-tg-bot/modules-sticker-selection";
-import { botHost as completionsBotHost } from "@llm-tg-bot/modules-completions";
-import { botHost as moodBotHost } from "@llm-tg-bot/modules-mood-evaluation";
-import { botHost as stickerBotHost } from "@llm-tg-bot/modules-sticker-selection";
+} from "../features/completions/index.js";
+import { stickerPipelineHost } from "../features/sticker/index.js";
+import { botHost as completionsBotHost } from "../features/completions/index.js";
+import { botHost as moodBotHost } from "../features/mood/index.js";
+import { botHost as stickerBotHost } from "../features/sticker/index.js";
 import { getSettings } from "../db/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { replyToUser } from "../bot/replies/replies-helpers.js";
 import { createExplainExtensions } from "./explain-host.js";
 import { createMoodExtensions } from "./mood-host.js";
 
-const INTAKE_PIPELINE_HOSTS: PipelineModuleHost[] = [
-  turnSetupHost,
-  intakeHistoryHost,
-  replyTriggersHost,
-  addressingHost,
-];
-
-const QUEUE_PIPELINE_HOSTS: PipelineModuleHost[] = [
-  visionReplyHost,
-  systemPromptHost,
-  personalityHost,
-  historyInjectHost,
-  moodPipelineHost,
-  completionsHost,
-  stickerPipelineHost,
-  historyRecordHost,
-];
-
-const BOT_HOSTS: BotModuleHost[] = [
-  completionsBotHost,
-  moodBotHost,
-  stickerBotHost,
-];
-
-export function getPipelineHosts(): PipelineModuleHost[] {
-  return [...INTAKE_PIPELINE_HOSTS, ...QUEUE_PIPELINE_HOSTS];
-}
+// Built lazily inside getters (not as module-level consts) so the host
+// imports are read at call time, after all feature modules have finished
+// initializing. A top-level array would hit a temporal-dead-zone error on
+// the import cycle between hosts and their shared turn-services.
 
 export function getIntakePipelineHosts(): PipelineModuleHost[] {
-  return INTAKE_PIPELINE_HOSTS;
+  return [turnSetupHost, intakeHistoryHost, replyTriggersHost, addressingHost];
 }
 
 export function getQueuePipelineHosts(): PipelineModuleHost[] {
-  return QUEUE_PIPELINE_HOSTS;
+  return [
+    visionReplyHost,
+    systemPromptHost,
+    personalityHost,
+    historyInjectHost,
+    moodPipelineHost,
+    completionsHost,
+    stickerPipelineHost,
+    historyRecordHost,
+  ];
+}
+
+export function getPipelineHosts(): PipelineModuleHost[] {
+  return [...getIntakePipelineHosts(), ...getQueuePipelineHosts()];
 }
 
 export function getBotHosts(): BotModuleHost[] {
-  return BOT_HOSTS;
+  return [completionsBotHost, moodBotHost, stickerBotHost];
 }
 
 export function createBotHostServices(

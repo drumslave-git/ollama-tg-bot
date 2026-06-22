@@ -1,7 +1,7 @@
 import type {
   PipelineModuleHost,
   PipelineTurnState,
-} from "@llm-tg-bot/modules-registry";
+} from "../contracts/index.js";
 import {
   getIntakePipelineHosts,
   getQueuePipelineHosts,
@@ -10,12 +10,13 @@ import {
   isPipelineStepEnabled,
   runPipelineHost,
 } from "./runner.js";
-import type { PipelineHostServices } from "@llm-tg-bot/modules-registry";
+import type { PipelineHostServices } from "../contracts/index.js";
 import {
   deliverEarlyReply,
   deliverPipelineError,
   deliverPipelineReply,
 } from "./deliver.js";
+import { prepareDelivery } from "./turn-services.js";
 import { recordMessageReceived } from "../db/index.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { logEvent } from "../logging/event-log.js";
@@ -118,8 +119,7 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       }
     }
 
-    const delivery =
-      state.delivery ?? services.callbacks.prepareDelivery?.(state) ?? {};
+    const delivery = state.delivery ?? prepareDelivery(state);
 
     const deliveryChatId = state.chatId ?? ctx.chat?.id;
     if (!deliveryChatId) {

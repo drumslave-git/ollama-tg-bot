@@ -1,4 +1,4 @@
-import type { ModuleDbHost } from "@llm-tg-bot/modules-registry";
+import type { ModuleDbHost } from "../contracts/index.js";
 import { buildMoodPayload } from "../dashboard/payloads.js";
 import { compressHistoryForChat } from "../debug/context-compress.js";
 import { getSettings, updateSettings, type Settings } from "../db/index.js";

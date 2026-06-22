@@ -7,8 +7,8 @@ import {
   buildSystemPrompt,
   buildToolRoundSystemPrompt,
 } from "../../src/pipeline/adapters/system-prompt.js";
-import { FETCH_LINK_TOOL_NAME } from "@llm-tg-bot/modules-link-fetch";
-import { SEARCH_WEB_TOOL_NAME } from "@llm-tg-bot/modules-web-search";
+import { FETCH_LINK_TOOL_NAME } from "../../src/features/link-fetch/index.js";
+import { SEARCH_WEB_TOOL_NAME } from "../../src/features/web-search/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("buildBaseSystemPrompt", () => {

@@ -5,11 +5,11 @@ import { debugRouter } from "./routes/debug.js";
 import { dataRouter } from "./routes/data.js";
 import { modulesRouter } from "./routes/modules.js";
 import { workflowRouter } from "./routes/workflow.js";
-import type { ModuleManifest } from "@llm-tg-bot/modules-registry";
+import type { ModuleEntry } from "../runtime/module-registry.js";
 import type { Router as ExpressRouter } from "express";
 
 export function createApiRouter(
-  moduleRouters: Array<{ manifest: ModuleManifest; router: ExpressRouter }> = [],
+  moduleRouters: Array<{ entry: ModuleEntry; router: ExpressRouter }> = [],
 ): Router {
   const router = Router();
 
@@ -24,9 +24,9 @@ export function createApiRouter(
   router.use("/debug", debugRouter);
   router.use("/data", dataRouter);
 
-  for (const { manifest, router: moduleRouter } of moduleRouters) {
-    if (!manifest.apiBasePath) continue;
-    router.use(manifest.apiBasePath, moduleRouter);
+  for (const { entry, router: moduleRouter } of moduleRouters) {
+    if (!entry.apiBasePath) continue;
+    router.use(entry.apiBasePath, moduleRouter);
   }
 
   router.use((_req, res) => {

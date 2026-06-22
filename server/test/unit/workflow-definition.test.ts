@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { PipelineModuleHost } from "@llm-tg-bot/modules-registry";
+import type { PipelineModuleHost } from "../../src/contracts/index.js";
 import { buildWorkflowDefinitionFromHosts } from "../../src/pipeline/workflow-definition.js";
 
 const manifests = new Map([

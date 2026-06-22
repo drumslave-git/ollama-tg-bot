@@ -2,8 +2,8 @@ import type { Context } from "grammy";
 import type {
   PipelineHostServices,
   PipelineTurnState,
-} from "@llm-tg-bot/modules-registry";
-import { parseHistoryPointer } from "@llm-tg-bot/modules-history";
+} from "../contracts/index.js";
+import { parseHistoryPointer } from "../features/history/index.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { processQueuedTurn } from "../pipeline/queue-runner.js";

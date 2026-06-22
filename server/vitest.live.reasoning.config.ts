@@ -13,7 +13,10 @@ export default defineConfig({
   },
   test: {
     ...liveVitestTestDefaults,
-    include: ["test/live/reasoning.test.ts"],
+    include: [
+      "test/live/reasoning.test.ts",
+      "test/features/**/live/**/*.reasoning.live.test.ts",
+    ],
     env: {
       LLM_THINKING_ENABLED: "1",
     },

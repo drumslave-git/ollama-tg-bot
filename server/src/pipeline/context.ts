@@ -1,8 +1,8 @@
 import type {
   PipelineDeliveryResult,
   PipelineTurnState,
-} from "@llm-tg-bot/modules-registry";
-import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
+} from "../contracts/index.js";
+import type { WebSearchSource } from "../features/web-search/index.js";
 import type { MoodValues } from "../mood/index.js";
 import { getActivePersonalityPrompt } from "../db/personalities/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";

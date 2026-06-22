@@ -1,7 +1,7 @@
 import {
   MOOD_EXTENSION_ID,
   type MoodCommandExtension,
-} from "@llm-tg-bot/modules-mood-evaluation";
+} from "../features/mood/index.js";
 import {
   getEffectiveMood,
   getMoodStateView,

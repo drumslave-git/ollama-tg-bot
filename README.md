@@ -53,25 +53,25 @@ When an addressed message contains `http(s)` links, the bot detects them, opens 
 - Opens links in addressed messages via Playwright (auto-detected URLs)
 - **Maintenance mode** — dashboard toggle; when on, only the configured owner can trigger LLM-backed behavior (others are ignored silently)
 - Dashboard: model, owner, prompts, stats (LLM URL from `LLM_BASE_URL` in `.env`)
-- **Modular features** — LLM side passes packaged as stateless workspace modules under `modules/` (see [Feature modules](#feature-modules))
+- **Feature folders** — LLM side passes organized under `server/src/features/<name>` (see [Feature modules](#feature-modules))
 
 ## Feature modules
 
-Bot capabilities are split into small **stateless npm packages** (microservice-style contracts, same Node process). Each module lives in `modules/<name>/`, is imported as `@llm-tg-bot/modules-<name>`, and defines typed **input**, **config**, and **output**.
+Bot capabilities are organized as plain folders under `server/src/features/<name>/` — one Node process, no separate packages. Each feature contributes one or more **pipeline hosts** (with typed `run`/`shouldRun`), and may add SQLite tables (`features/<name>/db/`), an MCP tool (`register-mcp-tools.ts`), and a dashboard page (`dashboard/src/modules/<name>/`).
 
-| Module | Role |
-|--------|------|
-| `@llm-tg-bot/modules-utils` | Shared contract types and auxiliary LLM helpers |
-| `@llm-tg-bot/modules-addressing-detection` | Group address detection (@mention, reply, display name + LLM) |
-| `@llm-tg-bot/modules-web-search` | Tavily web search via `search_web` MCP tool during the main reply |
+| Feature | Role |
+|---------|------|
+| `addressing` | Group address detection (@mention, reply, display name + LLM) |
+| `web-search` | Tavily web search via `search_web` MCP tool during the main reply |
+| `link-fetch` | Playwright page fetch via `fetch_link` MCP tool |
+| `vision` | Media download, sticker previews, vision-model image description |
+| `history` | Per-chat message storage, formatting, compression, prompt injection |
+| `mood` | Personality + mood injection; `/mood` command |
+| `sticker` | Sticker selection pass |
+| `memory` | Per-user/group/general fact extraction (background job) |
+| `completions` | System prompt assembly + main LLM reply; `/explain` command |
 
-Example (`addressing-detection`):
-
-- **Input:** `{ message: string }` (+ optional `sender`, `chatType`)
-- **Config:** `{ baseUrl, model, botUsername, botDisplayName }`
-- **Output:** `{ result: boolean, reason: string }`
-
-The Telegram bot host (`server/`) wires modules to Grammy handlers, SQLite settings, and debug tracing. In dev, `tsx` resolves modules from `src/` via `server/tsconfig.json` paths (no rebuild). Production uses `npm run build:modules` before `npm run build`.
+Pipeline order is declared in `server/src/runtime/module-hosts.ts`; feature metadata/db/MCP wiring lives in `server/src/runtime/module-registry.ts`. Shared helpers are in `server/src/shared/`. In dev, `tsx` runs the server directly from `src/` (no build step for features).
 
 ## Stack
 

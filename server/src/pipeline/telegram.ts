@@ -1,4 +1,4 @@
-import type { PipelineTelegramContext } from "@llm-tg-bot/modules-registry";
+import type { PipelineTelegramContext } from "../contracts/index.js";
 import type { Context } from "grammy";
 import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 import { formatReplyContext } from "../bot/replies/replies.js";

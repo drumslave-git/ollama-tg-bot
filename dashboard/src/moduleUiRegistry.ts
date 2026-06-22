@@ -7,7 +7,7 @@ export interface ModuleUiEntry {
 }
 
 const uiModules = import.meta.glob<{ moduleUi: ModuleUiEntry }>(
-  "../../modules/*/ui/src/index.tsx",
+  "./modules/*/index.tsx",
   { eager: true },
 );
 

@@ -1,7 +1,7 @@
 import { Bot } from "grammy";
 import { requireBotToken } from "../config/index.js";
 import { logInfo } from "../logging/index.js";
-import { setBotIdentity } from "@llm-tg-bot/modules-addressing-detection";
+import { setBotIdentity } from "../features/addressing/index.js";
 import { PUBLIC_BOT_COMMANDS } from "./commands/commands-help.js";
 import { registerHandlers } from "./handlers/index.js";
 import {

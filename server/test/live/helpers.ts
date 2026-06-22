@@ -8,7 +8,7 @@ import { parseAssistantMessage, providerChatExtensions, shouldUseResponseFormat 
 import {
   extractTelegramReply,
   getMainReplyResponseFormat,
-} from "@llm-tg-bot/modules-completions";
+} from "../../src/features/completions/index.js";
 import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_REASONING_NUM_PREDICT,
@@ -19,8 +19,8 @@ import {
   responseFormatForThinking,
   toOpenAiResponseFormat,
   type ReasoningEffort,
-} from "@llm-tg-bot/modules-utils";
-import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+} from "../../src/shared/index.js";
+import type { JsonSchemaResponseFormat } from "../../src/shared/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
 export interface LiveConfig {

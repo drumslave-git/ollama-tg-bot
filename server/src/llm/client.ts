@@ -1,5 +1,5 @@
-import type { JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
-import { toOpenAiResponseFormat, mergeAssistantReasoning } from "@llm-tg-bot/modules-utils";
+import type { JsonSchemaResponseFormat } from "../shared/index.js";
+import { toOpenAiResponseFormat, mergeAssistantReasoning } from "../shared/index.js";
 import OpenAI, {
   APIConnectionError,
   APIConnectionTimeoutError,
@@ -23,7 +23,7 @@ import {
   getEffectiveNumPredict,
 } from "../settings/limits.js";
 import { getResolvedSettings } from "../settings/runtime.js";
-import { normalizeImageForChat } from "@llm-tg-bot/modules-vision";
+import { normalizeImageForChat } from "../features/vision/index.js";
 import {
   parseAssistantMessage,
   providerChatExtensions,

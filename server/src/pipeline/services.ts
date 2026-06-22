@@ -1,25 +1,24 @@
-import type { ChatMessage, JsonSchemaResponseFormat } from "@llm-tg-bot/modules-utils";
+import type { ChatMessage, JsonSchemaResponseFormat } from "../shared/index.js";
 import type {
   PipelineHostServices,
   PipelineLlmServices,
   PipelineReportWriter,
   PipelineTelegramContext,
-} from "@llm-tg-bot/modules-registry";
-import { readSearchWebSources } from "@llm-tg-bot/modules-web-search";
-import type { WebSearchSource } from "@llm-tg-bot/modules-web-search";
+} from "../contracts/index.js";
+import { readSearchWebSources } from "../features/web-search/index.js";
+import type { WebSearchSource } from "../features/web-search/index.js";
 import { chatComplete, chatCompleteDetailed } from "../llm/client.js";
 import { chatCompleteWithTools } from "../llm/tool-loop.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { getResolvedSettings } from "../settings/runtime.js";
-import { createPipelineCallbacks } from "./adapters/callbacks.js";
 import {
   getMcpRegistry,
   resolveEnabledMcpToolNames,
 } from "../runtime/mcp-tools.js";
-import { SEARCH_WEB_TOOL_NAME } from "@llm-tg-bot/modules-web-search";
-import { FETCH_LINK_TOOL_NAME } from "@llm-tg-bot/modules-link-fetch";
+import { SEARCH_WEB_TOOL_NAME } from "../features/web-search/index.js";
+import { FETCH_LINK_TOOL_NAME } from "../features/link-fetch/index.js";
 
 function mcpToolTrace(name: string): { phaseId: string; phaseTitle: string } {
   if (name === SEARCH_WEB_TOOL_NAME) {
@@ -119,7 +118,6 @@ export function createPipelineServices(): PipelineHostServices {
     llm: createLlmServices(),
     getWorkflowSteps: () => getResolvedSettings().workflowSteps ?? [],
     getReport: toReportWriter,
-    callbacks: createPipelineCallbacks(),
   };
 }
 
@@ -127,7 +125,7 @@ export function createInitialPipelineState(input: {
   turnId: number;
   telegram: PipelineTelegramContext;
   rawText: string;
-}): import("@llm-tg-bot/modules-registry").PipelineTurnState {
+}): import("../contracts/index.js").PipelineTurnState {
   return {
     turnId: input.turnId,
     telegram: input.telegram,
