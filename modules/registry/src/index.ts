@@ -7,7 +7,6 @@ export type {
 export type { ModuleManifest, ModuleDashboardMeta } from "./manifest.js";
 export type { ModuleMcpToolsMeta } from "./mcp.js";
 export type {
-  ModulePipelineMeta,
   PipelineDeliveryResult,
   PipelineHostCallbacks,
   PipelineHostServices,

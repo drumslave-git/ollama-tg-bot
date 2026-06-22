@@ -93,7 +93,7 @@ Rules:
 
 **MCP tools (migration in progress):** Feature modules expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod. Shared registry: `BotMcpRegistry` in `@llm-tg-bot/modules-utils`. Manifest `mcpTools: { workflowStepId, toolNames }` + `registerMcpTools(server, context)`. Host loads tools in `server/src/runtime/mcp-tools.ts`; the main reply exposes enabled tools to the LLM and runs them through `server/src/llm/tool-loop.ts` (generic tool rounds with `tool_choice: auto` and a dedicated `buildToolRoundSystemPrompt()` — no personality/mood/reply-format on tool passes; thinking off + auxiliary temperature; then always a structured JSON final pass with the full system prompt). Migrated modules: **link-fetch** → `fetch_link(url)`; **web-search** → `search_web(query)` (explicit user request only). System prompt adds MCP usage guidance when those workflow steps are enabled (`buildMcpToolsPromptSection` in `server/src/pipeline/adapters/system-prompt.ts`).
 
-To add a module: create `modules/<name>/` with `manifest.json`, implement `server/` (`package.json` name `@llm-tg-bot/modules-<name>`), optionally `db/` and `ui/`, register workspaces in root `package.json`, add to `build:modules`, declare server deps in `server/package.json`, add dev `paths` in `server/tsconfig.json`, implement `run`, and cover with tests. The server discovers manifests at startup; the dashboard globs `modules/*/ui/src/index.tsx` for UI pages.
+To add a module: create `modules/<name>/` with `manifest.json`, implement `server/` (`package.json` name `@llm-tg-bot/modules-<name>`), optionally `db/` and `ui/`, register workspaces in root `package.json`, add to `build:modules`, declare server deps in `server/package.json`, add dev `paths` in `server/tsconfig.json`, implement `run`, and cover with tests. Add any core pipeline or bot command host explicitly in `server/src/runtime/module-hosts.ts`; manifests are still used for DB/API/UI discovery and MCP tool registration. The dashboard globs `modules/*/ui/src/index.tsx` for UI pages.
 
 
 **Node:** `>=22.13.0` (see `.nvmrc`).
@@ -130,7 +130,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
 4. **Queue processing (addressed only)** — synchronous order: vision (media) → system + personality → history inject → mood → main reply (optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
 5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory extraction from recent history (skips chats whose extraction fingerprint is unchanged since the last successful run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
-6. **`server/src/runtime/module-hosts.ts`** — Loads `pipelineHosts` from manifests at startup. Queue runner invokes hosts by `stepId` in fixed order (not full phase runner).
+6. **`server/src/runtime/module-hosts.ts`** — Explicitly imports the core pipeline and bot command hosts. Queue runner invokes pipeline hosts by `stepId` in fixed order (not full phase runner).
 7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from manifests (`mcpTools` + `registerMcpTools`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
 8. **`server/src/pipeline/adapters/callbacks.ts`** — Wires SQLite, Telegram helpers, and LLM adapters into `PipelineHostCallbacks` for modules.
 9. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
@@ -215,7 +215,7 @@ Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Pa
 | `/modules/:id/debug` | Per-module background job debug (memory: run list + phase/LLM detail like `/debug`; vision: same pattern; live countdown when scheduled) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
 | `/data` | Raw SQLite table browser |
-| `/workflow` | Live pipeline diagram from `GET /api/workflow` (discovered module hosts + queue order) |
+| `/workflow` | Live pipeline diagram from `GET /api/workflow` (core pipeline hosts + queue order) |
 
 State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/api.ts`.
 

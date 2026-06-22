@@ -2,20 +2,24 @@ import type { Bot } from "grammy";
 import type { BotCommand } from "grammy/types";
 import type { Context } from "grammy";
 import {
-  discoverModuleManifests,
   type BotHostServices,
   type BotModuleHost,
-  type ModuleManifest,
   type PipelineModuleHost,
 } from "@llm-tg-bot/modules-registry";
-import { resolveModulesRoot } from "./modules.js";
+import { pipelineHosts as addressingPipelineHosts } from "@llm-tg-bot/modules-addressing-detection";
+import { pipelineHosts as historyPipelineHosts } from "@llm-tg-bot/modules-history";
+import { pipelineHosts as visionPipelineHosts } from "@llm-tg-bot/modules-vision";
+import { pipelineHosts as moodPipelineHosts } from "@llm-tg-bot/modules-mood-evaluation";
+import { pipelineHosts as completionsPipelineHosts } from "@llm-tg-bot/modules-completions";
+import { pipelineHost as stickerPipelineHost } from "@llm-tg-bot/modules-sticker-selection";
+import { botHost as completionsBotHost } from "@llm-tg-bot/modules-completions";
+import { botHost as moodBotHost } from "@llm-tg-bot/modules-mood-evaluation";
+import { botHost as stickerBotHost } from "@llm-tg-bot/modules-sticker-selection";
 import { getSettings } from "../db/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { replyToUser } from "../bot/replies/replies-helpers.js";
 import { createExplainExtensions } from "./explain-host.js";
 import { createMoodExtensions } from "./mood-host.js";
-
-type ServerManifest = ModuleManifest & { serverPackage: string };
 
 const PHASE_ORDER: Record<string, number> = {
   preprocess: 0,
@@ -25,12 +29,6 @@ const PHASE_ORDER: Record<string, number> = {
   "post-reply": 4,
 };
 
-function serverManifests(): ServerManifest[] {
-  return discoverModuleManifests(resolveModulesRoot()).filter(
-    (manifest): manifest is ServerManifest => Boolean(manifest.serverPackage),
-  );
-}
-
 function sortPipelineHosts(hosts: PipelineModuleHost[]): PipelineModuleHost[] {
   return hosts.sort((a, b) => {
     const phaseDiff = (PHASE_ORDER[a.phase] ?? 99) - (PHASE_ORDER[b.phase] ?? 99);
@@ -39,37 +37,27 @@ function sortPipelineHosts(hosts: PipelineModuleHost[]): PipelineModuleHost[] {
   });
 }
 
+const CORE_PIPELINE_HOSTS: PipelineModuleHost[] = [
+  ...historyPipelineHosts,
+  ...addressingPipelineHosts,
+  ...visionPipelineHosts,
+  ...completionsPipelineHosts,
+  ...moodPipelineHosts,
+  stickerPipelineHost,
+];
+
+const CORE_BOT_HOSTS: BotModuleHost[] = [
+  completionsBotHost,
+  moodBotHost,
+  stickerBotHost,
+];
+
 let pipelineHosts: PipelineModuleHost[] | null = null;
 let botHosts: BotModuleHost[] | null = null;
 
 export async function loadPipelineHosts(): Promise<PipelineModuleHost[]> {
   if (pipelineHosts) return pipelineHosts;
-
-  const loaded: PipelineModuleHost[] = [];
-
-  for (const manifest of serverManifests()) {
-    const mod = (await import(manifest.serverPackage)) as {
-      pipelineHost?: PipelineModuleHost;
-      pipelineHosts?: PipelineModuleHost[];
-    };
-
-    const hosts = mod.pipelineHosts
-      ? mod.pipelineHosts
-      : mod.pipelineHost
-        ? [mod.pipelineHost]
-        : [];
-
-    for (const host of hosts) {
-      if (host.id !== manifest.id) {
-        throw new Error(
-          `Module ${manifest.id} pipelineHost.id mismatch: ${host.id}`,
-        );
-      }
-      loaded.push(host);
-    }
-  }
-
-  pipelineHosts = sortPipelineHosts(loaded);
+  pipelineHosts = sortPipelineHosts([...CORE_PIPELINE_HOSTS]);
   return pipelineHosts;
 }
 
@@ -82,23 +70,7 @@ export function getPipelineHosts(): PipelineModuleHost[] {
 
 export async function loadBotHosts(): Promise<BotModuleHost[]> {
   if (botHosts) return botHosts;
-
-  const loaded: BotModuleHost[] = [];
-
-  for (const manifest of serverManifests()) {
-    const mod = (await import(manifest.serverPackage)) as {
-      botHost?: BotModuleHost;
-    };
-    if (!mod.botHost) continue;
-    if (mod.botHost.id !== manifest.id) {
-      throw new Error(
-        `Module ${manifest.id} botHost.id mismatch: ${mod.botHost.id}`,
-      );
-    }
-    loaded.push(mod.botHost);
-  }
-
-  botHosts = loaded;
+  botHosts = [...CORE_BOT_HOSTS];
   return botHosts;
 }
 

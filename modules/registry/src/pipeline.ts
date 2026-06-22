@@ -1,8 +1,7 @@
 /**
- * Generic pipeline contract for dynamically loaded bot feature modules.
+ * Pipeline contracts for core bot processing stages.
  *
- * Each module package may export `pipelineHost` or `pipelineHosts`.
- * The server discovers modules via manifest.json and runs them by phase.
+ * The server imports the active hosts explicitly and runs them by phase / queue order.
  */
 
 export type PipelinePhase =
@@ -15,16 +14,6 @@ export type PipelinePhase =
 export type PipelineStepStatus = "ok" | "skipped" | "failed" | "halt";
 
 export type ReplyTrigger = "addressed" | "random" | "image" | null;
-
-export interface ModulePipelineMeta {
-  /** ID referenced in dashboard workflowSteps (e.g. "mood", "links"). */
-  stepId: string;
-  phase: PipelinePhase;
-  /** Lower order runs first within the same phase. */
-  order: number;
-  /** When true, the step runs even when absent from workflowSteps. */
-  alwaysOn?: boolean;
-}
 
 export interface PipelineStepResult {
   status: PipelineStepStatus;
