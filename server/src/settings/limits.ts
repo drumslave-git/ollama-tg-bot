@@ -12,6 +12,17 @@ export const AUXILIARY_NUM_PREDICT = 768;
 export const AUXILIARY_REASONING_NUM_PREDICT = 1024;
 /** Extra headroom for maintenance announcements when thinking is on. */
 export const MAINTENANCE_ANNOUNCE_REASONING_NUM_PREDICT = 1536;
+/** Generation budget for MCP tool-selection rounds when thinking is off (tool_calls only). */
+export const TOOL_ROUND_NUM_PREDICT = 1024;
+/** Generation budget for MCP tool-selection rounds when thinking is on (reasoning precedes tool_calls). */
+export const TOOL_ROUND_REASONING_NUM_PREDICT = 2048;
+
+/** Tool-selection round generation budget, derived from whether thinking is enabled. */
+export function getToolRoundNumPredict(settings: Settings): number {
+  return settings.thinkingEnabled
+    ? TOOL_ROUND_REASONING_NUM_PREDICT
+    : TOOL_ROUND_NUM_PREDICT;
+}
 /** Hard cap on generated tokens; also limited by context size minus prompt headroom. */
 export const MAX_NUM_PREDICT = 8192;
 export const NUM_CTX_GENERATION_HEADROOM = 512;

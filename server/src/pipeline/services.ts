@@ -13,6 +13,7 @@ import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { getResolvedSettings } from "../settings/runtime.js";
+import { getToolRoundNumPredict } from "../settings/limits.js";
 import {
   getMcpRegistry,
   resolveEnabledMcpToolNames,
@@ -59,7 +60,8 @@ function createLlmServices(): PipelineLlmServices {
         traceLabel: options.traceLabel,
       }),
     createMainChatComplete: (options) => async (messages) => {
-      const workflowSteps = getResolvedSettings().workflowSteps ?? [];
+      const currentSettings = getResolvedSettings();
+      const workflowSteps = currentSettings.workflowSteps ?? [];
       const registry = getMcpRegistry();
       registry.setEnabledToolNames(resolveEnabledMcpToolNames(workflowSteps));
       const tools = await registry.listOpenAiTools();
@@ -83,6 +85,7 @@ function createLlmServices(): PipelineLlmServices {
         traceLabel: options.traceLabel,
         traceLayout: options.traceLayout as never,
         tools,
+        toolRoundNumPredict: getToolRoundNumPredict(currentSettings),
         callTool: (name, args) => registry.callTool(name, args),
         onToolCall: ({ name, result: toolResult }) => {
           if (name === SEARCH_WEB_TOOL_NAME) {

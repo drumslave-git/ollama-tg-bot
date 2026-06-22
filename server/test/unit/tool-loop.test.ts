@@ -40,6 +40,8 @@ describe("chatCompleteWithTools", () => {
         tools: [{ type: "function", function: { name: "fetch_link", parameters: {} } }],
         callTool: vi.fn(),
         responseFormat: replyFormat,
+        think: true,
+        toolRoundNumPredict: 2048,
       },
     );
 
@@ -47,7 +49,8 @@ describe("chatCompleteWithTools", () => {
     expect(mockedChatCompleteDetailed.mock.calls[0]?.[1]).toMatchObject({
       allowToolCalls: true,
       responseFormat: undefined,
-      think: false,
+      think: true,
+      numPredict: 2048,
       auxiliary: true,
       traceLabel: "main reply tools 1",
     });

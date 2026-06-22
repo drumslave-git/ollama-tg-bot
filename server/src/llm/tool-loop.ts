@@ -20,6 +20,8 @@ const MAX_TOOL_ROUNDS = 6;
 
 export interface ToolLoopOptions extends ChatCompleteOptions {
   tools: ChatCompletionTool[];
+  /** Generation budget for the tool-selection rounds (separate from the final reply). */
+  toolRoundNumPredict?: number;
   callTool: (
     name: string,
     args: Record<string, unknown>,
@@ -114,8 +116,8 @@ export async function chatCompleteWithTools(
 
     const toolRound = await chatCompleteDetailed(conversation, {
       model: options.model,
-      numPredict: options.numPredict,
-      think: false,
+      numPredict: options.toolRoundNumPredict ?? options.numPredict,
+      think: options.think,
       auxiliary: true,
       responseFormat: undefined,
       allowToolCalls: true,
