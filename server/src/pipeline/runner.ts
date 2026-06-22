@@ -80,14 +80,6 @@ function recordStepResult(
         writeOptions,
       );
       break;
-    case "halt":
-      report.skipPhase(
-        result.phaseId,
-        result.phaseTitle,
-        result.summary,
-        writeOptions,
-      );
-      break;
   }
 }
 

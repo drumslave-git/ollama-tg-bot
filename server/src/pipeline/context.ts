@@ -121,13 +121,6 @@ export function preparePipelineDelivery(
   const replyWithSources = hasReply
     ? appendWebSearchSources(replyBody, webSearchSources)
     : replyBody;
-  const historyText =
-    hasReply && stickerEmoji
-      ? `${replyWithSources}\n[sticker: ${stickerEmoji}]`
-      : stickerEmoji
-        ? `[sticker: ${stickerEmoji}]`
-        : replyWithSources;
-
   const replyHtml = hasReply ? prepareTelegramHtml(replyWithSources) : "";
 
   return {
@@ -136,10 +129,6 @@ export function preparePipelineDelivery(
     stickerFileId,
     stickerEmoji,
     webSearchSources,
-    historyText,
-    skipUserHistory: state.skipUserHistory,
-    userHistoryContent: state.userHistoryContent,
-    userRole: state.userRole,
   };
 }
 

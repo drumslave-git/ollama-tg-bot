@@ -53,31 +53,6 @@ export const turnSetupHost: PipelineModuleHost = {
     state.mentionedUsersContext =
       cb.resolveMentionedUsersContext?.(rawText, state.telegram) ?? null;
 
-    const userId = state.userId;
-    const groupChatId = state.groupChatId;
-    const knownParticipants =
-      state.convKey && cb.getChatParticipants
-        ? cb.getChatParticipants(state.convKey, userId ?? null)
-        : [];
-    const speaker = state.currentSpeaker as
-      | { userId: string; label: string }
-      | null
-      | undefined;
-    state.memoryInput = {
-      userMessage: state.latestBody,
-      replyContext: state.replyContext,
-      existingUserFacts: userId ? (cb.getUserFacts?.(userId) ?? []) : [],
-      existingGroupFacts: groupChatId
-        ? (cb.getGroupFacts?.(groupChatId) ?? [])
-        : [],
-      existingGeneralFacts: cb.getGeneralFacts?.() ?? [],
-      isGroupChat: state.inGroup,
-      currentSpeaker: speaker
-        ? { userId: speaker.userId, label: speaker.label }
-        : null,
-      knownParticipants,
-    };
-
     return {
       status: "ok",
       phaseId: "intake",
@@ -189,9 +164,6 @@ export const intakeHistoryHost: PipelineModuleHost = {
   },
 };
 
-/** @deprecated Use intakeHistoryHost — kept as alias for tests. */
-export const passiveRecordHost = intakeHistoryHost;
-
 export const historyInjectHost: PipelineModuleHost = {
   id: "history",
   stepId: "history",
@@ -248,6 +220,16 @@ export const historyRecordHost: PipelineModuleHost = {
     const replyBody = state.replyBody ?? "";
     const stickerEmoji = state.stickerEmoji;
     const webSearchSources = state.webSearchSources ?? [];
+    state.delivery = services.callbacks.prepareDelivery?.(state);
+    if (state.delivery?.error) {
+      return {
+        status: "failed",
+        phaseId: "history-record",
+        phaseTitle: "History record",
+        summary: state.delivery.error,
+      };
+    }
+
     const historyText =
       replyBody.trim() && stickerEmoji
         ? `${replyBody}\n[sticker: ${stickerEmoji}]`
@@ -266,8 +248,6 @@ export const historyRecordHost: PipelineModuleHost = {
         anchorMessageId: state.telegramMessageId,
       },
     );
-
-    state.delivery = services.callbacks.prepareDelivery?.(state);
 
     return {
       status: "ok",

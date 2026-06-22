@@ -113,7 +113,7 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
         await deliverEarlyReply(ctx, state.earlyReply, turnId);
         return;
       }
-      if (result?.status === "failed" || result?.status === "halt") {
+      if (result?.status === "failed") {
         throw new Error(result.summary);
       }
     }

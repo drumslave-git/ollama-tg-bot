@@ -53,53 +53,26 @@ const QUEUE_PIPELINE_HOSTS: PipelineModuleHost[] = [
   historyRecordHost,
 ];
 
-const CORE_BOT_HOSTS: BotModuleHost[] = [
+const BOT_HOSTS: BotModuleHost[] = [
   completionsBotHost,
   moodBotHost,
   stickerBotHost,
 ];
 
-let pipelineHosts: PipelineModuleHost[] | null = null;
-let botHosts: BotModuleHost[] | null = null;
-
-export function loadPipelineHosts(): PipelineModuleHost[] {
-  if (pipelineHosts) return pipelineHosts;
-  pipelineHosts = [...INTAKE_PIPELINE_HOSTS, ...QUEUE_PIPELINE_HOSTS];
-  return pipelineHosts;
-}
-
 export function getPipelineHosts(): PipelineModuleHost[] {
-  if (!pipelineHosts) {
-    throw new Error("Pipeline hosts not loaded — call loadPipelineHosts() at startup");
-  }
-  return pipelineHosts;
+  return [...INTAKE_PIPELINE_HOSTS, ...QUEUE_PIPELINE_HOSTS];
 }
 
 export function getIntakePipelineHosts(): PipelineModuleHost[] {
-  if (!pipelineHosts) {
-    throw new Error("Pipeline hosts not loaded — call loadPipelineHosts() at startup");
-  }
   return INTAKE_PIPELINE_HOSTS;
 }
 
 export function getQueuePipelineHosts(): PipelineModuleHost[] {
-  if (!pipelineHosts) {
-    throw new Error("Pipeline hosts not loaded — call loadPipelineHosts() at startup");
-  }
   return QUEUE_PIPELINE_HOSTS;
 }
 
-export function loadBotHosts(): BotModuleHost[] {
-  if (botHosts) return botHosts;
-  botHosts = [...CORE_BOT_HOSTS];
-  return botHosts;
-}
-
 export function getBotHosts(): BotModuleHost[] {
-  if (!botHosts) {
-    throw new Error("Bot hosts not loaded — call loadBotHosts() at startup");
-  }
-  return botHosts;
+  return BOT_HOSTS;
 }
 
 export function createBotHostServices(

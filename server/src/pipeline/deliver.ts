@@ -90,7 +90,6 @@ export async function deliverPipelineReply(
     chunkCount,
     replyChars,
     sticker: stickerEmoji ?? undefined,
-    skipUserHistory: Boolean(delivery.skipUserHistory),
     sourceCount: webSearchSources.length,
   });
 

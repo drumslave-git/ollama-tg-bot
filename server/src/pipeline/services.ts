@@ -120,11 +120,6 @@ export function createPipelineServices(): PipelineHostServices {
     llm: createLlmServices(),
     getWorkflowSteps: () => getResolvedSettings().workflowSteps ?? [],
     getReport: toReportWriter,
-    getSecret: (name) => {
-      if (name === "tavily") return config.tavilyApiKey;
-      if (name === "openai") return config.llmApiKey;
-      return "";
-    },
     callbacks: createPipelineCallbacks(),
   };
 }

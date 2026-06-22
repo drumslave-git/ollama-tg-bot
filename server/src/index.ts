@@ -18,7 +18,6 @@ import {
   createModuleRouters,
   wireModuleLiveHooks,
 } from "./runtime/modules.js";
-import { loadBotHosts, loadPipelineHosts } from "./runtime/module-hosts.js";
 import { loadMcpTools } from "./runtime/mcp-tools.js";
 import {
   emitDataUpdated,
@@ -38,9 +37,7 @@ async function main(): Promise<void> {
   });
 
   await initDatabase();
-  loadPipelineHosts();
   await loadMcpTools();
-  loadBotHosts();
   const moduleRouters = await createModuleRouters();
   const bootSettings = getSettings();
   void refreshModelContextCache(bootSettings.model, config.llmBaseUrl);

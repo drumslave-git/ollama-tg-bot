@@ -1,9 +1,5 @@
 export { createPipelineServices, createInitialPipelineState } from "./services.js";
 export {
-  loadPipelineHosts,
-  getPipelineHosts,
-} from "../runtime/module-hosts.js";
-export {
   runIntakePipeline,
   processQueuedTurn,
 } from "./queue-runner.js";

@@ -149,14 +149,6 @@ export const visionReplyHost: PipelineModuleHost = {
       );
     }
 
-    if (state.memoryInput && typeof state.memoryInput === "object") {
-      state.memoryInput = {
-        ...state.memoryInput,
-        userMessage: state.latestBody,
-        replyContext: state.replyContext,
-      };
-    }
-
     return {
       status: "ok",
       phaseId: "vision",
@@ -165,6 +157,3 @@ export const visionReplyHost: PipelineModuleHost = {
     };
   },
 };
-
-/** @deprecated Use visionReplyHost */
-export const visionPreprocessHost = visionReplyHost;

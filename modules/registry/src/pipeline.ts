@@ -4,7 +4,7 @@
  * The server imports active hosts explicitly and runs them in named intake / queue lists.
  */
 
-export type PipelineStepStatus = "ok" | "skipped" | "failed" | "halt";
+export type PipelineStepStatus = "ok" | "skipped" | "failed";
 
 export type ReplyTrigger = "addressed" | "random" | "image" | null;
 
@@ -46,10 +46,6 @@ export interface PipelineDeliveryResult {
   stickerFileId?: string | null;
   stickerEmoji?: string | null;
   webSearchSources?: unknown[];
-  historyText?: string;
-  skipUserHistory?: boolean;
-  userHistoryContent?: string | null;
-  userRole?: string | null;
   error?: string;
 }
 
@@ -119,19 +115,13 @@ export interface PipelineTurnState {
   stickerEmoji?: string | null;
   stickerFileId?: string | null;
 
-  /** Memory persistence context. */
-  memoryInput?: unknown;
   assistantReply?: string;
 
   /** Pipeline control — early exit without delivery. */
-  halt?: boolean;
   haltReason?: string;
   earlyReply?: string;
 
   delivery?: PipelineDeliveryResult;
-
-  /** Module-specific inputs set by the host before a step runs. */
-  moduleInput?: Record<string, unknown>;
 }
 
 export interface PipelinePhaseWriteOptions {
@@ -301,7 +291,6 @@ export interface PipelineHostServices {
   llm: PipelineLlmServices;
   getWorkflowSteps: () => string[];
   getReport: (turnId: number) => PipelineReportWriter | null;
-  getSecret: (name: "tavily" | "openai") => string;
   callbacks: PipelineHostCallbacks;
 }
 
