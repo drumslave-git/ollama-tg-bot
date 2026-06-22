@@ -414,6 +414,18 @@ function formatTraceSamplingLine(
     .join(", ");
 }
 
+function hasToolFormatMessage(
+  messages: (ChatMessage | ChatCompletionMessageParam)[],
+): boolean {
+  return messages.some(
+    (message) =>
+      message.role === "tool" ||
+      (message.role === "assistant" &&
+        "tool_calls" in message &&
+        Boolean(message.tool_calls?.length)),
+  );
+}
+
 function normalizeOpenAiMessages(
   messages: ChatMessage[] | ChatCompletionMessageParam[],
 ): ChatCompletionMessageParam[] {
@@ -423,12 +435,12 @@ function normalizeOpenAiMessages(
   if ("images" in first) {
     return (messages as ChatMessage[]).map(toOpenAiMessage);
   }
-  if (
-    first.role === "tool" ||
-    (first.role === "assistant" &&
-      "tool_calls" in first &&
-      first.tool_calls?.length)
-  ) {
+  // Tool-round conversations start with a plain system message but carry
+  // assistant tool_calls / tool results later in the array. Mapping those
+  // through toOpenAiMessage would strip tool_calls and tool_call_id, orphaning
+  // the tool result so the model re-requests the same tool every round. Detect
+  // tool formatting anywhere in the array, not just on the first message.
+  if (hasToolFormatMessage(messages)) {
     return messages as ChatCompletionMessageParam[];
   }
   return (messages as ChatMessage[]).map(toOpenAiMessage);
