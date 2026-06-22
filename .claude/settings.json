@@ -8,8 +8,8 @@
             "type": "command",
             "shell": "powershell",
             "command": "powershell -NoProfile -File \"$env:CLAUDE_PROJECT_DIR/.claude/hooks/check-codegraph.ps1\"",
-            "statusMessage": "Checking codegraph daemon...",
-            "timeout": 15
+            "statusMessage": "Syncing + checking codegraph...",
+            "timeout": 30
           }
         ]
       }
