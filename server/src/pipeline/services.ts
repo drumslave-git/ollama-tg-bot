@@ -41,7 +41,6 @@ function toReportWriter(turnId: number): PipelineReportWriter | null {
       report.skipPhase(id, title, summary, options),
     failPhase: (id, title, summary, durationMs, options) =>
       report.failPhase(id, title, summary, durationMs, options),
-    completeMemory: (input) => report.completeMemory(input),
   };
 }
 

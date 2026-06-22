@@ -214,8 +214,7 @@ export function DebugMessageDetail() {
 
           {report.result.replyChars != null ||
           report.result.sticker ||
-          report.result.error ||
-          report.result.memory ? (
+          report.result.error ? (
             <Card>
               <h3 className="m-0 mb-4 text-base font-semibold text-text">Result</h3>
               <dl className={fieldsGridClass}>
@@ -247,21 +246,6 @@ export function DebugMessageDetail() {
                     <dt className={fieldLabelClass}>Thinking sent</dt>
                     <dd className="m-0 text-sm">
                       No (reasoning not returned or send disabled)
-                    </dd>
-                  </div>
-                ) : null}
-                {report.result.memory ? (
-                  <div>
-                    <dt className={fieldLabelClass}>Memory</dt>
-                    <dd className="m-0 text-sm">
-                      {report.result.memory.status === "pending"
-                        ? "Pending…"
-                        : report.result.memory.updated
-                          ? `Updated (${report.result.memory.scopes?.join(", ") ?? "yes"})`
-                          : "No changes"}
-                      {report.result.memory.error
-                        ? ` · ${report.result.memory.error}`
-                        : ""}
                     </dd>
                   </div>
                 ) : null}

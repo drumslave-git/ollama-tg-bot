@@ -7,7 +7,6 @@ import type { MoodValues } from "../mood/index.js";
 import { getActivePersonalityPrompt } from "../db/personalities/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
-import { getUserFacts } from "../db/memory/user.js";
 import { getGroupFacts } from "../db/memory/group.js";
 import { getGeneralFacts } from "../db/memory/general.js";
 import { buildSystemPrompt } from "./adapters/system-prompt.js";
@@ -134,16 +133,4 @@ export function preparePipelineDelivery(
 
 export async function ensureHistoryFitsForTurn(convKey: string): Promise<void> {
   await ensureHistoryFits(convKey);
-}
-
-export function loadMemoryFactsForUser(userId: string): string[] {
-  return getUserFacts(userId);
-}
-
-export function loadMemoryFactsForGroup(groupId: string): string[] {
-  return getGroupFacts(groupId);
-}
-
-export function loadGeneralMemoryFacts(): string[] {
-  return getGeneralFacts();
 }

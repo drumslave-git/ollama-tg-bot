@@ -87,12 +87,6 @@ export interface MessageReportRecord {
     chunks?: number;
     sticker?: string;
     thinkingSent?: boolean;
-    memory?: {
-      status: "pending" | "done" | "failed";
-      updated: boolean;
-      scopes?: string[];
-      error?: string;
-    };
     error?: string;
   };
 }

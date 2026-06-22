@@ -93,13 +93,7 @@ export interface PipelineTurnState {
   skipUserHistory?: boolean;
 
   /** Accumulated prompt context for the completion step. */
-  systemPromptContent?: string;
   personalityPrompt?: string;
-  chatMessages?: unknown[];
-  systemContent?: string;
-  historyMessages?: unknown[];
-  latestContent?: string;
-  storedHistoryCount?: number;
 
   /** Mood evaluation output. */
   mood?: unknown;
@@ -151,11 +145,6 @@ export interface PipelineReportWriter {
     durationMs?: number,
     options?: PipelinePhaseWriteOptions,
   ): void;
-  completeMemory?(input: {
-    updated: boolean;
-    scopes: string[];
-    error?: string;
-  }): void;
 }
 
 export interface PipelineLlmServices {
@@ -264,19 +253,6 @@ export interface PipelineHostCallbacks {
     traceTurnId?: number,
   ) => Promise<string>;
   stickerPackEmoji?: (sticker: unknown) => string | null;
-  getUserFacts?: (userId: string) => string[];
-  getGroupFacts?: (groupId: string) => string[];
-  getGeneralFacts?: () => string[];
-  memoryCallbacks?: {
-    replaceUserFacts: (userId: string, facts: string[]) => void;
-    replaceGroupFacts: (groupId: string, facts: string[]) => void;
-    replaceGeneralFacts: (facts: string[]) => void;
-    getUserFacts?: (userId: string) => string[];
-  };
-  getChatParticipants?: (
-    convKey: string,
-    currentUserId: string | null,
-  ) => { userId: string; label: string }[];
 }
 
 export interface PipelineHostServices {

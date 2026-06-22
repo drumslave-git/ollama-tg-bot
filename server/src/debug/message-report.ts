@@ -135,7 +135,6 @@ export class MessageReportSession {
     | null = null;
   private phases: ReportPhase[] = [];
   private result: MessageReportRecord["result"] = {};
-  private awaitMemory = false;
 
   constructor(input: {
     turnId: number;
@@ -408,7 +407,6 @@ export class MessageReportSession {
     chunks?: number;
     sticker?: string;
     thinkingSent?: boolean;
-    awaitMemory?: boolean;
   }): void {
     this.status = "processed";
     this.result = {
@@ -417,15 +415,9 @@ export class MessageReportSession {
       chunks: options?.chunks,
       sticker: options?.sticker,
       thinkingSent: options?.thinkingSent,
-      memory: options?.awaitMemory
-        ? { status: "pending", updated: false }
-        : this.result.memory,
     };
-    this.awaitMemory = options?.awaitMemory ?? false;
     this.persist();
-    if (!this.awaitMemory) {
-      releaseProcessingSession(this.turnId);
-    }
+    releaseProcessingSession(this.turnId);
   }
 
   finalizeError(error: string): void {
@@ -441,48 +433,6 @@ export class MessageReportSession {
       error: input.reason,
       replyChars: input.replyChars,
     };
-    this.persist();
-    releaseProcessingSession(this.turnId);
-  }
-
-  completeMemory(input: {
-    updated: boolean;
-    scopes: string[];
-    error?: string;
-  }): void {
-    this.result = {
-      ...this.result,
-      memory: {
-        status: input.error ? "failed" : "done",
-        updated: input.updated,
-        scopes: input.scopes,
-        error: input.error,
-      },
-    };
-
-    if (input.error) {
-      this.upsertPhase({
-        id: "memory",
-        title: "Memory extraction",
-        status: "failed",
-        summary: input.error,
-      });
-    } else if (input.updated) {
-      this.upsertPhase({
-        id: "memory",
-        title: "Memory extraction",
-        status: "ok",
-        summary: `Saved to ${input.scopes.join(", ")} memory`,
-      });
-    } else {
-      this.upsertPhase({
-        id: "memory",
-        title: "Memory extraction",
-        status: "skipped",
-        summary: "No new facts to save",
-      });
-    }
-
     this.persist();
     releaseProcessingSession(this.turnId);
   }
@@ -585,10 +535,6 @@ function buildBadges(report: MessageReportRecord): string[] {
     if (phase.id.startsWith("llm-")) continue;
     if (["delivery", "routing"].includes(phase.id)) continue;
     badges.push(phase.title.toLowerCase());
-  }
-
-  if (report.result.memory?.updated) {
-    badges.push("memory updated");
   }
 
   return [...new Set(badges)].slice(0, 6);

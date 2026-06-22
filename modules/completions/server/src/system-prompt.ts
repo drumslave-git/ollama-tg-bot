@@ -24,13 +24,13 @@ export const systemPromptHost: PipelineModuleHost = {
     }
 
     const started = performance.now();
-    state.systemPromptContent = build(state);
+    const systemPromptContent = build(state);
 
     return {
       status: "ok",
       phaseId: "system",
       phaseTitle: "System prompt",
-      summary: `${state.systemPromptContent.length} chars`,
+      summary: `${systemPromptContent.length} chars`,
       durationMs: performance.now() - started,
     };
   },

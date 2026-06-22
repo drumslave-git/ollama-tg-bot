@@ -10,9 +10,6 @@ import {
 } from "@llm-tg-bot/modules-vision";
 import { getStickerCatalogForSelection } from "@llm-tg-bot/modules-sticker-selection";
 import { getEffectiveMood, saveMoodState } from "../../db/mood/index.js";
-import { replaceGeneralFacts } from "../../db/memory/general.js";
-import { replaceGroupFacts } from "../../db/memory/group.js";
-import { replaceUserFacts } from "../../db/memory/user.js";
 import { getSettings } from "../../db/index.js";
 import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
 import { appendMessage, mapHistoryBase64Media } from "../../db/history/index.js";
@@ -25,12 +22,9 @@ import {
   buildChatContextForTurn,
   buildSystemPromptForTurn,
   ensureHistoryFitsForTurn,
-  loadGeneralMemoryFacts,
-  loadMemoryFactsForGroup,
-  loadMemoryFactsForUser,
   preparePipelineDelivery,
 } from "../context.js";
-import { recordExchange, loadChatParticipants } from "../chat-messages.js";
+import { recordExchange } from "../chat-messages.js";
 import {
   formatReplyContextFromTelegram,
   isGroupChatFromTelegram,
@@ -111,16 +105,5 @@ export function createPipelineCallbacks(): PipelineHostCallbacks {
         visionDescribeConfig,
       ),
     stickerPackEmoji: (sticker) => stickerPackEmoji(sticker as never),
-    getUserFacts: loadMemoryFactsForUser,
-    getGroupFacts: loadMemoryFactsForGroup,
-    getGeneralFacts: loadGeneralMemoryFacts,
-    getChatParticipants: (convKey, currentUserId) =>
-      loadChatParticipants(convKey, currentUserId),
-    memoryCallbacks: {
-      replaceUserFacts,
-      replaceGroupFacts,
-      replaceGeneralFacts,
-      getUserFacts: loadMemoryFactsForUser,
-    },
   };
 }

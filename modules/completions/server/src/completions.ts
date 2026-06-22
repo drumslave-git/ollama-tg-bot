@@ -31,11 +31,6 @@ export const completionsHost: PipelineModuleHost = {
 
     const started = performance.now();
     const built = buildContext(state);
-    state.chatMessages = built.messages;
-    state.systemContent = built.systemContent;
-    state.historyMessages = built.historyMessages;
-    state.latestContent = built.latestContent;
-    state.storedHistoryCount = built.storedHistoryCount;
 
     const report = services.getReport(state.turnId);
 
