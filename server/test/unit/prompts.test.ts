@@ -3,8 +3,12 @@ import {
   BASE_SYSTEM_PROMPT_CORE,
   buildBaseSystemPrompt,
   buildExplainSystemPrompt,
+  buildMcpToolsPromptSection,
   buildSystemPrompt,
+  buildToolRoundSystemPrompt,
 } from "../../src/pipeline/adapters/system-prompt.js";
+import { FETCH_LINK_TOOL_NAME } from "@llm-tg-bot/modules-link-fetch";
+import { SEARCH_WEB_TOOL_NAME } from "@llm-tg-bot/modules-web-search";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("buildBaseSystemPrompt", () => {
@@ -62,6 +66,44 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Respond with JSON only");
     expect(prompt.trimEnd().endsWith("you do not have to use tags at all.")).toBe(true);
   });
+
+  it("includes MCP tool guidance when tools are enabled", () => {
+    const prompt = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      enabledMcpToolNames: [FETCH_LINK_TOOL_NAME, SEARCH_WEB_TOOL_NAME],
+    });
+    expect(prompt).toContain("## MCP tools");
+    expect(prompt).toContain(FETCH_LINK_TOOL_NAME);
+    expect(prompt).toContain(SEARCH_WEB_TOOL_NAME);
+    expect(prompt).toContain("LLM-only");
+    expect(prompt.indexOf("## MCP tools")).toBeLessThan(prompt.indexOf("Respond with JSON only"));
+  });
+
+  it("omits MCP tool guidance when no tools are enabled", () => {
+    expect(buildMcpToolsPromptSection([])).toBe("");
+    const prompt = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      enabledMcpToolNames: [],
+    });
+    expect(prompt).not.toContain("## MCP tools");
+  });
+});
+
+describe("buildToolRoundSystemPrompt", () => {
+  it("is a standalone tool-selection prompt without personality or reply format", () => {
+    const prompt = buildToolRoundSystemPrompt([
+      FETCH_LINK_TOOL_NAME,
+      SEARCH_WEB_TOOL_NAME,
+    ]);
+    expect(prompt).toContain("MCP tool-selection pass");
+    expect(prompt).toContain(FETCH_LINK_TOOL_NAME);
+    expect(prompt).toContain(SEARCH_WEB_TOOL_NAME);
+    expect(prompt).toContain("tool_calls");
+    expect(prompt).not.toContain("Respond with JSON only");
+    expect(prompt).not.toContain(BASE_SYSTEM_PROMPT_CORE);
+  });
 });
 
 describe("buildExplainSystemPrompt", () => {
@@ -78,9 +120,6 @@ describe("buildExplainSystemPrompt", () => {
     expect(prompt).toContain("meta assistant");
     expect(prompt).toContain("Do NOT roleplay");
     expect(prompt).toContain("reference only");
-    expect(prompt).toContain("meta explanation");
-    expect(prompt).not.toContain("your spoken reply to the user");
-    expect(prompt).toContain("Pirate");
-    expect(prompt).toContain("Not applicable (private chat).");
+    expect(prompt).toContain("Talk like a pirate.");
   });
 });

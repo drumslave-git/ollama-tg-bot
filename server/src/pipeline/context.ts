@@ -11,6 +11,7 @@ import { getUserFacts } from "../db/memory/user.js";
 import { getGroupFacts } from "../db/memory/group.js";
 import { getGeneralFacts } from "../db/memory/general.js";
 import { buildSystemPrompt } from "./adapters/system-prompt.js";
+import { resolveEnabledMcpToolNames } from "../runtime/mcp-tools.js";
 import {
   buildChatMessages,
   type LatestTurnOptions,
@@ -62,6 +63,7 @@ export function buildSystemPromptForTurn(state: PipelineTurnState): string {
     ownerUserId: getOwnerUserId(),
     ownerUsername: getOwnerUsername(),
     mood: (state.mood ?? null) as MoodValues | null,
+    enabledMcpToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
   });
 }
 

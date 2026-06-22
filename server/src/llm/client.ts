@@ -296,8 +296,11 @@ async function requestChat(
   traceLabel?: string,
   responseFormat?: JsonSchemaResponseFormat,
   tools?: ChatCompletionTool[],
+  think?: boolean,
 ): Promise<{ data: ChatResponse; choice: ChatCompletion["choices"][number] | undefined }> {
   const settings = getResolvedSettings();
+  const providerSettings =
+    think === false ? { ...settings, thinkingEnabled: false } : settings;
   const requestBody = chatCompletionBody(
     model,
     prepared,
@@ -305,6 +308,7 @@ async function requestChat(
     auxiliary,
     responseFormat,
     tools,
+    think,
   );
   const traceLabelText = traceLabel ?? "llm";
   const llmStarted = performance.now();
@@ -366,7 +370,12 @@ async function requestChat(
         prepared as ChatMessage[],
         data,
         traceLayout,
-        formatTraceSamplingLine(settings, auxiliary, responseFormat, tools),
+        formatTraceSamplingLine(
+          providerSettings,
+          auxiliary,
+          responseFormat,
+          tools,
+        ),
         sanitizeLlmPayloadForDebug(requestBody),
         sanitizeLlmPayloadForDebug(response),
         llmDurationMs,
@@ -433,8 +442,11 @@ function chatCompletionBody(
   auxiliary: boolean,
   responseFormat?: JsonSchemaResponseFormat,
   tools?: ChatCompletionTool[],
+  think?: boolean,
 ): ChatCompletionCreateParamsNonStreaming {
   const settings = getResolvedSettings();
+  const providerSettings =
+    think === false ? { ...settings, thinkingEnabled: false } : settings;
   return {
     model,
     messages: normalizeOpenAiMessages(messages),
@@ -442,7 +454,7 @@ function chatCompletionBody(
     max_completion_tokens: numPredict,
     temperature: auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature,
     top_p: settings.topP,
-    ...providerChatExtensions(settings, auxiliary),
+    ...providerChatExtensions(providerSettings, auxiliary),
     ...(shouldUseResponseFormat(settings, auxiliary, responseFormat)
       ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
@@ -519,6 +531,7 @@ export async function chatCompleteDetailed(
       traceLabel,
       options?.responseFormat,
       options?.tools,
+      options?.think,
     );
     const content = pickAssistantContent(data);
     const thinking = mergeAssistantReasoning(content, pickReasoning(data));

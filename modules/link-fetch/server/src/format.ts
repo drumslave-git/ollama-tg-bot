@@ -20,7 +20,8 @@ export function formatLinkFetchContext(pages: FetchedPage[]): string {
 
   parts.push(
     "\nUse the fetched page content above in your reply. " +
-      "Do not tell the user you cannot open links when this block is present.",
+      "Do not tell the user you cannot open links when this block is present. " +
+      "If Content is empty or says fetch failed, do not invent page or video details from chat history — say the page could not be read.",
   );
 
   return parts.join("\n\n");

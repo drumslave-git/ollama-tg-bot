@@ -68,4 +68,13 @@ describe("main reply thinking request policy", () => {
     });
     expect(aux.reasoning_effort).toBe("low");
   });
+
+  it("disables thinking when think is false on the request", () => {
+    const settings = providerChatExtensions(
+      { ...thinkingSettings, thinkingEnabled: false },
+      false,
+    );
+    expect(settings.chat_template_kwargs).toEqual({ enable_thinking: false });
+    expect(settings.reasoning_effort).toBeUndefined();
+  });
 });

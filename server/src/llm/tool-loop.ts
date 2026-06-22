@@ -11,6 +11,7 @@ import type {
   VerbosePromptLayout,
 } from "./client.js";
 import { chatCompleteDetailed } from "./client.js";
+import { buildToolRoundSystemPrompt } from "../pipeline/adapters/system-prompt.js";
 
 const MAX_TOOL_ROUNDS = 6;
 
@@ -36,6 +37,43 @@ function toOpenAiSeedMessages(messages: ChatMessage[]): ChatCompletionMessagePar
   }));
 }
 
+function toolNamesFromOptions(tools: ChatCompletionTool[]): string[] {
+  return tools
+    .map((tool) => (tool.type === "function" ? tool.function?.name : undefined))
+    .filter((name): name is string => Boolean(name));
+}
+
+function applyToolRoundSystem(
+  conversation: ChatCompletionMessageParam[],
+  enabledToolNames: string[],
+): ChatCompletionMessageParam[] {
+  const toolSystem = buildToolRoundSystemPrompt(enabledToolNames);
+  if (conversation.length === 0) {
+    return [{ role: "system", content: toolSystem }];
+  }
+  if (conversation[0]?.role === "system") {
+    return [{ role: "system", content: toolSystem }, ...conversation.slice(1)];
+  }
+  return [{ role: "system", content: toolSystem }, ...conversation];
+}
+
+function restoreFullSystem(
+  fullSystemContent: string,
+  conversation: ChatCompletionMessageParam[],
+): ChatCompletionMessageParam[] {
+  if (!fullSystemContent || conversation.length === 0) {
+    return conversation;
+  }
+  if (conversation[0]?.role === "system") {
+    return [{ role: "system", content: fullSystemContent }, ...conversation.slice(1)];
+  }
+  return [{ role: "system", content: fullSystemContent }, ...conversation];
+}
+
+function toolRoundTraceLabel(round: number): string {
+  return `main reply tools ${round + 1}`;
+}
+
 function parseToolArguments(raw: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -52,14 +90,29 @@ export async function chatCompleteWithTools(
   messages: ChatMessage[],
   options: ToolLoopOptions,
 ): Promise<ChatCompleteResult> {
-  let conversation: ChatCompletionMessageParam[] = toOpenAiSeedMessages(messages);
+  const seedMessages = toOpenAiSeedMessages(messages);
+  const fullSystemContent =
+    seedMessages[0]?.role === "system"
+      ? String(seedMessages[0].content ?? "")
+      : "";
+  const enabledToolNames = toolNamesFromOptions(options.tools);
+
+  let conversation = seedMessages;
   let accumulatedThinking = "";
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+    conversation = applyToolRoundSystem(conversation, enabledToolNames);
+
     const toolRound = await chatCompleteDetailed(conversation, {
-      ...options,
+      model: options.model,
+      numPredict: options.numPredict,
+      think: false,
+      auxiliary: true,
       responseFormat: undefined,
       allowToolCalls: true,
+      traceTurnId: options.traceTurnId,
+      traceLabel: toolRoundTraceLabel(round),
+      tools: options.tools,
     });
     accumulatedThinking = [accumulatedThinking, toolRound.thinking]
       .filter(Boolean)
@@ -67,12 +120,6 @@ export async function chatCompleteWithTools(
 
     const toolCalls = toolRound.toolCalls ?? [];
     if (toolCalls.length === 0) {
-      if (toolRound.raw.trim()) {
-        return {
-          raw: toolRound.raw,
-          thinking: accumulatedThinking,
-        };
-      }
       break;
     }
 
@@ -110,13 +157,15 @@ export async function chatCompleteWithTools(
     }
   }
 
-  const final = await chatCompleteDetailed(conversation, {
+  const finalConversation = restoreFullSystem(fullSystemContent, conversation);
+
+  const final = await chatCompleteDetailed(finalConversation, {
     model: options.model,
     numPredict: options.numPredict,
     think: options.think,
     responseFormat: options.responseFormat as JsonSchemaResponseFormat | undefined,
     traceTurnId: options.traceTurnId,
-    traceLabel: options.traceLabel,
+    traceLabel: options.traceLabel ?? "main reply",
     traceLayout: options.traceLayout as VerbosePromptLayout | undefined,
   });
 

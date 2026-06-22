@@ -12,6 +12,8 @@ import {
   buildExplainFormatSpec,
   buildReplyFormatSpec,
 } from "@llm-tg-bot/modules-completions";
+import { FETCH_LINK_TOOL_NAME } from "@llm-tg-bot/modules-link-fetch";
+import { SEARCH_WEB_TOOL_NAME } from "@llm-tg-bot/modules-web-search";
 import type { Settings } from "../../db/index.js";
 import {
   formatKnownUserLabel,
@@ -45,6 +47,71 @@ When [MENTIONED USERS] is present and the speaker asks who someone is, answer us
 
 export type ParticipantFacts = ParticipantMemoryFacts;
 
+function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
+  const lines: string[] = [];
+  if (enabledToolNames.includes(FETCH_LINK_TOOL_NAME)) {
+    lines.push(
+      `- ${FETCH_LINK_TOOL_NAME}(url): Call when the user shares an http(s) URL or asks about page content you do not already have in this turn. Fetch first, then answer from the returned text.`,
+    );
+  }
+  if (enabledToolNames.includes(SEARCH_WEB_TOOL_NAME)) {
+    lines.push(
+      `- ${SEARCH_WEB_TOOL_NAME}(query): Call ONLY when the user explicitly asks you to search the web, look something up online, verify a claim, or check current facts. Do not use for casual chat or general knowledge.`,
+    );
+  }
+  return lines;
+}
+
+export function buildMcpToolsPromptSection(enabledToolNames: string[]): string {
+  if (enabledToolNames.length === 0) return "";
+
+  const lines = [
+    "## MCP tools (LLM-only — tool-selection pass, then JSON final reply)",
+    "Function tools are available in tool rounds only. The host never runs them for you — you must call them when needed.",
+    "After tool results appear in the conversation, write your final JSON reply using those facts.",
+    "Do not guess page content or live data when a tool could provide it.",
+    "If a tool returns no readable text or an error, say so in character — do not invent details from chat history.",
+    ...buildMcpToolDescriptionLines(enabledToolNames),
+  ];
+
+  return `\n\n${lines.join("\n")}`;
+}
+
+/** Standalone system prompt for MCP tool-selection passes (no personality or reply format). */
+export function buildToolRoundSystemPrompt(enabledToolNames: string[]): string {
+  const toolList =
+    enabledToolNames.length > 0 ? enabledToolNames.join(", ") : "(none registered)";
+  const descriptions = buildMcpToolDescriptionLines(enabledToolNames);
+  return (
+    `You are the MCP tool-selection pass for a Telegram bot main reply.\n` +
+    `This pass is not the in-character user reply. Review the conversation and decide whether to call tools.\n\n` +
+    `Registered tools: ${toolList}\n` +
+    (descriptions.length > 0 ? `${descriptions.join("\n")}\n\n` : "\n") +
+    `Rules for this pass:\n` +
+    `- Respond with tool_calls when a registered tool is needed.\n` +
+    `- Do not write the user-facing reply or JSON output.\n` +
+    `- If no tool is needed, respond with empty assistant content and no tool_calls.\n` +
+    `- Prefer tools over guessing page content, library versions, or live web facts.`
+  );
+}
+
+const REPLY_FORMAT_MARKER = "\n\nRespond with JSON only";
+
+/** Split the main-reply system prompt into shared context vs final JSON reply spec. */
+export function splitReplyFormatSpec(systemContent: string): {
+  withoutReplyFormat: string;
+  replyFormatSpec: string;
+} {
+  const idx = systemContent.indexOf(REPLY_FORMAT_MARKER);
+  if (idx === -1) {
+    return { withoutReplyFormat: systemContent, replyFormatSpec: "" };
+  }
+  return {
+    withoutReplyFormat: systemContent.slice(0, idx),
+    replyFormatSpec: systemContent.slice(idx + 2),
+  };
+}
+
 export interface SystemPromptOptions {
   settings: Settings;
   customPrompt: string;
@@ -56,6 +123,7 @@ export interface SystemPromptOptions {
   ownerUserId?: string | null;
   ownerUsername?: string | null;
   mood?: MoodValues | null;
+  enabledMcpToolNames?: string[];
 }
 
 export function buildBaseSystemPrompt(settings: Settings): string {
@@ -133,6 +201,7 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
     ownerUserId = null,
     ownerUsername = null,
     mood = null,
+    enabledMcpToolNames = [],
   } = options;
 
   const { systemHint, formatHint } = getReplyLengthGuidance(settings);
@@ -179,6 +248,8 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
   if (mood) {
     prompt += `\n\n## Current mood (highest priority)\n${formatMoodForPrompt(mood)}`;
   }
+
+  prompt += buildMcpToolsPromptSection(enabledMcpToolNames);
 
   prompt += `\n\n${buildReplyFormatSpec(formatHint, settings.thinkingEnabled)}`;
   return prompt;

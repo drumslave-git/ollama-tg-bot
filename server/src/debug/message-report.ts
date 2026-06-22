@@ -42,7 +42,15 @@ const TRIGGER_LABELS: Record<string, string> = {
 
 function llmPhaseId(label: string): string {
   if (label === "main reply") return "completions";
+  const toolRound = /^main reply tools (\d+)$/.exec(label);
+  if (toolRound) return `completions-tools-${toolRound[1]}`;
   return `llm-${label.replace(/\s+/g, "-")}`;
+}
+
+function llmPhaseTitle(label: string): string {
+  const toolRound = /^main reply tools (\d+)$/.exec(label);
+  if (toolRound) return `Main reply · tools (round ${toolRound[1]})`;
+  return LLM_TITLES[label] ?? label;
 }
 
 const LLM_TITLES: Record<string, string> = {
@@ -297,7 +305,7 @@ export class MessageReportSession {
 
   /** Mark an in-flight LLM request so Debug shows a waiting state. */
   beginLlmWait(label: string, model: string, timeoutSec: number): void {
-    const title = LLM_TITLES[label] ?? label;
+    const title = llmPhaseTitle(label);
     this.upsertPhase({
       id: llmPhaseId(label),
       title,
@@ -307,7 +315,7 @@ export class MessageReportSession {
   }
 
   failLlmWait(label: string, summary: string, durationMs?: number): void {
-    const title = LLM_TITLES[label] ?? label;
+    const title = llmPhaseTitle(label);
     this.upsertPhase({
       id: llmPhaseId(label),
       title,
@@ -329,7 +337,7 @@ export class MessageReportSession {
     responseBody?: unknown,
     durationMs?: number,
   ): void {
-    const title = LLM_TITLES[label] ?? label;
+    const title = llmPhaseTitle(label);
     const id = llmPhaseId(label);
     const sections: Array<{ title: string; body: string }> = [];
 
