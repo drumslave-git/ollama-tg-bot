@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "powershell",
+            "command": "powershell -NoProfile -File \"$env:CLAUDE_PROJECT_DIR/.claude/hooks/check-codegraph.ps1\"",
+            "statusMessage": "Checking codegraph daemon...",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
+}
