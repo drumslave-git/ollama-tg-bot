@@ -7,6 +7,7 @@ import { MODULE_REGISTRY } from "./module-registry.js";
 interface RegisteredMcpModule {
   workflowStepId: string;
   toolNames: string[];
+  alwaysOn: boolean;
 }
 
 let registry: BotMcpRegistry | null = null;
@@ -42,6 +43,7 @@ export async function loadMcpTools(): Promise<BotMcpRegistry> {
     registeredModules.push({
       workflowStepId: entry.mcpTools.workflowStepId,
       toolNames: [...entry.mcpTools.toolNames],
+      alwaysOn: entry.mcpTools.alwaysOn ?? false,
     });
   }
 
@@ -59,7 +61,9 @@ export function getMcpRegistry(): BotMcpRegistry {
 export function resolveEnabledMcpToolNames(workflowSteps: string[]): string[] {
   const enabled = new Set<string>();
   for (const module of registeredModules) {
-    if (!workflowSteps.includes(module.workflowStepId)) continue;
+    if (!module.alwaysOn && !workflowSteps.includes(module.workflowStepId)) {
+      continue;
+    }
     for (const toolName of module.toolNames) {
       enabled.add(toolName);
     }

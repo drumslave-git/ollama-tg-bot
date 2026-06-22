@@ -45,7 +45,6 @@ export interface ExplainTurnDeps {
     id: number,
   ) => { name: string; prompt: string } | null;
   buildExplainSystemPrompt: (input: ExplainPromptInput) => string;
-  ensureHistoryFits: (convKey: string) => Promise<void>;
   loadHistoryMessages: (convKey: string) => ChatMessage[];
   getMainReplyResponseFormat: (
     thinkingEnabled: boolean,

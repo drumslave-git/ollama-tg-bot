@@ -1,6 +1,6 @@
 import type { Message, User } from "@grammyjs/types";
 import type { KnownUserRecord, StoredMessage } from "./types.js";
-import { ASSISTANT_ROLE, COMPRESSED_ROLE } from "./types.js";
+import { ASSISTANT_ROLE } from "./types.js";
 
 /** Role key stored in DB: user:username:userId */
 export function userRoleTag(user: User | undefined): string | null {
@@ -71,7 +71,7 @@ export function formatRepliedContent(
 const ASSISTANT_SAID_PREFIX = /^\[assistant said\]\s*:?\s*/i;
 const STICKER_HISTORY_LINE = /^\[sticker:\s*[^\]]+\]\s*$/i;
 const ECHOED_USER_HISTORY_PREFIX =
-  /^\[(?:user:[^\]]+(?:\s+(?:said|replied to[^\]]*|sent \w+))?|compressed)\]\s*:\s*/i;
+  /^\[user:[^\]]+(?:\s+(?:said|replied to[^\]]*|sent \w+))?\]\s*:\s*/i;
 
 /** Stored assistant rows use an envelope; strip before sending to the model. */
 export function stripAssistantHistoryEnvelope(text: string): string {
@@ -267,14 +267,10 @@ export function replaceBase64WithVisionDescription(
   return `${parsed.prefix}: ${body}`;
 }
 
-/** One stored row as a tagged line for compression or debug display. */
+/** One stored row as a tagged line for tool output or debug display. */
 export function formatStoredMessageLine(message: StoredMessage): string {
   const content = message.content.trim();
   if (!content) return "";
-
-  if (message.role === COMPRESSED_ROLE) {
-    return content;
-  }
 
   if (message.role === ASSISTANT_ROLE) {
     return ASSISTANT_SAID_PREFIX.test(content)
@@ -288,16 +284,6 @@ export function formatStoredMessageLine(message: StoredMessage): string {
   }
 
   return `[${message.role}]: ${content}`;
-}
-
-export function buildHistoryCompressionTranscript(
-  history: StoredMessage[],
-): string {
-  return history
-    .filter((message) => !isBase64MediaHistoryContent(message.content))
-    .map(formatStoredMessageLine)
-    .filter(Boolean)
-    .join("\n");
 }
 
 function sanitizeTagPart(value: string): string {

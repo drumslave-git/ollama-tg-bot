@@ -104,10 +104,9 @@ describe("normalizeTokenBudget", () => {
 });
 
 describe("getHistoryLimits", () => {
-  it("derives history token and char caps from context/generation", () => {
+  it("derives reply char caps from the generation budget", () => {
     const limits = getHistoryLimits(makeSettings({ numCtx: 8192, numPredict: 512 }));
     expect(limits.numPredict).toBe(512);
-    expect(limits.historyMaxTokens).toBe(Math.floor((8192 - 512) * 0.45));
     expect(limits.historyMaxReplyChars).toBeGreaterThan(100);
   });
 

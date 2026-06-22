@@ -24,8 +24,6 @@ export const NUM_PREDICT_STEP = 32;
 export const APPROX_CHARS_PER_TOKEN = 3.5;
 
 export interface HistoryLimits {
-  /** Token budget for chat history injected into prompts. */
-  historyMaxTokens: number;
   historyMaxReplyChars: number;
   numPredict: number;
 }
@@ -115,18 +113,11 @@ export function getReplyLengthGuidance(settings: Settings): ReplyLengthGuidance 
   return { maxTokens, maxChars, systemHint, formatHint };
 }
 
-/** Derive chat history caps from LLM context and generation token settings. */
+/** Derive reply-length guidance from the generation token budget. */
 export function getHistoryLimits(settings: Settings): HistoryLimits {
-  const { numCtx } = settings;
   const normalized = normalizeTokenBudget(settings);
 
-  const historyMaxTokens = Math.max(
-    256,
-    Math.floor((numCtx - normalized.numPredict) * 0.45),
-  );
-
   return {
-    historyMaxTokens,
     historyMaxReplyChars: Math.min(
       4000,
       Math.max(100, Math.floor(normalized.numPredict * APPROX_CHARS_PER_TOKEN)),

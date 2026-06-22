@@ -32,7 +32,6 @@ import { logEvent, logEventError, type EventFields } from "../logging/event-log.
 import {
   buildChatContextForTurn,
   buildSystemPromptForTurn,
-  ensureHistoryFitsForTurn,
   preparePipelineDelivery,
 } from "./context.js";
 import { recordExchange } from "./chat-messages.js";
@@ -48,7 +47,6 @@ import {
 export {
   buildChatContextForTurn,
   buildSystemPromptForTurn,
-  ensureHistoryFitsForTurn,
   preparePipelineDelivery as prepareDelivery,
   recordExchange,
   getEffectiveMood,

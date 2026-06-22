@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildHistoryCompressionTranscript,
   extractParticipantUserIds,
   formatStoredMessageLine,
   parseUserRole,
@@ -8,7 +7,7 @@ import {
   stripEchoedHistoryMarkup,
   userRoleTagFromParts,
 } from "../../../src/features/history/format.js";
-import { ASSISTANT_ROLE, COMPRESSED_ROLE } from "../../../src/features/history/types.js";
+import { ASSISTANT_ROLE } from "../../../src/features/history/types.js";
 
 describe("userRoleTagFromParts", () => {
   it("prefers username, lowercased and sanitized", () => {
@@ -86,40 +85,5 @@ describe("formatStoredMessageLine", () => {
         content: "[assistant said]: hi",
       }),
     ).toBe("[assistant said]: hi");
-  });
-
-  it("passes compressed rows through unchanged", () => {
-    expect(
-      formatStoredMessageLine({
-        role: COMPRESSED_ROLE,
-        content: "Earlier summary.",
-      }),
-    ).toBe("Earlier summary.");
-  });
-});
-
-describe("buildHistoryCompressionTranscript", () => {
-  it("joins tagged lines for every stored row", () => {
-    expect(
-      buildHistoryCompressionTranscript([
-        { role: "user:alice:424242", content: "hey" },
-        { role: ASSISTANT_ROLE, content: "[assistant said]: hello" },
-      ]),
-    ).toBe(
-      "[user:alice:424242]: hey\n[assistant said]: hello",
-    );
-  });
-
-  it("omits pending base64 media rows", () => {
-    expect(
-      buildHistoryCompressionTranscript([
-        { role: "user:alice:424242", content: "hey" },
-        {
-          role: "user:alice:424242",
-          content:
-            "[sent image]: data:image/jpeg;base64,QUJDREVGR0hJSktMTU5PQVBJRkdISUpMTU5P",
-        },
-      ]),
-    ).toBe("[user:alice:424242]: hey");
   });
 });

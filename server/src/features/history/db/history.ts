@@ -1,106 +1,149 @@
 import type { DatabaseSync } from "node:sqlite";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
-import {
-  ASSISTANT_ROLE,
-  insertIndexAfterMessageId,
-  type StoredMessage,
-} from "../index.js";
+import { ASSISTANT_ROLE, type StoredMessage } from "../index.js";
 
 let db: DatabaseSync;
-let readHistoryMaxReplyChars: () => number = () => 4000;
+
+/** Hard cap on rows returned by any single history tool query. */
+const MAX_QUERY_ROWS = 200;
+/** Cap on rows returned by a range query (can span a wide window). */
+const MAX_RANGE_ROWS = 500;
 
 export function bindHistoryDatabase(database: DatabaseSync): void {
   db = database;
-  const tableInfo = db.prepare("PRAGMA table_info(chat_history)").all() as {
-    name: string;
-  }[];
-  const hasCompressedAt = tableInfo.some((c) => c.name === "compressed_at");
-  if (tableInfo.length > 0 && !hasCompressedAt) {
-    db.exec("ALTER TABLE chat_history ADD COLUMN compressed_at INTEGER");
-  }
-
   db.exec(`
-    CREATE TABLE IF NOT EXISTS chat_history (
-      chat_key TEXT PRIMARY KEY,
-      messages TEXT NOT NULL DEFAULT '[]',
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      compressed_at INTEGER
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_id  TEXT    NOT NULL,
+      role       TEXT    NOT NULL,
+      content    TEXT    NOT NULL,
+      message_id INTEGER,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
   `);
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_chat_messages_entity_time
+       ON chat_messages(entity_id, created_at);`,
+  );
+  db.exec(
+    `CREATE INDEX IF NOT EXISTS idx_chat_messages_entity_msgid
+       ON chat_messages(entity_id, message_id);`,
+  );
+  // History moved from a per-chat JSON blob to a row-per-message table.
+  // Start fresh: the old blob carried no per-message timestamps.
+  db.exec(`DROP TABLE IF EXISTS chat_history;`);
 }
 
-export function configureHistoryAccess(getLimits: () => {
-  historyMaxReplyChars: number;
-}): void {
-  readHistoryMaxReplyChars = () => getLimits().historyMaxReplyChars;
+interface MessageRow {
+  id: number;
+  role: string;
+  content: string;
+  message_id: number | null;
+  created_at: number;
 }
 
+const SELECT_COLUMNS =
+  "id, role, content, message_id, created_at";
+
+function rowToStored(row: MessageRow): StoredMessage {
+  const stored: StoredMessage = {
+    role: row.role,
+    content: row.content,
+    createdAt: row.created_at,
+  };
+  if (row.message_id != null) stored.messageId = row.message_id;
+  return stored;
+}
+
+function clampCount(count: number, max: number): number {
+  if (!Number.isFinite(count)) return Math.min(50, max);
+  return Math.max(1, Math.min(Math.floor(count), max));
+}
+
+/** Entity ids with stored history, most-recently-active first. */
 export function listHistoryChatKeys(limit = 100): string[] {
   const rows = db
     .prepare(
-      `SELECT chat_key FROM chat_history ORDER BY updated_at DESC LIMIT ?`,
+      `SELECT entity_id, MAX(created_at) AS last_at
+         FROM chat_messages
+        GROUP BY entity_id
+        ORDER BY last_at DESC
+        LIMIT ?`,
     )
-    .all(limit) as { chat_key: string }[];
-  return rows.map((row) => row.chat_key);
+    .all(limit) as { entity_id: string }[];
+  return rows.map((row) => row.entity_id);
 }
 
 export function listDistinctHistoryChatIds(): number[] {
   const rows = db
-    .prepare(`SELECT DISTINCT chat_key FROM chat_history`)
-    .all() as { chat_key: string }[];
+    .prepare(`SELECT DISTINCT entity_id FROM chat_messages`)
+    .all() as { entity_id: string }[];
   return rows
-    .map((row) => Number(row.chat_key))
+    .map((row) => Number(row.entity_id))
     .filter((chatId) => Number.isFinite(chatId));
 }
 
-export function getHistory(chatKey: string): StoredMessage[] {
-  const row = db
-    .prepare(`SELECT messages FROM chat_history WHERE chat_key = ?`)
-    .get(chatKey) as { messages: string } | undefined;
-  if (!row) return [];
-  try {
-    const parsed = JSON.parse(row.messages) as StoredMessage[];
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (m): m is StoredMessage =>
-        m != null &&
-        typeof m.role === "string" &&
-        typeof m.content === "string" &&
-        (m.messageId == null || typeof m.messageId === "number"),
-    );
-  } catch {
-    return [];
-  }
+/** All stored messages for an entity, oldest first. */
+export function getHistory(entityId: string): StoredMessage[] {
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS} FROM chat_messages
+        WHERE entity_id = ? ORDER BY id`,
+    )
+    .all(entityId) as unknown as MessageRow[];
+  return rows.map(rowToStored);
 }
 
-function writeHistory(
-  chatKey: string,
-  messages: StoredMessage[],
-  isCompression = false,
-): void {
-  if (isCompression) {
-    db.prepare(
-      `INSERT INTO chat_history (chat_key, messages, updated_at, compressed_at)
-       VALUES (?, ?, unixepoch(), unixepoch())
-       ON CONFLICT(chat_key) DO UPDATE SET
-         messages = excluded.messages,
-         updated_at = excluded.updated_at,
-         compressed_at = excluded.compressed_at`,
-    ).run(chatKey, JSON.stringify(messages));
-  } else {
-    db.prepare(
-      `INSERT INTO chat_history (chat_key, messages, updated_at)
-       VALUES (?, ?, unixepoch())
-       ON CONFLICT(chat_key) DO UPDATE SET
-         messages = excluded.messages,
-         updated_at = excluded.updated_at`,
-    ).run(chatKey, JSON.stringify(messages));
-  }
-  getModuleLiveHooks().emitDataUpdated?.(["chat_history"]);
+/** Latest N messages for an entity, returned oldest first. */
+export function getLatestMessages(
+  entityId: string,
+  count: number,
+): StoredMessage[] {
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS} FROM chat_messages
+        WHERE entity_id = ? ORDER BY id DESC LIMIT ?`,
+    )
+    .all(entityId, clampCount(count, MAX_QUERY_ROWS)) as unknown as MessageRow[];
+  return rows.reverse().map(rowToStored);
+}
+
+/** Case-insensitive substring search over message content, oldest first. */
+export function searchMessages(
+  entityId: string,
+  query: string,
+  limit = 50,
+): StoredMessage[] {
+  const q = query.trim();
+  if (!q) return [];
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS} FROM chat_messages
+        WHERE entity_id = ? AND instr(lower(content), lower(?)) > 0
+        ORDER BY id DESC LIMIT ?`,
+    )
+    .all(entityId, q, clampCount(limit, MAX_QUERY_ROWS)) as unknown as MessageRow[];
+  return rows.reverse().map(rowToStored);
+}
+
+/** Messages whose created_at falls within [fromTs, toTs] (epoch seconds), oldest first. */
+export function getMessagesInRange(
+  entityId: string,
+  fromTs: number,
+  toTs: number,
+): StoredMessage[] {
+  const rows = db
+    .prepare(
+      `SELECT ${SELECT_COLUMNS} FROM chat_messages
+        WHERE entity_id = ? AND created_at >= ? AND created_at <= ?
+        ORDER BY id LIMIT ?`,
+    )
+    .all(entityId, fromTs, toTs, MAX_RANGE_ROWS) as unknown as MessageRow[];
+  return rows.map(rowToStored);
 }
 
 export function appendMessage(
-  chatKey: string,
+  entityId: string,
   role: string,
   content: string,
   options?: { messageId?: number },
@@ -108,114 +151,53 @@ export function appendMessage(
   const trimmed = content.trim();
   if (!trimmed) return;
 
-  let stored = trimmed;
-  if (role === ASSISTANT_ROLE) {
-    const historyMaxReplyChars = readHistoryMaxReplyChars();
-    if (stored.length > historyMaxReplyChars) {
-      stored = `${stored.slice(0, historyMaxReplyChars)}…`;
-    }
-  }
-
-  const messages = getHistory(chatKey);
-  const row: StoredMessage = { role, content: stored };
-  if (options?.messageId != null) {
-    row.messageId = options.messageId;
-  }
-  messages.push(row);
-  writeHistory(chatKey, messages);
-}
-
-export function clearHistory(chatKey: string): void {
-  db.prepare(`DELETE FROM chat_history WHERE chat_key = ?`).run(chatKey);
-  getModuleLiveHooks().emitDataUpdated?.(["chat_history"]);
-}
-
-export function replaceHistory(
-  chatKey: string,
-  messages: StoredMessage[],
-  isCompression = false,
-): void {
-  const cleaned = messages
-    .map((m) => ({
-      role: m.role,
-      content: m.content.trim(),
-      messageId: m.messageId,
-      compressedAt: m.compressedAt,
-    }))
-    .filter((m) => m.content);
-  writeHistory(chatKey, cleaned, isCompression);
+  db.prepare(
+    `INSERT INTO chat_messages (entity_id, role, content, message_id)
+     VALUES (?, ?, ?, ?)`,
+  ).run(entityId, role, trimmed, options?.messageId ?? null);
+  getModuleLiveHooks().emitDataUpdated?.(["chat_messages"]);
 }
 
 export function appendAssistantMessage(
-  chatKey: string,
+  entityId: string,
   assistantText: string,
 ): void {
   appendMessage(
-    chatKey,
+    entityId,
     ASSISTANT_ROLE,
     `[assistant said]: ${assistantText.trim()}`,
   );
 }
 
-/** Insert assistant reply immediately after the anchored Telegram message rows. */
-export function insertAssistantAfterMessage(
-  chatKey: string,
-  anchorMessageId: number,
-  assistantText: string,
-): boolean {
-  const trimmed = assistantText.trim();
-  if (!trimmed) return false;
-
-  let stored = `[assistant said]: ${trimmed}`;
-  const historyMaxReplyChars = readHistoryMaxReplyChars();
-  if (stored.length > historyMaxReplyChars) {
-    stored = `${stored.slice(0, historyMaxReplyChars)}…`;
-  }
-
-  const messages = getHistory(chatKey);
-  const insertAt = insertIndexAfterMessageId(messages, anchorMessageId);
-  messages.splice(insertAt, 0, { role: ASSISTANT_ROLE, content: stored });
-  writeHistory(chatKey, messages);
-  return true;
+export function clearHistory(entityId: string): void {
+  db.prepare(`DELETE FROM chat_messages WHERE entity_id = ?`).run(entityId);
+  getModuleLiveHooks().emitDataUpdated?.(["chat_messages"]);
 }
 
-/** Replace one history row by index (used after vision backfill). */
-export function replaceHistoryMessageAt(
-  chatKey: string,
-  index: number,
-  content: string,
-): boolean {
-  const trimmed = content.trim();
-  if (!trimmed) return false;
-
-  const messages = getHistory(chatKey);
-  if (index < 0 || index >= messages.length) return false;
-
-  messages[index] = { ...messages[index]!, content: trimmed };
-  writeHistory(chatKey, messages);
-  return true;
-}
-
-/** Scan history and replace base64 media lines using the provided mapper. */
+/** Scan an entity's rows and replace base64 media content using the mapper (vision backfill). */
 export function mapHistoryBase64Media(
-  chatKey: string,
+  entityId: string,
   isBase64Media: (content: string) => boolean,
   replace: (content: string) => string | null,
 ): number {
-  const messages = getHistory(chatKey);
+  const rows = db
+    .prepare(`SELECT id, content FROM chat_messages WHERE entity_id = ?`)
+    .all(entityId) as { id: number; content: string }[];
   let updated = 0;
 
-  for (let i = 0; i < messages.length; i++) {
-    const row = messages[i]!;
+  for (const row of rows) {
     if (!isBase64Media(row.content)) continue;
     const next = replace(row.content);
     if (!next || next === row.content) continue;
-    messages[i] = { ...row, content: next };
+    db.prepare(`UPDATE chat_messages SET content = ? WHERE id = ?`).run(
+      next,
+      row.id,
+    );
     updated++;
   }
 
   if (updated > 0) {
-    writeHistory(chatKey, messages);
+    getModuleLiveHooks().emitDataUpdated?.(["chat_messages"]);
   }
   return updated;
 }

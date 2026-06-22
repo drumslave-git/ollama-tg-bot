@@ -34,7 +34,6 @@ export async function runExplainTurn(
       isGroupChat: input.inGroup,
     });
 
-    await deps.ensureHistoryFits(input.convKey);
     const history = deps.loadHistoryMessages(input.convKey);
     const latestContent = input.question.trim();
     const messages: ChatMessage[] = [

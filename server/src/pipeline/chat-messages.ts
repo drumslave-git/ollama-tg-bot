@@ -3,8 +3,6 @@ import {
   appendAssistantMessage,
   appendMessage,
   getHistory,
-  historyToChatMessages,
-  insertAssistantAfterMessage,
 } from "../db/history/index.js";
 import {
   formatKnownUserLabel,
@@ -20,7 +18,7 @@ import {
 } from "./adapters/system-prompt.js";
 import { resolveEnabledMcpToolNames } from "../runtime/mcp-tools.js";
 import type { MoodValues } from "../mood/index.js";
-import { extractParticipantUserIds, filterInjectableHistory, historyBeforeMessageId } from "../features/history/index.js";
+import { extractParticipantUserIds } from "../features/history/index.js";
 import { isReplyThreadContext } from "../bot/replies/replies.js";
 import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 
@@ -148,7 +146,6 @@ export function buildChatMessages(
     ownerUserId?: string | null;
     ownerUsername?: string | null;
     mood?: MoodValues | null;
-    historyBeforeMessageId?: number;
   },
 ): BuiltChatPayload {
   const {
@@ -197,21 +194,13 @@ export function buildChatMessages(
     ownerUsername,
     mood,
     enabledMcpToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
+    entityId: chatKey,
+    now: new Date(),
   });
 
-  const storedHistory = getHistory(chatKey);
-  const injectableHistory =
-    options.historyBeforeMessageId != null
-      ? historyBeforeMessageId(storedHistory, options.historyBeforeMessageId)
-      : filterInjectableHistory(storedHistory);
-  const historySource =
-    options.historyBeforeMessageId == null &&
-    isGroupChat &&
-    latestTurn.speakerTag &&
-    storedHistory.at(-1)?.role === latestTurn.speakerTag
-      ? injectableHistory.slice(0, -1)
-      : injectableHistory;
-  const history = historyToChatMessages(historySource);
+  // History is no longer injected — the model pulls it on demand via the
+  // history MCP tools. The prompt carries only the system message and the
+  // current turn (the replied-to message rides along in replyContext).
   const latest = buildLatestTurnMessage({
     ...latestTurn,
     isGroupChat,
@@ -222,10 +211,10 @@ export function buildChatMessages(
 
   return {
     systemContent: system,
-    historyMessages: history,
+    historyMessages: [],
     latestContent: latest,
-    storedHistoryCount: injectableHistory.length,
-    messages: [{ role: "system", content: system }, ...history, latestMessage],
+    storedHistoryCount: 0,
+    messages: [{ role: "system", content: system }, latestMessage],
   };
 }
 
@@ -246,11 +235,9 @@ export function recordExchange(
         : undefined,
     );
   }
-  if (options?.anchorMessageId != null) {
-    insertAssistantAfterMessage(chatKey, options.anchorMessageId, assistantText);
-  } else {
-    appendAssistantMessage(chatKey, assistantText);
-  }
+  // Autoincrement id + created_at already order the reply after everything
+  // stored so far, so a plain append is enough.
+  appendAssistantMessage(chatKey, assistantText);
   logEvent("history_exchange_stored", {
     convKey: chatKey,
     skipUser: Boolean(options?.skipUser),

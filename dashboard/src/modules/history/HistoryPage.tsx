@@ -3,10 +3,20 @@ import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
 import { api, type DataTablePayload } from "@llm-tg-bot/dashboard/api";
 
-interface StoredMessage {
+const TABLE_ID = "chat_messages";
+
+interface MessageRow {
+  id: number;
+  entityId: string;
   role: string;
   content: string;
-  compressedAt?: number;
+  createdAt: string;
+}
+
+interface ChatGroup {
+  entityId: string;
+  messages: MessageRow[];
+  lastAt: string;
 }
 
 const secondaryBtn =
@@ -19,28 +29,41 @@ function formatTime(value: unknown): string {
   return date.toLocaleString();
 }
 
-function formatUnixTime(value: unknown): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
-  const date = new Date(value * 1000);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString();
+function toMessageRow(row: Record<string, unknown>): MessageRow | null {
+  const id = Number(row.id);
+  const entityId = String(row.entityId ?? "");
+  const role = typeof row.role === "string" ? row.role : "";
+  const content = typeof row.content === "string" ? row.content : "";
+  if (!Number.isFinite(id) || !entityId || !role) return null;
+  return {
+    id,
+    entityId,
+    role,
+    content,
+    createdAt: typeof row.createdAt === "string" ? row.createdAt : "",
+  };
 }
 
-function parseMessages(raw: unknown): StoredMessage[] {
-  if (typeof raw !== "string" || !raw.trim()) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (m): m is StoredMessage =>
-        m != null &&
-        typeof m === "object" &&
-        typeof (m as StoredMessage).role === "string" &&
-        typeof (m as StoredMessage).content === "string",
-    );
-  } catch {
-    return [];
+function groupByEntity(rows: Record<string, unknown>[]): ChatGroup[] {
+  const groups = new Map<string, MessageRow[]>();
+  for (const raw of rows) {
+    const msg = toMessageRow(raw);
+    if (!msg) continue;
+    const existing = groups.get(msg.entityId);
+    if (existing) existing.push(msg);
+    else groups.set(msg.entityId, [msg]);
   }
+
+  return [...groups.entries()]
+    .map(([entityId, messages]) => {
+      messages.sort((a, b) => a.id - b.id);
+      return {
+        entityId,
+        messages,
+        lastAt: messages[messages.length - 1]?.createdAt ?? "",
+      };
+    })
+    .sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
 
 export function HistoryPage() {
@@ -48,16 +71,12 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [compressingChatKey, setCompressingChatKey] = useState<string | null>(
-    null,
-  );
-  const [compressNotice, setCompressNotice] = useState<string | null>(null);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      setPayload(await api.getDataTable("chat_history"));
+      setPayload(await api.getDataTable(TABLE_ID));
     } catch (err) {
       setError(err);
       setPayload(null);
@@ -73,58 +92,27 @@ export function HistoryPage() {
   useLiveData(
     useCallback(
       (event) => {
-        if (event.tableIds?.includes("chat_history")) void load(true);
+        if (event.tableIds?.includes(TABLE_ID)) void load(true);
       },
       [load],
     ),
   );
 
-  const filteredRows = useMemo(() => {
-    if (!payload) return [];
+  const groups = useMemo(
+    () => (payload ? groupByEntity(payload.rows) : []),
+    [payload],
+  );
+
+  const filteredGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return payload.rows;
-    return payload.rows.filter((row) => {
-      const chatKey = String(row.chatKey ?? "").toLowerCase();
-      const messages = String(row.messages ?? "").toLowerCase();
-      return chatKey.includes(query) || messages.includes(query);
+    if (!query) return groups;
+    return groups.filter((group) => {
+      if (group.entityId.toLowerCase().includes(query)) return true;
+      return group.messages.some((m) =>
+        m.content.toLowerCase().includes(query),
+      );
     });
-  }, [payload, searchQuery]);
-
-  const compressChat = async (chatKey: string, messageCount: number) => {
-    if (messageCount === 0) return;
-    if (
-      !confirm(
-        `Compress ${messageCount} message${messageCount === 1 ? "" : "s"} for chat ${chatKey} into one summary? This replaces the stored transcript.`,
-      )
-    ) {
-      return;
-    }
-
-    setCompressingChatKey(chatKey);
-    setCompressNotice(null);
-    setError(null);
-    try {
-      const result = await api.compressHistory(chatKey);
-      if (result.skipped) {
-        setCompressNotice(
-          result.reason === "empty"
-            ? "Nothing to compress for that chat."
-            : "Compression was skipped.",
-        );
-      } else if (result.ok) {
-        setCompressNotice(
-          `Compressed ${result.messageCount ?? messageCount} message${
-            (result.messageCount ?? messageCount) === 1 ? "" : "s"
-          } for chat ${chatKey}.`,
-        );
-        await load(true);
-      }
-    } catch (err) {
-      setError(err);
-    } finally {
-      setCompressingChatKey(null);
-    }
-  };
+  }, [groups, searchQuery]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -134,24 +122,21 @@ export function HistoryPage() {
             Chat history
           </h1>
           <p className="m-0 max-w-xl text-[0.92rem] text-muted">
-            Stored transcripts per Telegram chat. Limits are derived from context
-            window settings on the Settings page. Use Compress to summarize a chat
-            into one narrative row (same as automatic overflow compression).
+            Every stored message per Telegram chat. The model reads this on
+            demand through the history MCP tools — nothing is auto-injected or
+            compressed.
           </p>
         </div>
       </header>
 
       {error ? <ErrorBanner error={error} /> : null}
-      {compressNotice ? (
-        <p className="mt-1.5 text-xs text-muted">{compressNotice}</p>
-      ) : null}
 
       <section className="rounded-lg border border-border bg-surface p-6">
         <div className="mb-3.5 flex flex-wrap items-center gap-2">
           <input
             type="search"
             className="min-w-0 flex-1 basis-56"
-            placeholder="Search chat key or message text…"
+            placeholder="Search entity id or message text…"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -172,102 +157,63 @@ export function HistoryPage() {
         ) : (
           <>
             <p className="text-muted">
-              {filteredRows.length} of {payload.total} chats
-              {payload.truncated ? " (list truncated)" : ""}
+              {filteredGroups.length} chat
+              {filteredGroups.length === 1 ? "" : "s"}
+              {payload.truncated ? " (rows truncated)" : ""}
             </p>
 
-            {filteredRows.length === 0 ? (
+            {filteredGroups.length === 0 ? (
               <p className="text-muted">No chats match your search.</p>
             ) : (
               <div className="flex flex-col gap-4">
-                {filteredRows.map((row) => {
-                  const chatKey = String(row.chatKey ?? "—");
-                  const messages = parseMessages(row.messages);
-                  const isCompressing = compressingChatKey === chatKey;
+                {filteredGroups.map((group) => (
+                  <article
+                    key={group.entityId}
+                    className="overflow-hidden rounded-lg border border-border"
+                  >
+                    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3.5 py-2.5">
+                      <div className="flex flex-wrap items-baseline gap-2">
+                        <code className="font-mono text-[0.88em]">
+                          {group.entityId}
+                        </code>
+                        <span className="ml-0.5 text-xs font-normal text-muted">
+                          {group.messages.length} message
+                          {group.messages.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted">
+                        Last{" "}
+                        <time dateTime={group.lastAt}>
+                          {formatTime(group.lastAt)}
+                        </time>
+                      </span>
+                    </header>
 
-                  return (
-                    <article
-                      key={chatKey}
-                      className="overflow-hidden rounded-lg border border-border"
-                    >
-                      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3.5 py-2.5">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <code className="font-mono text-[0.88em]">
-                            {chatKey}
-                          </code>
-                          <span className="ml-0.5 text-xs font-normal text-muted">
-                            {messages.length} message
-                            {messages.length === 1 ? "" : "s"}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-end gap-3">
-                          <div className="flex flex-wrap gap-3 text-xs text-muted">
-                            <span>
-                              Updated{" "}
-                              <time dateTime={String(row.updatedAt ?? "")}>
-                                {formatTime(row.updatedAt)}
-                              </time>
+                    <ol className="m-0 list-none p-0">
+                      {group.messages.map((message) => (
+                        <li
+                          key={message.id}
+                          className="border-b border-border px-3.5 py-3 last:border-b-0"
+                        >
+                          <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="font-mono text-xs text-accent">
+                              {message.role}
                             </span>
-                            {row.compressedAt ? (
-                              <span>
-                                Compressed{" "}
-                                <time dateTime={String(row.compressedAt ?? "")}>
-                                  {formatTime(row.compressedAt)}
-                                </time>
-                              </span>
-                            ) : null}
-                          </div>
-                          <button
-                            type="button"
-                            className={secondaryBtn}
-                            disabled={
-                              messages.length === 0 ||
-                              isCompressing ||
-                              compressingChatKey != null
-                            }
-                            onClick={() => void compressChat(chatKey, messages.length)}
-                          >
-                            {isCompressing ? "Compressing…" : "Compress"}
-                          </button>
-                        </div>
-                      </header>
-
-                      {messages.length === 0 ? (
-                        <p className="m-0 px-3.5 py-3 text-muted">
-                          No messages stored.
-                        </p>
-                      ) : (
-                        <ol className="m-0 list-none p-0">
-                          {messages.map((message, index) => (
-                            <li
-                              key={`${chatKey}-${index}`}
-                              className="border-b border-border px-3.5 py-3 last:border-b-0"
+                            <time
+                              className="text-xs text-muted"
+                              dateTime={message.createdAt}
                             >
-                              <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
-                                <span className="font-mono text-xs text-accent">
-                                  {message.role}
-                                </span>
-                                {message.compressedAt ? (
-                                  <time
-                                    className="text-xs text-muted"
-                                    dateTime={new Date(
-                                      message.compressedAt * 1000,
-                                    ).toISOString()}
-                                  >
-                                    compressed {formatUnixTime(message.compressedAt)}
-                                  </time>
-                                ) : null}
-                              </div>
-                              <pre className="m-0 whitespace-pre-wrap break-words font-[inherit] text-sm leading-snug">
-                                {message.content}
-                              </pre>
-                            </li>
-                          ))}
-                        </ol>
-                      )}
-                    </article>
-                  );
-                })}
+                              {formatTime(message.createdAt)}
+                            </time>
+                          </div>
+                          <pre className="m-0 whitespace-pre-wrap break-words font-[inherit] text-sm leading-snug">
+                            {message.content}
+                          </pre>
+                        </li>
+                      ))}
+                    </ol>
+                  </article>
+                ))}
               </div>
             )}
           </>

@@ -15,7 +15,6 @@ import {
   appendMessage,
   currentSpeakerFromUser,
   enrichTextWithUserMentions,
-  ensureHistoryFitsForTurn,
   formatReplyContext,
   isGroupChat,
   isOwner,
@@ -177,39 +176,6 @@ export const intakeHistoryHost: PipelineModuleHost = {
       phaseId: "history-intake",
       phaseTitle: "History intake",
       summary: parts.length > 0 ? `Stored ${parts.join(" + ")}` : "Nothing to store",
-    };
-  },
-};
-
-export const historyInjectHost: PipelineModuleHost = {
-  id: "history",
-  stepId: "history",
-  alwaysOn: true,
-
-  shouldRun(state) {
-    return Boolean(state.shouldReply && state.convKey);
-  },
-
-  async run(state): Promise<PipelineStepResult> {
-    const convKey = state.convKey;
-    if (!convKey) {
-      return {
-        status: "failed",
-        phaseId: "history",
-        phaseTitle: "History",
-        summary: "Missing conversation key",
-      };
-    }
-
-    const started = performance.now();
-    await ensureHistoryFitsForTurn(convKey);
-
-    return {
-      status: "ok",
-      phaseId: "history",
-      phaseTitle: "History",
-      summary: "Context ready",
-      durationMs: performance.now() - started,
     };
   },
 };

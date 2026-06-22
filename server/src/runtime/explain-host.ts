@@ -9,11 +9,10 @@ import {
   getPersonalityById,
   resolveActivePersonalityId,
 } from "../db/personalities/index.js";
-import { getHistory, historyToChatMessages } from "../db/history/index.js";
+import { getLatestMessages, historyToChatMessages } from "../db/history/index.js";
 import { getUserFacts } from "../db/memory/user.js";
 import { getGroupFacts } from "../db/memory/group.js";
 import { getGeneralFacts } from "../db/memory/general.js";
-import { ensureHistoryFits } from "../debug/context-compress.js";
 import { chatCompleteDetailed } from "../llm/client.js";
 import {
   extractTelegramReply,
@@ -68,9 +67,8 @@ export function createExplainExtension(): ExplainExtension {
         userMemoryFacts: input.userMemoryFacts,
         isGroupChat: input.isGroupChat,
       }),
-    ensureHistoryFits,
     loadHistoryMessages: (convKey) =>
-      historyToChatMessages(getHistory(convKey)),
+      historyToChatMessages(getLatestMessages(convKey, 40)),
     getMainReplyResponseFormat,
     chatCompleteDetailed: (messages, options) =>
       chatCompleteDetailed(messages as never, options as never),

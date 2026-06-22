@@ -13,20 +13,6 @@ export interface ModuleDbHost {
   getSettings: () => Record<string, unknown>;
   updateSettings: (partial: Record<string, unknown>) => Record<string, unknown>;
   buildMoodPayload?: () => unknown;
-  getHistoryLimits?: () => {
-    historyMaxReplyChars: number;
-    historyMaxTokens: number;
-  };
-  compressHistoryChat?: (
-    chatKey: string,
-    options?: { force?: boolean },
-  ) => Promise<{
-    ok: boolean;
-    skipped?: boolean;
-    reason?: string;
-    messageCount?: number;
-    resultChars?: number;
-  }>;
 }
 
 export interface ModuleDbExports {

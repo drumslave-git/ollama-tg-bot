@@ -11,7 +11,6 @@ import {
   replyTriggersHost,
 } from "../features/addressing/index.js";
 import {
-  historyInjectHost,
   historyRecordHost,
   intakeHistoryHost,
   turnSetupHost,
@@ -49,7 +48,6 @@ export function getQueuePipelineHosts(): PipelineModuleHost[] {
     visionReplyHost,
     systemPromptHost,
     personalityHost,
-    historyInjectHost,
     moodPipelineHost,
     completionsHost,
     stickerPipelineHost,

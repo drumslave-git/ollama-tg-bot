@@ -36,24 +36,17 @@ export function minNumCtxForPredict(numPredict: number): number {
 }
 
 export interface DerivedHistoryLimits {
-  historyMaxTokens: number;
   historyMaxReplyChars: number;
   numPredict: number;
 }
 
 export function deriveHistoryLimits(
-  numCtx: number,
+  _numCtx: number,
   numPredict: number,
 ): DerivedHistoryLimits {
   const snappedNumPredict = snapNumPredict(numPredict);
 
-  const historyMaxTokens = Math.max(
-    256,
-    Math.floor((numCtx - snappedNumPredict) * 0.45),
-  );
-
   return {
-    historyMaxTokens,
     historyMaxReplyChars: Math.min(
       4000,
       Math.max(100, Math.floor(snappedNumPredict * APPROX_CHARS_PER_TOKEN)),

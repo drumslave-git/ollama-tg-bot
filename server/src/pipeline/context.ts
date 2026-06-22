@@ -15,7 +15,6 @@ import {
   buildChatMessages,
   type LatestTurnOptions,
 } from "./chat-messages.js";
-import { ensureHistoryFits } from "../debug/context-compress.js";
 import {
   escapeHtml,
   hasVisibleTelegramReply,
@@ -61,6 +60,8 @@ export function buildSystemPromptForTurn(state: PipelineTurnState): string {
     ownerUsername: getOwnerUsername(),
     mood: (state.mood ?? null) as MoodValues | null,
     enabledMcpToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
+    entityId: state.convKey,
+    now: new Date(),
   });
 }
 
@@ -97,7 +98,6 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
       ownerUserId: getOwnerUserId(),
       ownerUsername: getOwnerUsername(),
       mood: (state.mood ?? null) as MoodValues | null,
-      historyBeforeMessageId: state.telegramMessageId,
     },
   );
 }
@@ -127,8 +127,4 @@ export function preparePipelineDelivery(
     stickerEmoji,
     webSearchSources,
   };
-}
-
-export async function ensureHistoryFitsForTurn(convKey: string): Promise<void> {
-  await ensureHistoryFits(convKey);
 }

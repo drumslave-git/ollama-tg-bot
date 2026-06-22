@@ -6,6 +6,8 @@ import { visionDbModule } from "../features/vision/db/index.js";
 import { memoryDbModule } from "../features/memory/db/index.js";
 import { registerMcpTools as registerLinkFetchTools } from "../features/link-fetch/register-mcp-tools.js";
 import { registerMcpTools as registerWebSearchTools } from "../features/web-search/register-mcp-tools.js";
+import { registerMcpTools as registerHistoryTools } from "../features/history/register-mcp-tools.js";
+import { HISTORY_TOOL_NAMES } from "../features/history/mcp-tools.js";
 
 /**
  * Static registry of feature modules. Replaces the former manifest.json
@@ -28,6 +30,8 @@ export interface ModuleEntry {
     workflowStepId: string;
     toolNames: string[];
     registrar: McpToolRegistrar;
+    /** Always exposed to the model, regardless of enabled workflow steps. */
+    alwaysOn?: boolean;
   };
 }
 
@@ -47,15 +51,22 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
     id: "history",
     name: "Chat history",
     description:
-      "Per-chat message storage, formatting, compression, and prompt injection.",
-    apiBasePath: "/history",
-    dataTables: ["chat_history"],
+      "Per-chat verbatim message storage exposed to the model through always-on history MCP tools.",
+    dataTables: ["chat_messages"],
     dashboard: {
       label: "History",
       description: "Browse stored chat transcripts per Telegram chat.",
     },
     hasUi: true,
     db: historyDbModule,
+    mcpTools: {
+      // Always on — not gated by a workflow step. workflowStepId is unused
+      // for always-on tools but kept for the registry shape.
+      workflowStepId: "history",
+      toolNames: HISTORY_TOOL_NAMES,
+      registrar: registerHistoryTools,
+      alwaysOn: true,
+    },
   },
   {
     id: "link-fetch",

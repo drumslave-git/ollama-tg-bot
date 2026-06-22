@@ -274,16 +274,10 @@ export function ModelConfigPanel({
       </section>
 
       <aside className="mt-5 rounded-lg border border-border bg-surface-2 px-4 py-3.5">
-        <h4 className="m-0 mb-1.5 text-sm font-semibold">Derived chat history</h4>
+        <h4 className="m-0 mb-1.5 text-sm font-semibold">Derived reply limits</h4>
         <ul className="m-0 mt-2 list-disc pl-4 text-sm leading-relaxed text-muted">
           <li>
-            <strong className="text-text">
-              {analysis.derived.historyMaxTokens.toLocaleString()}
-            </strong>{" "}
-            tokens of history (compressed when exceeded)
-          </li>
-          <li>
-            Replies stored to{" "}
+            Reply length guidance:{" "}
             <strong className="text-text">
               {analysis.derived.historyMaxReplyChars.toLocaleString()}
             </strong>{" "}

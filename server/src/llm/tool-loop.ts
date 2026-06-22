@@ -11,7 +11,10 @@ import type {
   VerbosePromptLayout,
 } from "./client.js";
 import { chatCompleteDetailed } from "./client.js";
-import { buildToolRoundSystemPrompt } from "../pipeline/adapters/system-prompt.js";
+import {
+  buildToolRoundSystemPrompt,
+  extractSessionBlock,
+} from "../pipeline/adapters/system-prompt.js";
 
 const MAX_TOOL_ROUNDS = 6;
 
@@ -46,8 +49,9 @@ function toolNamesFromOptions(tools: ChatCompletionTool[]): string[] {
 function applyToolRoundSystem(
   conversation: ChatCompletionMessageParam[],
   enabledToolNames: string[],
+  sessionBlock: string,
 ): ChatCompletionMessageParam[] {
-  const toolSystem = buildToolRoundSystemPrompt(enabledToolNames);
+  const toolSystem = buildToolRoundSystemPrompt(enabledToolNames, sessionBlock);
   if (conversation.length === 0) {
     return [{ role: "system", content: toolSystem }];
   }
@@ -95,13 +99,18 @@ export async function chatCompleteWithTools(
     seedMessages[0]?.role === "system"
       ? String(seedMessages[0].content ?? "")
       : "";
+  const sessionBlock = extractSessionBlock(fullSystemContent);
   const enabledToolNames = toolNamesFromOptions(options.tools);
 
   let conversation = seedMessages;
   let accumulatedThinking = "";
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
-    conversation = applyToolRoundSystem(conversation, enabledToolNames);
+    conversation = applyToolRoundSystem(
+      conversation,
+      enabledToolNames,
+      sessionBlock,
+    );
 
     const toolRound = await chatCompleteDetailed(conversation, {
       model: options.model,
