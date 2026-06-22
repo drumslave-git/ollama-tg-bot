@@ -1,20 +1,4 @@
-import type {
-  PipelineModuleHost,
-  PipelinePhase,
-} from "@llm-tg-bot/modules-registry";
-
-export const INTAKE_PHASES = ["preprocess", "gate"] as const;
-
-export const QUEUE_STEP_ORDER = [
-  "vision",
-  "system",
-  "personality",
-  "history",
-  "mood",
-  "completions",
-  "sticker",
-  "history-record",
-] as const;
+import type { PipelineModuleHost } from "@llm-tg-bot/modules-registry";
 
 export type WorkflowNodeKind =
   | "input"
@@ -60,6 +44,8 @@ const LLM_STEP_IDS = new Set([
   "vision",
   "sticker",
 ]);
+
+const SIDE_EFFECT_STEP_IDS = new Set(["sticker", "history-record"]);
 
 const HOST_SUBLABELS: Record<string, string> = {
   intake: "Turn setup + memory input",
@@ -135,15 +121,6 @@ const BUILTIN_NODES: Omit<
   },
 ];
 
-function hostsInPhase(
-  hosts: PipelineModuleHost[],
-  phase: PipelinePhase,
-): PipelineModuleHost[] {
-  return hosts
-    .filter((host) => host.phase === phase)
-    .sort((a, b) => a.order - b.order);
-}
-
 function isHostEnabled(
   host: PipelineModuleHost,
   enabledSteps: string[],
@@ -155,19 +132,15 @@ function isHostEnabled(
 function hostKind(
   host: PipelineModuleHost,
   enabled: boolean,
+  stage: WorkflowStage,
 ): WorkflowNodeKind {
   if (!host.alwaysOn) return enabled ? "optional" : "optional";
-  if (host.phase === "gate") return "decision";
-  if (LLM_STEP_IDS.has(host.stepId)) return "llm";
-  if (host.phase === "post-reply") return "side";
-  return "process";
-}
-
-function hostStage(host: PipelineModuleHost): WorkflowStage {
-  if (INTAKE_PHASES.includes(host.phase as (typeof INTAKE_PHASES)[number])) {
-    return "intake";
+  if (stage === "intake" && (host.stepId === "triggers" || host.stepId === "address")) {
+    return "decision";
   }
-  return "queue";
+  if (LLM_STEP_IDS.has(host.stepId)) return "llm";
+  if (SIDE_EFFECT_STEP_IDS.has(host.stepId)) return "side";
+  return "process";
 }
 
 function hostLabel(
@@ -187,12 +160,13 @@ function hostSublabel(
   return (
     HOST_SUBLABELS[host.stepId] ??
     manifests.get(host.id)?.description ??
-    host.phase
+    host.stepId
   );
 }
 
 function hostNode(
   host: PipelineModuleHost,
+  stage: WorkflowStage,
   enabledSteps: string[],
   manifests: Map<string, { name: string; description: string }>,
 ): WorkflowNodeSpec {
@@ -202,8 +176,8 @@ function hostNode(
     moduleId: host.id,
     label: hostLabel(host, manifests),
     sublabel: hostSublabel(host, manifests),
-    kind: hostKind(host, enabled),
-    stage: hostStage(host),
+    kind: hostKind(host, enabled, stage),
+    stage,
     alwaysOn: Boolean(host.alwaysOn),
     enabled,
   };
@@ -228,7 +202,8 @@ function chainEdges(
 }
 
 export function buildWorkflowDefinitionFromHosts(
-  hosts: PipelineModuleHost[],
+  intakeHosts: PipelineModuleHost[],
+  queueHosts: PipelineModuleHost[],
   manifests: Map<string, { name: string; description: string }>,
   enabledSteps: string[],
 ): WorkflowDefinition {
@@ -244,18 +219,14 @@ export function buildWorkflowDefinitionFromHosts(
   }
 
   const intakeHostIds: string[] = [];
-  for (const phase of INTAKE_PHASES) {
-    for (const host of hostsInPhase(hosts, phase)) {
-      nodes.push(hostNode(host, enabledSteps, manifests));
-      intakeHostIds.push(host.stepId);
-    }
+  for (const host of intakeHosts) {
+    nodes.push(hostNode(host, "intake", enabledSteps, manifests));
+    intakeHostIds.push(host.stepId);
   }
 
   const queueHostIds: string[] = [];
-  for (const stepId of QUEUE_STEP_ORDER) {
-    const host = hosts.find((entry) => entry.stepId === stepId);
-    if (!host) continue;
-    nodes.push(hostNode(host, enabledSteps, manifests));
+  for (const host of queueHosts) {
+    nodes.push(hostNode(host, "queue", enabledSteps, manifests));
     queueHostIds.push(host.stepId);
   }
 

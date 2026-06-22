@@ -1,6 +1,5 @@
 export { systemPromptHost } from "./system-prompt.js";
 export { completionsHost } from "./completions.js";
-export { pipelineHosts } from "./pipeline.js";
 export { botHost } from "./bot-host.js";
 export {
   EXPLAIN_EXTENSION_ID,

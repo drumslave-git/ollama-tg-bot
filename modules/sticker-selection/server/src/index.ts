@@ -29,7 +29,7 @@ export type {
   StickerSelectionInput,
   StickerSelectionOutput,
 } from "./types.js";
-export { pipelineHost } from "./pipeline.js";
+export { stickerPipelineHost } from "./pipeline.js";
 export { botHost } from "./bot-host.js";
 export {
   getStickerCatalogState,

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { pipelineHosts } from "../src/pipeline.js";
+import { completionsHost } from "../src/completions.js";
+import { systemPromptHost } from "../src/system-prompt.js";
 
-describe("completions pipeline hosts", () => {
-  it("exports system and completion hosts in order", () => {
-    expect(pipelineHosts).toHaveLength(2);
-    expect(pipelineHosts[0]?.stepId).toBe("system");
-    expect(pipelineHosts[1]?.stepId).toBe("completions");
+describe("completions hosts", () => {
+  it("exports the system and completion steps", () => {
+    expect(systemPromptHost.stepId).toBe("system");
+    expect(completionsHost.stepId).toBe("completions");
   });
 });

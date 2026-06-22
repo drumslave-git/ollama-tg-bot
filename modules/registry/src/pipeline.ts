@@ -1,15 +1,8 @@
 /**
  * Pipeline contracts for core bot processing stages.
  *
- * The server imports the active hosts explicitly and runs them by phase / queue order.
+ * The server imports active hosts explicitly and runs them in named intake / queue lists.
  */
-
-export type PipelinePhase =
-  | "preprocess"
-  | "gate"
-  | "pre-reply"
-  | "reply"
-  | "post-reply";
 
 export type PipelineStepStatus = "ok" | "skipped" | "failed" | "halt";
 
@@ -137,7 +130,7 @@ export interface PipelineTurnState {
 
   delivery?: PipelineDeliveryResult;
 
-  /** Module-specific inputs set by the host before a phase runs. */
+  /** Module-specific inputs set by the host before a step runs. */
   moduleInput?: Record<string, unknown>;
 }
 
@@ -315,8 +308,6 @@ export interface PipelineHostServices {
 export interface PipelineModuleHost {
   readonly id: string;
   readonly stepId: string;
-  readonly phase: PipelinePhase;
-  readonly order: number;
   readonly alwaysOn?: boolean;
   /** Human-readable title in debug traces. Defaults to stepId. */
   debugTitle?: string;

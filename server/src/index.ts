@@ -38,9 +38,9 @@ async function main(): Promise<void> {
   });
 
   await initDatabase();
-  await loadPipelineHosts();
+  loadPipelineHosts();
   await loadMcpTools();
-  await loadBotHosts();
+  loadBotHosts();
   const moduleRouters = await createModuleRouters();
   const bootSettings = getSettings();
   void refreshModelContextCache(bootSettings.model, config.llmBaseUrl);

@@ -6,12 +6,26 @@ import {
   type BotModuleHost,
   type PipelineModuleHost,
 } from "@llm-tg-bot/modules-registry";
-import { pipelineHosts as addressingPipelineHosts } from "@llm-tg-bot/modules-addressing-detection";
-import { pipelineHosts as historyPipelineHosts } from "@llm-tg-bot/modules-history";
-import { pipelineHosts as visionPipelineHosts } from "@llm-tg-bot/modules-vision";
-import { pipelineHosts as moodPipelineHosts } from "@llm-tg-bot/modules-mood-evaluation";
-import { pipelineHosts as completionsPipelineHosts } from "@llm-tg-bot/modules-completions";
-import { pipelineHost as stickerPipelineHost } from "@llm-tg-bot/modules-sticker-selection";
+import {
+  addressingHost,
+  replyTriggersHost,
+} from "@llm-tg-bot/modules-addressing-detection";
+import {
+  historyInjectHost,
+  historyRecordHost,
+  intakeHistoryHost,
+  turnSetupHost,
+} from "@llm-tg-bot/modules-history";
+import { visionReplyHost } from "@llm-tg-bot/modules-vision";
+import {
+  moodPipelineHost,
+  personalityHost,
+} from "@llm-tg-bot/modules-mood-evaluation";
+import {
+  completionsHost,
+  systemPromptHost,
+} from "@llm-tg-bot/modules-completions";
+import { stickerPipelineHost } from "@llm-tg-bot/modules-sticker-selection";
 import { botHost as completionsBotHost } from "@llm-tg-bot/modules-completions";
 import { botHost as moodBotHost } from "@llm-tg-bot/modules-mood-evaluation";
 import { botHost as stickerBotHost } from "@llm-tg-bot/modules-sticker-selection";
@@ -21,29 +35,22 @@ import { replyToUser } from "../bot/replies/replies-helpers.js";
 import { createExplainExtensions } from "./explain-host.js";
 import { createMoodExtensions } from "./mood-host.js";
 
-const PHASE_ORDER: Record<string, number> = {
-  preprocess: 0,
-  gate: 1,
-  "pre-reply": 2,
-  reply: 3,
-  "post-reply": 4,
-};
+const INTAKE_PIPELINE_HOSTS: PipelineModuleHost[] = [
+  turnSetupHost,
+  intakeHistoryHost,
+  replyTriggersHost,
+  addressingHost,
+];
 
-function sortPipelineHosts(hosts: PipelineModuleHost[]): PipelineModuleHost[] {
-  return hosts.sort((a, b) => {
-    const phaseDiff = (PHASE_ORDER[a.phase] ?? 99) - (PHASE_ORDER[b.phase] ?? 99);
-    if (phaseDiff !== 0) return phaseDiff;
-    return a.order - b.order;
-  });
-}
-
-const CORE_PIPELINE_HOSTS: PipelineModuleHost[] = [
-  ...historyPipelineHosts,
-  ...addressingPipelineHosts,
-  ...visionPipelineHosts,
-  ...completionsPipelineHosts,
-  ...moodPipelineHosts,
+const QUEUE_PIPELINE_HOSTS: PipelineModuleHost[] = [
+  visionReplyHost,
+  systemPromptHost,
+  personalityHost,
+  historyInjectHost,
+  moodPipelineHost,
+  completionsHost,
   stickerPipelineHost,
+  historyRecordHost,
 ];
 
 const CORE_BOT_HOSTS: BotModuleHost[] = [
@@ -55,9 +62,9 @@ const CORE_BOT_HOSTS: BotModuleHost[] = [
 let pipelineHosts: PipelineModuleHost[] | null = null;
 let botHosts: BotModuleHost[] | null = null;
 
-export async function loadPipelineHosts(): Promise<PipelineModuleHost[]> {
+export function loadPipelineHosts(): PipelineModuleHost[] {
   if (pipelineHosts) return pipelineHosts;
-  pipelineHosts = sortPipelineHosts([...CORE_PIPELINE_HOSTS]);
+  pipelineHosts = [...INTAKE_PIPELINE_HOSTS, ...QUEUE_PIPELINE_HOSTS];
   return pipelineHosts;
 }
 
@@ -68,7 +75,21 @@ export function getPipelineHosts(): PipelineModuleHost[] {
   return pipelineHosts;
 }
 
-export async function loadBotHosts(): Promise<BotModuleHost[]> {
+export function getIntakePipelineHosts(): PipelineModuleHost[] {
+  if (!pipelineHosts) {
+    throw new Error("Pipeline hosts not loaded — call loadPipelineHosts() at startup");
+  }
+  return INTAKE_PIPELINE_HOSTS;
+}
+
+export function getQueuePipelineHosts(): PipelineModuleHost[] {
+  if (!pipelineHosts) {
+    throw new Error("Pipeline hosts not loaded — call loadPipelineHosts() at startup");
+  }
+  return QUEUE_PIPELINE_HOSTS;
+}
+
+export function loadBotHosts(): BotModuleHost[] {
   if (botHosts) return botHosts;
   botHosts = [...CORE_BOT_HOSTS];
   return botHosts;

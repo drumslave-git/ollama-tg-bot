@@ -47,7 +47,6 @@ export {
   type MemoryPersistContext,
   type MemoryPersistReport,
 } from "./persist.js";
-export { pipelineHosts } from "./pipeline.js";
 export {
   DEFAULT_MEMORY_MODULE_CONFIG,
   validateMemoryModuleConfig,

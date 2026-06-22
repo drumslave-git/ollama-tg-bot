@@ -35,7 +35,6 @@ export {
   type VisionDescribeOutput,
 } from "./describe.js";
 export { visionReplyHost, visionPreprocessHost } from "./pipeline.js";
-export { pipelineHosts } from "./pipeline-hosts.js";
 export {
   DEFAULT_VISION_MODULE_CONFIG,
   validateVisionModuleConfig,

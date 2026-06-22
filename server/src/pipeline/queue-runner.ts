@@ -2,11 +2,13 @@ import type {
   PipelineModuleHost,
   PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
-import { getPipelineHosts } from "../runtime/module-hosts.js";
+import {
+  getIntakePipelineHosts,
+  getQueuePipelineHosts,
+} from "../runtime/module-hosts.js";
 import {
   isPipelineStepEnabled,
   runPipelineHost,
-  runPipelinePhase,
 } from "./runner.js";
 import type { PipelineHostServices } from "@llm-tg-bot/modules-registry";
 import {
@@ -19,19 +21,22 @@ import { getMessageReport } from "../debug/message-report.js";
 import { logEvent } from "../logging/event-log.js";
 import { startTypingForMessage } from "../bot/replies/typing.js";
 import type { QueuedMessage } from "../runtime/message-queue.js";
-import {
-  INTAKE_PHASES,
-  QUEUE_STEP_ORDER,
-} from "./workflow-definition.js";
 
-function hostByStepId(stepId: string): PipelineModuleHost | undefined {
-  return getPipelineHosts().find((host) => host.stepId === stepId);
+function hostDebugTitle(host: PipelineModuleHost): string {
+  return host.debugTitle ?? host.stepId;
 }
 
-function queueHostsInOrder(): PipelineModuleHost[] {
-  return QUEUE_STEP_ORDER.map((stepId) => hostByStepId(stepId)).filter(
-    (host): host is PipelineModuleHost => Boolean(host),
-  );
+function shouldRunEnabledHost(
+  host: PipelineModuleHost,
+  enabledSteps: string[],
+  turnId: number,
+  services: PipelineHostServices,
+): boolean {
+  if (isPipelineStepEnabled(host, enabledSteps)) return true;
+  services
+    .getReport(turnId)
+    ?.skipPhase(host.stepId, hostDebugTitle(host), "Disabled in workflow");
+  return false;
 }
 
 export async function runIntakePipeline(
@@ -44,8 +49,12 @@ export async function runIntakePipeline(
   replyTrigger?: PipelineTurnState["replyTrigger"];
   earlyReply?: string;
 }> {
-  for (const phase of INTAKE_PHASES) {
-    await runPipelinePhase(phase, state, services);
+  const enabledSteps = services.getWorkflowSteps();
+  for (const host of getIntakePipelineHosts()) {
+    if (!shouldRunEnabledHost(host, enabledSteps, state.turnId, services)) {
+      continue;
+    }
+    await runPipelineHost(host, state, services);
     if (state.earlyReply) {
       return { shouldReply: false, earlyReply: state.earlyReply };
     }
@@ -91,8 +100,8 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
     }
     recordMessageReceived();
 
-    for (const host of queueHostsInOrder()) {
-      if (!isPipelineStepEnabled(host, enabledSteps)) {
+    for (const host of getQueuePipelineHosts()) {
+      if (!shouldRunEnabledHost(host, enabledSteps, turnId, services)) {
         continue;
       }
 

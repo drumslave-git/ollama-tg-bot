@@ -7,7 +7,6 @@ import type { ModuleLogging } from "@llm-tg-bot/modules-utils";
 import { evaluateMood, MOOD_EVAL_NUM_PREDICT } from "./evaluate.js";
 import { getMoodResponseFormat } from "./prompt.js";
 import { normalizeMoodValues, type MoodValues } from "./values.js";
-import { personalityHost } from "./personality-pipeline.js";
 
 function hostLogging(services: PipelineHostServices): ModuleLogging {
   return {
@@ -25,8 +24,6 @@ function hostLogging(services: PipelineHostServices): ModuleLogging {
 export const moodPipelineHost: PipelineModuleHost = {
   id: "mood-evaluation",
   stepId: "mood",
-  phase: "pre-reply",
-  order: 70,
   alwaysOn: true,
 
   shouldRun(state) {
@@ -88,6 +85,3 @@ export const moodPipelineHost: PipelineModuleHost = {
     };
   },
 };
-
-export const pipelineHost = moodPipelineHost;
-export const pipelineHosts = [personalityHost, moodPipelineHost];

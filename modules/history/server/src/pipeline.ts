@@ -24,8 +24,6 @@ function buildVisionTurnBody(
 export const turnSetupHost: PipelineModuleHost = {
   id: "history",
   stepId: "intake",
-  phase: "preprocess",
-  order: 0,
   alwaysOn: true,
 
   async run(state, services): Promise<PipelineStepResult> {
@@ -92,8 +90,6 @@ export const turnSetupHost: PipelineModuleHost = {
 export const intakeHistoryHost: PipelineModuleHost = {
   id: "history",
   stepId: "history-intake",
-  phase: "preprocess",
-  order: 10,
   alwaysOn: true,
 
   shouldRun(state) {
@@ -199,8 +195,6 @@ export const passiveRecordHost = intakeHistoryHost;
 export const historyInjectHost: PipelineModuleHost = {
   id: "history",
   stepId: "history",
-  phase: "pre-reply",
-  order: 60,
   alwaysOn: true,
 
   shouldRun(state) {
@@ -234,8 +228,6 @@ export const historyInjectHost: PipelineModuleHost = {
 export const historyRecordHost: PipelineModuleHost = {
   id: "history",
   stepId: "history-record",
-  phase: "post-reply",
-  order: 20,
   alwaysOn: true,
 
   shouldRun(state) {

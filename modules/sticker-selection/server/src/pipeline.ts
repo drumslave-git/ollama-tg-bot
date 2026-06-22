@@ -26,11 +26,9 @@ function hostLogging(services: PipelineHostServices): ModuleLogging {
   };
 }
 
-export const pipelineHost: PipelineModuleHost = {
+export const stickerPipelineHost: PipelineModuleHost = {
   id: "sticker-selection",
   stepId: "sticker",
-  phase: "post-reply",
-  order: 10,
 
   shouldRun(state) {
     return Boolean(state.shouldReply && state.replyBody?.trim());

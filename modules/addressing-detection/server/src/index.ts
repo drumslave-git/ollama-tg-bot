@@ -39,5 +39,5 @@ export {
   parseAddressDecision,
   type BuildAddressAnalyzerMessagesParams,
 } from "./prompt.js";
-export { pipelineHosts, addressingHost } from "./pipeline.js";
+export { addressingHost } from "./pipeline.js";
 export { replyTriggersHost } from "./reply-triggers.js";

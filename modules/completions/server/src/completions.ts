@@ -10,8 +10,6 @@ import {
 export const completionsHost: PipelineModuleHost = {
   id: "completions",
   stepId: "completions",
-  phase: "reply",
-  order: 0,
   alwaysOn: true,
   debugTitle: "Main reply",
 

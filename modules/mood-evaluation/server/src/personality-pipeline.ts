@@ -6,8 +6,6 @@ import type {
 export const personalityHost: PipelineModuleHost = {
   id: "mood-evaluation",
   stepId: "personality",
-  phase: "pre-reply",
-  order: 50,
   alwaysOn: true,
 
   shouldRun(state) {

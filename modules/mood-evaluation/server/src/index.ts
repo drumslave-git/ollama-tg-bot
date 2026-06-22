@@ -26,7 +26,8 @@ export {
   type MoodKey,
   type MoodValues,
 } from "./values.js";
-export { pipelineHost, pipelineHosts, moodPipelineHost } from "./pipeline.js";
+export { moodPipelineHost } from "./pipeline.js";
+export { personalityHost } from "./personality-pipeline.js";
 export { botHost } from "./bot-host.js";
 export { buildMoodCommandReply } from "./mood-command.js";
 export {

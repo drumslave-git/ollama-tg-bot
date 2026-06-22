@@ -6,8 +6,6 @@ import type {
 export const systemPromptHost: PipelineModuleHost = {
   id: "completions",
   stepId: "system",
-  phase: "pre-reply",
-  order: 40,
   alwaysOn: true,
 
   shouldRun(state) {

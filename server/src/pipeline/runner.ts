@@ -1,13 +1,11 @@
 import type {
   PipelineHostServices,
   PipelineModuleHost,
-  PipelinePhase,
   PipelinePhaseWriteOptions,
   PipelineShouldRunResult,
   PipelineStepResult,
   PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
-import { getPipelineHosts } from "../runtime/module-hosts.js";
 
 export function isPipelineStepEnabled(
   host: PipelineModuleHost,
@@ -122,28 +120,4 @@ export async function runPipelineHost(
       : (options?.recordResult ?? true);
   if (shouldRecord) recordStepResult(result, services, state.turnId);
   return result;
-}
-
-export async function runPipelinePhase(
-  phase: PipelinePhase,
-  state: PipelineTurnState,
-  services: PipelineHostServices,
-): Promise<void> {
-  const enabledSteps = services.getWorkflowSteps();
-  const hosts = getPipelineHosts().filter((host) => host.phase === phase);
-
-  for (const host of hosts) {
-    if (!isPipelineStepEnabled(host, enabledSteps)) {
-      services
-        .getReport(state.turnId)
-        ?.skipPhase(
-          host.stepId,
-          hostDebugTitle(host),
-          "Disabled in workflow",
-        );
-      continue;
-    }
-
-    await runPipelineHost(host, state, services);
-  }
 }

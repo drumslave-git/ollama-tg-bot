@@ -1,5 +1,8 @@
 import { getSettings } from "../db/index.js";
-import { getPipelineHosts } from "../runtime/module-hosts.js";
+import {
+  getIntakePipelineHosts,
+  getQueuePipelineHosts,
+} from "../runtime/module-hosts.js";
 import { getLoadedModuleManifests } from "../runtime/modules.js";
 import { buildWorkflowDefinitionFromHosts } from "./workflow-definition.js";
 
@@ -16,7 +19,8 @@ function manifestByModuleId(): Map<string, { name: string; description: string }
 
 export function buildWorkflowDefinition(enabledSteps: string[]) {
   return buildWorkflowDefinitionFromHosts(
-    getPipelineHosts(),
+    getIntakePipelineHosts(),
+    getQueuePipelineHosts(),
     manifestByModuleId(),
     enabledSteps,
   );

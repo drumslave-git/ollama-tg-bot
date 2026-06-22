@@ -12,7 +12,6 @@ export type {
   PipelineHostServices,
   PipelineLlmServices,
   PipelineModuleHost,
-  PipelinePhase,
   PipelinePhaseWriteOptions,
   PipelineReportWriter,
   PipelineShouldRunResult,

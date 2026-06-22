@@ -8,12 +8,10 @@ const manifests = new Map([
   ["sticker-selection", { name: "Stickers", description: "Sticker pick" }],
 ]);
 
-const fixtureHosts: PipelineModuleHost[] = [
+const fixtureIntakeHosts: PipelineModuleHost[] = [
   {
     id: "history",
     stepId: "intake",
-    phase: "preprocess",
-    order: 0,
     alwaysOn: true,
     run: async () => ({
       status: "ok",
@@ -25,8 +23,6 @@ const fixtureHosts: PipelineModuleHost[] = [
   {
     id: "addressing-detection",
     stepId: "address",
-    phase: "gate",
-    order: 10,
     alwaysOn: true,
     run: async () => ({
       status: "ok",
@@ -35,11 +31,12 @@ const fixtureHosts: PipelineModuleHost[] = [
       summary: "ok",
     }),
   },
+];
+
+const fixtureQueueHosts: PipelineModuleHost[] = [
   {
     id: "sticker-selection",
     stepId: "sticker",
-    phase: "post-reply",
-    order: 10,
     run: async () => ({
       status: "ok",
       phaseId: "sticker",
@@ -50,8 +47,6 @@ const fixtureHosts: PipelineModuleHost[] = [
   {
     id: "completions",
     stepId: "completions",
-    phase: "reply",
-    order: 0,
     alwaysOn: true,
     run: async () => ({
       status: "ok",
@@ -65,7 +60,8 @@ const fixtureHosts: PipelineModuleHost[] = [
 describe("buildWorkflowDefinitionFromHosts", () => {
   it("includes intake, queue, and background nodes", () => {
     const definition = buildWorkflowDefinitionFromHosts(
-      fixtureHosts,
+      fixtureIntakeHosts,
+      fixtureQueueHosts,
       manifests,
       ["sticker"],
     );
@@ -86,12 +82,14 @@ describe("buildWorkflowDefinitionFromHosts", () => {
 
   it("marks optional queue modules by enabled state", () => {
     const enabled = buildWorkflowDefinitionFromHosts(
-      fixtureHosts,
+      fixtureIntakeHosts,
+      fixtureQueueHosts,
       manifests,
       ["sticker"],
     );
     const disabled = buildWorkflowDefinitionFromHosts(
-      fixtureHosts,
+      fixtureIntakeHosts,
+      fixtureQueueHosts,
       manifests,
       [],
     );
@@ -109,7 +107,8 @@ describe("buildWorkflowDefinitionFromHosts", () => {
 
   it("chains intake, branches, queue, and side-effect edges", () => {
     const definition = buildWorkflowDefinitionFromHosts(
-      fixtureHosts,
+      fixtureIntakeHosts,
+      fixtureQueueHosts,
       manifests,
       ["sticker"],
     );

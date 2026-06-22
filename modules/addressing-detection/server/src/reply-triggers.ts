@@ -20,8 +20,6 @@ function senderLabel(from: unknown): string {
 export const replyTriggersHost: PipelineModuleHost = {
   id: "addressing-detection",
   stepId: "triggers",
-  phase: "gate",
-  order: 0,
   alwaysOn: true,
 
   async run(state, services): Promise<PipelineStepResult> {

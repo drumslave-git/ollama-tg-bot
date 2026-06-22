@@ -21,8 +21,6 @@ function buildVisionTurnBody(
 export const visionReplyHost: PipelineModuleHost = {
   id: "vision",
   stepId: "vision",
-  phase: "pre-reply",
-  order: 5,
   alwaysOn: true,
   debugTitle: "Vision",
 

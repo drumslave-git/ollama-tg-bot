@@ -3,7 +3,6 @@ export {
   loadPipelineHosts,
   getPipelineHosts,
 } from "../runtime/module-hosts.js";
-export { runPipelinePhase } from "./runner.js";
 export {
   runIntakePipeline,
   processQueuedTurn,

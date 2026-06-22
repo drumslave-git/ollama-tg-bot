@@ -32,8 +32,6 @@ function hostLogging(services: PipelineHostServices): ModuleLogging {
 export const addressingHost: PipelineModuleHost = {
   id: "addressing-detection",
   stepId: "address",
-  phase: "gate",
-  order: 10,
   alwaysOn: true,
 
   shouldRun(state) {
@@ -103,5 +101,3 @@ export const addressingHost: PipelineModuleHost = {
     };
   },
 };
-
-export const pipelineHosts = [replyTriggersHost, addressingHost];
