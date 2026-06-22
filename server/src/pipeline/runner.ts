@@ -1,5 +1,4 @@
 import type {
-  MessagePipelineResult,
   PipelineHostServices,
   PipelineModuleHost,
   PipelinePhase,
@@ -9,16 +8,6 @@ import type {
   PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
 import { getPipelineHosts } from "../runtime/module-hosts.js";
-
-const PHASE_SEQUENCE: PipelinePhase[] = [
-  "preprocess",
-  "gate",
-  "not-addressed",
-  "pre-reply",
-  "reply",
-  "post-reply",
-  "background",
-];
 
 function isStepEnabled(
   host: PipelineModuleHost,
@@ -146,96 +135,5 @@ export async function runPipelinePhase(
 
     const result = await runHost(host, state, services);
     if (result) recordStepResult(result, services, state.turnId);
-  }
-}
-
-function shouldRunReplyPhases(state: PipelineTurnState): boolean {
-  return Boolean(state.shouldReply);
-}
-
-export type MessagePipelineHooks = {
-  /** Fires once after the gate phase when the bot will reply (address/trigger confirmed). */
-  onReplyConfirmed?: () => void;
-};
-
-export async function runMessagePipeline(
-  state: PipelineTurnState,
-  services: PipelineHostServices,
-  hooks?: MessagePipelineHooks,
-): Promise<MessagePipelineResult> {
-  let replyConfirmedNotified = false;
-
-  for (const phase of PHASE_SEQUENCE) {
-    if (state.earlyReply) {
-      return { earlyReply: state.earlyReply };
-    }
-
-    const isReplyPhase =
-      phase === "pre-reply" || phase === "reply" || phase === "post-reply";
-    if (isReplyPhase && !shouldRunReplyPhases(state)) {
-      continue;
-    }
-
-    await runPipelinePhase(phase, state, services);
-
-    if (
-      phase === "gate" &&
-      state.shouldReply &&
-      hooks?.onReplyConfirmed &&
-      !replyConfirmedNotified
-    ) {
-      replyConfirmedNotified = true;
-      hooks.onReplyConfirmed();
-    }
-
-    if (state.earlyReply) {
-      return { earlyReply: state.earlyReply };
-    }
-  }
-
-  if (!state.shouldReply) {
-    return {
-      ignored: true,
-      ignoreReason: state.haltReason ?? "not_addressed",
-      addressSource: state.addressSource,
-    };
-  }
-
-  const delivery =
-    state.delivery ??
-    services.callbacks.prepareDelivery?.(state) ??
-    {};
-
-  return {
-    delivery,
-    replyTrigger: state.replyTrigger ?? null,
-    addressSource: state.addressSource,
-  };
-}
-
-export function runPipelinePhaseBackground(
-  state: PipelineTurnState,
-  services: PipelineHostServices,
-): void {
-  const enabledSteps = services.getWorkflowSteps();
-  const hosts = getPipelineHosts().filter((host) => host.phase === "background");
-
-  for (const host of hosts) {
-    if (!isStepEnabled(host, enabledSteps)) continue;
-    if (host.shouldRun) {
-      const decision = evaluateShouldRun(host.shouldRun(state, services));
-      if (!decision.run) continue;
-    }
-
-    void runHost(host, state, services)
-      .then((result) => {
-        if (result) recordStepResult(result, services, state.turnId);
-      })
-      .catch((err) => {
-        services.logging.logEventError("pipeline_background_failed", err, {
-          moduleId: host.id,
-          turnId: state.turnId,
-        });
-      });
   }
 }

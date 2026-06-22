@@ -125,23 +125,6 @@ export function createPipelineServices(): PipelineHostServices {
       if (name === "openai") return config.llmApiKey;
       return "";
     },
-    mcp: {
-      listOpenAiTools: async () => {
-        const registry = getMcpRegistry();
-        registry.setEnabledToolNames(
-          resolveEnabledMcpToolNames(getResolvedSettings().workflowSteps ?? []),
-        );
-        return registry.listOpenAiTools();
-      },
-      callTool: async (name, args) => {
-        const registry = getMcpRegistry();
-        registry.setEnabledToolNames(
-          resolveEnabledMcpToolNames(getResolvedSettings().workflowSteps ?? []),
-        );
-        const result = await registry.callTool(name, args);
-        return result.text;
-      },
-    },
     callbacks: createPipelineCallbacks(),
   };
 }

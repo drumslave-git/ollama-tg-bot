@@ -8,11 +8,9 @@
 export type PipelinePhase =
   | "preprocess"
   | "gate"
-  | "not-addressed"
   | "pre-reply"
   | "reply"
-  | "post-reply"
-  | "background";
+  | "post-reply";
 
 export type PipelineStepStatus = "ok" | "skipped" | "failed" | "halt";
 
@@ -73,19 +71,6 @@ export interface PipelineDeliveryResult {
   error?: string;
 }
 
-/** Result returned from runMessagePipeline to the message handler. */
-export interface MessagePipelineResult {
-  /** When set, the server should send this text and stop (e.g. vision unavailable). */
-  earlyReply?: string;
-  /** When shouldReply is false, the pipeline ended without a bot reply. */
-  ignored?: boolean;
-  ignoreReason?: string;
-  /** Populated when the bot should send a full reply turn. */
-  delivery?: PipelineDeliveryResult;
-  replyTrigger?: ReplyTrigger;
-  addressSource?: string;
-}
-
 /** Mutable per-turn state passed through the pipeline. */
 export interface PipelineTurnState {
   turnId: number;
@@ -141,13 +126,7 @@ export interface PipelineTurnState {
   /** Mood evaluation output. */
   mood?: unknown;
 
-  /** Link fetch outputs. */
-  linkFetchContext?: string | null;
-  linkFetchResolved?: boolean;
-  linkFetchUrlCount?: number;
-
-  /** Web search outputs. */
-  webSearchContext?: string | null;
+  /** Web search outputs collected from main-reply MCP tool calls. */
   webSearchSources?: unknown[];
 
   /** Main reply body before sticker/post-processing. */
@@ -328,11 +307,6 @@ export interface PipelineHostCallbacks {
   ) => { userId: string; label: string }[];
 }
 
-export interface PipelineMcpServices {
-  listOpenAiTools: () => Promise<unknown[]>;
-  callTool: (name: string, args: Record<string, unknown>) => Promise<string>;
-}
-
 export interface PipelineHostServices {
   logging: {
     logEvent: (event: string, fields?: Record<string, unknown>) => void;
@@ -343,7 +317,6 @@ export interface PipelineHostServices {
     ) => void;
   };
   llm: PipelineLlmServices;
-  mcp?: PipelineMcpServices;
   getWorkflowSteps: () => string[];
   getReport: (turnId: number) => PipelineReportWriter | null;
   getSecret: (name: "tavily" | "openai") => string;

@@ -7,7 +7,6 @@ import type {
 import { getPipelineHosts } from "../runtime/module-hosts.js";
 import {
   runPipelinePhase,
-  type MessagePipelineHooks,
 } from "./runner.js";
 import type { PipelineHostServices } from "@llm-tg-bot/modules-registry";
 import {
@@ -223,5 +222,3 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
     endTyping?.();
   }
 }
-
-export type { MessagePipelineHooks };

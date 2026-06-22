@@ -20,11 +20,9 @@ type ServerManifest = ModuleManifest & { serverPackage: string };
 const PHASE_ORDER: Record<string, number> = {
   preprocess: 0,
   gate: 1,
-  "not-addressed": 2,
-  "pre-reply": 3,
-  reply: 4,
-  "post-reply": 5,
-  background: 6,
+  "pre-reply": 2,
+  reply: 3,
+  "post-reply": 4,
 };
 
 function serverManifests(): ServerManifest[] {
