@@ -1,11 +1,11 @@
-import type { Context } from "grammy";
 import type {
   PipelineModuleHost,
-  PipelineStepResult,
   PipelineTurnState,
 } from "@llm-tg-bot/modules-registry";
 import { getPipelineHosts } from "../runtime/module-hosts.js";
 import {
+  isPipelineStepEnabled,
+  runPipelineHost,
   runPipelinePhase,
 } from "./runner.js";
 import type { PipelineHostServices } from "@llm-tg-bot/modules-registry";
@@ -28,87 +28,10 @@ function hostByStepId(stepId: string): PipelineModuleHost | undefined {
   return getPipelineHosts().find((host) => host.stepId === stepId);
 }
 
-function isStepEnabled(
-  host: PipelineModuleHost,
-  enabledSteps: string[],
-): boolean {
-  if (host.alwaysOn) return true;
-  return enabledSteps.includes(host.stepId);
-}
-
-async function runHost(
-  host: PipelineModuleHost,
-  state: PipelineTurnState,
-  services: PipelineHostServices,
-): Promise<PipelineStepResult | null> {
-  if (host.shouldRun) {
-    const decision = host.shouldRun(state, services);
-    const resolved =
-      typeof decision === "boolean"
-        ? decision
-          ? { run: true }
-          : { run: false, summary: "Not needed for this turn" }
-        : decision;
-    if (!resolved.run) {
-      if ("omitFromReport" in resolved && resolved.omitFromReport) return null;
-      services
-        .getReport(state.turnId)
-        ?.skipPhase(
-          host.stepId,
-          host.debugTitle ?? host.stepId,
-          resolved.summary ?? "Not needed for this turn",
-        );
-      return null;
-    }
-  }
-
-  const result = await host.run(state, services);
-  const report = services.getReport(state.turnId);
-  if (!report || !result) return result;
-
-  if (result.phaseId === "completions" && result.status === "ok") {
-    return result;
-  }
-
-  const writeOptions = result.replace ? { replace: true } : undefined;
-  switch (result.status) {
-    case "ok":
-      report.okPhase(
-        result.phaseId,
-        result.phaseTitle,
-        result.summary,
-        result.durationMs,
-        result.detail,
-        writeOptions,
-      );
-      break;
-    case "skipped":
-      report.skipPhase(
-        result.phaseId,
-        result.phaseTitle,
-        result.summary,
-        writeOptions,
-      );
-      break;
-    case "failed":
-      report.failPhase(
-        result.phaseId,
-        result.phaseTitle,
-        result.summary,
-        result.durationMs,
-        writeOptions,
-      );
-      break;
-    case "halt":
-      report.skipPhase(
-        result.phaseId,
-        result.phaseTitle,
-        result.summary,
-        writeOptions,
-      );
-      break;
-  }
-  return result;
+function queueHostsInOrder(): PipelineModuleHost[] {
+  return QUEUE_STEP_ORDER.map((stepId) => hostByStepId(stepId)).filter(
+    (host): host is PipelineModuleHost => Boolean(host),
+  );
 }
 
 export async function runIntakePipeline(
@@ -168,13 +91,15 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
     }
     recordMessageReceived();
 
-    for (const stepId of QUEUE_STEP_ORDER) {
-      const host = hostByStepId(stepId);
-      if (!host || !isStepEnabled(host, enabledSteps)) {
+    for (const host of queueHostsInOrder()) {
+      if (!isPipelineStepEnabled(host, enabledSteps)) {
         continue;
       }
 
-      const result = await runHost(host, state, services);
+      const result = await runPipelineHost(host, state, services, {
+        recordResult: (stepResult) =>
+          !(stepResult.phaseId === "completions" && stepResult.status === "ok"),
+      });
       if (state.earlyReply) {
         await deliverEarlyReply(ctx, state.earlyReply, turnId);
         return;

@@ -9,7 +9,7 @@ import type {
 } from "@llm-tg-bot/modules-registry";
 import { getPipelineHosts } from "../runtime/module-hosts.js";
 
-function isStepEnabled(
+export function isPipelineStepEnabled(
   host: PipelineModuleHost,
   enabledSteps: string[],
 ): boolean {
@@ -93,24 +93,35 @@ function recordStepResult(
   }
 }
 
-async function runHost(
+export async function runPipelineHost(
   host: PipelineModuleHost,
   state: PipelineTurnState,
   services: PipelineHostServices,
+  options?: {
+    recordResult?: boolean | ((result: PipelineStepResult) => boolean);
+  },
 ): Promise<PipelineStepResult | null> {
   if (host.shouldRun) {
     const decision = evaluateShouldRun(host.shouldRun(state, services));
     if (!decision.run) {
       if (decision.omitFromReport) return null;
-      return {
-        status: "skipped",
-        phaseId: host.stepId,
-        phaseTitle: hostDebugTitle(host),
-        summary: decision.summary ?? "Not needed for this turn",
-      };
+      services
+        .getReport(state.turnId)
+        ?.skipPhase(
+          host.stepId,
+          hostDebugTitle(host),
+          decision.summary ?? "Not needed for this turn",
+        );
+      return null;
     }
   }
-  return host.run(state, services);
+  const result = await host.run(state, services);
+  const shouldRecord =
+    typeof options?.recordResult === "function"
+      ? options.recordResult(result)
+      : (options?.recordResult ?? true);
+  if (shouldRecord) recordStepResult(result, services, state.turnId);
+  return result;
 }
 
 export async function runPipelinePhase(
@@ -122,7 +133,7 @@ export async function runPipelinePhase(
   const hosts = getPipelineHosts().filter((host) => host.phase === phase);
 
   for (const host of hosts) {
-    if (!isStepEnabled(host, enabledSteps)) {
+    if (!isPipelineStepEnabled(host, enabledSteps)) {
       services
         .getReport(state.turnId)
         ?.skipPhase(
@@ -133,7 +144,6 @@ export async function runPipelinePhase(
       continue;
     }
 
-    const result = await runHost(host, state, services);
-    if (result) recordStepResult(result, services, state.turnId);
+    await runPipelineHost(host, state, services);
   }
 }
