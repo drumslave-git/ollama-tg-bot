@@ -42,8 +42,6 @@ export const visionReplyHost: PipelineModuleHost = {
   async run(state): Promise<PipelineStepResult> {
     const msg = state.telegram.message as Message | undefined;
     const botToken = state.telegram.botToken;
-    const botId = state.telegram.me?.id;
-    const from = state.telegram.from;
     const messageText = state.latestBody;
     const msgLog = {
       turnId: state.turnId,

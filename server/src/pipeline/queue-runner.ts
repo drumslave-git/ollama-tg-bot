@@ -77,7 +77,7 @@ export async function runIntakePipeline(
 }
 
 export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
-  const { ctx, state, services, turnId, botToken } = item;
+  const { ctx, state, services, turnId } = item;
   const enabledSteps = services.getWorkflowSteps();
   let endTyping: (() => void) | undefined;
 

@@ -16,7 +16,7 @@ import { buildBaseSystemPrompt } from "../../pipeline/adapters/system-prompt.js"
 import { getVramAvailableGb, config } from "../../config/index.js";
 import { listModels, checkHealth } from "../../llm/client.js";
 import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings/limits.js";
-import { calculateContextBudget, modelContextInputFromTags } from "../../settings/context-budget.js";
+import { calculateContextBudget } from "../../settings/context-budget.js";
 import { runWebSearch } from "../../features/web-search/index.js";
 
 const stickerCatalogLog: BotHostLogging = {

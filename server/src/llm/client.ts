@@ -140,7 +140,6 @@ function emptyResponseError(
   const evalCount = data.eval_count ?? 0;
   const hadReasoning = Boolean(pickReasoning(data));
 
-  const settings = getSettings();
   let hint =
     "The owner can send /reset to shorten context, or raise generation tokens in Settings.";
   if (reason === "length") {

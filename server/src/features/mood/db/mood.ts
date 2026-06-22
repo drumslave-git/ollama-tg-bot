@@ -1,7 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
   applyMoodCooldown,
-  DEFAULT_MOOD_VALUES,
   moodValuesEqual,
   normalizeMoodValues,
   type MoodValues,

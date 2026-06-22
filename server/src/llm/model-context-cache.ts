@@ -1,6 +1,5 @@
 import { logEventError } from "../logging/event-log.js";
 import {
-  extractModelMaxCtx,
   modelContextInputFromTags,
   type ModelContextInput,
 } from "../settings/context-budget.js";
@@ -28,7 +27,7 @@ function isFresh(entry: CacheEntry, host: string, model: string): boolean {
 
 async function fetchModelContext(
   model: string,
-  host: string,
+  _host: string,
 ): Promise<ModelContextInput> {
   const [show, catalogEntry] = await Promise.all([
     showModel(model).catch(() => null),

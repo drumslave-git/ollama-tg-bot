@@ -20,7 +20,6 @@ import {
   escapeHtml,
   hasVisibleTelegramReply,
   prepareTelegramHtml,
-  visibleTelegramText,
 } from "../telegram/html.js";
 
 function formatSourceTitle(title: string): string {
@@ -46,7 +45,6 @@ function appendWebSearchSources(
 
 export function buildSystemPromptForTurn(state: PipelineTurnState): string {
   const settings = getResolvedSettings();
-  const userId = state.userId;
   const groupChatId = state.groupChatId;
   const personalityPrompt =
     state.personalityPrompt ?? getActivePersonalityPrompt();

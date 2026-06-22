@@ -8,8 +8,6 @@ dataRouter.get("/tables", (_req, res) => {
 });
 
 dataRouter.get("/table/:name", (req, res) => {
-  const limit = typeof req.query.limit === "string" ? parseInt(req.query.limit, 10) : 100;
-  const offset = typeof req.query.offset === "string" ? parseInt(req.query.offset, 10) : 0;
   try {
     const table = getDataTable(req.params.name);
     if (!table) return res.status(404).json({ error: "Table not found" });

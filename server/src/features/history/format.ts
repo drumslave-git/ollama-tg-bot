@@ -56,13 +56,13 @@ export function extractParticipantUserIds(
   return [...ids];
 }
 
-export function formatSaidContent(userTag: string, text: string): string {
+export function formatSaidContent(_userTag: string, text: string): string {
   return text.trim();
 }
 
 export function formatRepliedContent(
-  userTag: string,
-  replyToTag: string,
+  _userTag: string,
+  _replyToTag: string,
   text: string,
 ): string {
   return text.trim();

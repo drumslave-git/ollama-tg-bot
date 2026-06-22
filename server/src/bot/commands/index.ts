@@ -1,4 +1,4 @@
-import type { Bot, Context } from "grammy";
+import type { Bot } from "grammy";
 import { isGroupChat, resolveConversationKey, resolveGroupChatId, resolveUserId } from "../telegram/keys.js";
 import { getSettings } from "../../db/index.js";
 import { config } from "../../config/index.js";

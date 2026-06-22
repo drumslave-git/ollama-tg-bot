@@ -4,7 +4,6 @@ import {
   buildMemoryMergeMessages,
   extractMemories,
   mergeMemoryDocument,
-  parseMemoryBlock,
   type MemoryExtractInput,
 } from "../../../../src/features/memory/index.js";
 

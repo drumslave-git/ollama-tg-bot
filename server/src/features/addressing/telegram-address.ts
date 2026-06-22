@@ -27,8 +27,6 @@ export function isMessageForBot(input: MessageForBotInput): boolean {
   const { bot, message } = input;
   if (!bot.id) return false;
 
-  const username = bot.username ?? "";
-
   if (input.isReplyToBot) return true;
   if (input.isReplyInBotThread) return true;
   if (messageHasBotUsernameMention(message, bot.id, bot.username)) return true;

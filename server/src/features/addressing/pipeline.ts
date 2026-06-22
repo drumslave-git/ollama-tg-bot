@@ -6,13 +6,13 @@ import type {
 } from "../../contracts/index.js";
 import type { ModuleLogging } from "../../shared/index.js";
 import { checkMessageAddressed } from "./check-addressed.js";
-import { ADDRESS_RESPONSE_FORMAT, getAddressResponseFormat } from "./prompt.js";
+import { getAddressResponseFormat } from "./prompt.js";
 import {
   isReplyInBotThreadMessage,
   isReplyToBotMessage,
 } from "./telegram-reply.js";
 import { getBotIdentity } from "./bot-identity.js";
-import { replyTriggersHost, senderLabel } from "./reply-triggers.js";
+import { senderLabel } from "./reply-triggers.js";
 import { getSettings } from "../../pipeline/turn-services.js";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;

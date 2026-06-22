@@ -4,7 +4,6 @@ import {
   type ModuleDefinition,
 } from "../../shared/index.js";
 import {
-  ADDRESS_RESPONSE_FORMAT,
   buildAddressAnalyzerMessages,
   formatBotIdentity,
   getAddressResponseFormat,

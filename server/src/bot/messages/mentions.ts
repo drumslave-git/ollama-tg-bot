@@ -88,7 +88,7 @@ function collectMentionedKnownUsers(
   message: Message | undefined,
   context: MentionContext,
 ): MentionedKnownUser[] {
-  const { botId, botUsername, senderId, senderUsername } = context;
+  const { botId, botUsername, senderId } = context;
   const excludeUserIds = [
     senderId != null ? String(senderId) : null,
     botId != null ? String(botId) : null,
