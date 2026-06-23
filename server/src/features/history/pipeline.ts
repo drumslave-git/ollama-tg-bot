@@ -20,7 +20,6 @@ import {
   isOwner,
   loadVisionFromMessage,
   messageHasVisionMedia,
-  prepareDelivery,
   recordExchange,
   resolveConversationKey,
   resolveGroupChatId,
@@ -198,15 +197,6 @@ export const historyRecordHost: PipelineModuleHost = {
     const replyBody = state.replyBody ?? "";
     const stickerEmoji = state.stickerEmoji;
     const webSearchSources = state.webSearchSources ?? [];
-    state.delivery = prepareDelivery(state);
-    if (state.delivery?.error) {
-      return {
-        status: "failed",
-        phaseId: "history-record",
-        phaseTitle: "History: reply saved",
-        summary: state.delivery.error,
-      };
-    }
 
     const historyText =
       replyBody.trim() && stickerEmoji

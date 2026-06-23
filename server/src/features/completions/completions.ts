@@ -3,8 +3,8 @@ import type {
   PipelineStepResult,
 } from "../../contracts/index.js";
 import {
+  extractLiveReply,
   extractTelegramReply,
-  getMainReplyResponseFormat,
 } from "./response-format.js";
 import { buildChatContextForTurn } from "../../pipeline/turn-services.js";
 
@@ -40,15 +40,25 @@ export const completionsHost: PipelineModuleHost = {
       convKey: state.convKey,
     });
 
+    const replyStream = state.replyStream;
     const complete = createMain({
       think: true,
-      responseFormat: getMainReplyResponseFormat(),
+      // Plain-text main reply: no JSON schema. Grammar-constrained decoding can
+      // push weaker models into repetition loops; extractTelegramReply still
+      // parses a JSON wrapper defensively if a model emits one anyway.
+      responseFormat: undefined,
       traceTurnId: state.turnId,
       traceLabel: "main reply",
       traceLayout: {
         system: built.systemContent,
         latest: built.latestContent,
       },
+      ...(replyStream
+        ? {
+            onContentDelta: (accumulated: string) =>
+              replyStream.push(extractLiveReply(accumulated)),
+          }
+        : {}),
     });
 
     const { raw: modelOutput, thinking, webSearchSources } =

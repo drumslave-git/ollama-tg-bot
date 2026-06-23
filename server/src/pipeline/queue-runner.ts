@@ -4,23 +4,29 @@ import type {
 } from "../contracts/index.js";
 import {
   getIntakePipelineHosts,
-  getQueuePipelineHosts,
+  getReplyPipelineHosts,
+  getPostReplyPipelineHosts,
 } from "../runtime/module-hosts.js";
 import {
   isPipelineStepEnabled,
   runPipelineHost,
 } from "./runner.js";
 import type { PipelineHostServices } from "../contracts/index.js";
+import type { WebSearchSource } from "../features/web-search/index.js";
 import {
   deliverEarlyReply,
   deliverPipelineError,
-  deliverPipelineReply,
+  deliverReplyText,
+  deliverReplySticker,
+  finalizeReplyDelivery,
 } from "./deliver.js";
 import { prepareDelivery } from "./turn-services.js";
 import { recordMessageReceived } from "../db/index.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { logEvent } from "../logging/event-log.js";
 import { startTypingForMessage } from "../bot/replies/typing.js";
+import { ReplyStream } from "../bot/replies/reply-stream.js";
+import { getResolvedSettings } from "../settings/runtime.js";
 import type { QueuedMessage } from "../runtime/message-queue.js";
 
 function hostDebugTitle(host: PipelineModuleHost): string {
@@ -101,7 +107,30 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
     }
     recordMessageReceived();
 
-    for (const host of getQueuePipelineHosts()) {
+    const deliveryChatId = state.chatId ?? ctx.chat?.id;
+    if (!deliveryChatId) {
+      getMessageReport(turnId)?.finalizeError("Missing chat id");
+      return;
+    }
+
+    // Stream the reply live unless thinking messages are sent (those must
+    // precede the reply, which the live preview can't preserve). The stream
+    // only activates if the completion runs without MCP tools.
+    const settings = getResolvedSettings();
+    const sendThinkingMessages =
+      settings.thinkingEnabled && settings.sendThinkingEnabled;
+    const replyStream = sendThinkingMessages
+      ? null
+      : new ReplyStream(ctx, {
+          chatId: deliveryChatId,
+          messageThreadId: state.messageThreadId,
+          inGroup: Boolean(state.inGroup),
+          isForum: state.isForum,
+        });
+    if (replyStream) state.replyStream = replyStream;
+
+    // Critical path: run only the hosts needed to produce the text reply.
+    for (const host of getReplyPipelineHosts()) {
       if (!shouldRunEnabledHost(host, enabledSteps, turnId, services)) {
         continue;
       }
@@ -119,14 +148,6 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       }
     }
 
-    const delivery = state.delivery ?? prepareDelivery(state);
-
-    const deliveryChatId = state.chatId ?? ctx.chat?.id;
-    if (!deliveryChatId) {
-      getMessageReport(turnId)?.finalizeError("Missing chat id");
-      return;
-    }
-
     logEvent("chat_turn_started", {
       turnId,
       chatId: deliveryChatId,
@@ -136,12 +157,66 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       inGroup: state.inGroup,
     });
 
-    await deliverPipelineReply(ctx, delivery, {
+    // Deliver the text reply now — before the sticker and mood passes run.
+    // When the live stream already opened a message, finalize it in place;
+    // otherwise (tools path, or no content streamed) send it normally.
+    const delivery = prepareDelivery(state);
+    let delivered: Awaited<ReturnType<typeof deliverReplyText>>;
+    if (replyStream?.started) {
+      if (delivery.error) throw new Error(delivery.error);
+      delivered = await replyStream.finalize(delivery.replyHtml ?? "");
+    } else {
+      delivered = await deliverReplyText(ctx, delivery, {
+        turnId,
+        chatId: deliveryChatId,
+        inGroup: Boolean(state.inGroup),
+        isForum: state.isForum,
+        messageThreadId: state.messageThreadId,
+      });
+    }
+
+    // Off the critical path: sticker pick, history record, and the mood update
+    // for the next turn. Failures here must not disturb the reply already sent.
+    for (const host of getPostReplyPipelineHosts()) {
+      if (!shouldRunEnabledHost(host, enabledSteps, turnId, services)) {
+        continue;
+      }
+      try {
+        await runPipelineHost(host, state, services);
+      } catch (err) {
+        services.logging.logEventError("post_reply_host_failed", err, {
+          turnId,
+          host: host.stepId,
+        });
+      }
+    }
+
+    // Send the chosen sticker as a follow-up to the text reply.
+    if (state.stickerFileId) {
+      try {
+        await deliverReplySticker(ctx, {
+          turnId,
+          chatId: deliveryChatId,
+          stickerFileId: state.stickerFileId,
+          stickerEmoji: state.stickerEmoji,
+          chunkCount: delivered.chunkCount,
+          messageThreadId: state.messageThreadId,
+        });
+      } catch (err) {
+        services.logging.logEventError("sticker_send_failed", err, { turnId });
+      }
+    }
+
+    finalizeReplyDelivery({
       turnId,
       chatId: deliveryChatId,
-      inGroup: Boolean(state.inGroup),
-      isForum: state.isForum,
-      messageThreadId: state.messageThreadId,
+      chunkCount: delivered.chunkCount,
+      replyChars: delivered.replyChars,
+      thinkingSent: delivered.thinkingSent,
+      stickerEmoji: state.stickerEmoji,
+      webSearchSources: state.webSearchSources as
+        | WebSearchSource[]
+        | undefined,
     });
   } catch (err) {
     getMessageReport(turnId)?.finalizeError(

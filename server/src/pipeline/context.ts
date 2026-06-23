@@ -5,6 +5,7 @@ import type {
 import type { WebSearchSource } from "../features/web-search/index.js";
 import type { MoodValues } from "../mood/index.js";
 import { getActivePersonalityPrompt } from "../db/personalities/index.js";
+import { getEffectiveMood } from "../db/mood/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
 import { buildSystemPrompt } from "./adapters/system-prompt.js";
@@ -54,7 +55,7 @@ export function buildSystemPromptForTurn(state: PipelineTurnState): string {
     currentUserId: state.userId,
     ownerUserId: getOwnerUserId(),
     ownerUsername: getOwnerUsername(),
-    mood: (state.mood ?? null) as MoodValues | null,
+    mood: (state.mood ?? getEffectiveMood()) as MoodValues | null,
     entityId: state.convKey,
     now: new Date(),
   });
@@ -92,7 +93,7 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
       currentUserId: userId,
       ownerUserId: getOwnerUserId(),
       ownerUsername: getOwnerUsername(),
-      mood: (state.mood ?? null) as MoodValues | null,
+      mood: (state.mood ?? getEffectiveMood()) as MoodValues | null,
     },
   );
 }

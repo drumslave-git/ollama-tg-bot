@@ -74,6 +74,7 @@ function createLlmServices(): PipelineLlmServices {
           traceTurnId: options.traceTurnId,
           traceLabel: options.traceLabel,
           traceLayout: options.traceLayout as never,
+          onContentDelta: options.onContentDelta,
         });
         return { raw: result.raw, thinking: result.thinking };
       }

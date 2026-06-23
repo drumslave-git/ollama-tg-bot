@@ -167,11 +167,11 @@ Reference implementations:
 
 - **Schema helpers:** `server/src/shared/json-schema.ts` (`strictObjectSchema`, `parseJsonContent`, typed readers)
 - **Address detection:** `server/src/features/addressing/` (`ADDRESS_RESPONSE_FORMAT`, `{ addressed: boolean }`)
-- **Main reply:** `MAIN_REPLY_RESPONSE_FORMAT` + `buildReplyFormatSpec()` in `server/src/features/completions/response-format.ts` (`{ reply: string }`)
+- **Main reply:** plain text, no JSON schema — `buildReplyFormatSpec()` in `server/src/features/completions/response-format.ts`. (`MAIN_REPLY_RESPONSE_FORMAT` is retained for the explain/announce passes and as a defensive parse fallback.)
 
 ### Response format
 
-Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `server/src/features/completions/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
+The main reply is **plain text** — no `response_format` is sent (grammar-constrained decoding can push weaker models into repetition loops). `extractTelegramReply()` still parses a `{ "reply": "…" }` wrapper defensively if a model emits one, then cleans the text. Parser: `server/src/features/completions/response-format.ts`; do not expand the parser for new model quirks. Other structured passes (mood, sticker, address, explain) keep their JSON schemas.
 
 **LLM response fields:** User-facing text comes from the API `content` JSON (`reply`, `addressed`, etc.). Chain-of-thought comes solely from the separate API `reasoning` / `reasoning_content` channel (`parseAssistantMessage()` in `server/src/llm/openai-compat.ts`) — never from a JSON field. It is sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
 

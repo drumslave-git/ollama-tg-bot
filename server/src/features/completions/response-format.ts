@@ -55,17 +55,17 @@ export function buildExplainFormatSpec(): string {
 }
 
 export function buildReplyFormatSpec(formatHint: string): string {
-  return buildJsonReplySpec({
-    replyDesc: "your spoken reply to the user",
-    rules: `- Put only your spoken reply in the reply field.
-- Memory is handled in a separate pass — do not add extra fields.
-- Never include internal chat-history tags in reply (e.g. [assistant said], [user:… said], [sticker: …], [compressed]) — those are metadata, not spoken text.
-- Do not copy broken formatting, garbled markup, or error-like phrasing from chat history into reply.
+  return `Reply with your spoken message only — plain text, no JSON, no wrapper, no field labels.
+
+Output rules (mandatory):
+- Output only your spoken reply, nothing before or after it.
+- Memory is handled in a separate pass.
+- Never include internal chat-history tags (e.g. [assistant said], [user:… said], [sticker: …], [compressed]) — those are metadata, not spoken text.
+- Do not copy broken formatting, garbled markup, or error-like phrasing from chat history.
 - Formatting: HTML tags are optional — reply in plain text unless a tag genuinely adds emphasis. Never send empty tags (e.g. <b></b>).
 
-Reply length and style (apply inside reply, not as separate structure):
-${formatHint}`,
-  });
+Reply length and style:
+${formatHint}`;
 }
 
 const BLOCK_NAME = "[A-Za-z_][A-Za-z0-9_]*";
@@ -101,6 +101,72 @@ function cleanReplyText(text: string): string {
   const trimmed = trimEchoedReplyTail(text.trim());
   const withoutEcho = trimmed.replace(/^\[assistant said\]\s*:?\s*/i, "").trim();
   return stripEchoedHistoryMarkup(stripStructuredMarkup(withoutEcho));
+}
+
+/**
+ * Best-effort extraction of the in-progress `reply` string from a partial JSON
+ * stream (`{"reply":"…`). Returns the decoded text accumulated so far, ignoring
+ * an unterminated trailing escape. Used only for the live streaming preview;
+ * the final reply still goes through {@link extractTelegramReply}.
+ */
+export function extractPartialReply(raw: string): string {
+  const keyIdx = raw.indexOf('"reply"');
+  if (keyIdx < 0) return "";
+  let i = raw.indexOf(":", keyIdx + 7);
+  if (i < 0) return "";
+  i++;
+  while (i < raw.length && /\s/.test(raw[i] as string)) i++;
+  if (raw[i] !== '"') return "";
+  i++;
+
+  let out = "";
+  while (i < raw.length) {
+    const c = raw[i];
+    if (c === '"') break;
+    if (c === "\\") {
+      const next = raw[i + 1];
+      if (next === undefined) break;
+      switch (next) {
+        case "n":
+          out += "\n";
+          break;
+        case "t":
+          out += "\t";
+          break;
+        case "r":
+          out += "\r";
+          break;
+        case "b":
+          out += "\b";
+          break;
+        case "f":
+          out += "\f";
+          break;
+        case "u": {
+          const hex = raw.slice(i + 2, i + 6);
+          if (hex.length < 4) return out;
+          out += String.fromCharCode(parseInt(hex, 16));
+          i += 6;
+          continue;
+        }
+        default:
+          out += next;
+      }
+      i += 2;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
+/**
+ * Live-preview reply text from a partial stream. The main reply is plain text,
+ * but stays JSON-aware in case a model still wraps it in `{"reply":"…"}`.
+ */
+export function extractLiveReply(raw: string): string {
+  return raw.trimStart().startsWith("{") ? extractPartialReply(raw) : raw;
 }
 
 /** User-facing reply from API `message.content` (JSON with a reply field). */

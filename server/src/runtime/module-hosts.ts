@@ -43,6 +43,26 @@ export function getIntakePipelineHosts(): PipelineModuleHost[] {
   return [turnSetupHost, intakeHistoryHost, replyTriggersHost, addressingHost];
 }
 
+/**
+ * Hosts on the critical path: everything needed to produce and deliver the
+ * text reply. Mood and sticker are intentionally excluded — they run after
+ * delivery (see {@link getPostReplyPipelineHosts}) so their LLM calls don't
+ * block the reply.
+ */
+export function getReplyPipelineHosts(): PipelineModuleHost[] {
+  return [visionReplyHost, systemPromptHost, personalityHost, completionsHost];
+}
+
+/**
+ * Hosts that run after the text reply has been delivered. Their work (sticker
+ * pick, history record, mood update for the next turn) is off the critical
+ * path, so failures here never block or replace the reply already sent.
+ */
+export function getPostReplyPipelineHosts(): PipelineModuleHost[] {
+  return [stickerPipelineHost, historyRecordHost, moodPipelineHost];
+}
+
+/** Full queue host list in workflow/dashboard display order. */
 export function getQueuePipelineHosts(): PipelineModuleHost[] {
   return [
     visionReplyHost,
