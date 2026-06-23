@@ -31,7 +31,7 @@ export function MemoryDebugPage() {
             Memory job debug
           </h2>
           <p className="m-0 max-w-xl text-[0.92rem] text-muted">
-            Debounced extraction runs with per-chat phases and LLM I/O.
+            Debounced maintenance runs with per-record phases and LLM I/O.
             {scheduled && countdown ? (
               <>
                 {" "}

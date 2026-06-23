@@ -55,6 +55,25 @@ function rowToGeneralFactRecord(r: {
   };
 }
 
+export interface GeneralMemoryMatch {
+  id: number;
+  fact: string;
+}
+
+/** Case-insensitive substring search over general facts. */
+export function searchGeneralFacts(query: string, limit = 50): GeneralMemoryMatch[] {
+  const q = query.trim();
+  if (!q) return [];
+  const rows = db
+    .prepare(
+      `SELECT id, fact FROM general_facts
+       WHERE instr(lower(fact), lower(?)) > 0
+       ORDER BY id ASC LIMIT ?`,
+    )
+    .all(q, limit) as unknown as { id: number; fact: string }[];
+  return rows.map((r) => ({ id: r.id, fact: r.fact }));
+}
+
 export function getGeneralFactById(id: number): GeneralFactRecord | null {
   const row = db
     .prepare(`SELECT id, fact, created_at FROM general_facts WHERE id = ?`)

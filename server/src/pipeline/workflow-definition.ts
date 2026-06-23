@@ -48,7 +48,7 @@ const LLM_STEP_IDS = new Set([
 const SIDE_EFFECT_STEP_IDS = new Set(["sticker", "history-record"]);
 
 const HOST_SUBLABELS: Record<string, string> = {
-  intake: "Turn setup + memory input",
+  intake: "Turn setup",
   "history-intake": "Store every message to SQLite",
   triggers: "Random reply / image reaction",
   address: "@mention, reply, or name match",
@@ -106,8 +106,8 @@ const BUILTIN_NODES: Omit<
   {
     stepId: "memory-job",
     moduleId: "memory",
-    label: "Memory Extract",
-    sublabel: "Debounced background LLM pass",
+    label: "Memory Maintenance",
+    sublabel: "Debounced background cleanup pass",
     kind: "side",
     stage: "background",
   },

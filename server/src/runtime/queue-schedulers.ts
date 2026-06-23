@@ -1,8 +1,6 @@
 import {
   createMemoryQueueScheduler,
-  MEMORY_EXTRACT_NUM_PREDICT,
   MEMORY_MERGE_NUM_PREDICT,
-  MEMORY_EXTRACT_RESPONSE_FORMAT,
   MEMORY_MERGE_RESPONSE_FORMAT,
   configureMemoryJobDebugStats,
   getMemoryJobScheduledRunAt,
@@ -26,17 +24,14 @@ import {
   mapHistoryBase64Media,
 } from "../db/history/index.js";
 import { getSettings } from "../db/index.js";
-import { replaceGeneralFacts } from "../db/memory/general.js";
-import { replaceGroupFacts } from "../db/memory/group.js";
-import { getUserFacts, replaceUserFacts } from "../db/memory/user.js";
-import { getGroupFacts } from "../db/memory/group.js";
-import { getGeneralFacts } from "../db/memory/general.js";
+import { getGeneralFacts, replaceGeneralFacts } from "../db/memory/general.js";
+import { listAllGroupFacts, replaceGroupFacts } from "../db/memory/group.js";
+import { listAllUserFacts, replaceUserFacts } from "../db/memory/user.js";
 import { chatComplete } from "../llm/client.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { createPipelineServices } from "../pipeline/services.js";
 import type { PipelineHostServices } from "../contracts/index.js";
-import { loadChatParticipants } from "../pipeline/chat-messages.js";
 import { getMessageQueueSize } from "./message-queue.js";
 import {
   setMemoryJobStatus,
@@ -98,27 +93,19 @@ export function initQueueSchedulers(): void {
   memoryScheduler = createMemoryQueueScheduler({
   getQueueSize: getMessageQueueSize,
   getConfig: getMemoryModuleConfig,
-  listHistoryChatKeys,
-  getHistory,
-  getChatFingerprint: getMemoryChatFingerprint,
-  setChatFingerprint: setMemoryChatFingerprint,
-  loadChatParticipants,
-  getUserFacts,
-  getGroupFacts,
-  getGeneralFacts,
-  memoryCallbacks: {
-    replaceUserFacts,
-    replaceGroupFacts,
-    replaceGeneralFacts,
-    getUserFacts,
-  },
-  buildPersistConfig: () => {
+  listUserMemories: () =>
+    listAllUserFacts().map((r) => ({ id: r.userId, content: r.fact })),
+  listGroupMemories: () =>
+    listAllGroupFacts().map((r) => ({ id: r.groupId, content: r.fact })),
+  getGeneralContent: () => getGeneralFacts().join("\n"),
+  getRecordFingerprint: getMemoryChatFingerprint,
+  setRecordFingerprint: setMemoryChatFingerprint,
+  writeUserMemory: replaceUserFacts,
+  writeGroupMemory: replaceGroupFacts,
+  writeGeneralMemory: replaceGeneralFacts,
+  buildCleanupConfig: () => {
     const settings = getSettings();
     const thinkingEnabled = Boolean(settings.thinkingEnabled);
-    const extractFormat = responseFormatForThinking(
-      MEMORY_EXTRACT_RESPONSE_FORMAT,
-      thinkingEnabled,
-    );
     const mergeFormat = responseFormatForThinking(
       MEMORY_MERGE_RESPONSE_FORMAT,
       thinkingEnabled,
@@ -126,20 +113,7 @@ export function initQueueSchedulers(): void {
     return {
       model: settings.model,
       llmTimeoutSec: settings.chatTimeoutSec,
-      extract: {
-        baseUrl: config.llmBaseUrl,
-        model: settings.model,
-        apiKey: config.llmApiKey || undefined,
-        numPredict: MEMORY_EXTRACT_NUM_PREDICT,
-        thinkingEnabled,
-        chatComplete: getPipelineServices().llm.createAuxiliaryChatComplete({
-          numPredict: MEMORY_EXTRACT_NUM_PREDICT,
-          think: true,
-          responseFormat: extractFormat,
-          traceLabel: "memory extract (debounced)",
-        }),
-      },
-      merge: {
+      llm: {
         baseUrl: config.llmBaseUrl,
         model: settings.model,
         apiKey: config.llmApiKey || undefined,
@@ -149,7 +123,7 @@ export function initQueueSchedulers(): void {
           numPredict: MEMORY_MERGE_NUM_PREDICT,
           think: true,
           responseFormat: mergeFormat,
-          traceLabel: "memory merge (debounced)",
+          traceLabel: "memory maintenance",
         }),
       },
     };

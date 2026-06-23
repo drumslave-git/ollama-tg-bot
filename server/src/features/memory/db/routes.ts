@@ -172,9 +172,9 @@ memoriesRouter.get("/debug/runs/:id", (req, res) => {
 
 memoriesRouter.patch("/config", (req, res) => {
   try {
-    const body = req.body as Partial<{ extractionDebounceSec: number }>;
+    const body = req.body as Partial<{ maintenanceDebounceSec: number }>;
     const updated = updateMemoryModuleConfig({
-      extractionDebounceSec: body.extractionDebounceSec,
+      maintenanceDebounceSec: body.maintenanceDebounceSec,
     });
     res.json(updated);
   } catch (err) {

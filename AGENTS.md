@@ -61,7 +61,7 @@ Shared infrastructure: `server/src/shared/` (structured-output helpers, auxiliar
 | `features/history` | Turn setup, history intake/inject/record; LLM compression |
 | `features/mood` | Personality + mood injection; `/mood` command |
 | `features/sticker` | Sticker selection pass; `/explain`-style picks |
-| `features/memory` | Per-user/group/general fact extraction (debounced background job) |
+| `features/memory` | Per-user/group/general memory via always-on MCP tools (get/search/save) + debounced background cleanup job |
 
 The static module registry (`server/src/runtime/module-registry.ts`) lists each feature's metadata, db exports, and MCP registrar. Pipeline order is declared explicitly in `server/src/runtime/module-hosts.ts`.
 
@@ -112,7 +112,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then **intake pipeline** (`runIntakePipeline` in `server/src/pipeline/queue-runner.ts`). Addressed messages are **enqueued** (`server/src/runtime/message-queue.ts`) and processed **one at a time**.
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
 4. **Queue processing (addressed only)** — synchronous order: vision (media) → system + personality → history inject → mood → main reply (optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
-5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory extraction from recent history (skips chats whose extraction fingerprint is unchanged since the last successful run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
+5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory maintenance cleans each stored memory document via an LLM pass (skips records whose content fingerprint is unchanged since the last run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
 6. **`server/src/runtime/module-hosts.ts`** — Explicitly imports the feature pipeline and bot command hosts from `server/src/features/*`. Intake and queue host arrays define the processing order directly. Static feature metadata/db/MCP wiring is in `server/src/runtime/module-registry.ts`. Background schedulers are wired in `server/src/runtime/queue-schedulers.ts` via `initQueueSchedulers()` (called at startup — the module has no import-time side effects).
 7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from the static `module-registry.ts` (`mcpTools.registrar`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
 8. **`server/src/pipeline/turn-services.ts`** — Concrete, typed functions (SQLite, Telegram helpers, vision, LLM adapters) that pipeline hosts import directly. Replaces the former `PipelineHostCallbacks` indirection.
@@ -132,12 +132,14 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 
 ### Memory
 
-Three layers, extracted in a **debounced background job** (`server/src/features/memory/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) from recent history when the message queue has been idle — not per-message in the reply path. Per-chat fingerprints in `memory_job_chat_state` skip unchanged chats.
+Three layers (per-user, per-group, general — see `server/src/db/*-memory.ts`), driven by **always-on MCP tools** (`server/src/features/memory/mcp-tools.ts`), not by automatic extraction. The model reads and writes memory on demand, the same way it uses the history tools:
 
-- Per-user, per-group, general — see `server/src/db/*-memory.ts`
-- User/group memories are merged into one entity document during persistence.
-- Extraction learns **personality, preferences, boundaries, and bot-feedback** (what users appreciate vs find annoying), not just encyclopedic facts. In group chats, `observed_user_facts` can update other known participants' user memories when the turn reveals durable traits about them.
-- Injected memories include a **usage preamble** (`MEMORY_USAGE_PREAMBLE`) so the main reply adapts tone and behavior over time — not only factual recall.
+- `memory_get(type, id)` — read the stored document for a `user`/`group`/`general` scope. `id` is the user id or group id (surfaced in the `[SESSION]` block and `[user:name:id]` history tags); ignored for `general`.
+- `memory_search(query)` — case-insensitive substring search across all three scopes.
+- `memory_save(type, id, content)` — append one durable fact (deduped on insert via `addUserFacts`/`addGroupFacts`/`addGeneralFacts`).
+- Memory is **not** injected into the main reply prompt — retrieval is fully tool-driven. The explain/debug view still reads memory from the DB for analysis.
+
+A **debounced background maintenance job** (`server/src/features/memory/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) runs when the message queue is idle. It does not extract from history; it validates each existing memory document via an LLM cleanup pass (reusing the merge prompt with no new input) to dedupe, drop stale/contradicted lines, and compact. Per-record content fingerprints in `memory_job_chat_state` skip unchanged records.
 
 ### Group behavior
 

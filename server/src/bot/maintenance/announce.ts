@@ -33,9 +33,6 @@ export async function generateMaintenanceAnnouncement(
   const systemPrompt = buildSystemPrompt({
     settings,
     customPrompt: getActivePersonalityPrompt(),
-    generalMemoryFacts: [],
-    groupMemoryFacts: [],
-    participantFacts: [],
     knownChatUsers: [],
     isGroupChat: false,
     ownerUserId: getOwnerUserId(),

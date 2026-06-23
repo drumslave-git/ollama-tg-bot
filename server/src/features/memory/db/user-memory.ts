@@ -61,6 +61,25 @@ export function listUserFacts(userId: string): UserFactRecord[] {
   return row ? [row] : [];
 }
 
+export interface UserMemoryMatch {
+  userId: string;
+  content: string;
+}
+
+/** Case-insensitive substring search over user memory documents. */
+export function searchUserMemories(query: string, limit = 50): UserMemoryMatch[] {
+  const q = query.trim();
+  if (!q) return [];
+  const rows = db
+    .prepare(
+      `SELECT user_id, content FROM user_memories
+       WHERE instr(lower(content), lower(?)) > 0
+       ORDER BY user_id ASC LIMIT ?`,
+    )
+    .all(q, limit) as unknown as { user_id: string; content: string }[];
+  return rows.map((r) => ({ userId: r.user_id, content: r.content }));
+}
+
 function rowToUserFactRecord(r: {
   id: number;
   user_id: string;

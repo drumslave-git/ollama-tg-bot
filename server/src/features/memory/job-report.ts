@@ -93,8 +93,7 @@ export interface MemoryJobDebugSnapshot {
 type NotifyFn = () => void;
 
 const LLM_TITLES: Record<string, string> = {
-  "memory extract (debounced)": "Memory extraction",
-  "memory merge (debounced)": "Memory merge",
+  "memory maintenance": "Memory maintenance",
 };
 
 function llmPhaseId(label: string, seq: number): string {
@@ -160,12 +159,12 @@ class MemoryJobRunSession {
   beginChat(convKey: string, inputPreview: string): void {
     this.okPhase(
       `chat-${this.chatsProcessed + this.chatsSkipped + 1}-${convKey}-input`,
-      `Chat ${convKey}`,
-      "Processing extraction input",
+      `Record ${convKey}`,
+      "Cleaning stored memory",
       undefined,
       {
         type: "text",
-        title: "Extraction input",
+        title: "Current memory",
         body: inputPreview,
       },
     );
@@ -352,7 +351,7 @@ class MemoryJobRunSession {
 
   private buildHeadline(): string {
     if (this.status === "scheduled") return "Memory job scheduled";
-    if (this.status === "running") return "Memory extraction running";
+    if (this.status === "running") return "Memory maintenance running";
     if (this.status === "cancelled") return "Memory job cancelled";
     if (this.status === "failed") {
       return this.error ? `Memory job failed: ${this.error}` : "Memory job failed";

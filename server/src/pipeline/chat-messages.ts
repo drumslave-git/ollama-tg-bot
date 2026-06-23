@@ -9,13 +9,9 @@ import {
   getKnownUserById,
   getKnownUsersByIds,
 } from "../db/users/known-users.js";
-import { getUserFacts } from "../db/memory/user.js";
 import { logEvent } from "../logging/event-log.js";
 import type { Settings } from "../db/index.js";
-import {
-  buildSystemPrompt,
-  type ParticipantFacts,
-} from "./adapters/system-prompt.js";
+import { buildSystemPrompt } from "./adapters/system-prompt.js";
 import { resolveEnabledMcpToolNames } from "../runtime/mcp-tools.js";
 import type { MoodValues } from "../mood/index.js";
 import { extractParticipantUserIds } from "../features/history/index.js";
@@ -86,17 +82,6 @@ function loadKnownChatUsers(
   return getKnownUsersByIds(participantIds);
 }
 
-function loadParticipantFacts(
-  chatKey: string,
-  currentUserId: string | null,
-): ParticipantFacts[] {
-  return loadChatParticipants(chatKey, currentUserId).map((participant) => ({
-    userId: participant.userId,
-    label: participant.label,
-    facts: getUserFacts(participant.userId),
-  }));
-}
-
 export function loadChatParticipants(
   chatKey: string,
   currentUserId: string | null,
@@ -140,8 +125,7 @@ export function buildChatMessages(
   options: {
     settings: Settings;
     isGroupChat?: boolean;
-    groupMemoryFacts?: string[];
-    generalMemoryFacts?: string[];
+    groupChatId?: string | null;
     currentUserId?: string | null;
     ownerUserId?: string | null;
     ownerUsername?: string | null;
@@ -151,45 +135,22 @@ export function buildChatMessages(
   const {
     settings,
     isGroupChat = false,
-    groupMemoryFacts = [],
-    generalMemoryFacts = [],
+    groupChatId = null,
     currentUserId = null,
     ownerUserId = null,
     ownerUsername = null,
     mood = null,
   } = options;
 
-  const participantFacts = loadParticipantFacts(chatKey, currentUserId);
   const knownChatUsers = loadKnownChatUsers(chatKey, currentUserId);
-  for (const p of participantFacts) {
-    const known = getKnownUserById(p.userId);
-    if (known) {
-      p.label = formatKnownUserLabel(known);
-      continue;
-    }
-    const fromHistory = getHistory(chatKey).find(
-      (m) => m.role.endsWith(`:${p.userId}`),
-    );
-    if (fromHistory) {
-      const tag = fromHistory.role;
-      p.label = tag.startsWith("user:") ? tag : p.label;
-    }
-    if (
-      latestTurn.currentSpeaker &&
-      latestTurn.currentSpeaker.userId === p.userId
-    ) {
-      p.label = latestTurn.currentSpeaker.label;
-    }
-  }
 
   const system = buildSystemPrompt({
     settings,
     customPrompt: customSystemPrompt,
-    generalMemoryFacts,
-    groupMemoryFacts,
-    participantFacts,
     knownChatUsers: isGroupChat ? knownChatUsers : [],
     isGroupChat,
+    groupChatId,
+    currentUserId,
     ownerUserId,
     ownerUsername,
     mood,

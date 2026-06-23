@@ -30,21 +30,25 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("You are a pirate.");
   });
 
-  it("adds the group section only for group chats", () => {
+  it("exposes the group id in the session block for group chats", () => {
     const group = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
       isGroupChat: true,
-      groupMemoryFacts: ["likes chess"],
+      entityId: "chat-1",
+      groupChatId: "555",
     });
-    expect(group).toContain("This group's culture and how to behave here");
+    expect(group).toContain("group id: 555");
+    // Memory is tool-driven now — no injected group section.
+    expect(group).not.toContain("This group's culture and how to behave here");
 
     const dm = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
       isGroupChat: false,
+      entityId: "dm-1",
     });
-    expect(dm).not.toContain("This group's culture and how to behave here");
+    expect(dm).not.toContain("group id:");
   });
 
   it("includes the owner section and mood when provided", () => {

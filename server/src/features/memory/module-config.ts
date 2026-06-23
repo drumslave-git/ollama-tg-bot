@@ -1,10 +1,10 @@
 export interface MemoryModuleConfig {
-  /** Seconds after the message queue is idle before memory extraction runs. */
-  extractionDebounceSec: number;
+  /** Seconds after the message queue is idle before memory maintenance runs. */
+  maintenanceDebounceSec: number;
 }
 
 export const DEFAULT_MEMORY_MODULE_CONFIG: MemoryModuleConfig = {
-  extractionDebounceSec: 60,
+  maintenanceDebounceSec: 60,
 };
 
 const MIN_DEBOUNCE_SEC = 5;
@@ -13,17 +13,18 @@ const MAX_DEBOUNCE_SEC = 600;
 export function validateMemoryModuleConfig(
   partial: Partial<MemoryModuleConfig>,
 ): MemoryModuleConfig {
-  const extractionDebounceSec =
-    partial.extractionDebounceSec ?? DEFAULT_MEMORY_MODULE_CONFIG.extractionDebounceSec;
+  const maintenanceDebounceSec =
+    partial.maintenanceDebounceSec ??
+    DEFAULT_MEMORY_MODULE_CONFIG.maintenanceDebounceSec;
   if (
-    typeof extractionDebounceSec !== "number" ||
-    !Number.isFinite(extractionDebounceSec) ||
-    extractionDebounceSec < MIN_DEBOUNCE_SEC ||
-    extractionDebounceSec > MAX_DEBOUNCE_SEC
+    typeof maintenanceDebounceSec !== "number" ||
+    !Number.isFinite(maintenanceDebounceSec) ||
+    maintenanceDebounceSec < MIN_DEBOUNCE_SEC ||
+    maintenanceDebounceSec > MAX_DEBOUNCE_SEC
   ) {
     throw new Error(
-      `extractionDebounceSec must be ${MIN_DEBOUNCE_SEC}–${MAX_DEBOUNCE_SEC}`,
+      `maintenanceDebounceSec must be ${MIN_DEBOUNCE_SEC}–${MAX_DEBOUNCE_SEC}`,
     );
   }
-  return { extractionDebounceSec };
+  return { maintenanceDebounceSec };
 }

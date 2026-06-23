@@ -61,6 +61,25 @@ export function listGroupFacts(groupId: string): GroupFactRecord[] {
   return row ? [row] : [];
 }
 
+export interface GroupMemoryMatch {
+  groupId: string;
+  content: string;
+}
+
+/** Case-insensitive substring search over group memory documents. */
+export function searchGroupMemories(query: string, limit = 50): GroupMemoryMatch[] {
+  const q = query.trim();
+  if (!q) return [];
+  const rows = db
+    .prepare(
+      `SELECT group_id, content FROM group_memories
+       WHERE instr(lower(content), lower(?)) > 0
+       ORDER BY group_id ASC LIMIT ?`,
+    )
+    .all(q, limit) as unknown as { group_id: string; content: string }[];
+  return rows.map((r) => ({ groupId: r.group_id, content: r.content }));
+}
+
 function rowToGroupFactRecord(r: {
   id: number;
   group_id: string;

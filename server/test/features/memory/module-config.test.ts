@@ -13,7 +13,7 @@ describe("validateMemoryModuleConfig", () => {
 
   it("rejects out-of-range debounce values", () => {
     expect(() =>
-      validateMemoryModuleConfig({ extractionDebounceSec: 2 }),
-    ).toThrow(/extractionDebounceSec/);
+      validateMemoryModuleConfig({ maintenanceDebounceSec: 2 }),
+    ).toThrow(/maintenanceDebounceSec/);
   });
 });

@@ -12,27 +12,38 @@ export function bindMemoryConfigDatabase(database: DatabaseSync): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS memory_module_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
-      extraction_debounce_sec INTEGER NOT NULL DEFAULT 60
+      maintenance_debounce_sec INTEGER NOT NULL DEFAULT 60
     );
   `);
+  // Migrate the legacy column name from the extraction-based memory job.
+  const columns = db
+    .prepare(`PRAGMA table_info(memory_module_config)`)
+    .all() as unknown as { name: string }[];
+  const names = new Set(columns.map((c) => c.name));
+  if (names.has("extraction_debounce_sec") && !names.has("maintenance_debounce_sec")) {
+    db.exec(
+      `ALTER TABLE memory_module_config
+       RENAME COLUMN extraction_debounce_sec TO maintenance_debounce_sec`,
+    );
+  }
   const row = db
     .prepare(`SELECT id FROM memory_module_config WHERE id = 1`)
     .get() as { id: number } | undefined;
   if (!row) {
     db.prepare(
-      `INSERT INTO memory_module_config (id, extraction_debounce_sec) VALUES (1, ?)`,
-    ).run(DEFAULT_MEMORY_MODULE_CONFIG.extractionDebounceSec);
+      `INSERT INTO memory_module_config (id, maintenance_debounce_sec) VALUES (1, ?)`,
+    ).run(DEFAULT_MEMORY_MODULE_CONFIG.maintenanceDebounceSec);
   }
 }
 
 export function getMemoryModuleConfig(): MemoryModuleConfig {
   const row = db
-    .prepare(`SELECT extraction_debounce_sec FROM memory_module_config WHERE id = 1`)
-    .get() as { extraction_debounce_sec: number } | undefined;
+    .prepare(`SELECT maintenance_debounce_sec FROM memory_module_config WHERE id = 1`)
+    .get() as { maintenance_debounce_sec: number } | undefined;
   return {
-    extractionDebounceSec:
-      row?.extraction_debounce_sec ??
-      DEFAULT_MEMORY_MODULE_CONFIG.extractionDebounceSec,
+    maintenanceDebounceSec:
+      row?.maintenance_debounce_sec ??
+      DEFAULT_MEMORY_MODULE_CONFIG.maintenanceDebounceSec,
   };
 }
 
@@ -44,7 +55,7 @@ export function updateMemoryModuleConfig(
     ...partial,
   });
   db.prepare(
-    `UPDATE memory_module_config SET extraction_debounce_sec = ? WHERE id = 1`,
-  ).run(next.extractionDebounceSec);
+    `UPDATE memory_module_config SET maintenance_debounce_sec = ? WHERE id = 1`,
+  ).run(next.maintenanceDebounceSec);
   return next;
 }

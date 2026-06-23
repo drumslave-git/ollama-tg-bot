@@ -10,7 +10,7 @@ export function MemoryJobConfigSection({
 }: {
   apiOnline: boolean;
 }) {
-  const [extractionDebounceSec, setExtractionDebounceSec] = useState(60);
+  const [maintenanceDebounceSec, setMaintenanceDebounceSec] = useState(60);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +22,7 @@ export function MemoryJobConfigSection({
     setError(null);
     try {
       const config = await api.getMemoryModuleConfig();
-      setExtractionDebounceSec(config.extractionDebounceSec);
+      setMaintenanceDebounceSec(config.maintenanceDebounceSec);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load config");
     } finally {
@@ -40,9 +40,9 @@ export function MemoryJobConfigSection({
     setSaved(false);
     try {
       const updated = await api.updateMemoryModuleConfig({
-        extractionDebounceSec,
+        maintenanceDebounceSec,
       });
-      setExtractionDebounceSec(updated.extractionDebounceSec);
+      setMaintenanceDebounceSec(updated.maintenanceDebounceSec);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -54,10 +54,10 @@ export function MemoryJobConfigSection({
 
   return (
     <section className="rounded-lg border border-border bg-surface p-6">
-      <h3 className="mb-5 text-[1.1rem] font-semibold">Background extraction</h3>
+      <h3 className="mb-5 text-[1.1rem] font-semibold">Background maintenance</h3>
       <p className="mt-1.5 text-xs text-muted">
-        After the message queue is idle, wait this long before extracting
-        memories from recent history.
+        After the message queue is idle, wait this long before cleaning up
+        stored memory (dedupe, drop stale lines, compact).
       </p>
       {loading ? <p className="text-muted">Loading…</p> : null}
       {error ? (
@@ -66,14 +66,14 @@ export function MemoryJobConfigSection({
       {!loading ? (
         <>
           <SettingsNumberField
-            id="memoryExtractionDebounceSec"
-            label="Extraction delay (seconds)"
-            value={extractionDebounceSec}
+            id="memoryMaintenanceDebounceSec"
+            label="Maintenance delay (seconds)"
+            value={maintenanceDebounceSec}
             min={5}
             max={600}
             step={5}
             disabled={!apiOnline || saving}
-            onChange={setExtractionDebounceSec}
+            onChange={setMaintenanceDebounceSec}
           />
           <div className="mt-2 flex gap-3">
             <button

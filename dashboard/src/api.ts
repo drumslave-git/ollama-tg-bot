@@ -734,9 +734,9 @@ export const api = {
       method: "DELETE",
     }),
   getMemoryModuleConfig: () =>
-    request<{ extractionDebounceSec: number }>("/api/memories/config"),
-  updateMemoryModuleConfig: (patch: { extractionDebounceSec: number }) =>
-    request<{ extractionDebounceSec: number }>("/api/memories/config", {
+    request<{ maintenanceDebounceSec: number }>("/api/memories/config"),
+  updateMemoryModuleConfig: (patch: { maintenanceDebounceSec: number }) =>
+    request<{ maintenanceDebounceSec: number }>("/api/memories/config", {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),

@@ -8,6 +8,8 @@ import { registerMcpTools as registerLinkFetchTools } from "../features/link-fet
 import { registerMcpTools as registerWebSearchTools } from "../features/web-search/register-mcp-tools.js";
 import { registerMcpTools as registerHistoryTools } from "../features/history/register-mcp-tools.js";
 import { HISTORY_TOOL_NAMES } from "../features/history/mcp-tools.js";
+import { registerMcpTools as registerMemoryTools } from "../features/memory/register-mcp-tools.js";
+import { MEMORY_TOOL_NAMES } from "../features/memory/mcp-tools.js";
 
 /**
  * Static registry of feature modules. Replaces the former manifest.json
@@ -92,6 +94,13 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
     },
     hasUi: true,
     db: memoryDbModule,
+    mcpTools: {
+      // Always on — the model reads and writes long-term memory on demand.
+      workflowStepId: "memory",
+      toolNames: MEMORY_TOOL_NAMES,
+      registrar: registerMemoryTools,
+      alwaysOn: true,
+    },
   },
   {
     id: "mood-evaluation",
