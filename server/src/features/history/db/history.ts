@@ -11,6 +11,16 @@ const MAX_RANGE_ROWS = 500;
 
 export function bindHistoryDatabase(database: DatabaseSync): void {
   db = database;
+  // Drop a legacy chat_messages table from an older schema (pre-entity_id) so
+  // the current schema can be created cleanly. No migrations / data loss is
+  // acceptable here (see AGENTS.md) — only this pre-entity_id table is dropped,
+  // so normal restarts keep current history.
+  const columns = db
+    .prepare(`PRAGMA table_info(chat_messages)`)
+    .all() as { name: string }[];
+  if (columns.length > 0 && !columns.some((c) => c.name === "entity_id")) {
+    db.exec(`DROP TABLE chat_messages;`);
+  }
   db.exec(`
     CREATE TABLE IF NOT EXISTS chat_messages (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
