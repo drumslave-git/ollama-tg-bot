@@ -86,10 +86,28 @@ describe("extractModelMaxCtx", () => {
 });
 
 describe("calculateContextBudget", () => {
-  it("uses the VRAM tier baseline when the model fits", () => {
+  it("drives context from KV headroom when the model size is known", () => {
     const budget = calculateContextBudget(80, { name: "tiny-1b" });
+    expect(budget.limitedBy).toBe("kv_headroom");
+    // A 1B model on 80 GB has headroom for far more than the absolute max.
+    expect(budget.effectiveNumCtx).toBe(262144);
+  });
+
+  it("falls back to the VRAM tier baseline when model size is unknown", () => {
+    const budget = calculateContextBudget(80, { name: "custom-model" });
     expect(budget.limitedBy).toBe("vram_tier");
     expect(budget.effectiveNumCtx).toBe(262144);
+  });
+
+  it("uses more of a big GPU than the coarse tier would allow", () => {
+    // 24 GB + ~7 GB weights: the old VRAM tier capped this at 32768; KV
+    // headroom should now allow substantially more.
+    const budget = calculateContextBudget(24, {
+      name: "gemma-12b",
+      sizeBytes: 7 * 1024 ** 3,
+    });
+    expect(budget.limitedBy).toBe("kv_headroom");
+    expect(budget.effectiveNumCtx).toBeGreaterThan(32768);
   });
 
   it("caps to the model native maximum", () => {
@@ -101,7 +119,7 @@ describe("calculateContextBudget", () => {
     expect(budget.effectiveNumCtx).toBe(8192);
   });
 
-  it("raises a tiny tier up to the minimum floor", () => {
+  it("never drops below the minimum context floor", () => {
     const budget = calculateContextBudget(8, { name: "tiny-1b" });
     expect(budget.effectiveNumCtx).toBeGreaterThanOrEqual(2048);
   });

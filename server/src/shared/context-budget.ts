@@ -16,10 +16,25 @@ function snapNumPredict(value: number): number {
   return Math.min(MAX_NUM_PREDICT, Math.max(MIN_NUM_PREDICT, snapped));
 }
 
-/** Context tiers derived from configured VRAM. */
+/** Fallback context tiers used only when the model size is unknown. */
 const VRAM_TIER_4K = 4096;
 const VRAM_TIER_32K = 32768;
 const VRAM_TIER_256K = ABSOLUTE_MAX_NUM_CTX;
+
+/** Fraction of VRAM usable after reserving room for the CUDA context, activations, and fragmentation. */
+const USABLE_VRAM_FRACTION = 0.9;
+/**
+ * KV-cache cost per 8k tokens, scaled by model weight. Deliberately on the high
+ * side (a GQA 7 GB model is ~1 GB/8k; large/Gemma-style caches run higher) so we
+ * under-provision tokens rather than risk OOM — see {@link KV_SAFETY_FACTOR}.
+ */
+const KV_GB_PER_8K_AT_7GB = 1.5;
+/** Extra margin so context isn't sized to the exact VRAM edge. */
+const KV_SAFETY_FACTOR = 0.8;
+
+function kvGbPer8k(weightGb: number): number {
+  return Math.max(0.25, (weightGb / 7) * KV_GB_PER_8K_AT_7GB);
+}
 
 export interface ModelContextInput {
   name: string;
@@ -111,12 +126,19 @@ export function estimateModelWeightGb(model: ModelContextInput): number | null {
   return parseParameterSizeGb(parseParameterSizeFromName(model.name) ?? undefined);
 }
 
-function contextFromKvHeadroom(vramGb: number, weightGb: number): number {
-  const headroomGb = Math.max(0, vramGb * 0.9 - weightGb);
-  if (headroomGb < 0.5) return VRAM_TIER_4K;
+/** VRAM left for KV cache after model weights, given the usable-VRAM reserve. */
+function kvHeadroomGb(vramGb: number, weightGb: number): number {
+  return vramGb * USABLE_VRAM_FRACTION - weightGb;
+}
 
-  const kvGbPer8k = Math.max(0.12, (weightGb / 7) * 0.5);
-  const estimated = Math.floor((headroomGb / kvGbPer8k) * 8192);
+/** Context that fits in the KV-cache headroom, with the safety margin applied. */
+function contextFromKvHeadroom(vramGb: number, weightGb: number): number {
+  const headroomGb = kvHeadroomGb(vramGb, weightGb);
+  if (headroomGb < 0.5) return MIN_NUM_CTX;
+
+  const estimated = Math.floor(
+    (headroomGb / kvGbPer8k(weightGb)) * 8192 * KV_SAFETY_FACTOR,
+  );
   return snapNumCtx(Math.min(ABSOLUTE_MAX_NUM_CTX, estimated));
 }
 
@@ -151,26 +173,28 @@ export function calculateContextBudget(
 ): ContextBudget {
   const notes: string[] = [];
   const vramTierCtx = vramTierContextTokens(vramGb);
-  let target = vramTierCtx;
-  let limitedBy: ContextBudgetLimiter = "vram_tier";
-  notes.push(
-    `VRAM tier (${vramGb} GB): baseline ${vramTierCtx.toLocaleString()} tokens.`,
-  );
-
   const weightGb = estimateModelWeightGb(model);
+
+  // Primary driver: how much context actually fits in the KV-cache headroom
+  // (free VRAM after model weights, with a safety margin). The coarse VRAM tier
+  // is only a fallback when the model size is unknown.
+  let target: number;
+  let limitedBy: ContextBudgetLimiter;
   if (weightGb != null) {
-    const kvCtx = contextFromKvHeadroom(vramGb, weightGb);
-    if (kvCtx < target) {
-      target = kvCtx;
-      limitedBy = "kv_headroom";
-      notes.push(
-        `Model weights ~${weightGb.toFixed(1)} GB — KV headroom caps context at ${kvCtx.toLocaleString()} tokens.`,
-      );
-    } else {
-      notes.push(`Model weights ~${weightGb.toFixed(1)} GB — tier baseline fits in VRAM.`);
-    }
+    target = contextFromKvHeadroom(vramGb, weightGb);
+    limitedBy = "kv_headroom";
+    const freeGb = Math.max(0, kvHeadroomGb(vramGb, weightGb));
+    notes.push(
+      `Model weights ~${weightGb.toFixed(1)} GB; ~${freeGb.toFixed(1)} GB free of ` +
+        `${vramGb} GB VRAM → ~${target.toLocaleString()} tokens fit ` +
+        `(${Math.round((1 - KV_SAFETY_FACTOR) * 100)}% safety margin).`,
+    );
   } else {
-    notes.push("Model size unknown — using VRAM tier baseline only.");
+    target = vramTierCtx;
+    limitedBy = "vram_tier";
+    notes.push(
+      `Model size unknown — using VRAM tier baseline ${vramTierCtx.toLocaleString()} tokens.`,
+    );
   }
 
   const modelMaxCtx = model.modelMaxCtx ?? null;
