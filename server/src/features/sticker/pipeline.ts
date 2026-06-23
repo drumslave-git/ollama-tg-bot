@@ -92,6 +92,8 @@ export const stickerPipelineHost: PipelineModuleHost = {
           responseFormat,
           traceTurnId: state.turnId,
           traceLabel: "sticker pick",
+          // Sticker pick is a fast classification — no reasoning, it only adds latency.
+          think: false,
         }),
       },
     );
