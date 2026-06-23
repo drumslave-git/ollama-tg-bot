@@ -173,7 +173,7 @@ Reference implementations:
 
 The main reply is **plain text** — no `response_format` is sent (grammar-constrained decoding can push weaker models into repetition loops). `extractTelegramReply()` still parses a `{ "reply": "…" }` wrapper defensively if a model emits one, then cleans the text. Parser: `server/src/features/completions/response-format.ts`; do not expand the parser for new model quirks. Other structured passes (mood, sticker, address, explain) keep their JSON schemas.
 
-**LLM response fields:** User-facing text comes from the API `content` JSON (`reply`, `addressed`, etc.). Chain-of-thought comes solely from the separate API `reasoning` / `reasoning_content` channel (`parseAssistantMessage()` in `server/src/llm/openai-compat.ts`) — never from a JSON field. It is sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
+**LLM response fields:** User-facing text comes from the API `content` JSON (`reply`, `addressed`, etc.). Chain-of-thought comes solely from the separate API `reasoning` / `reasoning_content` channel (`parseAssistantMessage()` in `server/src/llm/openai-compat.ts`) — never from a JSON field. Reasoning is captured in debug traces only; it is never sent to Telegram. Never merge reasoning into the reply body or use it to recover malformed JSON.
 
 ## Code conventions
 

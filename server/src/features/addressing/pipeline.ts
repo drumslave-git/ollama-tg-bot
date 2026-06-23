@@ -12,9 +12,22 @@ import {
   isReplyToBotMessage,
 } from "./telegram-reply.js";
 import { getBotIdentity } from "./bot-identity.js";
-import { senderLabel } from "./reply-triggers.js";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;
+
+function senderLabel(from: unknown): string {
+  if (!from || typeof from !== "object") return "Someone";
+  const user = from as {
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+  };
+  return (
+    [user.first_name, user.last_name].filter(Boolean).join(" ") ||
+    user.username ||
+    "Someone"
+  );
+}
 
 function hostLogging(services: PipelineHostServices): ModuleLogging {
   return {

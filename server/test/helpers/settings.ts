@@ -11,9 +11,6 @@ export function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
     model: "gpt-4o-mini",
     activePersonalityId: 0,
-    randomReplyEnabled: false,
-    randomReplyChance: 5,
-    reactToEveryImage: false,
     numPredict: 512,
     numCtx: 4096,
     temperature: 0.7,
@@ -29,7 +26,6 @@ export function makeSettings(overrides: Partial<Settings> = {}): Settings {
     stickerReplyChance: 70,
     moodCooldownMinutes: 120,
     thinkingEnabled: false,
-    sendThinkingEnabled: false,
     reasoningEffort: "medium",
     maintenanceModeEnabled: false,
     workflowSteps: ["mood", "links", "search", "sticker"],

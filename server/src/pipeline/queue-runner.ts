@@ -29,7 +29,6 @@ import {
   startTypingForMessage,
 } from "../bot/replies/typing.js";
 import { ReplyStream } from "../bot/replies/reply-stream.js";
-import { getResolvedSettings } from "../settings/runtime.js";
 import type { QueuedMessage } from "../runtime/message-queue.js";
 
 function hostDebugTitle(host: PipelineModuleHost): string {
@@ -118,21 +117,15 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       return;
     }
 
-    // Stream the reply live unless thinking messages are sent (those must
-    // precede the reply, which the live preview can't preserve). The stream
-    // only activates if the completion runs without MCP tools.
-    const settings = getResolvedSettings();
-    const sendThinkingMessages =
-      settings.thinkingEnabled && settings.sendThinkingEnabled;
-    const replyStream = sendThinkingMessages
-      ? null
-      : new ReplyStream(ctx, {
-          chatId: deliveryChatId,
-          messageThreadId: state.messageThreadId,
-          inGroup: Boolean(state.inGroup),
-          isForum: state.isForum,
-        });
-    if (replyStream) state.replyStream = replyStream;
+    // Stream the reply live (the completion path falls back to a single message
+    // automatically when it can't stream, e.g. nothing was produced).
+    const replyStream = new ReplyStream(ctx, {
+      chatId: deliveryChatId,
+      messageThreadId: state.messageThreadId,
+      inGroup: Boolean(state.inGroup),
+      isForum: state.isForum,
+    });
+    state.replyStream = replyStream;
 
     // Critical path: run only the hosts needed to produce the text reply.
     for (const host of getReplyPipelineHosts()) {
@@ -223,7 +216,6 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       chatId: deliveryChatId,
       chunkCount: delivered.chunkCount,
       replyChars: delivered.replyChars,
-      thinkingSent: delivered.thinkingSent,
       stickerEmoji: state.stickerEmoji,
       webSearchSources: state.webSearchSources as
         | WebSearchSource[]

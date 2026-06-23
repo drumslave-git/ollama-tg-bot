@@ -43,13 +43,10 @@ export async function runExplainTurn(
     ];
 
     deps.logging.logEvent("llm_reply_started", { ...turnLog, mode: "explain" });
-    const { raw: modelOutput, thinking } = await deps.chatCompleteDetailed(
-      messages,
-      {
-        think: Boolean(settings.thinkingEnabled),
-        responseFormat: deps.getMainReplyResponseFormat(),
-      },
-    );
+    const { raw: modelOutput } = await deps.chatCompleteDetailed(messages, {
+      think: Boolean(settings.thinkingEnabled),
+      responseFormat: deps.getMainReplyResponseFormat(),
+    });
     deps.logging.logEvent("llm_reply_done", {
       ...turnLog,
       mode: "explain",
@@ -68,13 +65,9 @@ export async function runExplainTurn(
       replyBody,
     );
 
-    const sendThinking =
-      Boolean(settings.thinkingEnabled) && Boolean(settings.sendThinkingEnabled);
     const { chunkCount } = await deps.sendChunkedHtmlReply(ctx, {
       chatId: input.chatId,
       html: deps.prepareTelegramHtml(replyBody),
-      thinking,
-      sendThinking,
       messageThreadId: input.messageThreadId,
       inGroup: input.inGroup,
       isForum: input.isForum,

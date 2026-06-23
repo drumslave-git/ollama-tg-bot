@@ -407,7 +407,6 @@ export class MessageReportSession {
     replyChars?: number;
     chunks?: number;
     sticker?: string;
-    thinkingSent?: boolean;
   }): void {
     this.status = "processed";
     this.result = {
@@ -415,7 +414,6 @@ export class MessageReportSession {
       replyChars: options?.replyChars,
       chunks: options?.chunks,
       sticker: options?.sticker,
-      thinkingSent: options?.thinkingSent,
     };
     this.persist();
     releaseProcessingSession(this.turnId);

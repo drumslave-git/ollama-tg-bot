@@ -114,18 +114,10 @@ export function SettingsPage() {
 
           <BotBehaviorSection
             maintenanceModeEnabled={draft.maintenanceModeEnabled}
-            randomReplyEnabled={draft.randomReplyEnabled}
-            randomReplyChance={draft.randomReplyChance}
-            reactToEveryImage={draft.reactToEveryImage}
             thinkingEnabled={draft.thinkingEnabled}
-            sendThinkingEnabled={draft.sendThinkingEnabled}
             reasoningEffort={draft.reasoningEffort}
             onMaintenanceModeChange={(maintenanceModeEnabled) => setDraft({ ...draft, maintenanceModeEnabled })}
-            onRandomReplyEnabledChange={(randomReplyEnabled) => setDraft({ ...draft, randomReplyEnabled })}
-            onRandomReplyChanceChange={(randomReplyChance) => setDraft({ ...draft, randomReplyChance })}
-            onReactToEveryImageChange={(reactToEveryImage) => setDraft({ ...draft, reactToEveryImage })}
-            onThinkingEnabledChange={(thinkingEnabled) => setDraft({ ...draft, thinkingEnabled, sendThinkingEnabled: thinkingEnabled ? draft.sendThinkingEnabled : false })}
-            onSendThinkingEnabledChange={(sendThinkingEnabled) => setDraft({ ...draft, sendThinkingEnabled })}
+            onThinkingEnabledChange={(thinkingEnabled) => setDraft({ ...draft, thinkingEnabled })}
             onReasoningEffortChange={(reasoningEffort) => setDraft({ ...draft, reasoningEffort })}
           />
 

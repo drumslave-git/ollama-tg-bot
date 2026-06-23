@@ -134,7 +134,7 @@ function hostKind(
   stage: WorkflowStage,
 ): WorkflowNodeKind {
   if (!host.alwaysOn) return enabled ? "optional" : "optional";
-  if (stage === "intake" && (host.stepId === "triggers" || host.stepId === "address")) {
+  if (stage === "intake" && host.stepId === "address") {
     return "decision";
   }
   if (LLM_STEP_IDS.has(host.stepId)) return "llm";

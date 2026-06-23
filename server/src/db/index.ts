@@ -30,10 +30,6 @@ export interface Settings {
   model: string;
   /** Id of the personality whose prompt is layered on the base system prompt (0 = none). */
   activePersonalityId: number;
-  randomReplyEnabled: boolean;
-  randomReplyChance: number;
-  /** In groups, comment on photos/image files even when not addressed to the bot. */
-  reactToEveryImage: boolean;
   /** Max tokens LLM may generate per reply (lower = faster). */
   numPredict: number;
   /** Context window size sent to LLM. */
@@ -63,8 +59,6 @@ export interface Settings {
   moodCooldownMinutes: number;
   /** Request model reasoning when the backend supports it. */
   thinkingEnabled: boolean;
-  /** Send model reasoning to Telegram as a message before the reply. */
-  sendThinkingEnabled: boolean;
   /** Level of reasoning effort for models that support it (none, low, medium, high). */
   reasoningEffort: "none" | "low" | "medium" | "high";
   /** When on, only the owner can trigger LLM-backed bot behavior. */
@@ -86,9 +80,6 @@ export interface Stats {
 const DEFAULT_SETTINGS: Settings = {
   model: "gpt-4o-mini",
   activePersonalityId: 0,
-  randomReplyEnabled: false,
-  randomReplyChance: 5,
-  reactToEveryImage: false,
   numPredict: 512,
   numCtx: 4096,
   temperature: 0.7,
@@ -104,7 +95,6 @@ const DEFAULT_SETTINGS: Settings = {
   stickerReplyChance: 70,
   moodCooldownMinutes: 120,
   thinkingEnabled: false,
-  sendThinkingEnabled: false,
   reasoningEffort: "medium",
   maintenanceModeEnabled: false,
   workflowSteps: ["mood", "links", "search", "sticker"],
@@ -195,9 +185,6 @@ export function getSettings(): Settings {
   return {
     model: getSetting<string>("model"),
     activePersonalityId: getSetting<number>("activePersonalityId"),
-    randomReplyEnabled: getSetting<boolean>("randomReplyEnabled"),
-    randomReplyChance: getSetting<number>("randomReplyChance"),
-    reactToEveryImage: getSetting<boolean>("reactToEveryImage"),
     numPredict: getSetting<number>("numPredict"),
     numCtx: getSetting<number>("numCtx"),
     temperature: getSetting<number>("temperature"),
@@ -213,7 +200,6 @@ export function getSettings(): Settings {
     stickerReplyChance: getSetting<number>("stickerReplyChance"),
     moodCooldownMinutes: getSetting<number>("moodCooldownMinutes"),
     thinkingEnabled: getSetting<boolean>("thinkingEnabled"),
-    sendThinkingEnabled: getSetting<boolean>("sendThinkingEnabled"),
     reasoningEffort: getSetting<Settings["reasoningEffort"]>("reasoningEffort"),
     maintenanceModeEnabled: getSetting<boolean>("maintenanceModeEnabled"),
     workflowSteps: getSetting<string[]>("workflowSteps"),
@@ -236,9 +222,6 @@ export function updateSettings(partial: Partial<Settings>): Settings {
   }
   if (partial.stickerPackName !== undefined) {
     next.stickerPackName = partial.stickerPackName.trim().replace(/^@/, "");
-  }
-  if (partial.thinkingEnabled === false) {
-    next.sendThinkingEnabled = false;
   }
   if (partial.topK !== undefined) {
     next.topK = Math.round(partial.topK);

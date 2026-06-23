@@ -236,19 +236,6 @@ export function DebugMessageDetail() {
                     <dd className="m-0 text-sm">{report.result.sticker}</dd>
                   </div>
                 ) : null}
-                {report.result.thinkingSent ? (
-                  <div>
-                    <dt className={fieldLabelClass}>Thinking sent</dt>
-                    <dd className="m-0 text-sm">Yes</dd>
-                  </div>
-                ) : report.phases.some((p) => p.id === "reasoning") ? (
-                  <div>
-                    <dt className={fieldLabelClass}>Thinking sent</dt>
-                    <dd className="m-0 text-sm">
-                      No (reasoning not returned or send disabled)
-                    </dd>
-                  </div>
-                ) : null}
                 {report.result.error ? (
                   <div>
                     <dt className={fieldLabelClass}>Error</dt>

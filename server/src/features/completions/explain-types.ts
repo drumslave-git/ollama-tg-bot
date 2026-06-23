@@ -75,13 +75,11 @@ export interface ExplainTurnDeps {
     options: {
       chatId: number;
       html: string;
-      thinking?: string | null;
-      sendThinking?: boolean;
       messageThreadId?: number;
       inGroup?: boolean;
       isForum?: boolean;
     },
-  ) => Promise<{ chunkCount: number; thinkingSent: boolean }>;
+  ) => Promise<{ chunkCount: number }>;
   deliverHtmlErrorReply: (
     ctx: unknown,
     options: {

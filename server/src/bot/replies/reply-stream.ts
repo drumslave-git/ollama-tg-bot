@@ -120,7 +120,6 @@ export class ReplyStream implements ReplyStreamSink {
 
     return {
       chunkCount: chunks.length,
-      thinkingSent: false,
       replyChars,
     };
   }

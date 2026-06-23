@@ -158,11 +158,8 @@ export function validateSettingsFields(settings: Settings): void {
 
   const checks: [string, boolean][] = [
     ["model must be a string", isString(settings.model)],
-    ["randomReplyEnabled must be true or false", isBoolean(settings.randomReplyEnabled)],
-    ["reactToEveryImage must be true or false", isBoolean(settings.reactToEveryImage)],
     ["stickersEnabled must be true or false", isBoolean(settings.stickersEnabled)],
     ["thinkingEnabled must be true or false", isBoolean(settings.thinkingEnabled)],
-    ["sendThinkingEnabled must be true or false", isBoolean(settings.sendThinkingEnabled)],
     ["maintenanceModeEnabled must be true or false", isBoolean(settings.maintenanceModeEnabled)],
     [
       "workflowSteps must be an array of step ids",
@@ -202,7 +199,6 @@ export function validateSettingsFields(settings: Settings): void {
     ["repeatPenalty must be a number", isFiniteNumber(settings.repeatPenalty)],
     ["chatTimeoutSec must be a number", isFiniteNumber(settings.chatTimeoutSec)],
     ["visionMaxDimension must be a number", isFiniteNumber(settings.visionMaxDimension)],
-    ["randomReplyChance must be a number", isFiniteNumber(settings.randomReplyChance)],
     ["stickerReplyChance must be a number", isFiniteNumber(settings.stickerReplyChance)],
     ["activePersonalityId must be a number", isFiniteNumber(settings.activePersonalityId)],
     ["moodCooldownMinutes must be a number", isFiniteNumber(settings.moodCooldownMinutes)],
@@ -256,12 +252,6 @@ export function validateSettingsFields(settings: Settings): void {
         settings.visionMaxDimension <= 2048,
     ],
     [
-      "randomReplyChance must be 0–100",
-      isFiniteNumber(settings.randomReplyChance) &&
-        settings.randomReplyChance >= 0 &&
-        settings.randomReplyChance <= 100,
-    ],
-    [
       "ownerUsername must be empty or a valid Telegram username",
       isString(settings.ownerUsername) &&
         (settings.ownerUsername.trim() === "" ||
@@ -308,10 +298,6 @@ export function validateSettingsFields(settings: Settings): void {
       isFiniteNumber(settings.moodCooldownMinutes) &&
         settings.moodCooldownMinutes >= 5 &&
         settings.moodCooldownMinutes <= 1440,
-    ],
-    [
-      "sendThinkingEnabled requires thinkingEnabled",
-      !settings.sendThinkingEnabled || settings.thinkingEnabled,
     ],
   ];
 

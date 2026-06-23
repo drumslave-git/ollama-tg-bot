@@ -78,9 +78,6 @@ settingsRouter.patch("/", async (req, res) => {
     const allowed: (keyof Settings)[] = [
       "model",
       "activePersonalityId",
-      "randomReplyEnabled",
-      "randomReplyChance",
-      "reactToEveryImage",
       "numPredict",
       "temperature",
       "topP",
@@ -94,7 +91,6 @@ settingsRouter.patch("/", async (req, res) => {
       "stickerReplyChance",
       "moodCooldownMinutes",
       "thinkingEnabled",
-      "sendThinkingEnabled",
       "reasoningEffort",
       "maintenanceModeEnabled",
       "workflowSteps",

@@ -6,10 +6,7 @@ import {
   type BotModuleHost,
   type PipelineModuleHost,
 } from "../contracts/index.js";
-import {
-  addressingHost,
-  replyTriggersHost,
-} from "../features/addressing/index.js";
+import { addressingHost } from "../features/addressing/index.js";
 import {
   historyRecordHost,
   intakeHistoryHost,
@@ -40,7 +37,7 @@ import { createMoodExtensions } from "./mood-host.js";
 // the import cycle between hosts and their shared turn-services.
 
 export function getIntakePipelineHosts(): PipelineModuleHost[] {
-  return [turnSetupHost, intakeHistoryHost, replyTriggersHost, addressingHost];
+  return [turnSetupHost, intakeHistoryHost, addressingHost];
 }
 
 /**

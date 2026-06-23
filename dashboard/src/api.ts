@@ -9,9 +9,6 @@ export interface Settings {
   model: string;
   activePersonalityId: number;
   baseSystemPrompt?: string;
-  randomReplyEnabled: boolean;
-  randomReplyChance: number;
-  reactToEveryImage: boolean;
   numPredict: number;
   numCtx: number;
   temperature: number;
@@ -28,7 +25,6 @@ export interface Settings {
   stickerReplyChance: number;
   moodCooldownMinutes?: number;
   thinkingEnabled: boolean;
-  sendThinkingEnabled: boolean;
   reasoningEffort: "none" | "low" | "medium" | "high";
   maintenanceModeEnabled: boolean;
   workflowSteps: string[];
@@ -241,7 +237,6 @@ export interface MessageReportRecord {
     replyChars?: number;
     chunks?: number;
     sticker?: string;
-    thinkingSent?: boolean;
     error?: string;
   };
 }

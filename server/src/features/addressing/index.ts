@@ -40,4 +40,3 @@ export {
   type BuildAddressAnalyzerMessagesParams,
 } from "./prompt.js";
 export { addressingHost } from "./pipeline.js";
-export { replyTriggersHost } from "./reply-triggers.js";

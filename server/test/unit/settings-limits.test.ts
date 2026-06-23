@@ -166,14 +166,6 @@ describe("validateSettingsFields", () => {
     ).toThrow(/stickerPackName is required/);
   });
 
-  it("rejects sendThinking without thinking", () => {
-    expect(() =>
-      validateSettingsFields(
-        makeSettings({ sendThinkingEnabled: true, thinkingEnabled: false }),
-      ),
-    ).toThrow(/sendThinkingEnabled requires thinkingEnabled/);
-  });
-
   it("rejects an invalid reasoningEffort", () => {
     expect(() =>
       validateSettingsFields(

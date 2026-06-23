@@ -2,7 +2,6 @@ import type { Context } from "grammy";
 import { replyParameters } from "./replies.js";
 import { messageThreadExtra, resolveTypingThreadParams } from "./typing.js";
 import { replyHtml } from "./replies-helpers.js";
-import { sendThinkingMessages } from "./send-thinking.js";
 import { escapeHtml } from "../../telegram/html.js";
 
 export function splitTelegramMessage(text: string, maxLen = 4000): string[] {
@@ -41,31 +40,13 @@ export async function sendChunkedHtmlReply(
   options: {
     chatId: number;
     html: string;
-    thinking?: string | null;
-    sendThinking?: boolean;
     messageThreadId?: number;
     inGroup?: boolean;
     isForum?: boolean;
   },
-): Promise<{ chunkCount: number; thinkingSent: boolean }> {
+): Promise<{ chunkCount: number }> {
   if (!options.html.trim()) {
-    let thinkingSent = false;
-    if (options.sendThinking && options.thinking) {
-      const typingThreadParams = resolveTypingThreadParams(
-        options.inGroup
-          ? { type: "supergroup", is_forum: options.isForum }
-          : undefined,
-        options.messageThreadId,
-      );
-      const thinkingChunks = await sendThinkingMessages(
-        ctx,
-        options.chatId,
-        options.thinking,
-        typingThreadParams,
-      );
-      thinkingSent = thinkingChunks > 0;
-    }
-    return { chunkCount: 0, thinkingSent };
+    return { chunkCount: 0 };
   }
 
   const replyExtra = buildReplyExtra(ctx, {
@@ -78,17 +59,6 @@ export async function sendChunkedHtmlReply(
     options.messageThreadId,
   );
 
-  let thinkingSent = false;
-  if (options.sendThinking && options.thinking) {
-    const thinkingChunks = await sendThinkingMessages(
-      ctx,
-      options.chatId,
-      options.thinking,
-      typingThreadParams,
-    );
-    thinkingSent = thinkingChunks > 0;
-  }
-
   const chunks = splitTelegramMessage(options.html);
   for (let i = 0; i < chunks.length; i++) {
     if (i > 0) {
@@ -99,7 +69,7 @@ export async function sendChunkedHtmlReply(
     await replyHtml(ctx, chunks[i], replyExtra);
   }
 
-  return { chunkCount: chunks.length, thinkingSent };
+  return { chunkCount: chunks.length };
 }
 
 export async function deliverHtmlErrorReply(

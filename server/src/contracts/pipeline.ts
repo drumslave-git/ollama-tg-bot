@@ -18,7 +18,7 @@ export interface ReplyStreamSink {
   push(replyText: string): void;
 }
 
-export type ReplyTrigger = "addressed" | "random" | "image" | null;
+export type ReplyTrigger = "addressed" | null;
 
 export interface PipelineStepResult {
   status: PipelineStepStatus;

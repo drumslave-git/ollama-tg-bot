@@ -10,18 +10,16 @@ import {
   sendChunkedHtmlReply,
 } from "../bot/replies/delivery.js";
 import { replyHtml } from "../bot/replies/replies-helpers.js";
-import { getResolvedSettings } from "../settings/runtime.js";
 import { visibleTelegramText } from "../telegram/html.js";
 
 export interface DeliveredReply {
   chunkCount: number;
-  thinkingSent: boolean;
   replyChars: number;
 }
 
 /**
- * Send the text reply (and optional thinking messages). The sticker is chosen
- * and sent separately, off the critical path — see {@link deliverReplySticker}.
+ * Send the text reply. The sticker is chosen and sent separately, off the
+ * critical path — see {@link deliverReplySticker}.
  */
 export async function deliverReplyText(
   ctx: Context,
@@ -34,32 +32,23 @@ export async function deliverReplyText(
     messageThreadId?: number;
   },
 ): Promise<DeliveredReply> {
-  const settings = getResolvedSettings();
-  const report = getMessageReport(options.turnId);
   const replyBody = delivery.replyHtml ?? "";
   const hasReply = Boolean(replyBody.trim());
-  const thinking = delivery.thinking;
 
   if (delivery.error) {
     throw new Error(delivery.error);
   }
 
-  const { chunkCount, thinkingSent } = await sendChunkedHtmlReply(ctx, {
+  const { chunkCount } = await sendChunkedHtmlReply(ctx, {
     chatId: options.chatId,
     html: hasReply ? replyBody : "",
-    thinking,
-    sendThinking: settings.thinkingEnabled && settings.sendThinkingEnabled,
     messageThreadId: options.messageThreadId,
     inGroup: options.inGroup,
     isForum: options.isForum,
   });
 
-  if (thinkingSent && thinking) {
-    report?.okPhase("thinking", "Thinking messages", `${thinking.length} chars`);
-  }
-
   const replyChars = hasReply ? visibleTelegramText(replyBody).length : 0;
-  return { chunkCount, thinkingSent, replyChars };
+  return { chunkCount, replyChars };
 }
 
 /** Send the chosen sticker as a follow-up to the already-delivered text reply. */
@@ -102,7 +91,6 @@ export function finalizeReplyDelivery(options: {
   chatId: number;
   chunkCount: number;
   replyChars: number;
-  thinkingSent: boolean;
   stickerEmoji?: string | null;
   webSearchSources?: WebSearchSource[];
 }): void {
@@ -134,7 +122,6 @@ export function finalizeReplyDelivery(options: {
     replyChars: options.replyChars,
     chunks: options.chunkCount,
     sticker: options.stickerEmoji ?? undefined,
-    thinkingSent: options.thinkingSent,
   });
 }
 
@@ -171,7 +158,6 @@ export async function deliverPipelineReply(
     chatId: options.chatId,
     chunkCount: delivered.chunkCount,
     replyChars: delivered.replyChars,
-    thinkingSent: delivered.thinkingSent,
     stickerEmoji: delivery.stickerEmoji,
     webSearchSources: (delivery.webSearchSources ?? []) as WebSearchSource[],
   });

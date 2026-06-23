@@ -87,7 +87,6 @@ export interface MessageReportRecord {
     replyChars?: number;
     chunks?: number;
     sticker?: string;
-    thinkingSent?: boolean;
     error?: string;
   };
 }
