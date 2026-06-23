@@ -142,10 +142,30 @@ function PhaseDetail({ detail }: { detail: ReportDetail }) {
           </pre>
         </details>
       ))}
-      <details className={sectionClass}>
-        <summary>Output</summary>
-        <DebugJsonView value={detail.output.content || "(empty)"} />
-      </details>
+      {detail.output.toolCalls && detail.output.toolCalls.length > 0 ? (
+        <details className={sectionClass} open>
+          <summary>Tool calls ({detail.output.toolCalls.length})</summary>
+          <div className="border-t border-border">
+            {detail.output.toolCalls.map((call, index) => (
+              <div
+                key={`${call.name}-${index}`}
+                className="border-b border-border/60 px-3 py-2 last:border-b-0"
+              >
+                <div className="mb-1 font-mono text-sm font-semibold text-accent">
+                  {call.name}
+                </div>
+                <DebugJsonView value={call.arguments || "{}"} />
+              </div>
+            ))}
+          </div>
+        </details>
+      ) : null}
+      {detail.output.content || !detail.output.toolCalls?.length ? (
+        <details className={sectionClass}>
+          <summary>Output</summary>
+          <DebugJsonView value={detail.output.content || "(empty)"} />
+        </details>
+      ) : null}
       <details className={sectionClass} open={Boolean(detail.output.reasoning)}>
         <summary>
           Reasoning{detail.output.reasoning ? "" : " (none)"}
@@ -156,39 +176,91 @@ function PhaseDetail({ detail }: { detail: ReportDetail }) {
   );
 }
 
-export function PhaseRow({ phase }: { phase: ReportPhase }) {
+function ChevronIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0 text-muted transition-transform duration-150 group-open:rotate-90"
+    >
+      <path
+        d="M6 4l4 4-4 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function PhaseRowBody({
+  phase,
+  hasDetail,
+}: {
+  phase: ReportPhase;
+  hasDetail: boolean;
+}) {
   const isWaiting = phase.status === "waiting";
   return (
+    <>
+      <span
+        className={cn(
+          "row-span-2 text-[0.68rem] font-bold uppercase tracking-wide",
+          phaseStatusColor(phase.status),
+        )}
+      >
+        {phaseStatusLabel(phase.status)}
+      </span>
+      <span className="text-sm font-semibold">{phase.title}</span>
+      <span className="row-span-2 flex items-center gap-2 text-xs tabular-nums text-muted">
+        {phase.durationMs != null ? (
+          formatDuration(phase.durationMs)
+        ) : isWaiting ? (
+          <span className="text-xs uppercase tracking-wide text-warning">
+            live
+          </span>
+        ) : null}
+        {hasDetail ? <ChevronIcon /> : null}
+      </span>
+      <span className="col-start-2 text-sm text-muted">{phase.summary}</span>
+    </>
+  );
+}
+
+const phaseRowGridClass =
+  "grid grid-cols-[auto_1fr_auto] grid-rows-2 items-center gap-x-2.5 gap-y-0.5 px-3.5 py-2.5";
+
+export function PhaseRow({ phase }: { phase: ReportPhase }) {
+  const isWaiting = phase.status === "waiting";
+
+  if (!phase.detail) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-border bg-black/12">
+        <div className={phaseRowGridClass}>
+          <PhaseRowBody phase={phase} hasDetail={false} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
     <details
-      className="overflow-hidden rounded-lg border border-border bg-black/12"
+      className="group overflow-hidden rounded-lg border border-border bg-black/12"
       open={isWaiting}
     >
-      <summary className="grid cursor-pointer grid-cols-[auto_1fr_auto] grid-rows-2 items-center gap-x-2.5 gap-y-0.5 px-3.5 py-2.5 list-none [&::-webkit-details-marker]:hidden">
-        <span
-          className={cn(
-            "row-span-2 text-[0.68rem] font-bold uppercase tracking-wide",
-            phaseStatusColor(phase.status),
-          )}
-        >
-          {phaseStatusLabel(phase.status)}
-        </span>
-        <span className="text-sm font-semibold">{phase.title}</span>
-        <span className="row-span-2 text-xs tabular-nums text-muted">
-          {phase.durationMs != null ? (
-            formatDuration(phase.durationMs)
-          ) : isWaiting ? (
-            <span className="text-xs uppercase tracking-wide text-warning">
-              live
-            </span>
-          ) : null}
-        </span>
-        <span className="col-start-2 text-sm text-muted">{phase.summary}</span>
+      <summary
+        className={cn(
+          phaseRowGridClass,
+          "cursor-pointer list-none [&::-webkit-details-marker]:hidden",
+        )}
+      >
+        <PhaseRowBody phase={phase} hasDetail />
       </summary>
-      {phase.detail ? (
-        <div className="border-t border-border px-3.5 pb-3.5">
-          <PhaseDetail detail={phase.detail} />
-        </div>
-      ) : null}
+      <div className="border-t border-border px-3.5 pb-3.5">
+        <PhaseDetail detail={phase.detail} />
+      </div>
     </details>
   );
 }

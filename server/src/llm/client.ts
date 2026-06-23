@@ -76,12 +76,18 @@ interface OpenAiModel {
   name?: string;
 }
 
+interface ChatResponseToolCall {
+  name: string;
+  arguments: string;
+}
+
 interface ChatResponse {
   message?: {
     role?: string;
     content?: string;
     reasoning?: string;
   };
+  toolCalls?: ChatResponseToolCall[];
   done_reason?: string;
   eval_count?: number;
 }
@@ -91,12 +97,20 @@ function toChatResponse(
   usage: ChatCompletion["usage"],
 ): ChatResponse {
   const { content, reasoning } = parseAssistantMessage(choice);
+  const toolCalls = (choice?.message?.tool_calls ?? [])
+    .map((call) =>
+      call.type === "function"
+        ? { name: call.function.name, arguments: call.function.arguments }
+        : null,
+    )
+    .filter((call): call is ChatResponseToolCall => call != null);
   return {
     message: {
       role: choice?.message?.role,
       content,
       reasoning: mergeAssistantReasoning(content, reasoning),
     },
+    ...(toolCalls.length > 0 ? { toolCalls } : {}),
     done_reason: choice?.finish_reason ?? undefined,
     eval_count: usage?.completion_tokens ?? usage?.total_tokens,
   };
@@ -260,7 +274,6 @@ async function prepareMessages(
 
 export interface VerbosePromptLayout {
   system: string;
-  history: ChatMessage[];
   latest: string;
 }
 

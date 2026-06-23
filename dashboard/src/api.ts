@@ -181,6 +181,7 @@ export interface ReportDetailLlm {
     content: string;
     reasoning?: string;
     meta?: string;
+    toolCalls?: Array<{ name: string; arguments: string }>;
   };
 }
 

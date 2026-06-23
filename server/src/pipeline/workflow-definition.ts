@@ -49,7 +49,7 @@ const SIDE_EFFECT_STEP_IDS = new Set(["sticker", "history-record"]);
 
 const HOST_SUBLABELS: Record<string, string> = {
   intake: "Turn setup",
-  "history-intake": "Store every message to SQLite",
+  "history-intake": "Save every message to chat history",
   triggers: "Random reply / image reaction",
   address: "@mention, reply, or name match",
   vision: "Describe photos and stickers",
@@ -57,11 +57,10 @@ const HOST_SUBLABELS: Record<string, string> = {
   search: "MCP search_web tool during main reply",
   system: "System prompt + memories",
   personality: "Active personality prompt",
-  history: "Inject compressed chat history",
   mood: "Update mood state for reply",
   completions: "Main LLM reply JSON",
   sticker: "Optional sticker after reply",
-  "history-record": "Persist user + assistant turn",
+  "history-record": "Save each turn to chat history",
 };
 
 const BUILTIN_NODES: Omit<

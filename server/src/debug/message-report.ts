@@ -70,6 +70,7 @@ interface ChatResponseShape {
     content?: string;
     reasoning?: string;
   };
+  toolCalls?: Array<{ name: string; arguments: string }>;
   done_reason?: string;
   eval_count?: number;
 }
@@ -342,17 +343,6 @@ export class MessageReportSession {
 
     if (layout) {
       sections.push({ title: "System", body: layout.system });
-      if (layout.history.length > 0) {
-        sections.push({
-          title: `History (${layout.history.length} messages)`,
-          body: layout.history
-            .map(
-              (m, i) =>
-                `[${i + 1}] ${m.role}${m.images?.length ? ` (${m.images.length} image(s))` : ""}\n${m.content}`,
-            )
-            .join("\n\n"),
-        });
-      }
       sections.push({ title: "Latest turn", body: layout.latest });
     } else {
       sections.push({
@@ -368,6 +358,7 @@ export class MessageReportSession {
 
     const content = response.message?.content ?? "";
     const reasoning = response.message?.reasoning ?? "";
+    const toolCalls = response.toolCalls ?? [];
     const meta = [
       `done: ${response.done_reason ?? "unknown"}`,
       `tokens: ${response.eval_count ?? 0}`,
@@ -377,7 +368,16 @@ export class MessageReportSession {
       .filter(Boolean)
       .join(" · ");
 
-    const summaryParts = [`${model}`, `${content.length} chars output`];
+    const summaryParts = [`${model}`];
+    if (toolCalls.length > 0) {
+      summaryParts.push(
+        `${toolCalls.length} tool call${toolCalls.length === 1 ? "" : "s"}: ${toolCalls
+          .map((call) => call.name)
+          .join(", ")}`,
+      );
+    } else {
+      summaryParts.push(`${content.length} chars output`);
+    }
     if (reasoning) summaryParts.push(`${reasoning.length} chars reasoning`);
 
     this.upsertPhase({
@@ -397,6 +397,7 @@ export class MessageReportSession {
           content,
           reasoning: reasoning || undefined,
           meta,
+          ...(toolCalls.length > 0 ? { toolCalls } : {}),
         },
       },
     });

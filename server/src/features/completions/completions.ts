@@ -53,7 +53,6 @@ export const completionsHost: PipelineModuleHost = {
       traceLabel: "main reply",
       traceLayout: {
         system: built.systemContent,
-        history: built.historyMessages,
         latest: built.latestContent,
       },
     });

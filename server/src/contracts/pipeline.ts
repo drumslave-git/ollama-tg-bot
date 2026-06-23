@@ -165,7 +165,6 @@ export interface PipelineLlmServices {
     traceLabel: string;
     traceLayout?: {
       system: string;
-      history: unknown[];
       latest: string;
     };
   }): (messages: unknown[]) => Promise<{

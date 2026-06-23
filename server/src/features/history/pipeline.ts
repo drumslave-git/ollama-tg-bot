@@ -73,8 +73,9 @@ export const turnSetupHost: PipelineModuleHost = {
     return {
       status: "ok",
       phaseId: "intake",
-      phaseTitle: "Turn setup",
-      summary: state.convKey ?? "no conv key",
+      phaseTitle: "Message received",
+      summary: state.convKey ? `Chat: ${state.convKey}` : "no conv key",
+      replace: true,
     };
   },
 };
@@ -96,8 +97,8 @@ export const intakeHistoryHost: PipelineModuleHost = {
       return {
         status: "skipped",
         phaseId: "history-intake",
-        phaseTitle: "History intake",
-        summary: "Missing conversation or role",
+        phaseTitle: "History: message saved",
+        summary: "Nothing to save (missing conversation or role)",
       };
     }
 
@@ -174,8 +175,11 @@ export const intakeHistoryHost: PipelineModuleHost = {
     return {
       status: "ok",
       phaseId: "history-intake",
-      phaseTitle: "History intake",
-      summary: parts.length > 0 ? `Stored ${parts.join(" + ")}` : "Nothing to store",
+      phaseTitle: "History: message saved",
+      summary:
+        parts.length > 0
+          ? `Saved ${parts.join(" + ")} to chat history`
+          : "Nothing to save",
     };
   },
 };
@@ -195,8 +199,8 @@ export const historyRecordHost: PipelineModuleHost = {
       return {
         status: "skipped",
         phaseId: "history-record",
-        phaseTitle: "History record",
-        summary: "No conversation key",
+        phaseTitle: "History: reply saved",
+        summary: "Not saved (no conversation key)",
       };
     }
 
@@ -208,7 +212,7 @@ export const historyRecordHost: PipelineModuleHost = {
       return {
         status: "failed",
         phaseId: "history-record",
-        phaseTitle: "History record",
+        phaseTitle: "History: reply saved",
         summary: state.delivery.error,
       };
     }
@@ -235,8 +239,8 @@ export const historyRecordHost: PipelineModuleHost = {
     return {
       status: "ok",
       phaseId: "history-record",
-      phaseTitle: "History record",
-      summary: `Stored exchange · ${webSearchSources.length} search source(s)`,
+      phaseTitle: "History: reply saved",
+      summary: `Saved this turn to chat history · ${webSearchSources.length} search source(s)`,
     };
   },
 };
