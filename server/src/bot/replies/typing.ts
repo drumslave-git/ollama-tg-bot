@@ -34,13 +34,17 @@ export function messageThreadExtra(
   return params;
 }
 
-export function startTypingIndicator(
+/** Telegram chat actions used by the bot. */
+export type ChatActionKind = "typing" | "choose_sticker";
+
+export function startChatActionIndicator(
   api: Api,
   chatId: number,
+  action: ChatActionKind,
   threadParams: TypingThreadParams = {},
 ): () => void {
   const refresh = () => {
-    void api.sendChatAction(chatId, "typing", threadParams).catch(() => {});
+    void api.sendChatAction(chatId, action, threadParams).catch(() => {});
   };
 
   refresh();
@@ -48,12 +52,28 @@ export function startTypingIndicator(
   return () => clearInterval(timer);
 }
 
-export function startTypingForMessage(ctx: Context): (() => void) | null {
+export function startTypingIndicator(
+  api: Api,
+  chatId: number,
+  threadParams: TypingThreadParams = {},
+): () => void {
+  return startChatActionIndicator(api, chatId, "typing", threadParams);
+}
+
+export function startChatActionForMessage(
+  ctx: Context,
+  action: ChatActionKind,
+): (() => void) | null {
   const chatId = ctx.chat?.id;
   if (!chatId) return null;
-  return startTypingIndicator(
+  return startChatActionIndicator(
     ctx.api,
     chatId,
+    action,
     resolveTypingThreadParams(ctx.chat, ctx.message?.message_thread_id),
   );
+}
+
+export function startTypingForMessage(ctx: Context): (() => void) | null {
+  return startChatActionForMessage(ctx, "typing");
 }

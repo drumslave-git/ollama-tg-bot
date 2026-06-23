@@ -73,30 +73,39 @@ export const stickerPipelineHost: PipelineModuleHost = {
     }
 
     const started = performance.now();
-    const stickerEmoji = await analyzeStickerForReply(
-      {
-        botReply: state.replyBody ?? "",
-        message: state.latestBody,
-        replyContext: state.replyContext,
-        catalog,
-        traceTurnId: state.turnId,
-      },
-      {
-        baseUrl: services.llm.baseUrl,
-        model: services.llm.model,
-        apiKey: services.llm.apiKey,
-        numPredict: STICKER_CHECK_NUM_PREDICT,
-        log: hostLogging(services),
-        chatComplete: services.llm.createAuxiliaryChatComplete({
-          numPredict: STICKER_CHECK_NUM_PREDICT,
-          responseFormat,
+    // Reply is already delivered; show "choosing sticker" (not "typing") while
+    // the model picks. Only here — after the gates above — so a chance-miss or
+    // disabled pack never flashes the action.
+    const stopChatAction = state.startChatAction?.("choose_sticker");
+    let stickerEmoji: string | null;
+    try {
+      stickerEmoji = await analyzeStickerForReply(
+        {
+          botReply: state.replyBody ?? "",
+          message: state.latestBody,
+          replyContext: state.replyContext,
+          catalog,
           traceTurnId: state.turnId,
-          traceLabel: "sticker pick",
-          // Sticker pick is a fast classification — no reasoning, it only adds latency.
-          think: false,
-        }),
-      },
-    );
+        },
+        {
+          baseUrl: services.llm.baseUrl,
+          model: services.llm.model,
+          apiKey: services.llm.apiKey,
+          numPredict: STICKER_CHECK_NUM_PREDICT,
+          log: hostLogging(services),
+          chatComplete: services.llm.createAuxiliaryChatComplete({
+            numPredict: STICKER_CHECK_NUM_PREDICT,
+            responseFormat,
+            traceTurnId: state.turnId,
+            traceLabel: "sticker pick",
+            // Sticker pick is a fast classification — no reasoning, it only adds latency.
+            think: false,
+          }),
+        },
+      );
+    } finally {
+      stopChatAction?.();
+    }
 
     state.stickerEmoji = stickerEmoji;
     state.stickerFileId = stickerEmoji

@@ -24,7 +24,10 @@ import { prepareDelivery } from "./turn-services.js";
 import { recordMessageReceived } from "../db/index.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { logEvent } from "../logging/event-log.js";
-import { startTypingForMessage } from "../bot/replies/typing.js";
+import {
+  startChatActionForMessage,
+  startTypingForMessage,
+} from "../bot/replies/typing.js";
 import { ReplyStream } from "../bot/replies/reply-stream.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import type { QueuedMessage } from "../runtime/message-queue.js";
@@ -90,6 +93,8 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
   try {
     state.shouldReply = true;
     endTyping = startTypingForMessage(ctx) ?? undefined;
+    // Let post-reply hosts show their own chat action (e.g. "choosing sticker").
+    state.startChatAction = (action) => startChatActionForMessage(ctx, action);
 
     const trigger = state.replyTrigger ?? "addressed";
     logEvent("message_accepted", {
@@ -175,8 +180,15 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       });
     }
 
+    // Text reply is on screen — stop "typing". Post-reply hosts (e.g. sticker)
+    // show their own chat action only while they do visible work.
+    endTyping?.();
+    endTyping = undefined;
+
     // Off the critical path: sticker pick, history record, and the mood update
     // for the next turn. Failures here must not disturb the reply already sent.
+    // The sticker is sent the moment it's chosen — before history/mood run — so
+    // it reaches the chat promptly after the text reply.
     for (const host of getPostReplyPipelineHosts()) {
       if (!shouldRunEnabledHost(host, enabledSteps, turnId, services)) {
         continue;
@@ -189,21 +201,20 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
           host: host.stepId,
         });
       }
-    }
 
-    // Send the chosen sticker as a follow-up to the text reply.
-    if (state.stickerFileId) {
-      try {
-        await deliverReplySticker(ctx, {
-          turnId,
-          chatId: deliveryChatId,
-          stickerFileId: state.stickerFileId,
-          stickerEmoji: state.stickerEmoji,
-          chunkCount: delivered.chunkCount,
-          messageThreadId: state.messageThreadId,
-        });
-      } catch (err) {
-        services.logging.logEventError("sticker_send_failed", err, { turnId });
+      if (host.stepId === "sticker" && state.stickerFileId) {
+        try {
+          await deliverReplySticker(ctx, {
+            turnId,
+            chatId: deliveryChatId,
+            stickerFileId: state.stickerFileId,
+            stickerEmoji: state.stickerEmoji,
+            chunkCount: delivered.chunkCount,
+            messageThreadId: state.messageThreadId,
+          });
+        } catch (err) {
+          services.logging.logEventError("sticker_send_failed", err, { turnId });
+        }
       }
     }
 

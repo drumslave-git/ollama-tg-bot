@@ -137,8 +137,17 @@ export interface PipelineTurnState {
   /** Live-reply sink for streaming the main completion to Telegram (transient). */
   replyStream?: ReplyStreamSink;
 
+  /**
+   * Show a Telegram chat action (e.g. "choose_sticker") for the turn's chat
+   * during slow visible work; returns a stop fn. Server-bound, transient.
+   */
+  startChatAction?: (action: PipelineChatAction) => (() => void) | null;
+
   delivery?: PipelineDeliveryResult;
 }
+
+/** Telegram chat actions a pipeline host may request while it works. */
+export type PipelineChatAction = "typing" | "choose_sticker";
 
 export interface PipelinePhaseWriteOptions {
   /** Replace an existing phase with the same id instead of appending. */

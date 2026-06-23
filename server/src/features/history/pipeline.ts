@@ -195,22 +195,16 @@ export const historyRecordHost: PipelineModuleHost = {
     }
 
     const replyBody = state.replyBody ?? "";
-    const stickerEmoji = state.stickerEmoji;
     const webSearchSources = state.webSearchSources ?? [];
 
-    const historyText =
-      replyBody.trim() && stickerEmoji
-        ? `${replyBody}\n[sticker: ${stickerEmoji}]`
-        : stickerEmoji
-          ? `[sticker: ${stickerEmoji}]`
-          : replyBody;
-
-    state.assistantReply = historyText;
+    // Only the spoken reply is saved — the bot's own sent sticker is not
+    // recorded to chat history.
+    state.assistantReply = replyBody;
     recordExchange(
       convKey,
       state.userRole ?? null,
       state.userHistoryContent ?? null,
-      historyText,
+      replyBody,
       {
         skipUser: state.skipUserHistory,
         anchorMessageId: state.telegramMessageId,
