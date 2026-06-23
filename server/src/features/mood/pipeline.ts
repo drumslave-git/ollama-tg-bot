@@ -40,7 +40,7 @@ export const moodPipelineHost: PipelineModuleHost = {
 
     const settings = getSettings();
     const thinkingEnabled = Boolean(settings.thinkingEnabled);
-    const responseFormat = getMoodResponseFormat(thinkingEnabled);
+    const responseFormat = getMoodResponseFormat();
 
     const started = performance.now();
     const result = await evaluateMood(

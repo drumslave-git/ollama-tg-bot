@@ -2,12 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildReplyFormatSpec,
   extractTelegramReply,
-  extractThinkingFromContent,
   getMainReplyResponseFormat,
   MAIN_REPLY_RESPONSE_FORMAT,
   stripStructuredMarkup,
 } from "../../../src/features/completions/response-format.js";
-import { REASONING_JSON_FIELD } from "../../../src/shared/index.js";
 
 describe("extractTelegramReply", () => {
   const cases: { name: string; in: string; want: string }[] = [
@@ -72,20 +70,10 @@ describe("buildReplyFormatSpec", () => {
     expect(spec).toContain("Respond with JSON only");
   });
 
-  it("includes reasoning when thinking is on", () => {
-    const spec = buildReplyFormatSpec("HINT-TEXT", true);
-    expect(spec).toContain("reasoning (string)");
-    expect(spec).toContain("two fields");
-  });
-});
-
-describe("extractThinkingFromContent", () => {
-  it("reads reasoning from structured JSON", () => {
-    expect(
-      extractThinkingFromContent(
-        '{"reasoning":"step one","reply":"hello"}',
-      ),
-    ).toBe("step one");
+  it("never asks for a reasoning field", () => {
+    const spec = buildReplyFormatSpec("HINT-TEXT");
+    expect(spec).not.toContain("reasoning");
+    expect(spec).toContain("one field");
   });
 });
 
@@ -98,8 +86,9 @@ describe("MAIN_REPLY_RESPONSE_FORMAT", () => {
     });
   });
 
-  it("adds reasoning when thinking is enabled", () => {
-    const format = getMainReplyResponseFormat(true);
-    expect(format.schema.required).toContain(REASONING_JSON_FIELD);
+  it("never adds a reasoning field to the schema", () => {
+    const format = getMainReplyResponseFormat();
+    expect(format.schema.required).toEqual(["reply"]);
+    expect(format.schema.properties).not.toHaveProperty("reasoning");
   });
 });

@@ -30,15 +30,6 @@ import {
   userRoleTag,
 } from "../../pipeline/turn-services.js";
 
-function buildVisionTurnBody(
-  messageText: string,
-  mediaKind: string,
-  visionDescription: string,
-): string {
-  const mediaNote = `The user sent a ${mediaKind}: ${visionDescription}`;
-  return [messageText, mediaNote].filter(Boolean).join("\n\n");
-}
-
 export const turnSetupHost: PipelineModuleHost = {
   id: "history",
   stepId: "intake",
@@ -245,4 +236,4 @@ export const historyRecordHost: PipelineModuleHost = {
   },
 };
 
-export { buildVisionTurnBody, buildMediaHistoryContent, buildTextHistoryContent, mediaKindForMessage };
+export { buildMediaHistoryContent, buildTextHistoryContent, mediaKindForMessage };

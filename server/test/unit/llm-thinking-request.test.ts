@@ -7,10 +7,6 @@ import {
   getMainReplyResponseFormat,
   MAIN_REPLY_RESPONSE_FORMAT,
 } from "../../src/features/completions/index.js";
-import {
-  REASONING_JSON_FIELD,
-  withReasoningInSchema,
-} from "../../src/shared/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("main reply thinking request policy", () => {
@@ -25,7 +21,7 @@ describe("main reply thinking request policy", () => {
       shouldUseResponseFormat(
         thinkingSettings,
         false,
-        getMainReplyResponseFormat(true),
+        getMainReplyResponseFormat(),
       ),
     ).toBe(true);
   });
@@ -37,10 +33,10 @@ describe("main reply thinking request policy", () => {
     ).toBe(true);
   });
 
-  it("adds reasoning to the main reply schema when thinking is on", () => {
-    const format = getMainReplyResponseFormat(true);
-    expect(format.schema.required).toContain(REASONING_JSON_FIELD);
-    expect(format.schema.required).toContain("reply");
+  it("never adds reasoning to the main reply schema", () => {
+    const format = getMainReplyResponseFormat();
+    expect(format.schema.required).toEqual(["reply"]);
+    expect(format.schema.properties).not.toHaveProperty("reasoning");
   });
 
   it("keeps json_schema for auxiliary passes when thinking is on", () => {
@@ -48,7 +44,7 @@ describe("main reply thinking request policy", () => {
       shouldUseResponseFormat(
         thinkingSettings,
         true,
-        withReasoningInSchema(MAIN_REPLY_RESPONSE_FORMAT),
+        MAIN_REPLY_RESPONSE_FORMAT,
       ),
     ).toBe(true);
   });

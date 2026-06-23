@@ -35,9 +35,8 @@ export async function mergeMemoryDocument(
   input: MemoryMergeInput,
   config: MemoryLlmConfig,
 ): Promise<string> {
-  const thinkingEnabled = Boolean(config.thinkingEnabled);
-  const messages = buildMemoryMergeMessages(input, thinkingEnabled);
-  const responseFormat = getMemoryMergeResponseFormat(thinkingEnabled);
+  const messages = buildMemoryMergeMessages(input);
+  const responseFormat = getMemoryMergeResponseFormat();
 
   const raw = config.chatComplete
     ? await config.chatComplete(messages)

@@ -1,11 +1,9 @@
 import type { ChatMessage, JsonSchemaResponseFormat } from "../../shared/index.js";
 import {
   asObject,
+  jsonReplyTail,
   parseJsonContent,
   readInt,
-  reasoningJsonUserTail,
-  reasoningSchemaSystemSuffix,
-  responseFormatForThinking,
   strictObjectSchema,
 } from "../../shared/index.js";
 import {
@@ -33,10 +31,8 @@ export const MOOD_RESPONSE_FORMAT: JsonSchemaResponseFormat = strictObjectSchema
   [...MOOD_KEYS],
 );
 
-export function getMoodResponseFormat(
-  thinkingEnabled: boolean,
-): JsonSchemaResponseFormat {
-  return responseFormatForThinking(MOOD_RESPONSE_FORMAT, thinkingEnabled);
+export function getMoodResponseFormat(): JsonSchemaResponseFormat {
+  return MOOD_RESPONSE_FORMAT;
 }
 
 export const MOOD_EVALUATOR_SYSTEM = `You evaluate the bot character's emotional mood for the next reply in a Telegram chat.
@@ -118,18 +114,10 @@ export function buildMoodEvaluateMessages(input: MoodEvaluateInput): ChatMessage
     `Current mood (starting point):\n${formatCurrentMood(fallback)}\n\n` +
     `Trait guide:\n${traitGuide}\n\n` +
     `---\nLatest message:\n${input.latestMessage.trim() || "(empty)"}\n\n` +
-    reasoningJsonUserTail(
-      "all nine mood traits as integers 0–5",
-      !!input.thinkingEnabled,
-    );
+    jsonReplyTail("all nine mood traits as integers 0–5");
 
   return [
-    {
-      role: "system",
-      content:
-        MOOD_EVALUATOR_SYSTEM +
-        reasoningSchemaSystemSuffix(!!input.thinkingEnabled),
-    },
+    { role: "system", content: MOOD_EVALUATOR_SYSTEM },
     { role: "user", content: userContent },
   ];
 }

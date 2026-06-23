@@ -111,7 +111,7 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 1. **`server/src/bot/handlers/index.ts`** — Register **commands before** the catch-all `bot.on("message")`. Module commands via `registerModuleCommands()` from `server/src/runtime/module-hosts.ts`.
 2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then **intake pipeline** (`runIntakePipeline` in `server/src/pipeline/queue-runner.ts`). Addressed messages are **enqueued** (`server/src/runtime/message-queue.ts`) and processed **one at a time**.
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
-4. **Queue processing (addressed only)** — synchronous order: vision (media) → system + personality → history inject → mood → main reply (optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
+4. **Queue processing (addressed only)** — synchronous order: vision (media) → system + personality → history inject → mood → main reply (optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). The vision step downloads + normalizes the turn's images and stashes the base64 on `state.images`; the main reply attaches them to the latest user message so a vision-capable model reads text + images in one pass (no separate describe request per turn). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
 5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory maintenance cleans each stored memory document via an LLM pass (skips records whose content fingerprint is unchanged since the last run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
 6. **`server/src/runtime/module-hosts.ts`** — Explicitly imports the feature pipeline and bot command hosts from `server/src/features/*`. Intake and queue host arrays define the processing order directly. Static feature metadata/db/MCP wiring is in `server/src/runtime/module-registry.ts`. Background schedulers are wired in `server/src/runtime/queue-schedulers.ts` via `initQueueSchedulers()` (called at startup — the module has no import-time side effects).
 7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from the static `module-registry.ts` (`mcpTools.registrar`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
@@ -150,7 +150,7 @@ A **debounced background maintenance job** (`server/src/features/memory/queue-sc
 
 ### Structured LLM output (JSON schema)
 
-Side passes and the main reply use **strict JSON schemas** enforced via OpenAI-compatible `response_format`. Each module exports a `*_RESPONSE_FORMAT` constant; when `thinkingEnabled` is on, `responseFormatForThinking()` adds a required **`reasoning`** string field. Prompts describe the same fields in prose. Parsers validate decision/reply fields only — they must not be loosened to accept model mistakes.
+Side passes and the main reply use **strict JSON schemas** enforced via OpenAI-compatible `response_format`. Each module exports a `*_RESPONSE_FORMAT` constant describing only the actual output fields (`reply`, `addressed`, mood traits, etc.). Chain-of-thought is **never** a JSON field — reasoning models return it on the separate API channel (`reasoning` / `reasoning_content`), so the schema and prompts stay reasoning-free regardless of `thinkingEnabled`. Prompts describe the same fields in prose. Parsers validate decision/reply fields only — they must not be loosened to accept model mistakes.
 
 **When the model misbehaves, fix the prompt or schema — not the parser.**
 
@@ -173,7 +173,7 @@ Reference implementations:
 
 Model replies use `{ "reply": "…" }` (Telegram HTML subset inside `reply`). Parser: `server/src/features/completions/response-format.ts` — see **Structured LLM output (JSON schema)** above; do not expand the parser for new model quirks.
 
-**LLM response fields:** User-facing text comes from the API `content` JSON (`reply`, `addressed`, etc.). Chain-of-thought comes from the JSON `reasoning` field when thinking is on (`mergeAssistantReasoning()` prefers JSON, then API `reasoning` / `reasoning_content`) — sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
+**LLM response fields:** User-facing text comes from the API `content` JSON (`reply`, `addressed`, etc.). Chain-of-thought comes solely from the separate API `reasoning` / `reasoning_content` channel (`parseAssistantMessage()` in `server/src/llm/openai-compat.ts`) — never from a JSON field. It is sent to Telegram only when `thinkingEnabled` and `sendThinkingEnabled` are on. Never merge reasoning into the reply body or use it to recover malformed JSON.
 
 ## Code conventions
 
@@ -223,7 +223,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Maintenance | `server/src/bot/maintenance/maintenance.ts`, `server/src/bot/maintenance/announce.ts`, `owner/owner.ts` |
 | Settings DB | `server/src/db/index.ts`, `server/src/api/routes.ts` |
 | History | `server/src/features/history/` (pipeline hosts) + `server/src/features/history/db/`; runtime accessors in `server/src/db/history/` |
-| Vision | `server/src/features/vision/` (+ `db/`); describe wiring in `server/src/pipeline/turn-services.ts` |
+| Vision | `server/src/features/vision/` (+ `db/`); per-turn images attached in `server/src/features/vision/pipeline.ts`, history backfill describe in `server/src/features/vision/queue-scheduler.ts` |
 | Completions | `server/src/features/completions/` (system prompt + LLM reply hosts, `/explain` bot host, reply JSON schema); prompt assembly `server/src/pipeline/adapters/system-prompt.ts` |
 | Web search | `server/src/features/web-search/` (`search_web` MCP tool; Tavily) |
 | Link fetch | `server/src/features/link-fetch/` (`fetch_link` MCP tool; Playwright) |

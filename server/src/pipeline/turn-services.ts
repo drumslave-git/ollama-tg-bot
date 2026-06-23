@@ -12,7 +12,6 @@ import type {
 } from "../contracts/index.js";
 import { userRoleTag as historyUserRoleTag } from "../features/history/format.js";
 import {
-  describeVisionImages as runVisionDescribe,
   findReplyMediaMessage as visionFindReplyMediaMessage,
   loadVisionFromMessage as visionLoadFromMessage,
   messageHasUserImage as visionMessageHasUserImage,
@@ -27,8 +26,6 @@ import { appendMessage, mapHistoryBase64Media } from "../db/history/index.js";
 import { isOwner as botIsOwner } from "../bot/owner/owner.js";
 import { enrichTextWithUserMentions as botEnrichTextWithUserMentions } from "../bot/messages/mentions.js";
 import { currentSpeakerFromUser as botCurrentSpeakerFromUser } from "../bot/messages/speaker.js";
-import { chatComplete } from "../llm/client.js";
-import { logEvent, logEventError, type EventFields } from "../logging/event-log.js";
 import {
   buildChatContextForTurn,
   buildSystemPromptForTurn,
@@ -115,36 +112,6 @@ export function loadVisionFromMessage(
   sourceSticker?: unknown;
 }> {
   return visionLoadFromMessage(botToken, message as never);
-}
-
-export function describeVisionImages(
-  images: unknown[],
-  logContext: Record<string, unknown>,
-  visionHint?: string,
-  traceTurnId?: number,
-): Promise<string> {
-  return runVisionDescribe(
-    {
-      images: images as never,
-      visionHint,
-      traceTurnId,
-      logContext: logContext as never,
-    },
-    {
-      chatComplete: (messages, options) =>
-        chatComplete(messages, {
-          numPredict: options.numPredict,
-          auxiliary: options.auxiliary,
-          traceTurnId: options.traceTurnId,
-          traceLabel: options.traceLabel,
-        }),
-      log: {
-        logEvent: (event, fields) => logEvent(event, fields as EventFields),
-        logEventError: (event, err, fields) =>
-          logEventError(event, err, fields as EventFields),
-      },
-    },
-  );
 }
 
 export type { PipelineTurnState, PipelineTelegramContext };

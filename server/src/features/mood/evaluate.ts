@@ -39,7 +39,7 @@ export async function evaluateMood(
   const fallback = normalizeMoodValues(input.currentMood);
   const messages = buildMoodEvaluateMessages(input);
 
-  const responseFormat = getMoodResponseFormat(Boolean(input.thinkingEnabled));
+  const responseFormat = getMoodResponseFormat();
 
   try {
     const raw = config.chatComplete

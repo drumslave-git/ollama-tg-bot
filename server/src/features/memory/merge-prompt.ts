@@ -1,11 +1,9 @@
 import type { ChatMessage, JsonSchemaResponseFormat } from "../../shared/index.js";
 import {
   asObject,
+  jsonReplyTail,
   parseJsonContent,
   readString,
-  reasoningJsonUserTail,
-  reasoningSchemaSystemSuffix,
-  responseFormatForThinking,
   strictObjectSchema,
 } from "../../shared/index.js";
 
@@ -22,10 +20,8 @@ export const MEMORY_MERGE_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     ["memory"],
   );
 
-export function getMemoryMergeResponseFormat(
-  thinkingEnabled: boolean,
-): JsonSchemaResponseFormat {
-  return responseFormatForThinking(MEMORY_MERGE_RESPONSE_FORMAT, thinkingEnabled);
+export function getMemoryMergeResponseFormat(): JsonSchemaResponseFormat {
+  return MEMORY_MERGE_RESPONSE_FORMAT;
 }
 
 export const MEMORY_MERGE_SYSTEM = `You update one long-term memory document so the bot can evolve its understanding over time.
@@ -94,14 +90,13 @@ export function sanitizeMergedMemory(text: string): string {
 /** Build the memory-merge prompt (system + user) that folds new facts into the entity doc. */
 export function buildMemoryMergeMessages(
   input: MemoryMergeInput,
-  thinkingEnabled = false,
 ): ChatMessage[] {
   const existing = input.existing.join("\n").trim() || "(none yet)";
   const incoming = input.incoming.map((f) => `- ${f}`).join("\n");
   return [
     {
       role: "system",
-      content: MEMORY_MERGE_SYSTEM + reasoningSchemaSystemSuffix(thinkingEnabled),
+      content: MEMORY_MERGE_SYSTEM,
     },
     {
       role: "user",
@@ -109,9 +104,8 @@ export function buildMemoryMergeMessages(
         `${mergeScopeHint(input.kind)}\n\n` +
         `Existing memory:\n${existing}\n\n` +
         `Newly extracted information:\n${incoming}\n\n` +
-        reasoningJsonUserTail(
+        jsonReplyTail(
           "a memory field containing durable facts — no scope labels",
-          thinkingEnabled,
         ),
     },
   ];

@@ -28,13 +28,13 @@ const REASONING_EFFORT_LEVELS = ["none", "low", "medium", "high"] as const;
 const EFFORT_LEVEL_PROMPT = "What is 12 + 13? One word in the reply field.";
 
 describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled)", () => {
-  it("uses json_schema with reasoning field on main reply while thinking is on", () => {
+  it("uses json_schema without a reasoning field on main reply while thinking is on", () => {
     const settings = makeSettings({ thinkingEnabled: true, reasoningEffort: "medium" });
-    const format = getMainReplyResponseFormat(true);
+    const format = getMainReplyResponseFormat();
     expect(
       shouldUseResponseFormat(settings, false, format),
     ).toBe(true);
-    expect(format.schema.required).toContain("reasoning");
+    expect(format.schema.required).not.toContain("reasoning");
     expect(providerChatExtensions(settings, false).chat_template_kwargs).toEqual({
       enable_thinking: true,
       reasoning_effort: "medium",

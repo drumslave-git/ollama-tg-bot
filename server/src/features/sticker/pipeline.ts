@@ -51,8 +51,7 @@ export const stickerPipelineHost: PipelineModuleHost = {
     }
 
     const chance = Number(settings.stickerReplyChance ?? 0);
-    const thinkingEnabled = Boolean(settings.thinkingEnabled);
-    const responseFormat = getStickerResponseFormat(thinkingEnabled);
+    const responseFormat = getStickerResponseFormat();
     const roll = rollStickerReplyChance(chance);
     if (!roll.hit) {
       return {
@@ -81,7 +80,6 @@ export const stickerPipelineHost: PipelineModuleHost = {
         replyContext: state.replyContext,
         catalog,
         traceTurnId: state.turnId,
-        thinkingEnabled,
       },
       {
         baseUrl: services.llm.baseUrl,

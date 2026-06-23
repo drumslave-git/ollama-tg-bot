@@ -10,7 +10,6 @@ import {
   configureVisionJobDebugStats,
   getVisionJobScheduledRunAt,
 } from "../features/vision/index.js";
-import { responseFormatForThinking } from "../shared/index.js";
 import { isBase64MediaHistoryContent } from "../features/history/index.js";
 import {
   getMemoryChatFingerprint,
@@ -106,10 +105,7 @@ export function initQueueSchedulers(): void {
   buildCleanupConfig: () => {
     const settings = getSettings();
     const thinkingEnabled = Boolean(settings.thinkingEnabled);
-    const mergeFormat = responseFormatForThinking(
-      MEMORY_MERGE_RESPONSE_FORMAT,
-      thinkingEnabled,
-    );
+    const mergeFormat = MEMORY_MERGE_RESPONSE_FORMAT;
     return {
       model: settings.model,
       llmTimeoutSec: settings.chatTimeoutSec,

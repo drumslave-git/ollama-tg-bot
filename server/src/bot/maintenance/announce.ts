@@ -50,7 +50,7 @@ export async function generateMaintenanceAnnouncement(
     ],
     {
       auxiliary: true,
-      responseFormat: getMainReplyResponseFormat(settings.thinkingEnabled),
+      responseFormat: getMainReplyResponseFormat(),
       numPredict: getMaintenanceAnnounceNumPredict(settings),
     },
   );

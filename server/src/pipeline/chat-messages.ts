@@ -25,6 +25,8 @@ export interface LatestTurnOptions {
   currentSpeaker?: CurrentSpeaker | null;
   currentSpeakerIsOwner?: boolean;
   isGroupChat?: boolean;
+  /** Base64 images attached directly to the current turn for vision models. */
+  images?: string[];
 }
 
 function buildLatestTurnMessage(options: LatestTurnOptions): string {
@@ -166,7 +168,11 @@ export function buildChatMessages(
     speakerTag: latestTurn.speakerTag ?? null,
   });
 
-  const latestMessage: ChatMessage = { role: "user", content: latest };
+  const latestMessage: ChatMessage = {
+    role: "user",
+    content: latest,
+    ...(latestTurn.images?.length ? { images: latestTurn.images } : {}),
+  };
 
   return {
     systemContent: system,

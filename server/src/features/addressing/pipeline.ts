@@ -45,7 +45,7 @@ export const addressingHost: PipelineModuleHost = {
 
     const settings = getSettings();
     const thinkingEnabled = Boolean(settings.thinkingEnabled);
-    const responseFormat = getAddressResponseFormat(thinkingEnabled);
+    const responseFormat = getAddressResponseFormat();
 
     const started = performance.now();
     const result = await checkMessageAddressed(

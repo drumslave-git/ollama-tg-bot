@@ -1,5 +1,5 @@
 import type { JsonSchemaResponseFormat } from "../shared/index.js";
-import { toOpenAiResponseFormat, mergeAssistantReasoning } from "../shared/index.js";
+import { toOpenAiResponseFormat } from "../shared/index.js";
 import OpenAI, {
   APIConnectionError,
   APIConnectionTimeoutError,
@@ -108,7 +108,7 @@ function toChatResponse(
     message: {
       role: choice?.message?.role,
       content,
-      reasoning: mergeAssistantReasoning(content, reasoning),
+      reasoning: reasoning.trim(),
     },
     ...(toolCalls.length > 0 ? { toolCalls } : {}),
     done_reason: choice?.finish_reason ?? undefined,
@@ -254,6 +254,12 @@ export async function showModel(
   } catch {
     return empty;
   }
+}
+
+function messagesHaveImages(
+  messages: ChatMessage[] | ChatCompletionMessageParam[],
+): boolean {
+  return messages.some((msg) => "images" in msg && Boolean(msg.images?.length));
 }
 
 async function prepareMessages(
@@ -486,7 +492,7 @@ function chatCompletionBody(
   } as ChatCompletionCreateParamsNonStreaming;
 }
 
-function toOpenAiMessage(msg: ChatMessage): ChatCompletionMessageParam {
+export function toOpenAiMessage(msg: ChatMessage): ChatCompletionMessageParam {
   if (!msg.images?.length) {
     return {
       role: msg.role,
@@ -530,10 +536,9 @@ export async function chatCompleteDetailed(
 ): Promise<ChatCompleteResult> {
   const settings = getResolvedSettings();
   const model = options?.model ?? settings.model;
-  const prepared =
-    messages.length > 0 && "images" in messages[0]!
-      ? await prepareMessages(messages as ChatMessage[])
-      : messages;
+  const prepared = messagesHaveImages(messages)
+    ? await prepareMessages(messages as ChatMessage[])
+    : messages;
   const traceTurnId = options?.traceTurnId;
   const traceLayout = options?.traceLayout;
   const traceLabel = options?.traceLabel;
@@ -558,7 +563,7 @@ export async function chatCompleteDetailed(
       options?.think,
     );
     const content = pickAssistantContent(data);
-    const thinking = mergeAssistantReasoning(content, pickReasoning(data));
+    const thinking = pickReasoning(data);
     const toolCalls = choice?.message?.tool_calls ?? [];
     if (toolCalls.length > 0 && options?.allowToolCalls) {
       const assistantMessage = choice?.message;

@@ -1,11 +1,9 @@
 import type { ChatMessage, JsonSchemaResponseFormat } from "../../shared/index.js";
 import {
   asObject,
+  jsonReplyTail,
   parseJsonContent,
   readString,
-  reasoningJsonUserTail,
-  reasoningSchemaSystemSuffix,
-  responseFormatForThinking,
   strictObjectSchema,
 } from "../../shared/index.js";
 import { formatStickerCatalogSection } from "./catalog.js";
@@ -24,17 +22,14 @@ export const STICKER_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     ["choice"],
   );
 
-export function getStickerResponseFormat(
-  thinkingEnabled: boolean,
-): JsonSchemaResponseFormat {
-  return responseFormatForThinking(STICKER_RESPONSE_FORMAT, thinkingEnabled);
+export function getStickerResponseFormat(): JsonSchemaResponseFormat {
+  return STICKER_RESPONSE_FORMAT;
 }
 
 const STICKER_VALUE_MAX_LEN = 32;
 
 export function buildStickerAnalyzerSystem(
   catalog: StickerCatalog,
-  thinkingEnabled = false,
 ): string | null {
   const catalogSection = formatStickerCatalogSection(
     catalog.packName,
@@ -47,7 +42,6 @@ export function buildStickerAnalyzerSystem(
     `${catalogSection}\n\n` +
     `Respond with JSON only, matching the provided schema:\n` +
     `- choice (string): the pack emoji exactly, or the sticker number from the list, or "none" to skip` +
-    reasoningSchemaSystemSuffix(thinkingEnabled) +
     `\n\nAlways pick the sticker that best fits the reply's mood, humor, or reaction — even if the fit is subtle.`
   );
 }
@@ -61,12 +55,8 @@ export function buildStickerAnalyzerMessages(params: {
   botReply: string;
   message?: string;
   replyContext?: string | null;
-  thinkingEnabled?: boolean;
 }): ChatMessage[] | null {
-  const system = buildStickerAnalyzerSystem(
-    params.catalog,
-    !!params.thinkingEnabled,
-  );
+  const system = buildStickerAnalyzerSystem(params.catalog);
   if (!system) return null;
 
   const botReply = params.botReply.trim();
@@ -84,8 +74,7 @@ export function buildStickerAnalyzerMessages(params: {
     }
   }
 
-  content +=
-    "\n\n" + reasoningJsonUserTail("a choice field", !!params.thinkingEnabled);
+  content += "\n\n" + jsonReplyTail("a choice field");
 
   return [
     { role: "system", content: system },

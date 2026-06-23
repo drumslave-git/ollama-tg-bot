@@ -46,9 +46,7 @@ export interface ExplainTurnDeps {
   ) => { name: string; prompt: string } | null;
   buildExplainSystemPrompt: (input: ExplainPromptInput) => string;
   loadHistoryMessages: (convKey: string) => ChatMessage[];
-  getMainReplyResponseFormat: (
-    thinkingEnabled: boolean,
-  ) => JsonSchemaResponseFormat;
+  getMainReplyResponseFormat: () => JsonSchemaResponseFormat;
   chatCompleteDetailed: (
     messages: ChatMessage[],
     options: {

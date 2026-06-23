@@ -10,7 +10,7 @@ import type {
   ChatMessage,
   VerbosePromptLayout,
 } from "./client.js";
-import { chatCompleteDetailed } from "./client.js";
+import { chatCompleteDetailed, toOpenAiMessage } from "./client.js";
 import {
   buildToolRoundSystemPrompt,
   extractSessionBlock,
@@ -35,11 +35,9 @@ export interface ToolLoopOptions extends ChatCompleteOptions {
 }
 
 function toOpenAiSeedMessages(messages: ChatMessage[]): ChatCompletionMessageParam[] {
-  return messages.map((message) => ({
-    role: message.role,
-    content: message.content,
-    ...(message.name ? { name: message.name } : {}),
-  }));
+  // Use the shared converter so user images survive as image_url content —
+  // the model reads them in the same pass as the text (no separate vision call).
+  return messages.map(toOpenAiMessage);
 }
 
 function toolNamesFromOptions(tools: ChatCompletionTool[]): string[] {

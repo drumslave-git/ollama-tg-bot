@@ -6,10 +6,7 @@ import {
   extractTelegramReply,
   getMainReplyResponseFormat,
 } from "./response-format.js";
-import {
-  buildChatContextForTurn,
-  getSettings,
-} from "../../pipeline/turn-services.js";
+import { buildChatContextForTurn } from "../../pipeline/turn-services.js";
 
 export const completionsHost: PipelineModuleHost = {
   id: "completions",
@@ -43,12 +40,9 @@ export const completionsHost: PipelineModuleHost = {
       convKey: state.convKey,
     });
 
-    const settings = getSettings();
-    const thinkingEnabled = Boolean(settings.thinkingEnabled);
-
     const complete = createMain({
       think: true,
-      responseFormat: getMainReplyResponseFormat(thinkingEnabled),
+      responseFormat: getMainReplyResponseFormat(),
       traceTurnId: state.turnId,
       traceLabel: "main reply",
       traceLayout: {

@@ -3,80 +3,15 @@ export interface JsonSchemaResponseFormat {
   schema: Record<string, unknown>;
 }
 
-/** JSON field name for chain-of-thought when thinking is enabled. */
-export const REASONING_JSON_FIELD = "reasoning";
-
-const REASONING_SCHEMA_PROPERTY = {
-  type: "string",
-  description:
-    "Brief chain-of-thought for this pass. Put analysis only — never duplicate output field values as prose.",
-};
-
-/** Append the reasoning field to a strict object schema (thinking-enabled passes). */
-export function withReasoningInSchema(
-  format: JsonSchemaResponseFormat,
-): JsonSchemaResponseFormat {
-  const schema = format.schema as {
-    properties?: Record<string, unknown>;
-    required?: string[];
-  };
-  return {
-    name: format.name,
-    schema: {
-      ...format.schema,
-      properties: {
-        [REASONING_JSON_FIELD]: REASONING_SCHEMA_PROPERTY,
-        ...schema.properties,
-      },
-      required: [REASONING_JSON_FIELD, ...(schema.required ?? [])],
-    },
-  };
-}
-
-/** Base schema when thinking is off; includes reasoning when thinking is on. */
-export function responseFormatForThinking(
-  base: JsonSchemaResponseFormat,
-  thinkingEnabled: boolean,
-): JsonSchemaResponseFormat {
-  return thinkingEnabled ? withReasoningInSchema(base) : base;
-}
-
-/** Read chain-of-thought from a structured JSON content string. */
-export function readReasoningFromContent(raw: string): string | null {
-  const parsed = asObject(parseJsonContent(raw));
-  if (!parsed) return null;
-  const value = parsed[REASONING_JSON_FIELD];
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-/** Prefer JSON `reasoning`; fall back to a separate API reasoning field. */
-export function mergeAssistantReasoning(
-  content: string,
-  apiReasoning: string,
-): string {
-  return readReasoningFromContent(content) ?? apiReasoning.trim();
-}
-
-/** Extra system-prompt line listing the reasoning schema field. */
-export function reasoningSchemaSystemSuffix(thinkingEnabled: boolean): string {
-  if (!thinkingEnabled) return "";
-  return (
-    "\n- reasoning (string): brief chain-of-thought for your decision; " +
-    "analysis only — never repeat output field values as prose"
-  );
-}
-
-/** User-message tail reminding the model to return reasoning in JSON. */
-export function reasoningJsonUserTail(
-  fieldsDescription: string,
-  thinkingEnabled: boolean,
-): string {
-  if (!thinkingEnabled) {
-    return `Return JSON with ${fieldsDescription}.`;
-  }
-  return `Return JSON with reasoning and ${fieldsDescription}.`;
+/**
+ * User-message tail reminding the model which fields to return in JSON.
+ *
+ * Chain-of-thought is never a JSON field — providers return reasoning in a
+ * separate response channel, so the schema and prompts only describe the
+ * actual output fields.
+ */
+export function jsonReplyTail(fieldsDescription: string): string {
+  return `Return JSON with ${fieldsDescription}.`;
 }
 
 /** Build a strict OpenAI-compatible JSON schema object. */

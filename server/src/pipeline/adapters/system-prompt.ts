@@ -180,7 +180,7 @@ export interface SystemPromptOptions {
 
 export function buildBaseSystemPrompt(settings: Settings): string {
   const { systemHint, formatHint } = getReplyLengthGuidance(settings);
-  return `${BASE_SYSTEM_PROMPT_CORE}\n\n${systemHint}\n\n${buildReplyFormatSpec(formatHint, settings.thinkingEnabled)}`;
+  return `${BASE_SYSTEM_PROMPT_CORE}\n\n${systemHint}\n\n${buildReplyFormatSpec(formatHint)}`;
 }
 
 export interface ExplainPromptOptions {
@@ -237,7 +237,7 @@ export function buildExplainSystemPrompt(options: ExplainPromptOptions): string 
     `${buildExplainGeneralMemorySection(generalMemoryFacts)}\n\n` +
     `${buildExplainGroupMemorySection(groupMemoryFacts, isGroupChat)}\n\n` +
     `${buildExplainUserMemorySection(userMemoryFacts)}\n\n` +
-    buildExplainFormatSpec(settings.thinkingEnabled)
+    buildExplainFormatSpec()
   );
 }
 
@@ -300,6 +300,6 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
     prompt += `\n\n## Current mood (highest priority)\n${formatMoodForPrompt(mood)}`;
   }
 
-  prompt += `\n\n${buildReplyFormatSpec(formatHint, settings.thinkingEnabled)}`;
+  prompt += `\n\n${buildReplyFormatSpec(formatHint)}`;
   return prompt;
 }

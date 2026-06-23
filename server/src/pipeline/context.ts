@@ -75,6 +75,7 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
     currentSpeaker: state.currentSpeaker as LatestTurnOptions["currentSpeaker"],
     currentSpeakerIsOwner: state.currentSpeakerIsOwner,
     isGroupChat: state.inGroup,
+    images: state.images,
   };
 
   const userId = state.userId;

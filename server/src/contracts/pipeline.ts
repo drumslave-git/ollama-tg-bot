@@ -60,6 +60,13 @@ export interface PipelineTurnState {
   replyContext?: string | null;
   mentionedUsersContext?: string | null;
 
+  /**
+   * Base64 image payloads for the current turn, attached directly to the main
+   * reply so a vision-capable model reads text and images in one pass (no
+   * separate describe request).
+   */
+  images?: string[];
+
   convKey?: string | null;
   chatId?: number;
   userId?: string | null;

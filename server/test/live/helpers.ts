@@ -15,8 +15,6 @@ import {
   AUXILIARY_TEMPERATURE,
 } from "../../src/settings/limits.js";
 import {
-  mergeAssistantReasoning,
-  responseFormatForThinking,
   toOpenAiResponseFormat,
   type ReasoningEffort,
 } from "../../src/shared/index.js";
@@ -84,7 +82,7 @@ export async function runTurn(
       : {}),
   });
   const ext = providerChatExtensions(settings, false);
-  const responseFormat = getMainReplyResponseFormat(settings.thinkingEnabled);
+  const responseFormat = getMainReplyResponseFormat();
   const completion: ChatCompletion = await client.chat.completions.create({
     model,
     messages,
@@ -100,10 +98,9 @@ export async function runTurn(
 
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);
-  const mergedReasoning = mergeAssistantReasoning(content, reasoning);
   return {
     content,
-    reasoning: mergedReasoning,
+    reasoning: reasoning.trim(),
     reply: extractTelegramReply(content),
     finishReason: choice?.finish_reason ?? null,
   };
@@ -150,9 +147,7 @@ export async function runAuxiliary(
     ? AUXILIARY_REASONING_NUM_PREDICT
     : AUXILIARY_NUM_PREDICT;
   const numPredict = Math.max(floor, opts.numPredict ?? 0);
-  const responseFormat = opts.responseFormat
-    ? responseFormatForThinking(opts.responseFormat, thinkingEnabled)
-    : undefined;
+  const responseFormat = opts.responseFormat;
   const completion: ChatCompletion = await client.chat.completions.create({
     model,
     messages: toParams(messages),
@@ -167,10 +162,9 @@ export async function runAuxiliary(
   });
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);
-  const effective = mergeAssistantReasoning(content, reasoning) || content;
   return {
-    content: effective,
-    reasoning: mergeAssistantReasoning(content, reasoning),
+    content,
+    reasoning: reasoning.trim(),
     finishReason: choice?.finish_reason ?? null,
   };
 }

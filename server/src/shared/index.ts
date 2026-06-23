@@ -7,21 +7,15 @@ export {
 export { extractLastClosedBlock } from "./structured-output.js";
 export {
   asObject,
-  mergeAssistantReasoning,
+  jsonReplyTail,
   parseJsonContent,
   readBoolean,
   readInt,
   readNullableString,
-  readReasoningFromContent,
   readString,
   readStringArray,
-  reasoningJsonUserTail,
-  reasoningSchemaSystemSuffix,
-  REASONING_JSON_FIELD,
-  responseFormatForThinking,
   strictObjectSchema,
   toOpenAiResponseFormat,
-  withReasoningInSchema,
   type JsonSchemaResponseFormat,
 } from "./json-schema.js";
 export {

@@ -2,8 +2,6 @@ import type { JsonSchemaResponseFormat } from "../../shared/index.js";
 import {
   asObject,
   parseJsonContent,
-  readReasoningFromContent,
-  responseFormatForThinking,
   strictObjectSchema,
 } from "../../shared/index.js";
 import { stripEchoedHistoryMarkup } from "../history/index.js";
@@ -21,28 +19,21 @@ export const MAIN_REPLY_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     ["reply"],
   );
 
-export function getMainReplyResponseFormat(
-  thinkingEnabled: boolean,
-): JsonSchemaResponseFormat {
-  return responseFormatForThinking(MAIN_REPLY_RESPONSE_FORMAT, thinkingEnabled);
+export function getMainReplyResponseFormat(): JsonSchemaResponseFormat {
+  return MAIN_REPLY_RESPONSE_FORMAT;
 }
 
 /**
- * Shared "Respond with JSON only…" preamble: field list (with an optional
- * reasoning field when thinking is on) plus a mandatory output-rules block.
+ * Shared "Respond with JSON only…" preamble: the reply field plus a mandatory
+ * output-rules block. Chain-of-thought is never a JSON field — providers return
+ * reasoning in a separate response channel.
  */
 function buildJsonReplySpec(params: {
-  reasoningDesc: string;
   replyDesc: string;
   rules: string;
-  thinkingEnabled: boolean;
 }): string {
-  const reasoningLine = params.thinkingEnabled
-    ? `- reasoning (string): ${params.reasoningDesc}\n`
-    : "";
-  const fieldCount = params.thinkingEnabled ? "two fields" : "one field";
-  return `Respond with JSON only, matching the provided schema. The object has ${fieldCount}:
-${reasoningLine}- reply (string): ${params.replyDesc}
+  return `Respond with JSON only, matching the provided schema. The object has one field:
+- reply (string): ${params.replyDesc}
 
 Output rules (mandatory):
 ${params.rules}`;
@@ -52,11 +43,8 @@ ${params.rules}`;
  * Structured assistant output. Only the `reply` field is sent to Telegram.
  * Stickers are chosen in a separate model pass; memory is extracted in a dedicated pass.
  */
-export function buildExplainFormatSpec(thinkingEnabled = false): string {
+export function buildExplainFormatSpec(): string {
   return buildJsonReplySpec({
-    thinkingEnabled,
-    reasoningDesc:
-      "brief analysis of which configuration or history drove the behavior; analysis only — never the spoken explanation text",
     replyDesc: "your meta explanation for the bot owner",
     rules: `- Do NOT roleplay. Do NOT speak as the bot's character or continue its dialogue.
 - Explain which configuration, memory, or chat history caused the behavior.
@@ -66,14 +54,8 @@ export function buildExplainFormatSpec(thinkingEnabled = false): string {
   });
 }
 
-export function buildReplyFormatSpec(
-  formatHint: string,
-  thinkingEnabled = false,
-): string {
+export function buildReplyFormatSpec(formatHint: string): string {
   return buildJsonReplySpec({
-    thinkingEnabled,
-    reasoningDesc:
-      "brief chain-of-thought for this reply; analysis only — never the spoken reply text",
     replyDesc: "your spoken reply to the user",
     rules: `- Put only your spoken reply in the reply field.
 - Memory is handled in a separate pass — do not add extra fields.
@@ -84,11 +66,6 @@ export function buildReplyFormatSpec(
 Reply length and style (apply inside reply, not as separate structure):
 ${formatHint}`,
   });
-}
-
-/** Chain-of-thought from structured JSON content (when thinking is on). */
-export function extractThinkingFromContent(content: string): string {
-  return readReasoningFromContent(content) ?? "";
 }
 
 const BLOCK_NAME = "[A-Za-z_][A-Za-z0-9_]*";

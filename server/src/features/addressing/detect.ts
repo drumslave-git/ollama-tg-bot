@@ -57,12 +57,9 @@ export async function detectAddressing(
     sender: input.sender ?? "Someone",
     text,
     nameScanFound: input.nameScanFound,
-    thinkingEnabled: input.thinkingEnabled,
   });
 
-  const responseFormat = getAddressResponseFormat(
-    Boolean(input.thinkingEnabled),
-  );
+  const responseFormat = getAddressResponseFormat();
 
   try {
     const raw = config.chatComplete

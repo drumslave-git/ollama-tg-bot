@@ -1,11 +1,9 @@
 import type { ChatMessage, JsonSchemaResponseFormat } from "../../shared/index.js";
 import {
   asObject,
+  jsonReplyTail,
   parseJsonContent,
   readBoolean,
-  reasoningJsonUserTail,
-  reasoningSchemaSystemSuffix,
-  responseFormatForThinking,
   strictObjectSchema,
 } from "../../shared/index.js";
 
@@ -22,10 +20,8 @@ export const ADDRESS_RESPONSE_FORMAT: JsonSchemaResponseFormat =
     ["addressed"],
   );
 
-export function getAddressResponseFormat(
-  thinkingEnabled: boolean,
-): JsonSchemaResponseFormat {
-  return responseFormatForThinking(ADDRESS_RESPONSE_FORMAT, thinkingEnabled);
+export function getAddressResponseFormat(): JsonSchemaResponseFormat {
+  return ADDRESS_RESPONSE_FORMAT;
 }
 
 export const ANALYZER_SYSTEM = `You decide whether a group-chat message names a Telegram bot by its display name and should receive a reply.
@@ -79,7 +75,6 @@ export interface BuildAddressAnalyzerMessagesParams {
   text: string;
   /** When false, a regex scan found no display name in the message text. */
   nameScanFound?: boolean;
-  thinkingEnabled?: boolean;
 }
 
 export function buildAddressAnalyzerMessages(
@@ -96,7 +91,7 @@ export function buildAddressAnalyzerMessages(
   return [
     {
       role: "system",
-      content: ANALYZER_SYSTEM + reasoningSchemaSystemSuffix(!!params.thinkingEnabled),
+      content: ANALYZER_SYSTEM,
     },
     {
       role: "user",
@@ -107,7 +102,7 @@ export function buildAddressAnalyzerMessages(
         `Chat type: ${params.chatType}\n` +
         `Sender: ${params.sender}\n\n` +
         `Message:\n${params.text.trim() || "(empty or non-text)"}\n\n` +
-        reasoningJsonUserTail("addressed true or false", !!params.thinkingEnabled),
+        jsonReplyTail("addressed true or false"),
     },
   ];
 }

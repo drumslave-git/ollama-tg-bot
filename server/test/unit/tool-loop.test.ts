@@ -1,9 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { chatCompleteWithTools } from "../../src/llm/tool-loop.js";
 
-vi.mock("../../src/llm/client.js", () => ({
-  chatCompleteDetailed: vi.fn(),
-}));
+vi.mock("../../src/llm/client.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/llm/client.js")>();
+  return {
+    ...actual,
+    chatCompleteDetailed: vi.fn(),
+  };
+});
 
 import { chatCompleteDetailed } from "../../src/llm/client.js";
 

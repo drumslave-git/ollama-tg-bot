@@ -59,7 +59,6 @@ export async function pickSticker(
     botReply,
     message: input.message,
     replyContext: input.replyContext,
-    thinkingEnabled: input.thinkingEnabled,
   });
   if (!messages) {
     return {
@@ -69,9 +68,7 @@ export async function pickSticker(
     };
   }
 
-  const responseFormat = getStickerResponseFormat(
-    Boolean(input.thinkingEnabled),
-  );
+  const responseFormat = getStickerResponseFormat();
 
   try {
     const raw = config.chatComplete
