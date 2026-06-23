@@ -87,6 +87,7 @@ function createLlmServices(): PipelineLlmServices {
         traceLayout: options.traceLayout as never,
         tools,
         toolRoundNumPredict: getToolRoundNumPredict(currentSettings),
+        onContentDelta: options.onContentDelta,
         callTool: (name, args) => registry.callTool(name, args),
         onToolCall: ({ name, result: toolResult }) => {
           if (name === SEARCH_WEB_TOOL_NAME) {

@@ -176,6 +176,8 @@ export async function chatCompleteWithTools(
     traceTurnId: options.traceTurnId,
     traceLabel: options.traceLabel ?? "main reply",
     traceLayout: options.traceLayout as VerbosePromptLayout | undefined,
+    // Stream only the final user-facing answer, not the tool-selection rounds.
+    onContentDelta: options.onContentDelta,
   });
 
   return {
