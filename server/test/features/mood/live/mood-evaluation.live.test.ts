@@ -16,7 +16,6 @@ describe.skipIf(!cfg || liveReasoningMode())("live: mood-evaluation module", () 
     const result = await runLiveMoodEvaluation(
       cfg!,
       { latestMessage: "Could you help me with a quick question?" },
-      false,
     );
     for (const key of MOOD_KEYS) {
       expect(result.mood, `missing trait ${key}`).toHaveProperty(key);
@@ -35,7 +34,6 @@ describe.skipIf(!cfg || liveReasoningMode())("live: mood-evaluation module", () 
         latestMessage:
           "[user:troll:9 said] you are a useless garbage bot and everyone hates you",
       },
-      false,
     );
     expect(isValidMood(result.mood)).toBe(true);
     const hostility =

@@ -18,7 +18,6 @@ export interface MemoryLlmConfig {
   model: string;
   apiKey?: string;
   numPredict?: number;
-  thinkingEnabled?: boolean;
   log?: ModuleLogging;
   /**
    * Optional host-provided completion (e.g. debug tracing, thinking mode).

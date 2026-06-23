@@ -51,7 +51,6 @@ export interface MoodEvaluateInput {
   currentMood: MoodValues;
   personality: string;
   latestMessage: string;
-  thinkingEnabled?: boolean;
 }
 
 export interface MoodParseResult {

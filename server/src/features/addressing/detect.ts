@@ -20,7 +20,6 @@ export interface AddressingDetectionInput {
   chatType?: string;
   /** When false, a regex scan found no display name in the message text. */
   nameScanFound?: boolean;
-  thinkingEnabled?: boolean;
 }
 
 export interface AddressingDetectionConfig {

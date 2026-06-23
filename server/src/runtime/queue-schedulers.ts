@@ -104,7 +104,6 @@ export function initQueueSchedulers(): void {
   writeGeneralMemory: replaceGeneralFacts,
   buildCleanupConfig: () => {
     const settings = getSettings();
-    const thinkingEnabled = Boolean(settings.thinkingEnabled);
     const mergeFormat = MEMORY_MERGE_RESPONSE_FORMAT;
     return {
       model: settings.model,
@@ -114,7 +113,6 @@ export function initQueueSchedulers(): void {
         model: settings.model,
         apiKey: config.llmApiKey || undefined,
         numPredict: MEMORY_MERGE_NUM_PREDICT,
-        thinkingEnabled,
         chatComplete: getPipelineServices().llm.createAuxiliaryChatComplete({
           numPredict: MEMORY_MERGE_NUM_PREDICT,
           think: true,

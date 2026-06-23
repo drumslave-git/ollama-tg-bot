@@ -9,7 +9,6 @@ import { getMoodResponseFormat } from "./prompt.js";
 import { normalizeMoodValues, type MoodValues } from "./values.js";
 import {
   getEffectiveMood,
-  getSettings,
   saveMoodState,
 } from "../../pipeline/turn-services.js";
 
@@ -38,8 +37,6 @@ export const moodPipelineHost: PipelineModuleHost = {
   async run(state, services): Promise<PipelineStepResult> {
     const decayedMood = normalizeMoodValues(getEffectiveMood() as MoodValues);
 
-    const settings = getSettings();
-    const thinkingEnabled = Boolean(settings.thinkingEnabled);
     const responseFormat = getMoodResponseFormat();
 
     const started = performance.now();
@@ -48,7 +45,6 @@ export const moodPipelineHost: PipelineModuleHost = {
         currentMood: decayedMood,
         personality: state.personalityPrompt ?? "",
         latestMessage: state.latestBody,
-        thinkingEnabled,
       },
       {
         baseUrl: services.llm.baseUrl,

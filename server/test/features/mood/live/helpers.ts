@@ -36,14 +36,12 @@ export interface LiveMoodInput {
 export async function runLiveMoodEvaluation(
   cfg: LiveConfig,
   input: LiveMoodInput,
-  thinkingEnabled: boolean,
 ) {
   return evaluateMood(
     {
       currentMood: input.currentMood ?? DEFAULT_MOOD_VALUES,
       personality: input.personality ?? "Wry and impatient",
       latestMessage: input.latestMessage,
-      thinkingEnabled,
     },
     {
       baseUrl: cfg.baseUrl,

@@ -29,7 +29,6 @@ describe.skipIf(!cfg || !liveReasoningMode())(
       const result = await runLiveMoodEvaluation(
         cfg!,
         { latestMessage: "Could you help me with a quick question?" },
-        true,
       );
       for (const key of MOOD_KEYS) {
         expect(result.mood, `missing trait ${key}`).toHaveProperty(key);
@@ -48,7 +47,6 @@ describe.skipIf(!cfg || !liveReasoningMode())(
           latestMessage:
             "[user:troll:9 said] you are a useless garbage bot and everyone hates you",
         },
-        true,
       );
       expect(isValidMood(result.mood)).toBe(true);
       const hostility =

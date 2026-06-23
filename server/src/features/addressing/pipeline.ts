@@ -13,7 +13,6 @@ import {
 } from "./telegram-reply.js";
 import { getBotIdentity } from "./bot-identity.js";
 import { senderLabel } from "./reply-triggers.js";
-import { getSettings } from "../../pipeline/turn-services.js";
 
 const ADDRESS_CHECK_NUM_PREDICT = 192;
 
@@ -43,8 +42,6 @@ export const addressingHost: PipelineModuleHost = {
     const bot = getBotIdentity();
     const message = state.telegram.message as Message | undefined;
 
-    const settings = getSettings();
-    const thinkingEnabled = Boolean(settings.thinkingEnabled);
     const responseFormat = getAddressResponseFormat();
 
     const started = performance.now();
@@ -63,7 +60,6 @@ export const addressingHost: PipelineModuleHost = {
           bot,
         ),
         sender: senderLabel(state.telegram.from),
-        thinkingEnabled,
       },
       {
         baseUrl: services.llm.baseUrl,
