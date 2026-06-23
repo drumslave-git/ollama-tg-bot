@@ -28,45 +28,62 @@ export function getMainReplyResponseFormat(
 }
 
 /**
+ * Shared "Respond with JSON only…" preamble: field list (with an optional
+ * reasoning field when thinking is on) plus a mandatory output-rules block.
+ */
+function buildJsonReplySpec(params: {
+  reasoningDesc: string;
+  replyDesc: string;
+  rules: string;
+  thinkingEnabled: boolean;
+}): string {
+  const reasoningLine = params.thinkingEnabled
+    ? `- reasoning (string): ${params.reasoningDesc}\n`
+    : "";
+  const fieldCount = params.thinkingEnabled ? "two fields" : "one field";
+  return `Respond with JSON only, matching the provided schema. The object has ${fieldCount}:
+${reasoningLine}- reply (string): ${params.replyDesc}
+
+Output rules (mandatory):
+${params.rules}`;
+}
+
+/**
  * Structured assistant output. Only the `reply` field is sent to Telegram.
  * Stickers are chosen in a separate model pass; memory is extracted in a dedicated pass.
  */
 export function buildExplainFormatSpec(thinkingEnabled = false): string {
-  const reasoningLine = thinkingEnabled
-    ? "- reasoning (string): brief analysis of which configuration or history drove the behavior; analysis only — never the spoken explanation text\n"
-    : "";
-  const fieldCount = thinkingEnabled ? "two fields" : "one field";
-  return `Respond with JSON only, matching the provided schema. The object has ${fieldCount}:
-${reasoningLine}- reply (string): your meta explanation for the bot owner
-
-Output rules (mandatory):
-- Do NOT roleplay. Do NOT speak as the bot's character or continue its dialogue.
+  return buildJsonReplySpec({
+    thinkingEnabled,
+    reasoningDesc:
+      "brief analysis of which configuration or history drove the behavior; analysis only — never the spoken explanation text",
+    replyDesc: "your meta explanation for the bot owner",
+    rules: `- Do NOT roleplay. Do NOT speak as the bot's character or continue its dialogue.
 - Explain which configuration, memory, or chat history caused the behavior.
 - Put only the explanation in the reply field.
 - Write in clear, direct prose. Match the owner's language when they asked in one; otherwise use English.
-- Quote or paraphrase the relevant instruction or memory when it explains the behavior.`;
+- Quote or paraphrase the relevant instruction or memory when it explains the behavior.`,
+  });
 }
 
 export function buildReplyFormatSpec(
   formatHint: string,
   thinkingEnabled = false,
 ): string {
-  const reasoningLine = thinkingEnabled
-    ? "- reasoning (string): brief chain-of-thought for this reply; analysis only — never the spoken reply text\n"
-    : "";
-  const fieldCount = thinkingEnabled ? "two fields" : "one field";
-  return `Respond with JSON only, matching the provided schema. The object has ${fieldCount}:
-${reasoningLine}- reply (string): your spoken reply to the user
-
-Output rules (mandatory):
-- Put only your spoken reply in the reply field.
+  return buildJsonReplySpec({
+    thinkingEnabled,
+    reasoningDesc:
+      "brief chain-of-thought for this reply; analysis only — never the spoken reply text",
+    replyDesc: "your spoken reply to the user",
+    rules: `- Put only your spoken reply in the reply field.
 - Memory is handled in a separate pass — do not add extra fields.
 - Never include internal chat-history tags in reply (e.g. [assistant said], [user:… said], [sticker: …], [compressed]) — those are metadata, not spoken text.
 - Do not copy broken formatting, garbled markup, or error-like phrasing from chat history into reply.
 - Formatting: HTML tags are optional — reply in plain text unless a tag genuinely adds emphasis. Never send empty tags (e.g. <b></b>).
 
 Reply length and style (apply inside reply, not as separate structure):
-${formatHint}`;
+${formatHint}`,
+  });
 }
 
 /** Chain-of-thought from structured JSON content (when thinking is on). */

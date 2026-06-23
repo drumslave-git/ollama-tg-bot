@@ -3,7 +3,6 @@ import {
   BASE_SYSTEM_PROMPT_CORE,
   buildBaseSystemPrompt,
   buildExplainSystemPrompt,
-  buildMcpToolsPromptSection,
   buildSystemPrompt,
   buildToolRoundSystemPrompt,
 } from "../../src/pipeline/adapters/system-prompt.js";
@@ -71,27 +70,10 @@ describe("buildSystemPrompt", () => {
     expect(prompt.trimEnd().endsWith("you do not have to use tags at all.")).toBe(true);
   });
 
-  it("includes MCP tool guidance when tools are enabled", () => {
-    const prompt = buildSystemPrompt({
-      settings: makeSettings(),
-      customPrompt: "",
-      enabledMcpToolNames: [FETCH_LINK_TOOL_NAME, SEARCH_WEB_TOOL_NAME],
-    });
-    expect(prompt).toContain("## MCP tools");
-    expect(prompt).toContain(FETCH_LINK_TOOL_NAME);
-    expect(prompt).toContain(SEARCH_WEB_TOOL_NAME);
-    expect(prompt).toContain("LLM-only");
-    expect(prompt.indexOf("## MCP tools")).toBeLessThan(prompt.indexOf("Respond with JSON only"));
-  });
-
-  it("omits MCP tool guidance when no tools are enabled", () => {
-    expect(buildMcpToolsPromptSection([])).toBe("");
-    const prompt = buildSystemPrompt({
-      settings: makeSettings(),
-      customPrompt: "",
-      enabledMcpToolNames: [],
-    });
+  it("does not carry MCP tool descriptions — those live only in the tool-round pass", () => {
+    const prompt = buildSystemPrompt({ settings: makeSettings(), customPrompt: "" });
     expect(prompt).not.toContain("## MCP tools");
+    expect(prompt).not.toContain(FETCH_LINK_TOOL_NAME);
   });
 });
 

@@ -44,18 +44,7 @@ export const MOOD_EVALUATOR_SYSTEM = `You evaluate the bot character's emotional
 Respond with JSON only, matching the provided schema. The object has nine integer traits (0–5 each):
 ${MOOD_KEYS.map((key) => `- ${key}`).join("\n")}
 
-Each trait is an integer 0–5. Start from the "Current mood" values and adjust based on the character personality and the latest incoming message only.
-
-Trait meanings:
-- irritated — sharper, shorter, more hostile
-- exhausted — dry, slower, less aggressive
-- amused — more playful sarcasm
-- curious — asks sharper questions, less mocking
-- contemptuous — brutal toward bad ideas
-- gloomy — poetic, darker, quieter
-- impatient — skips ceremony, gives direct commands
-- pleased — rare approval, still not warm
-- suspicious — challenges assumptions
+Each trait is an integer 0–5. Start from the "Current mood" values and adjust based on the character personality and the latest incoming message only. The "Trait guide" in the user message explains what each trait shifts.
 
 Rules:
 - Change only traits the context actually warrants; small shifts (±1–2) are normal.

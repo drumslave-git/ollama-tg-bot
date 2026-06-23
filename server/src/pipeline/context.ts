@@ -8,7 +8,6 @@ import { getActivePersonalityPrompt } from "../db/personalities/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
 import { buildSystemPrompt } from "./adapters/system-prompt.js";
-import { resolveEnabledMcpToolNames } from "../runtime/mcp-tools.js";
 import {
   buildChatMessages,
   type LatestTurnOptions,
@@ -56,7 +55,6 @@ export function buildSystemPromptForTurn(state: PipelineTurnState): string {
     ownerUserId: getOwnerUserId(),
     ownerUsername: getOwnerUsername(),
     mood: (state.mood ?? null) as MoodValues | null,
-    enabledMcpToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
     entityId: state.convKey,
     now: new Date(),
   });
