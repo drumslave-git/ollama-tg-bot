@@ -151,12 +151,23 @@ export function bindDebugTracesDatabase(
       status TEXT NOT NULL,
       summary_json TEXT NOT NULL,
       details_json TEXT NOT NULL DEFAULT '{}',
+      reply_message_ids TEXT NOT NULL DEFAULT '[]',
       duration_ms INTEGER,
       created_at INTEGER NOT NULL DEFAULT (unixepoch())
     );
     CREATE INDEX IF NOT EXISTS idx_debug_traces_chat
       ON debug_traces (chat_id, id DESC);
   `);
+  // Add the reply-message link column to DBs created before it existed. The
+  // bot's sent reply ids let /explain resolve a replied-to message to its trace.
+  const columns = db
+    .prepare(`PRAGMA table_info(debug_traces)`)
+    .all() as { name: string }[];
+  if (!columns.some((c) => c.name === "reply_message_ids")) {
+    db.exec(
+      `ALTER TABLE debug_traces ADD COLUMN reply_message_ids TEXT NOT NULL DEFAULT '[]';`,
+    );
+  }
 }
 
 function parseListSummary(raw: string): MessageReportListSummary | null {
@@ -194,6 +205,29 @@ function trimTracesForChat(chatId: string): void {
   }
 }
 
+/**
+ * Resolve a bot reply's Telegram message id back to the trace that produced it.
+ * Reply ids are stored as a JSON array on each trace row, so this scans the
+ * chat's traces (≤ MAX_TRACES_PER_CHAT) via SQLite's json_each.
+ */
+export function getTraceIdByReplyMessage(
+  chatId: string,
+  messageId: number,
+): number | null {
+  const row = db
+    .prepare(
+      `SELECT id FROM debug_traces
+        WHERE chat_id = ?
+          AND EXISTS (
+            SELECT 1 FROM json_each(reply_message_ids) WHERE value = ?
+          )
+        ORDER BY id DESC
+        LIMIT 1`,
+    )
+    .get(chatId, messageId) as { id: number } | undefined;
+  return row?.id ?? null;
+}
+
 export function getMaxDebugTraceId(): number {
   const row = db
     .prepare(`SELECT COALESCE(MAX(id), 0) AS max_id FROM debug_traces`)
@@ -212,18 +246,21 @@ export function upsertMessageReport(input: {
   status: ReportStatus;
   listSummary: MessageReportListSummary;
   report: MessageReportRecord;
+  replyMessageIds?: number[];
   durationMs: number | null;
 }): void {
   db.prepare(
     `INSERT INTO debug_traces (
        id, chat_id, conv_key, user_id, chat_type, message_id,
-       message_preview, status, summary_json, details_json, duration_ms
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       message_preview, status, summary_json, details_json,
+       reply_message_ids, duration_ms
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        conv_key = excluded.conv_key,
        status = excluded.status,
        summary_json = excluded.summary_json,
        details_json = excluded.details_json,
+       reply_message_ids = excluded.reply_message_ids,
        duration_ms = excluded.duration_ms`,
   ).run(
     input.id,
@@ -236,6 +273,7 @@ export function upsertMessageReport(input: {
     input.status,
     JSON.stringify(input.listSummary),
     JSON.stringify(input.report),
+    JSON.stringify(input.replyMessageIds ?? []),
     input.durationMs,
   );
   trimTracesForChat(input.chatId);

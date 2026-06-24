@@ -136,6 +136,8 @@ export class MessageReportSession {
     | null = null;
   private phases: ReportPhase[] = [];
   private result: MessageReportRecord["result"] = {};
+  /** Telegram message ids of the bot's sent reply chunks (for /explain lookup). */
+  private replyMessageIds: number[] = [];
 
   constructor(input: {
     turnId: number;
@@ -407,6 +409,7 @@ export class MessageReportSession {
     replyChars?: number;
     chunks?: number;
     sticker?: string;
+    replyMessageIds?: number[];
   }): void {
     this.status = "processed";
     this.result = {
@@ -415,6 +418,9 @@ export class MessageReportSession {
       chunks: options?.chunks,
       sticker: options?.sticker,
     };
+    if (options?.replyMessageIds?.length) {
+      this.replyMessageIds = options.replyMessageIds;
+    }
     this.persist();
     releaseProcessingSession(this.turnId);
   }
@@ -512,6 +518,7 @@ export class MessageReportSession {
       status: this.status,
       listSummary,
       report,
+      replyMessageIds: this.replyMessageIds,
       durationMs: report.durationMs,
     });
   }

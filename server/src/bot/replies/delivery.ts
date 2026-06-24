@@ -44,9 +44,9 @@ export async function sendChunkedHtmlReply(
     inGroup?: boolean;
     isForum?: boolean;
   },
-): Promise<{ chunkCount: number }> {
+): Promise<{ chunkCount: number; messageIds: number[] }> {
   if (!options.html.trim()) {
-    return { chunkCount: 0 };
+    return { chunkCount: 0, messageIds: [] };
   }
 
   const replyExtra = buildReplyExtra(ctx, {
@@ -60,16 +60,18 @@ export async function sendChunkedHtmlReply(
   );
 
   const chunks = splitTelegramMessage(options.html);
+  const messageIds: number[] = [];
   for (let i = 0; i < chunks.length; i++) {
     if (i > 0) {
       await ctx.api
         .sendChatAction(options.chatId, "typing", typingThreadParams)
         .catch(() => {});
     }
-    await replyHtml(ctx, chunks[i], replyExtra);
+    const sent = await replyHtml(ctx, chunks[i], replyExtra);
+    if (sent?.message_id != null) messageIds.push(sent.message_id);
   }
 
-  return { chunkCount: chunks.length };
+  return { chunkCount: chunks.length, messageIds };
 }
 
 export async function deliverHtmlErrorReply(

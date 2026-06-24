@@ -9,13 +9,11 @@ export interface ExplainTurnInput {
   convKey: string;
   chatId: number;
   userId: string | null;
-  groupChatId: string | null;
   inGroup: boolean;
-  question: string;
-  userRole: string | null;
-  userMemoryFacts: string[];
-  groupMemoryFacts: string[];
-  generalMemoryFacts: string[];
+  /** Telegram id of the bot message being explained (the /explain reply target). */
+  repliedMessageId: number;
+  /** Formatted debug trace for that message, or null when none was stored. */
+  traceText: string | null;
   messageThreadId?: number;
   isForum?: boolean;
 }
@@ -24,10 +22,8 @@ export interface ExplainPromptInput {
   settings: Record<string, unknown>;
   activePersonalityName: string | null;
   activePersonalityPrompt: string | null;
-  generalMemoryFacts: string[];
-  groupMemoryFacts: string[];
-  userMemoryFacts: string[];
-  isGroupChat: boolean;
+  /** Formatted debug trace of the message being explained. */
+  traceText: string;
 }
 
 export interface ExplainTurnDeps {
@@ -45,8 +41,8 @@ export interface ExplainTurnDeps {
     id: number,
   ) => { name: string; prompt: string } | null;
   buildExplainSystemPrompt: (input: ExplainPromptInput) => string;
-  loadHistoryMessages: (convKey: string) => ChatMessage[];
   getMainReplyResponseFormat: () => JsonSchemaResponseFormat;
+  /** Single plain completion — the explain pass uses no tools. */
   chatCompleteDetailed: (
     messages: ChatMessage[],
     options: {
@@ -57,12 +53,6 @@ export interface ExplainTurnDeps {
   extractTelegramReply: (raw: string) => string;
   hasVisibleTelegramReply: (body: string) => boolean;
   prepareTelegramHtml: (body: string) => string;
-  recordExchange: (
-    convKey: string,
-    userRole: string | null,
-    userContent: string,
-    assistantContent: string,
-  ) => void;
   recordReply: (hadError: boolean) => void;
   recordError: (detail: {
     message: string;
@@ -93,13 +83,10 @@ export interface ExplainTurnDeps {
 
 export interface ExplainExtension {
   isOwner: (ctx: unknown) => boolean;
-  resolveCommandText: (
-    ctx: unknown,
-    inline: string,
-  ) => { text: string; fromReply: boolean } | null;
-  buildTurnInput: (
-    ctx: unknown,
-    question: string,
-  ) => ExplainTurnInput | null;
+  /**
+   * Build the turn from a /explain command. Returns null when the command is not
+   * a reply to one of the bot's own messages (the only supported target).
+   */
+  buildTurnInput: (ctx: unknown) => ExplainTurnInput | null;
   deps: ExplainTurnDeps;
 }

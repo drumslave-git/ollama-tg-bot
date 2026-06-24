@@ -23,6 +23,39 @@ function makeServices(
   };
 }
 
+function makeDeps(overrides: Record<string, unknown> = {}) {
+  return {
+    logging: { logEvent: vi.fn(), logEventError: vi.fn() },
+    getSettings: () => ({}),
+    resolveActivePersonalityId: () => null,
+    getPersonalityById: () => null,
+    buildExplainSystemPrompt: vi.fn().mockReturnValue("system"),
+    getMainReplyResponseFormat: () => ({}),
+    chatCompleteDetailed: vi.fn().mockResolvedValue({
+      raw: '{"reply":"Because the personality says so."}',
+    }),
+    extractTelegramReply: (raw: string) => raw,
+    hasVisibleTelegramReply: () => true,
+    prepareTelegramHtml: (html: string) => html,
+    recordReply: vi.fn(),
+    recordError: vi.fn(),
+    sendChunkedHtmlReply: vi.fn().mockResolvedValue({ chunkCount: 1, messageIds: [] }),
+    deliverHtmlErrorReply: vi.fn(),
+    ...overrides,
+  };
+}
+
+function turnInput(traceText: string | null) {
+  return {
+    convKey: "c1",
+    chatId: 1,
+    userId: "1",
+    inGroup: false,
+    repliedMessageId: 42,
+    traceText,
+  };
+}
+
 describe("explain command", () => {
   it("registers explain on completions bot host", () => {
     expect(botHost.commands?.some((command) => command.command === "explain")).toBe(
@@ -34,9 +67,8 @@ describe("explain command", () => {
     const replyToUser = vi.fn().mockResolvedValue(undefined);
     const extension = {
       isOwner: () => false,
-      resolveCommandText: () => ({ text: "why?", fromReply: false }),
       buildTurnInput: () => null,
-      deps: {} as never,
+      deps: makeDeps(),
     };
 
     await handleExplainCommand({}, makeServices(extension, replyToUser));
@@ -47,61 +79,59 @@ describe("explain command", () => {
     );
   });
 
-  it("frames reply-only /explain as a meta question", async () => {
-    const buildTurnInput = vi.fn().mockReturnValue({
-      convKey: "c1",
-      chatId: 1,
-      userId: "1",
-      groupChatId: null,
-      inGroup: false,
-      question: "",
-      userRole: null,
-      userMemoryFacts: [],
-      groupMemoryFacts: [],
-      generalMemoryFacts: [],
-    });
+  it("shows a usage hint when not a reply to a bot message", async () => {
+    const replyToUser = vi.fn().mockResolvedValue(undefined);
+    const deps = makeDeps();
     const extension = {
       isOwner: () => true,
-      resolveCommandText: () => ({
-        text: "Chaos is the only truth.",
-        fromReply: true,
-      }),
-      buildTurnInput,
-      deps: {
-        logging: {
-          logEvent: vi.fn(),
-          logEventError: vi.fn(),
-        },
-        getSettings: () => ({}),
-        resolveActivePersonalityId: () => null,
-        getPersonalityById: () => null,
-        buildExplainSystemPrompt: () => "system",
-        ensureHistoryFits: vi.fn().mockResolvedValue(undefined),
-        loadHistoryMessages: () => [],
-        getMainReplyResponseFormat: () => ({}),
-        chatCompleteDetailed: vi.fn().mockResolvedValue({
-          raw: '{"reply":"Because the personality says so."}',
-        }),
-        extractTelegramReply: (raw: string) => raw,
-        hasVisibleTelegramReply: () => true,
-        prepareTelegramHtml: (html: string) => html,
-        recordExchange: vi.fn(),
-        recordReply: vi.fn(),
-        recordError: vi.fn(),
-        sendChunkedHtmlReply: vi.fn().mockResolvedValue({ chunkCount: 1 }),
-        deliverHtmlErrorReply: vi.fn(),
-      },
+      buildTurnInput: () => null,
+      deps,
+    };
+
+    await handleExplainCommand({}, makeServices(extension, replyToUser));
+
+    expect(replyToUser).toHaveBeenCalledWith(
+      {},
+      expect.stringContaining("Reply to one of my messages"),
+    );
+    expect(deps.chatCompleteDetailed).not.toHaveBeenCalled();
+  });
+
+  it("explains from the trace when one is found", async () => {
+    const deps = makeDeps();
+    const extension = {
+      isOwner: () => true,
+      buildTurnInput: () => turnInput("## Phases\n### Main reply · ok\n"),
+      deps,
     };
 
     await handleExplainCommand({}, makeServices(extension));
 
-    expect(buildTurnInput).toHaveBeenCalledWith(
-      {},
-      expect.stringContaining("The owner used /explain on a specific bot message"),
+    expect(deps.buildExplainSystemPrompt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        traceText: expect.stringContaining("Main reply"),
+      }),
     );
-    expect(buildTurnInput).toHaveBeenCalledWith(
+    expect(deps.chatCompleteDetailed).toHaveBeenCalledTimes(1);
+    expect(deps.sendChunkedHtmlReply).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses with a note when the replied-to message has no trace", async () => {
+    const deps = makeDeps();
+    const extension = {
+      isOwner: () => true,
+      buildTurnInput: () => turnInput(null),
+      deps,
+    };
+
+    await handleExplainCommand({}, makeServices(extension));
+
+    expect(deps.chatCompleteDetailed).not.toHaveBeenCalled();
+    expect(deps.sendChunkedHtmlReply).toHaveBeenCalledWith(
       {},
-      expect.stringContaining("Chaos is the only truth."),
+      expect.objectContaining({
+        html: expect.stringContaining("No debug trace"),
+      }),
     );
   });
 });

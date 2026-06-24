@@ -1,9 +1,4 @@
 import {
-  buildExplainGeneralMemorySection,
-  buildExplainGroupMemorySection,
-  buildExplainUserMemorySection,
-} from "../../features/memory/index.js";
-import {
   buildExplainFormatSpec,
   buildReplyFormatSpec,
 } from "../../features/completions/index.js";
@@ -187,24 +182,12 @@ export interface ExplainPromptOptions {
   settings: Settings;
   activePersonalityName: string | null;
   activePersonalityPrompt: string | null;
-  generalMemoryFacts: string[];
-  groupMemoryFacts: string[];
-  userMemoryFacts: string[];
-  isGroupChat: boolean;
+  /** Formatted debug execution trace of the message being explained. */
+  traceText: string;
 }
 
 export function buildExplainSystemPrompt(options: ExplainPromptOptions): string {
-  const {
-    settings,
-    activePersonalityName,
-    activePersonalityPrompt,
-    generalMemoryFacts,
-    groupMemoryFacts,
-    userMemoryFacts,
-    isGroupChat,
-  } = options;
-
-  const { systemHint } = getReplyLengthGuidance(settings);
+  const { activePersonalityName, activePersonalityPrompt, traceText } = options;
 
   let activeSection: string;
   if (activePersonalityName && activePersonalityPrompt?.trim()) {
@@ -220,23 +203,15 @@ export function buildExplainSystemPrompt(options: ExplainPromptOptions): string 
   }
 
   return (
-    `You are a meta assistant for a Telegram LLM Bot. The bot owner asks why the bot would behave or reply a certain way.\n\n` +
-    `Your job is analysis only — never the bot's next in-character line.\n\n` +
+    `You are a debugging assistant for a Telegram LLM bot. The bot owner replied to one of the bot's messages with /explain; your job is to explain why the bot produced that exact message.\n\n` +
+    `You are given the full execution trace of that message below — the system prompt, every LLM request/response, mood, retrieved memories and history, and tool calls. This trace is the actual evidence; reason from it.\n\n` +
     `Rules (override everything below):\n` +
     `- Do NOT roleplay. Do NOT speak as the bot's character or continue its dialogue.\n` +
-    `- Give a direct, honest explanation grounded in the configuration below.\n` +
-    `- Cite specific sources: active personality, base prompt, general/group/user memories, or recent chat history.\n` +
-    `- Quote or paraphrase the exact instruction or memory when it explains the behavior.\n` +
-    `- If nothing in the configuration explains it, say so plainly.\n` +
-    `- Sections below are reference material about in-character behavior — cite them, do not perform them.\n\n` +
-    `## Recent chat history\n` +
-    `Provided as standard messages after this system message. For users, the 'name' field identifies the speaker. Past bot replies have the role 'assistant'. Use history only to explain what happened — not as a script to continue.\n\n` +
-    `## Reference: what drives normal (in-character) replies\n\n` +
-    `### Active personality\n${activeSection}\n\n` +
-    `### Base system prompt (reference only — not your voice)\n${BASE_SYSTEM_PROMPT_CORE}\n\n${systemHint}\n\n` +
-    `${buildExplainGeneralMemorySection(generalMemoryFacts)}\n\n` +
-    `${buildExplainGroupMemorySection(groupMemoryFacts, isGroupChat)}\n\n` +
-    `${buildExplainUserMemorySection(userMemoryFacts)}\n\n` +
+    `- Explain the cause: cite the specific trace entries (system prompt lines, mood, a memory, a retrieved message, a tool result) that drove the reply.\n` +
+    `- Quote or paraphrase the exact instruction, memory, or trace value that explains the behavior.\n` +
+    `- If the trace does not explain some aspect, say so plainly rather than inventing a reason.\n\n` +
+    `## Execution trace\n${traceText}\n\n` +
+    `## Active personality (reference only — not your voice)\n${activeSection}\n\n` +
     buildExplainFormatSpec()
   );
 }

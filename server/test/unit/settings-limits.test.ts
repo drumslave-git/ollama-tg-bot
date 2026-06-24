@@ -10,6 +10,8 @@ import {
   getMaintenanceAnnounceNumPredict,
   getChatTimeoutMs,
   getEffectiveNumPredict,
+  getExplainNumPredict,
+  EXPLAIN_NUM_PREDICT,
   getHistoryLimits,
   getReplyLengthGuidance,
   maxNumPredictForContext,
@@ -75,6 +77,32 @@ describe("getAuxiliaryNumPredict", () => {
     expect(getAuxiliaryNumPredict(makeSettings({ numPredict: 1024 }))).toBe(
       1024,
     );
+  });
+});
+
+describe("getExplainNumPredict", () => {
+  it("gives the generous target when the context has ample room", () => {
+    // Large context, tiny prompt -> full target budget.
+    expect(
+      getExplainNumPredict(makeSettings({ numCtx: 32768 }), 1000),
+    ).toBe(EXPLAIN_NUM_PREDICT);
+  });
+
+  it("shrinks the budget so output never collides with a large prompt", () => {
+    // Small context, large trace prompt -> budget bounded by remaining tokens,
+    // strictly below the target (this is the regression we are guarding).
+    const budget = getExplainNumPredict(
+      makeSettings({ numCtx: 4096 }),
+      10000,
+    );
+    expect(budget).toBeLessThan(EXPLAIN_NUM_PREDICT);
+    expect(budget).toBeGreaterThanOrEqual(MIN_NUM_PREDICT);
+  });
+
+  it("never drops below the floor even when the prompt exceeds the context", () => {
+    expect(
+      getExplainNumPredict(makeSettings({ numCtx: 2048 }), 100000),
+    ).toBe(MIN_NUM_PREDICT);
   });
 });
 

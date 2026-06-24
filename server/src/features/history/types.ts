@@ -14,9 +14,3 @@ export interface KnownUserRecord {
   username?: string | null;
   firstName?: string | null;
 }
-
-export interface HistoryChatMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
-  name?: string;
-}

@@ -8,6 +8,7 @@ import {
 } from "../../src/pipeline/adapters/system-prompt.js";
 import { FETCH_LINK_TOOL_NAME } from "../../src/features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../src/features/web-search/index.js";
+import { HISTORY_GET_LATEST_TOOL_NAME } from "../../src/features/history/mcp-tools.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("buildBaseSystemPrompt", () => {
@@ -93,19 +94,29 @@ describe("buildToolRoundSystemPrompt", () => {
 });
 
 describe("buildExplainSystemPrompt", () => {
-  it("describes the active personality and stays out of character", () => {
+  it("embeds the execution trace and the active personality, and stays out of character", () => {
     const prompt = buildExplainSystemPrompt({
       settings: makeSettings(),
       activePersonalityName: "Pirate",
       activePersonalityPrompt: "Talk like a pirate.",
-      generalMemoryFacts: [],
-      groupMemoryFacts: [],
-      userMemoryFacts: [],
-      isGroupChat: false,
+      traceText: "## Phases\n### Main reply · ok\n  generated reply\n",
     });
-    expect(prompt).toContain("meta assistant");
+    expect(prompt).toContain("debugging assistant");
     expect(prompt).toContain("Do NOT roleplay");
-    expect(prompt).toContain("reference only");
+    expect(prompt).toContain("## Execution trace");
+    expect(prompt).toContain("### Main reply · ok");
     expect(prompt).toContain("Talk like a pirate.");
+  });
+
+  it("does not pull in history tools or a session block", () => {
+    const prompt = buildExplainSystemPrompt({
+      settings: makeSettings(),
+      activePersonalityName: null,
+      activePersonalityPrompt: null,
+      traceText: "trace body",
+    });
+    expect(prompt).not.toContain("[SESSION]");
+    expect(prompt).not.toContain(HISTORY_GET_LATEST_TOOL_NAME);
+    expect(prompt).toContain("trace body");
   });
 });

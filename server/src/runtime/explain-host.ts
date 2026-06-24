@@ -9,10 +9,6 @@ import {
   getPersonalityById,
   resolveActivePersonalityId,
 } from "../db/personalities/index.js";
-import { getLatestMessages, historyToChatMessages } from "../db/history/index.js";
-import { getUserFacts } from "../db/memory/user.js";
-import { getGroupFacts } from "../db/memory/group.js";
-import { getGeneralFacts } from "../db/memory/general.js";
 import { chatCompleteDetailed } from "../llm/client.js";
 import {
   extractTelegramReply,
@@ -23,17 +19,20 @@ import {
   prepareTelegramHtml,
 } from "../telegram/html.js";
 import { buildExplainSystemPrompt } from "../pipeline/adapters/system-prompt.js";
-import { recordExchange } from "../pipeline/chat-messages.js";
+import { getExplainNumPredict } from "../settings/limits.js";
+import { getResolvedSettings } from "../settings/runtime.js";
+import {
+  getDebugTraceById,
+  getTraceIdByReplyMessage,
+} from "../db/debug/traces.js";
+import { formatTraceForExplain } from "../debug/trace-format.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { isOwner } from "../bot/owner/owner.js";
 import {
   isGroupChat,
   resolveConversationKey,
-  resolveGroupChatId,
   resolveUserId,
 } from "../bot/telegram/keys.js";
-import { resolveCommandInlineOrReplyText } from "../bot/commands/command-utils.js";
-import { userRoleTag } from "../features/history/index.js";
 import {
   deliverHtmlErrorReply,
   sendChunkedHtmlReply,
@@ -62,20 +61,30 @@ export function createExplainExtension(): ExplainExtension {
         settings: input.settings as never,
         activePersonalityName: input.activePersonalityName,
         activePersonalityPrompt: input.activePersonalityPrompt,
-        generalMemoryFacts: input.generalMemoryFacts,
-        groupMemoryFacts: input.groupMemoryFacts,
-        userMemoryFacts: input.userMemoryFacts,
-        isGroupChat: input.isGroupChat,
+        traceText: input.traceText,
       }),
-    loadHistoryMessages: (convKey) =>
-      historyToChatMessages(getLatestMessages(convKey, 40)),
     getMainReplyResponseFormat,
-    chatCompleteDetailed: (messages, options) =>
-      chatCompleteDetailed(messages as never, options as never),
+    // Single plain completion — the explain pass reasons over the supplied trace
+    // and uses no tools. The output budget is sized from the context left after
+    // the (potentially large) trace prompt so a generous budget can't push the
+    // backend into truncating the prompt.
+    chatCompleteDetailed: (messages, options) => {
+      const promptChars = messages.reduce(
+        (sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0),
+        0,
+      );
+      const numPredict = getExplainNumPredict(
+        getResolvedSettings(),
+        promptChars,
+      );
+      return chatCompleteDetailed(messages as never, {
+        ...options,
+        numPredict,
+      } as never);
+    },
     extractTelegramReply,
     hasVisibleTelegramReply,
     prepareTelegramHtml,
-    recordExchange,
     recordReply,
     recordError,
     sendChunkedHtmlReply: (ctx, options) =>
@@ -86,29 +95,31 @@ export function createExplainExtension(): ExplainExtension {
 
   return {
     isOwner: (ctx) => isOwner(ctx as Context),
-    resolveCommandText: (ctx, inline) =>
-      resolveCommandInlineOrReplyText(ctx as Context, inline),
-    buildTurnInput: (ctx, question) => {
+    buildTurnInput: (ctx) => {
       const grammyCtx = ctx as Context;
       const chatId = grammyCtx.chat?.id;
       const convKey = resolveConversationKey(grammyCtx);
       if (!chatId || !convKey) return null;
 
-      const userId = resolveUserId(grammyCtx);
-      const groupChatId = resolveGroupChatId(grammyCtx);
-      const inGroup = isGroupChat(grammyCtx);
+      // Only a reply to one of the bot's own messages is a valid target.
+      const replied = grammyCtx.message?.reply_to_message;
+      const botId = grammyCtx.me?.id;
+      if (!replied || botId == null || replied.from?.id !== botId) return null;
+
+      const repliedMessageId = replied.message_id;
+      const traceId = getTraceIdByReplyMessage(
+        String(chatId),
+        repliedMessageId,
+      );
+      const trace = traceId != null ? getDebugTraceById(traceId) : null;
 
       return {
         convKey,
         chatId,
-        userId,
-        groupChatId,
-        inGroup,
-        question,
-        userRole: userRoleTag(grammyCtx.from),
-        userMemoryFacts: userId ? getUserFacts(userId) : [],
-        groupMemoryFacts: groupChatId ? getGroupFacts(groupChatId) : [],
-        generalMemoryFacts: getGeneralFacts(),
+        userId: resolveUserId(grammyCtx),
+        inGroup: isGroupChat(grammyCtx),
+        repliedMessageId,
+        traceText: trace ? formatTraceForExplain(trace) : null,
         messageThreadId: grammyCtx.message?.message_thread_id,
         isForum: grammyCtx.chat?.is_forum === true,
       };

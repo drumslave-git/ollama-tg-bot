@@ -83,8 +83,10 @@ export class ReplyStream implements ReplyStreamSink {
     const replyChars = visibleTelegramText(html).length;
     const chunks = splitTelegramMessage(html);
     const first = chunks[0] ?? "";
+    const messageIds: number[] = [];
 
     if (this.messageId != null) {
+      messageIds.push(this.messageId);
       try {
         await this.ctx.api.editMessageText(this.options.chatId, this.messageId, first, {
           parse_mode: "HTML",
@@ -95,11 +97,12 @@ export class ReplyStream implements ReplyStreamSink {
           .catch(() => {});
       }
     } else {
-      await replyHtml(
+      const sent = await replyHtml(
         this.ctx,
         first,
         buildReplyExtra(this.ctx, { messageThreadId: this.options.messageThreadId }),
       );
+      if (sent?.message_id != null) messageIds.push(sent.message_id);
     }
 
     const replyExtra = buildReplyExtra(this.ctx, {
@@ -115,12 +118,14 @@ export class ReplyStream implements ReplyStreamSink {
       await this.ctx.api
         .sendChatAction(this.options.chatId, "typing", typingThreadParams)
         .catch(() => {});
-      await replyHtml(this.ctx, chunks[i], replyExtra);
+      const sent = await replyHtml(this.ctx, chunks[i], replyExtra);
+      if (sent?.message_id != null) messageIds.push(sent.message_id);
     }
 
     return {
       chunkCount: chunks.length,
       replyChars,
+      messageIds,
     };
   }
 }

@@ -23,6 +23,33 @@ export function getToolRoundNumPredict(settings: Settings): number {
     ? TOOL_ROUND_REASONING_NUM_PREDICT
     : TOOL_ROUND_NUM_PREDICT;
 }
+
+/** Target generation budget for the owner-facing /explain pass (thorough, not a short chat reply). */
+export const EXPLAIN_NUM_PREDICT = 2048;
+/** Higher /explain target when thinking is on — reasoning tokens precede the explanation. */
+export const EXPLAIN_REASONING_NUM_PREDICT = 3072;
+
+/**
+ * Generation budget for the /explain pass. The trace prompt and the generated
+ * answer share one fixed `num_ctx`, so the budget is the generous target capped
+ * by whatever context is left after the prompt — otherwise a large numPredict
+ * makes the backend truncate the (large) trace prompt and the answer collapses.
+ *
+ * @param settings resolved settings (numCtx must be the value actually sent)
+ * @param promptChars total characters in the request messages
+ */
+export function getExplainNumPredict(
+  settings: Settings,
+  promptChars: number,
+): number {
+  const target = settings.thinkingEnabled
+    ? EXPLAIN_REASONING_NUM_PREDICT
+    : EXPLAIN_NUM_PREDICT;
+  const promptTokens = Math.ceil(promptChars / APPROX_CHARS_PER_TOKEN);
+  const remaining =
+    settings.numCtx - promptTokens - NUM_CTX_GENERATION_HEADROOM;
+  return snapNumPredict(Math.max(MIN_NUM_PREDICT, Math.min(target, remaining)));
+}
 /** Hard cap on generated tokens; also limited by context size minus prompt headroom. */
 export const MAX_NUM_PREDICT = 8192;
 export const NUM_CTX_GENERATION_HEADROOM = 512;

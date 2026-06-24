@@ -15,6 +15,8 @@ import { visibleTelegramText } from "../telegram/html.js";
 export interface DeliveredReply {
   chunkCount: number;
   replyChars: number;
+  /** Telegram message ids of the sent reply chunks (for /explain trace lookup). */
+  messageIds: number[];
 }
 
 /**
@@ -39,7 +41,7 @@ export async function deliverReplyText(
     throw new Error(delivery.error);
   }
 
-  const { chunkCount } = await sendChunkedHtmlReply(ctx, {
+  const { chunkCount, messageIds } = await sendChunkedHtmlReply(ctx, {
     chatId: options.chatId,
     html: hasReply ? replyBody : "",
     messageThreadId: options.messageThreadId,
@@ -48,7 +50,7 @@ export async function deliverReplyText(
   });
 
   const replyChars = hasReply ? visibleTelegramText(replyBody).length : 0;
-  return { chunkCount, replyChars };
+  return { chunkCount, replyChars, messageIds };
 }
 
 /** Send the chosen sticker as a follow-up to the already-delivered text reply. */
@@ -91,6 +93,7 @@ export function finalizeReplyDelivery(options: {
   chatId: number;
   chunkCount: number;
   replyChars: number;
+  messageIds?: number[];
   stickerEmoji?: string | null;
   webSearchSources?: WebSearchSource[];
 }): void {
@@ -122,6 +125,7 @@ export function finalizeReplyDelivery(options: {
     replyChars: options.replyChars,
     chunks: options.chunkCount,
     sticker: options.stickerEmoji ?? undefined,
+    replyMessageIds: options.messageIds,
   });
 }
 
@@ -158,6 +162,7 @@ export async function deliverPipelineReply(
     chatId: options.chatId,
     chunkCount: delivered.chunkCount,
     replyChars: delivered.replyChars,
+    messageIds: delivered.messageIds,
     stickerEmoji: delivery.stickerEmoji,
     webSearchSources: (delivery.webSearchSources ?? []) as WebSearchSource[],
   });

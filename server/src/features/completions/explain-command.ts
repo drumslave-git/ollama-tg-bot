@@ -6,22 +6,6 @@ import {
 } from "./explain-types.js";
 import { runExplainTurn } from "./explain-turn.js";
 
-function formatExplainQuestion(resolution: {
-  text: string;
-  fromReply: boolean;
-}): string {
-  const { text, fromReply } = resolution;
-  if (fromReply) {
-    return (
-      `The owner used /explain on a specific bot message. ` +
-      `Give a meta explanation of why the bot would have sent this (cite personality, base prompt, memories, or history). ` +
-      `Do not continue the roleplay or speak in character.\n\n` +
-      `Bot message:\n${text}`
-    );
-  }
-  return `The owner asks: ${text}`;
-}
-
 function readExplainExtension(
   services: BotHostServices,
 ): ExplainExtension | null {
@@ -46,26 +30,16 @@ export async function handleExplainCommand(
     return;
   }
 
-  const resolution = extension.resolveCommandText(
-    grammyCtx,
-    String(grammyCtx.match ?? ""),
-  );
-  if (!resolution) {
+  // The only supported target is a reply to one of the bot's own messages.
+  const input = extension.buildTurnInput(grammyCtx);
+  if (!input) {
     await services.replyToUser(
       grammyCtx,
-      `Usage: <code>/explain@${botUsername} your question</code>\n` +
-        `Or reply to a message with <code>/explain@${botUsername}</code>\n` +
-        `Example: <code>/explain why are you so aggressive?</code>\n\n` +
-        `Answers honestly about configuration and memories — not in character.`,
+      `Reply to one of my messages with <code>/explain@${botUsername}</code> ` +
+        `and I'll explain why I sent it, based on that message's debug trace.`,
     );
     return;
   }
-
-  const input = extension.buildTurnInput(
-    grammyCtx,
-    formatExplainQuestion(resolution),
-  );
-  if (!input) return;
 
   try {
     await runExplainTurn(grammyCtx, input, extension.deps);

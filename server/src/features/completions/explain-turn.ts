@@ -1,6 +1,11 @@
 import type { ChatMessage } from "../../shared/index.js";
 import type { ExplainTurnDeps, ExplainTurnInput } from "./explain-types.js";
 
+const USER_INSTRUCTION =
+  "Explain why the bot sent the message being replied to. " +
+  "Base your answer strictly on the execution trace above — cite the system prompt, " +
+  "mood, memories, retrieved history, and tool calls that actually shaped the reply.";
+
 export async function runExplainTurn(
   ctx: unknown,
   input: ExplainTurnInput,
@@ -11,10 +16,24 @@ export async function runExplainTurn(
   const turnLog = {
     chatId: input.chatId,
     userId: input.userId,
-    groupId: input.groupChatId,
     convKey: input.convKey,
     inGroup: input.inGroup,
+    repliedMessageId: input.repliedMessageId,
   };
+
+  // No stored trace for that message (sent before this feature, or aged out of
+  // the per-chat trace cap). Refuse with a note rather than guessing.
+  if (!input.traceText) {
+    deps.logging.logEvent("explain_no_trace", turnLog);
+    await deps.sendChunkedHtmlReply(ctx, {
+      chatId: input.chatId,
+      html: "No debug trace is stored for that message — it may be too old to explain.",
+      messageThreadId: input.messageThreadId,
+      inGroup: input.inGroup,
+      isForum: input.isForum,
+    }).catch(() => {});
+    return;
+  }
 
   try {
     deps.logging.logEvent("explain_turn_started", turnLog);
@@ -28,18 +47,12 @@ export async function runExplainTurn(
       settings,
       activePersonalityName: activePersonality?.name ?? null,
       activePersonalityPrompt: activePersonality?.prompt ?? null,
-      generalMemoryFacts: input.generalMemoryFacts,
-      groupMemoryFacts: input.groupMemoryFacts,
-      userMemoryFacts: input.userMemoryFacts,
-      isGroupChat: input.inGroup,
+      traceText: input.traceText,
     });
 
-    const history = deps.loadHistoryMessages(input.convKey);
-    const latestContent = input.question.trim();
     const messages: ChatMessage[] = [
       { role: "system", content: system },
-      ...history,
-      { role: "user", content: latestContent },
+      { role: "user", content: USER_INSTRUCTION },
     ];
 
     deps.logging.logEvent("llm_reply_started", { ...turnLog, mode: "explain" });
@@ -58,12 +71,8 @@ export async function runExplainTurn(
       throw new Error("Model response had no reply content");
     }
 
-    deps.recordExchange(
-      input.convKey,
-      input.userRole,
-      `[explain] ${input.question.trim()}`,
-      replyBody,
-    );
+    // Note: explain turns are intentionally NOT recorded into chat history —
+    // they are owner-facing debug output, not part of the bot's conversation.
 
     const { chunkCount } = await deps.sendChunkedHtmlReply(ctx, {
       chatId: input.chatId,

@@ -216,6 +216,7 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       chatId: deliveryChatId,
       chunkCount: delivered.chunkCount,
       replyChars: delivered.replyChars,
+      messageIds: delivered.messageIds,
       stickerEmoji: state.stickerEmoji,
       webSearchSources: state.webSearchSources as
         | WebSearchSource[]
