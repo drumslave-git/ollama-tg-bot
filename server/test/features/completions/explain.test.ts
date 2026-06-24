@@ -37,6 +37,7 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     extractTelegramReply: (raw: string) => raw,
     hasVisibleTelegramReply: () => true,
     prepareTelegramHtml: (html: string) => html,
+    startTyping: vi.fn().mockReturnValue(vi.fn()),
     recordReply: vi.fn(),
     recordError: vi.fn(),
     sendChunkedHtmlReply: vi.fn().mockResolvedValue({ chunkCount: 1, messageIds: [] }),
@@ -114,6 +115,9 @@ describe("explain command", () => {
     );
     expect(deps.chatCompleteDetailed).toHaveBeenCalledTimes(1);
     expect(deps.sendChunkedHtmlReply).toHaveBeenCalledTimes(1);
+    // Typing indicator runs during the wait and is stopped afterwards.
+    expect(deps.startTyping).toHaveBeenCalledTimes(1);
+    expect(deps.startTyping.mock.results[0]?.value).toHaveBeenCalledTimes(1);
   });
 
   it("refuses with a note when the replied-to message has no trace", async () => {

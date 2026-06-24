@@ -53,6 +53,8 @@ export interface ExplainTurnDeps {
   extractTelegramReply: (raw: string) => string;
   hasVisibleTelegramReply: (body: string) => boolean;
   prepareTelegramHtml: (body: string) => string;
+  /** Start a Telegram "typing" indicator for this chat; returns a stop fn (or null). */
+  startTyping: (ctx: unknown) => (() => void) | null;
   recordReply: (hadError: boolean) => void;
   recordError: (detail: {
     message: string;

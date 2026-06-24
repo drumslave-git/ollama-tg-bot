@@ -37,6 +37,7 @@ import {
   deliverHtmlErrorReply,
   sendChunkedHtmlReply,
 } from "../bot/replies/delivery.js";
+import { startTypingForMessage } from "../bot/replies/typing.js";
 import type { Context } from "grammy";
 
 export function createExplainExtension(): ExplainExtension {
@@ -85,6 +86,7 @@ export function createExplainExtension(): ExplainExtension {
     extractTelegramReply,
     hasVisibleTelegramReply,
     prepareTelegramHtml,
+    startTyping: (ctx) => startTypingForMessage(ctx as Context),
     recordReply,
     recordError,
     sendChunkedHtmlReply: (ctx, options) =>

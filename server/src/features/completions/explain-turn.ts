@@ -35,6 +35,9 @@ export async function runExplainTurn(
     return;
   }
 
+  // Explaining runs a full completion over the trace — keep a typing indicator
+  // up for the whole wait so the owner sees progress.
+  const stopTyping = deps.startTyping(ctx);
   try {
     deps.logging.logEvent("explain_turn_started", turnLog);
 
@@ -105,5 +108,7 @@ export async function runExplainTurn(
       plainFallback: "Sorry, I could not get an explanation from the LLM.",
     }).catch(() => {});
     throw err;
+  } finally {
+    stopTyping?.();
   }
 }
