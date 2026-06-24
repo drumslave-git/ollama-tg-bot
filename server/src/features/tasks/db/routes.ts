@@ -7,6 +7,7 @@ import {
   updateTaskValidated,
 } from "../service.js";
 import { getTaskById, listTasks } from "./tasks.js";
+import { clearTaskEvents, listTaskEvents } from "./task-events.js";
 
 function parseChatIdQuery(value: unknown): number | undefined {
   if (value == null || value === "") return undefined;
@@ -23,6 +24,15 @@ export const tasksRouter = Router();
 
 tasksRouter.get("/", (req, res) => {
   res.json({ tasks: listTasks(parseChatIdQuery(req.query.chatId)) });
+});
+
+tasksRouter.get("/debug", (_req, res) => {
+  res.json({ events: listTaskEvents() });
+});
+
+tasksRouter.delete("/debug", (_req, res) => {
+  clearTaskEvents();
+  res.json({ ok: true });
 });
 
 tasksRouter.get("/:id", (req, res) => {

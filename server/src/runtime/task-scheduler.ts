@@ -4,6 +4,7 @@ import { logEvent, logEventError } from "../logging/event-log.js";
 import {
   computeNextRun,
   createTaskScheduler,
+  deleteTaskValidated,
   fireTask,
   type TaskScheduler,
 } from "../features/tasks/index.js";
@@ -23,6 +24,13 @@ let scheduler: TaskScheduler | null = null;
  */
 function reconcileTaskTimezones(): void {
   for (const task of listTasks()) {
+    // Clear leftover spent one-shots (e.g. disabled before one-shots were
+    // removed on completion). Recurring tasks paused from the dashboard are
+    // left intact.
+    if (task.scheduleKind === "once" && (!task.enabled || task.nextRunAt == null)) {
+      deleteTaskValidated(task.id, "completed");
+      continue;
+    }
     if (!task.enabled) continue;
     if (task.timezone === config.timezone) continue;
     const nextRunAt = computeNextRun(
@@ -56,6 +64,9 @@ export function startTaskScheduler(): void {
     listDueTasks,
     fireTask,
     markTaskRun,
+    removeTask: (id) => {
+      deleteTaskValidated(id, "completed");
+    },
     logEvent: (event, fields) => logEvent(event, fields as never),
     logEventError: (event, err, fields) =>
       logEventError(event, err, fields as never),

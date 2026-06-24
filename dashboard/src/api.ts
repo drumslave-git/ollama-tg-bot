@@ -502,6 +502,23 @@ export interface TaskUpdatePayload {
   enabled?: boolean;
 }
 
+export type TaskEventKind =
+  | "created"
+  | "updated"
+  | "deleted"
+  | "fired"
+  | "fire_failed";
+
+export interface TaskEvent {
+  id: number;
+  taskId: number | null;
+  kind: TaskEventKind;
+  chatId: number | null;
+  summary: string;
+  detail: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface DataTableSummary {
   id: string;
   label: string;
@@ -866,4 +883,7 @@ export const api = {
     }),
   deleteTask: (id: number) =>
     request<{ ok: boolean }>(`/api/tasks/${id}`, { method: "DELETE" }),
+  getTaskEvents: () => request<{ events: TaskEvent[] }>("/api/tasks/debug"),
+  clearTaskEvents: () =>
+    request<{ ok: boolean }>("/api/tasks/debug", { method: "DELETE" }),
 };

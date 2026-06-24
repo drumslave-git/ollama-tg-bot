@@ -142,9 +142,9 @@ export function registerTasksMcpTools(
     {
       title: "Update scheduled task",
       description:
-        "Change an existing task in this chat — its instruction, time, schedule, or enabled state. " +
+        "Change an existing task in this chat — its instruction, time, or schedule. " +
         "Use when the owner replies to a task's message to reschedule it (the [SESSION] block names the linked task id). " +
-        "Pass only the fields to change. Owner only.",
+        "Pass only the fields to change. To STOP or CANCEL a task, use tasks_delete instead — set enabled:false only to temporarily pause a recurring task. Owner only.",
       inputSchema: z.object({
         id: z.number().int().describe("Task id to update"),
         instruction: z.string().default("").describe("New instruction (optional)"),
@@ -205,8 +205,10 @@ export function registerTasksMcpTools(
     {
       title: "Delete scheduled task",
       description:
-        "Cancel and remove a task in this chat. Use when the owner asks to stop/cancel a task " +
-        "(often by replying to its message — the [SESSION] block names the linked task id). Owner only.",
+        "Permanently remove a task in this chat. This is how you STOP or CANCEL a task — " +
+        "use it whenever the owner says to stop/cancel a task or no longer needs it " +
+        "(often by replying to its message — the [SESSION] block names the linked task id). " +
+        "Prefer this over disabling. Owner only.",
       inputSchema: z.object({
         id: z.number().int().describe("Task id to delete"),
       }),

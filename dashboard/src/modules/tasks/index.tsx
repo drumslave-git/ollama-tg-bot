@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import { TasksPage } from "./TasksPage";
+import { TasksDebugPage } from "./TasksDebugPage";
 
 export interface ModuleUiDefinition {
   id: string;
@@ -10,6 +11,7 @@ export interface ModuleUiDefinition {
 export const moduleUi: ModuleUiDefinition = {
   id: "tasks",
   Page: TasksPage,
+  DebugPage: TasksDebugPage,
 };
 
-export { TasksPage };
+export { TasksPage, TasksDebugPage };

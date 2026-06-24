@@ -2,10 +2,12 @@ import type { DatabaseSync } from "node:sqlite";
 import type { DataTableConfig, ModuleDbExports } from "../../../contracts/index.js";
 import { bindTasksDatabase } from "./tasks.js";
 import { bindTaskMessagesDatabase } from "./task-messages.js";
+import { bindTaskEventsDatabase } from "./task-events.js";
 import { createTasksRouter } from "./routes.js";
 
 export * from "./tasks.js";
 export * from "./task-messages.js";
+export * from "./task-events.js";
 
 const DATA_TABLE_CONFIGS: Record<string, DataTableConfig> = {
   tasks: {
@@ -38,11 +40,20 @@ const DATA_TABLE_CONFIGS: Record<string, DataTableConfig> = {
     countQuery: "SELECT COUNT(*) AS n FROM task_messages",
     timeColumns: ["created_at"],
   },
+  task_events: {
+    label: "Task events",
+    columns: ["id", "task_id", "kind", "chat_id", "summary", "created_at"],
+    query: `SELECT id, task_id, kind, chat_id, summary, created_at
+            FROM task_events ORDER BY id DESC LIMIT ?`,
+    countQuery: "SELECT COUNT(*) AS n FROM task_events",
+    timeColumns: ["created_at"],
+  },
 };
 
 export function bindModuleDatabase(database: DatabaseSync): void {
   bindTasksDatabase(database);
   bindTaskMessagesDatabase(database);
+  bindTaskEventsDatabase(database);
 }
 
 export function createModuleRouter() {

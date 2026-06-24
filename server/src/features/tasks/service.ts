@@ -16,6 +16,7 @@ import {
   type TaskRecord,
 } from "./db/tasks.js";
 import { deleteTaskMessages } from "./db/task-messages.js";
+import { recordTaskEvent } from "./db/task-events.js";
 
 /** Raised on invalid schedule input; callers surface the message to the user. */
 export class TaskValidationError extends Error {}
@@ -113,7 +114,7 @@ export function createTaskValidated(params: CreateTaskParams): TaskRecord {
     throw new TaskValidationError("that date and time is already in the past");
   }
 
-  return createTask({
+  const task = createTask({
     chatId: params.chatId,
     messageThreadId: params.messageThreadId ?? null,
     entityId: params.entityId,
@@ -127,6 +128,14 @@ export function createTaskValidated(params: CreateTaskParams): TaskRecord {
     enabled: params.enabled,
     nextRunAt,
   });
+  recordTaskEvent({
+    taskId: task.id,
+    kind: "created",
+    chatId: task.chatId,
+    summary: summarizeTask(task),
+    detail: { instruction: task.instruction, nextRunAt: task.nextRunAt },
+  });
+  return task;
 }
 
 export function updateTaskValidated(
@@ -155,7 +164,7 @@ export function updateTaskValidated(
     throw new TaskValidationError("instruction is required");
   }
 
-  return updateTask(id, {
+  const updated = updateTask(id, {
     instruction,
     scheduleKind: schedule.scheduleKind,
     timeOfDay: schedule.timeOfDay,
@@ -164,11 +173,37 @@ export function updateTaskValidated(
     enabled,
     nextRunAt,
   });
+  if (updated) {
+    recordTaskEvent({
+      taskId: updated.id,
+      kind: "updated",
+      chatId: updated.chatId,
+      summary: summarizeTask(updated),
+      detail: { instruction: updated.instruction, nextRunAt: updated.nextRunAt },
+    });
+  }
+  return updated;
 }
 
-export function deleteTaskValidated(id: number): boolean {
+export type TaskRemovalReason = "cancelled" | "completed";
+
+export function deleteTaskValidated(
+  id: number,
+  reason: TaskRemovalReason = "cancelled",
+): boolean {
+  const existing = getTaskById(id);
   deleteTaskMessages(id);
-  return deleteTask(id);
+  const deleted = deleteTask(id);
+  if (deleted && existing) {
+    recordTaskEvent({
+      taskId: existing.id,
+      kind: "deleted",
+      chatId: existing.chatId,
+      summary: `${reason === "completed" ? "Completed and removed" : "Cancelled"}: ${existing.instruction}`,
+      detail: { reason, instruction: existing.instruction },
+    });
+  }
+  return deleted;
 }
 
 /** One-line summary for tool confirmations and dashboard display. */

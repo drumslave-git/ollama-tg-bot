@@ -14,9 +14,10 @@ import { getResolvedSettings } from "../../settings/runtime.js";
 import { getMaintenanceAnnounceNumPredict } from "../../settings/limits.js";
 import { getOwnerUserId, getOwnerUsername } from "../../bot/owner/owner.js";
 import { logEvent, logEventError } from "../../logging/event-log.js";
-import { prepareTelegramHtml } from "../../telegram/html.js";
+import { prepareTelegramHtml, visibleTelegramText } from "../../telegram/html.js";
 import type { TaskRecord } from "./db/tasks.js";
 import { recordTaskMessage } from "./db/task-messages.js";
+import { recordTaskEvent } from "./db/task-events.js";
 
 function buildTaskUserMessage(task: TaskRecord): string {
   return (
@@ -73,13 +74,28 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   try {
     reply = await generateTaskMessage(task);
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     logEventError("task_fire_generate_failed", err, { taskId: task.id });
+    recordTaskEvent({
+      taskId: task.id,
+      kind: "fire_failed",
+      chatId: task.chatId,
+      summary: `Generation failed: ${task.instruction}`,
+      detail: { instruction: task.instruction, error: message },
+    });
     return false;
   }
   if (!hasVisibleContent(reply)) {
     // The model echoed only chat tags/punctuation (stripped to nothing) — skip
     // rather than post a meaningless message like ":".
     logEvent("task_fire_empty", { taskId: task.id, raw: reply.slice(0, 80) });
+    recordTaskEvent({
+      taskId: task.id,
+      kind: "fire_failed",
+      chatId: task.chatId,
+      summary: `Empty reply (no visible content): ${task.instruction}`,
+      detail: { instruction: task.instruction, raw: reply.slice(0, 200) },
+    });
     return false;
   }
 
@@ -91,27 +107,48 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   };
   if (task.messageThreadId != null) extra.message_thread_id = task.messageThreadId;
 
-  const messageIds: number[] = [];
+  const sentMessages: { messageId: number; text: string }[] = [];
   try {
     for (const chunk of chunks) {
       const sent = await bot.api.sendMessage(task.chatId, chunk, extra);
-      messageIds.push(sent.message_id);
+      sentMessages.push({
+        messageId: sent.message_id,
+        text: visibleTelegramText(chunk),
+      });
     }
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
     logEventError("task_fire_send_failed", err, { taskId: task.id });
+    recordTaskEvent({
+      taskId: task.id,
+      kind: "fire_failed",
+      chatId: task.chatId,
+      summary: `Send failed: ${task.instruction}`,
+      detail: { instruction: task.instruction, error: message, reply },
+    });
     return false;
   }
 
-  for (const messageId of messageIds) {
-    recordTaskMessage(task.id, String(task.chatId), messageId);
+  for (const sent of sentMessages) {
+    recordTaskMessage(task.id, String(task.chatId), sent.messageId);
   }
   appendAssistantMessage(task.entityId, reply);
   recordReply(false);
   logEvent("task_fired", {
     taskId: task.id,
     chatId: task.chatId,
-    chunks: chunks.length,
+    chunks: sentMessages.length,
     replyChars: reply.length,
+  });
+  recordTaskEvent({
+    taskId: task.id,
+    kind: "fired",
+    chatId: task.chatId,
+    summary: reply.length > 90 ? `${reply.slice(0, 90)}…` : reply,
+    detail: {
+      instruction: task.instruction,
+      sentMessages,
+    },
   });
   return true;
 }

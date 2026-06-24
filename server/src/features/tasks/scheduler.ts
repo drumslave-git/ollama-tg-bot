@@ -9,7 +9,9 @@ export interface TaskSchedulerDeps {
   canFire: () => boolean;
   listDueTasks: (nowIso: string) => TaskRecord[];
   fireTask: (task: TaskRecord) => Promise<boolean>;
-  markTaskRun: (id: number, lastRunAt: string, nextRunAt: string | null) => void;
+  markTaskRun: (id: number, lastRunAt: string, nextRunAt: string) => void;
+  /** Remove a task that has no future run (a fired one-shot). */
+  removeTask: (id: number) => void;
   logEvent?: (event: string, fields?: Record<string, unknown>) => void;
   logEventError?: (
     event: string,
@@ -52,7 +54,13 @@ export function createTaskScheduler(deps: TaskSchedulerDeps) {
         }
         // Advance regardless of fire success so a failing task doesn't busy-loop.
         const next = computeNextRun(scheduleOf(task), new Date(), deps.timezone);
-        deps.markTaskRun(task.id, nowIso, next);
+        if (next === null) {
+          // No future run (a spent one-shot) — remove it rather than leave a
+          // disabled row behind.
+          deps.removeTask(task.id);
+        } else {
+          deps.markTaskRun(task.id, nowIso, next);
+        }
       }
     } catch (err) {
       deps.logEventError?.("task_scheduler_tick_failed", err);

@@ -126,7 +126,7 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
     description:
       "Owner-managed scheduled jobs that post an in-character message into a chat at a wall-clock time (once, daily, or on weekdays).",
     apiBasePath: "/tasks",
-    dataTables: ["tasks", "task_messages"],
+    dataTables: ["tasks", "task_messages", "task_events"],
     dashboard: {
       label: "Tasks",
       description: "View and manage scheduled tasks per chat.",

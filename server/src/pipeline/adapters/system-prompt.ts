@@ -80,7 +80,10 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
       `- ${TASKS_CREATE_TOOL_NAME}(instruction, schedule_kind, time, weekdays?, date?): Owner only. Create a scheduled task that posts into this chat at a wall-clock time — 'daily', 'weekly' (weekdays 0=Sun..6=Sat), or 'once' (date YYYY-MM-DD); time is HH:MM. Use when the owner asks for something recurring or a future reminder.`,
     );
     lines.push(
-      `- ${TASKS_UPDATE_TOOL_NAME}(id, …) / ${TASKS_DELETE_TOOL_NAME}(id): Owner only. Change or cancel an existing task. When the owner replies to a task's message (the [SESSION] block names the task id), use these to reschedule or stop it.`,
+      `- ${TASKS_UPDATE_TOOL_NAME}(id, …): Owner only. Change an existing task's time, schedule, or instruction. When the owner replies to a task's message (the [SESSION] block names the task id), use this to reschedule it.`,
+    );
+    lines.push(
+      `- ${TASKS_DELETE_TOOL_NAME}(id): Owner only. Permanently remove a task. When the owner says to stop/cancel a task or no longer needs it (often by replying to its message), use this — do NOT just disable it.`,
     );
     lines.push(
       `- ${TASKS_LIST_TOOL_NAME}(): Owner only. List this chat's scheduled tasks to answer "what reminders/tasks do I have?".`,
@@ -144,7 +147,7 @@ export function buildSessionBlock(session: SessionContext): string {
   }
   if (session.repliedTask) {
     lines.push(
-      `this message replies to scheduled task #${session.repliedTask.id} ("${session.repliedTask.instruction}") — if the owner wants to reschedule or stop it, call tasks_update or tasks_delete with id ${session.repliedTask.id}.`,
+      `this message replies to scheduled task #${session.repliedTask.id} ("${session.repliedTask.instruction}") — to reschedule it call tasks_update with id ${session.repliedTask.id}; to stop/cancel it call tasks_delete with id ${session.repliedTask.id} (delete, do not just disable).`,
     );
   }
   lines.push(`current time: ${iso}`);
