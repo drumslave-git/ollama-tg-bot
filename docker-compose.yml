@@ -12,6 +12,7 @@ services:
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       VRAM_AVAILABLE: ${VRAM_AVAILABLE:?Set VRAM_AVAILABLE}
       LOGGING_LEVEL: ${LOGGING_LEVEL:-}
+      TZ: ${TZ:-UTC}
       NODE_ENV: production
       PORT: ${PORT:-3000}
     volumes:
