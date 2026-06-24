@@ -1,0 +1,117 @@
+import {
+  extractTelegramReply,
+  getMainReplyResponseFormat,
+} from "../completions/index.js";
+import { getBot } from "../../bot/index.js";
+import { splitTelegramMessage } from "../../bot/replies/delivery.js";
+import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
+import { appendAssistantMessage } from "../../db/history/index.js";
+import { getEffectiveMood } from "../../db/mood/index.js";
+import { recordReply } from "../../db/index.js";
+import { chatCompleteDetailed } from "../../llm/client.js";
+import { buildSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
+import { getResolvedSettings } from "../../settings/runtime.js";
+import { getMaintenanceAnnounceNumPredict } from "../../settings/limits.js";
+import { getOwnerUserId, getOwnerUsername } from "../../bot/owner/owner.js";
+import { logEvent, logEventError } from "../../logging/event-log.js";
+import { prepareTelegramHtml } from "../../telegram/html.js";
+import type { TaskRecord } from "./db/tasks.js";
+import { recordTaskMessage } from "./db/task-messages.js";
+
+function buildTaskUserMessage(task: TaskRecord): string {
+  return (
+    `[SCHEDULED TASK] A standing task you set up for this chat is now due. Deliver it now.\n` +
+    `Directive: ${task.instruction}\n\n` +
+    `Write ONE short, natural, in-character chat message that *performs* this directive right now. ` +
+    `The message IS the reminder/nudge itself, spoken to the people it concerns.\n` +
+    `- Do NOT restate the directive as an instruction. Never write "remind X to ..." / "Нагадай ..." — instead say what you would actually tell them. (e.g. directive "remind me to call mom" → "Hey, don't forget to call your mom".)\n` +
+    `- Write the ENTIRE message in the same language as the directive. Do not mix languages.\n` +
+    `- Address people by @username when you know it, otherwise by name. If it concerns the chat owner themselves, address them directly ("you").\n` +
+    `- Plain spoken text only. NEVER output raw chat tags such as [user:name:id], [assistant said], or any metadata.\n` +
+    `- Vary the wording from previous times; do not mention that this is scheduled or automated.\n` +
+    `Output only the message text.`
+  );
+}
+
+/** True when the text has at least one letter or digit (not just punctuation). */
+function hasVisibleContent(text: string): boolean {
+  return /[\p{L}\p{N}]/u.test(text);
+}
+
+async function generateTaskMessage(task: TaskRecord): Promise<string> {
+  const settings = getResolvedSettings();
+  const systemPrompt = buildSystemPrompt({
+    settings,
+    customPrompt: getActivePersonalityPrompt(),
+    knownChatUsers: [],
+    isGroupChat: task.entityId !== String(task.chatId),
+    ownerUserId: getOwnerUserId(),
+    ownerUsername: getOwnerUsername(),
+    mood: getEffectiveMood(),
+    entityId: task.entityId,
+  });
+
+  const { raw } = await chatCompleteDetailed(
+    [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: buildTaskUserMessage(task) },
+    ],
+    {
+      auxiliary: true,
+      responseFormat: getMainReplyResponseFormat(),
+      numPredict: getMaintenanceAnnounceNumPredict(settings),
+      traceLabel: "task fire",
+    },
+  );
+
+  return extractTelegramReply(raw);
+}
+
+/** Generate and deliver one task's message; record the message→task links. */
+export async function fireTask(task: TaskRecord): Promise<boolean> {
+  let reply: string;
+  try {
+    reply = await generateTaskMessage(task);
+  } catch (err) {
+    logEventError("task_fire_generate_failed", err, { taskId: task.id });
+    return false;
+  }
+  if (!hasVisibleContent(reply)) {
+    // The model echoed only chat tags/punctuation (stripped to nothing) — skip
+    // rather than post a meaningless message like ":".
+    logEvent("task_fire_empty", { taskId: task.id, raw: reply.slice(0, 80) });
+    return false;
+  }
+
+  const html = prepareTelegramHtml(reply);
+  const chunks = splitTelegramMessage(html);
+  const bot = getBot();
+  const extra: { parse_mode: "HTML"; message_thread_id?: number } = {
+    parse_mode: "HTML",
+  };
+  if (task.messageThreadId != null) extra.message_thread_id = task.messageThreadId;
+
+  const messageIds: number[] = [];
+  try {
+    for (const chunk of chunks) {
+      const sent = await bot.api.sendMessage(task.chatId, chunk, extra);
+      messageIds.push(sent.message_id);
+    }
+  } catch (err) {
+    logEventError("task_fire_send_failed", err, { taskId: task.id });
+    return false;
+  }
+
+  for (const messageId of messageIds) {
+    recordTaskMessage(task.id, String(task.chatId), messageId);
+  }
+  appendAssistantMessage(task.entityId, reply);
+  recordReply(false);
+  logEvent("task_fired", {
+    taskId: task.id,
+    chatId: task.chatId,
+    chunks: chunks.length,
+    replyChars: reply.length,
+  });
+  return true;
+}

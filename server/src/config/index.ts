@@ -27,6 +27,11 @@ function resolveLlmApiKey(): string {
   return (process.env.LLM_API_KEY ?? "").trim();
 }
 
+function resolveTimezone(): string {
+  const raw = (process.env.TZ ?? "").trim();
+  return raw || "UTC";
+}
+
 export type LoggingLevel = "ERROR" | "DEBUG";
 
 function resolveLoggingLevel(): LoggingLevel {
@@ -115,4 +120,6 @@ export const config = {
   llmApiKey: resolveLlmApiKey(),
   /** ERROR = errors only; DEBUG = lifecycle events. Use dashboard Debug page for message traces. */
   loggingLevel: resolveLoggingLevel(),
+  /** IANA timezone (TZ env, default UTC). Scheduled tasks fire at wall-clock times in this zone. */
+  timezone: resolveTimezone(),
 };

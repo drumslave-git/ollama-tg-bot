@@ -14,6 +14,12 @@ import {
   MEMORY_SEARCH_TOOL_NAME,
   MEMORY_SAVE_TOOL_NAME,
 } from "../../features/memory/mcp-tools.js";
+import {
+  TASKS_CREATE_TOOL_NAME,
+  TASKS_UPDATE_TOOL_NAME,
+  TASKS_DELETE_TOOL_NAME,
+  TASKS_LIST_TOOL_NAME,
+} from "../../features/tasks/mcp-tools.js";
 import type { Settings } from "../../db/index.js";
 import {
   formatKnownUserLabel,
@@ -69,6 +75,17 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
       `- ${MEMORY_SAVE_TOOL_NAME}(type, id, content): Append ONE durable fact to memory — stable preferences, identity, boundaries, group norms, or lasting behavior lessons. Do not save passing chit-chat or anything already stored.`,
     );
   }
+  if (enabledToolNames.includes(TASKS_CREATE_TOOL_NAME)) {
+    lines.push(
+      `- ${TASKS_CREATE_TOOL_NAME}(instruction, schedule_kind, time, weekdays?, date?): Owner only. Create a scheduled task that posts into this chat at a wall-clock time — 'daily', 'weekly' (weekdays 0=Sun..6=Sat), or 'once' (date YYYY-MM-DD); time is HH:MM. Use when the owner asks for something recurring or a future reminder.`,
+    );
+    lines.push(
+      `- ${TASKS_UPDATE_TOOL_NAME}(id, …) / ${TASKS_DELETE_TOOL_NAME}(id): Owner only. Change or cancel an existing task. When the owner replies to a task's message (the [SESSION] block names the task id), use these to reschedule or stop it.`,
+    );
+    lines.push(
+      `- ${TASKS_LIST_TOOL_NAME}(): Owner only. List this chat's scheduled tasks to answer "what reminders/tasks do I have?".`,
+    );
+  }
   if (enabledToolNames.includes(FETCH_LINK_TOOL_NAME)) {
     lines.push(
       `- ${FETCH_LINK_TOOL_NAME}(url): Call when the user shares an http(s) URL or asks about page content you do not already have in this turn. Fetch first, then answer from the returned text.`,
@@ -87,6 +104,14 @@ export interface SessionContext {
   now: Date;
   groupChatId?: string | null;
   currentUserId?: string | null;
+  /** Current speaker's history tag without brackets, e.g. `user:alice:123`. */
+  currentUserTag?: string | null;
+  /** Current speaker's friendly label, e.g. `Alice (@alice)`. */
+  currentUserLabel?: string | null;
+  /** Whether the current speaker is the owner (gates the tasks tools). */
+  currentUserIsOwner?: boolean;
+  /** Set when this turn replies to one of a task's fired messages. */
+  repliedTask?: { id: number; instruction: string } | null;
 }
 
 /**
@@ -105,8 +130,21 @@ export function buildSessionBlock(session: SessionContext): string {
     );
   }
   if (session.currentUserId) {
+    const tag = session.currentUserTag ? `, tag [${session.currentUserTag}]` : "";
+    const label = session.currentUserLabel ? ` — ${session.currentUserLabel}` : "";
     lines.push(
-      `current speaker id: ${session.currentUserId} (pass as id to memory tools for type 'user')`,
+      `current speaker id: ${session.currentUserId}${tag}${label} ` +
+        `(pass the id to memory tools for type 'user'; refer to this person with their tag when you need to mention them)`,
+    );
+  }
+  if (session.currentUserIsOwner) {
+    lines.push(
+      `the current speaker is the OWNER — you may create, change, or cancel scheduled tasks for this chat with the tasks_* tools when they ask.`,
+    );
+  }
+  if (session.repliedTask) {
+    lines.push(
+      `this message replies to scheduled task #${session.repliedTask.id} ("${session.repliedTask.instruction}") — if the owner wants to reschedule or stop it, call tasks_update or tasks_delete with id ${session.repliedTask.id}.`,
     );
   }
   lines.push(`current time: ${iso}`);
@@ -171,6 +209,10 @@ export interface SystemPromptOptions {
   mood?: MoodValues | null;
   entityId?: string | null;
   now?: Date;
+  currentUserTag?: string | null;
+  currentUserLabel?: string | null;
+  currentUserIsOwner?: boolean;
+  repliedTask?: { id: number; instruction: string } | null;
 }
 
 export function buildBaseSystemPrompt(settings: Settings): string {
@@ -229,6 +271,10 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
     mood = null,
     entityId = null,
     now,
+    currentUserTag = null,
+    currentUserLabel = null,
+    currentUserIsOwner = false,
+    repliedTask = null,
   } = options;
 
   const { systemHint, formatHint } = getReplyLengthGuidance(settings);
@@ -240,6 +286,10 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
       now: now ?? new Date(),
       groupChatId: isGroupChat ? groupChatId : null,
       currentUserId,
+      currentUserTag,
+      currentUserLabel,
+      currentUserIsOwner,
+      repliedTask,
     })}`;
   }
 

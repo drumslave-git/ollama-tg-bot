@@ -62,6 +62,7 @@ Shared infrastructure: `server/src/shared/` (structured-output helpers, auxiliar
 | `features/mood` | Personality + mood injection; `/mood` command |
 | `features/sticker` | Sticker selection pass; `/explain`-style picks |
 | `features/memory` | Per-user/group/general memory via always-on MCP tools (get/search/save) + debounced background cleanup job |
+| `features/tasks` | Owner-managed scheduled jobs (once/daily/weekly) that fire an in-character message into a chat at a wall-clock time; always-on `tasks_*` MCP tools + an independent wall-clock scheduler |
 
 The static module registry (`server/src/runtime/module-registry.ts`) lists each feature's metadata, db exports, and MCP registrar. Pipeline order is declared explicitly in `server/src/runtime/module-hosts.ts`.
 
@@ -93,6 +94,7 @@ To add a feature: create `server/src/features/<name>/`, implement the pipeline h
 | `TAVILY_API_KEY` | Optional web search via Tavily |
 | `PORT` | Docker/production listen port only — not for local dev |
 | `DATABASE_PATH` | Optional SQLite path (default `data/bot.db`) |
+| `TZ` | Optional IANA timezone for scheduled tasks (default `UTC`); tasks fire at wall-clock times in this zone |
 
 Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (SQLite), not `.env`.
 
@@ -141,10 +143,22 @@ Three layers (per-user, per-group, general — see `server/src/db/*-memory.ts`),
 
 A **debounced background maintenance job** (`server/src/features/memory/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) runs when the message queue is idle. It does not extract from history; it validates each existing memory document via an LLM cleanup pass (reusing the merge prompt with no new input) to dedupe, drop stale/contradicted lines, and compact. Per-record content fingerprints in `memory_job_chat_state` skip unchanged records.
 
+### Tasks (scheduled jobs)
+
+Owner-managed scheduled jobs that post an in-character message into a chat at a wall-clock time — `once` (date + time), `daily` (time), or `weekly` (weekday mask + time), like calendar events. Created/changed/cancelled **fully verbally** by the owner through always-on MCP tools (the LLM decides — no commands), and via the dashboard Tasks page.
+
+- **MCP tools** (`server/src/features/tasks/mcp-tools.ts`, always-on like memory): `tasks_create`, `tasks_update`, `tasks_delete`, `tasks_get`, `tasks_list`, `tasks_search`. **Owner-gated and chat-bound** via per-turn context (`turn-context.ts`): `systemPromptHost` calls `captureTaskTurnContext(state)` before the main-reply tool loop, so the tools read the current chat/owner/replied-task from a module-level variable (safe — the queue processes one addressed turn at a time). Non-owner calls are rejected in the tool; chat id and creator are taken from context, never from model-passed args.
+- **Schedule math** (`schedule.ts`): dependency-free via `Intl`. `computeNextRun(schedule, from, timezone)` returns the next UTC instant (or `null` for a spent `once` task). Timezone comes from the `TZ` env (`config.timezone`) — a single global zone. Each task stores the `timezone` it was created under; on startup `startTaskScheduler` reconciles any enabled task whose stored timezone differs from the current `TZ` (recompute `next_run_at`, re-pin `timezone`), so changing `TZ` re-homes existing tasks without recreating them.
+- **Wall-clock scheduler** (`scheduler.ts`, wired in `server/src/runtime/task-scheduler.ts`, started from `server/src/index.ts`): polls every ~30s (independent of the message queue — unlike the debounced memory/vision jobs), fires due tasks, then advances `next_run_at`. Paused while maintenance mode is on.
+- **Fire path** (`fire.ts`): runs a short in-character LLM pass (personality + mood, like the maintenance announce) to produce a fresh variation each time, sends it via `getBot()`, appends to history, and records the sent `message_id → task_id` in `task_messages`.
+- **Reply to edit/cancel**: when an addressed message replies to one of a task's fired messages, `getTaskIdByMessage` resolves the task and a `[SESSION]` line names it so the model can `tasks_update`/`tasks_delete` it verbally (mirrors the reply→trace link used by `/explain`).
+- **DB** (`server/src/features/tasks/db/`): tables `tasks` and `task_messages`; REST CRUD under `/api/tasks`. Schedule validation + next-run computation live in `service.ts` (shared by routes and MCP tools). Dashboard page: `dashboard/src/modules/tasks/`.
+
 ### Group behavior
 
 - Bot responds when @mentioned, replied to, display name is spoken (regex or LLM for other languages), or on random/image toggles.
 - Per-member history in groups (`conversationKey` includes `userId`).
+- The `[SESSION]` block surfaces the current speaker's id **plus** their `[user:name:id]` tag and friendly label in **all** chats (DMs included), so the model can mention them properly instead of falling back to a bare id (`buildSessionBlock` in `server/src/pipeline/adapters/system-prompt.ts`). The group-only `[CURRENT SPEAKER]` turn block is separate from this.
 - Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain` (completions module), `/remember`.
 - **Maintenance mode** (`maintenanceModeEnabled`): only the owner can reach the pipeline; in groups the owner must also include a direct @mention of the bot — gate in `handlers/message.ts`. Toggling maintenance mode from the dashboard triggers an LLM-generated in-character announcement broadcast to every distinct `chat_history` chat key.
 
@@ -229,6 +243,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Link fetch | `server/src/features/link-fetch/` (`fetch_link` MCP tool; Playwright) |
 | Sticker selection | `server/src/features/sticker/` |
 | Mood evaluation | `server/src/features/mood/` (+ `db/`; personality + mood hosts, `/mood` bot host) |
+| Tasks | `server/src/features/tasks/` (`schedule.ts`, `scheduler.ts`, `fire.ts`, `turn-context.ts`, `service.ts`, `mcp-tools.ts`, `db/`); scheduler wiring `server/src/runtime/task-scheduler.ts` |
 | HTML replies | `server/src/telegram/html.ts`, `server/src/bot/replies/delivery.ts` |
 
 ## Testing

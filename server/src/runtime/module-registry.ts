@@ -10,6 +10,9 @@ import { registerMcpTools as registerHistoryTools } from "../features/history/re
 import { HISTORY_TOOL_NAMES } from "../features/history/mcp-tools.js";
 import { registerMcpTools as registerMemoryTools } from "../features/memory/register-mcp-tools.js";
 import { MEMORY_TOOL_NAMES } from "../features/memory/mcp-tools.js";
+import { tasksDbModule } from "../features/tasks/db/index.js";
+import { registerMcpTools as registerTasksTools } from "../features/tasks/register-mcp-tools.js";
+import { TASKS_TOOL_NAMES } from "../features/tasks/mcp-tools.js";
 
 /**
  * Static registry of feature modules. Replaces the former manifest.json
@@ -116,6 +119,27 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
     },
     hasUi: true,
     db: moodEvaluationDbModule,
+  },
+  {
+    id: "tasks",
+    name: "Tasks",
+    description:
+      "Owner-managed scheduled jobs that post an in-character message into a chat at a wall-clock time (once, daily, or on weekdays).",
+    apiBasePath: "/tasks",
+    dataTables: ["tasks", "task_messages"],
+    dashboard: {
+      label: "Tasks",
+      description: "View and manage scheduled tasks per chat.",
+    },
+    hasUi: true,
+    db: tasksDbModule,
+    mcpTools: {
+      // Always on — owner-gated at call time via per-turn context.
+      workflowStepId: "tasks",
+      toolNames: TASKS_TOOL_NAMES,
+      registrar: registerTasksTools,
+      alwaysOn: true,
+    },
   },
   {
     id: "sticker-selection",

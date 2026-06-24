@@ -8,6 +8,8 @@ import { getActivePersonalityPrompt } from "../db/personalities/index.js";
 import { getEffectiveMood } from "../db/mood/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
+import { getTaskTurnContext } from "../features/tasks/index.js";
+import { getTaskById } from "../features/tasks/db/index.js";
 import { buildSystemPrompt } from "./adapters/system-prompt.js";
 import {
   buildChatMessages,
@@ -40,11 +42,19 @@ function appendWebSearchSources(
   return `${reply.trim()}\n\nSources:\n${lines.join("\n")}`;
 }
 
+/** The task a turn replies to (when it replies to a task's fired message). */
+function resolveRepliedTask(): { id: number; instruction: string } | null {
+  const repliedTaskId = getTaskTurnContext()?.repliedTaskId ?? null;
+  const record = repliedTaskId != null ? getTaskById(repliedTaskId) : null;
+  return record ? { id: record.id, instruction: record.instruction } : null;
+}
+
 export function buildSystemPromptForTurn(state: PipelineTurnState): string {
   const settings = getResolvedSettings();
   const groupChatId = state.groupChatId;
   const personalityPrompt =
     state.personalityPrompt ?? getActivePersonalityPrompt();
+  const speaker = state.currentSpeaker as { label?: string } | null | undefined;
 
   return buildSystemPrompt({
     settings,
@@ -53,11 +63,15 @@ export function buildSystemPromptForTurn(state: PipelineTurnState): string {
     isGroupChat: state.inGroup,
     groupChatId,
     currentUserId: state.userId,
+    currentUserTag: state.userRole ?? null,
+    currentUserLabel: speaker?.label ?? null,
     ownerUserId: getOwnerUserId(),
     ownerUsername: getOwnerUsername(),
     mood: (state.mood ?? getEffectiveMood()) as MoodValues | null,
     entityId: state.convKey,
     now: new Date(),
+    currentUserIsOwner: state.currentSpeakerIsOwner === true,
+    repliedTask: resolveRepliedTask(),
   });
 }
 
@@ -94,6 +108,8 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
       ownerUserId: getOwnerUserId(),
       ownerUsername: getOwnerUsername(),
       mood: (state.mood ?? getEffectiveMood()) as MoodValues | null,
+      currentUserIsOwner: state.currentSpeakerIsOwner === true,
+      repliedTask: resolveRepliedTask(),
     },
   );
 }

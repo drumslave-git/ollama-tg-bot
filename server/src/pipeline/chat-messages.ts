@@ -131,6 +131,8 @@ export function buildChatMessages(
     ownerUserId?: string | null;
     ownerUsername?: string | null;
     mood?: MoodValues | null;
+    currentUserIsOwner?: boolean;
+    repliedTask?: { id: number; instruction: string } | null;
   },
 ): BuiltChatPayload {
   const {
@@ -141,6 +143,8 @@ export function buildChatMessages(
     ownerUserId = null,
     ownerUsername = null,
     mood = null,
+    currentUserIsOwner = false,
+    repliedTask = null,
   } = options;
 
   const knownChatUsers = loadKnownChatUsers(chatKey, currentUserId);
@@ -152,11 +156,15 @@ export function buildChatMessages(
     isGroupChat,
     groupChatId,
     currentUserId,
+    currentUserTag: latestTurn.speakerTag ?? null,
+    currentUserLabel: latestTurn.currentSpeaker?.label ?? null,
     ownerUserId,
     ownerUsername,
     mood,
     entityId: chatKey,
     now: new Date(),
+    currentUserIsOwner,
+    repliedTask,
   });
 
   // History is no longer injected — the model pulls it on demand via the

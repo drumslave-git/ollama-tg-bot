@@ -21,6 +21,10 @@ import {
 import { loadMcpTools } from "./runtime/mcp-tools.js";
 import { initQueueSchedulers } from "./runtime/background-jobs.js";
 import {
+  startTaskScheduler,
+  stopTaskScheduler,
+} from "./runtime/task-scheduler.js";
+import {
   emitDataUpdated,
   emitMemoryUpdated,
   emitMoodUpdated,
@@ -77,10 +81,12 @@ async function main(): Promise<void> {
   const liveSocket = initLiveSocket(server);
 
   await startBot();
+  startTaskScheduler();
 
   const shutdown = async () => {
     logInfo("Shutting down...");
     stopMoodCooldownWorker();
+    stopTaskScheduler();
     await stopBot();
     await closePlaywrightBrowser();
     liveSocket.close();

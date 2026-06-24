@@ -459,6 +459,49 @@ export interface GeneralMemoryFact {
   createdAt: string;
 }
 
+export type TaskScheduleKind = "once" | "daily" | "weekly";
+
+export interface Task {
+  id: number;
+  chatId: number;
+  messageThreadId: number | null;
+  entityId: string;
+  createdByUserId: string;
+  instruction: string;
+  scheduleKind: TaskScheduleKind;
+  timeOfDay: string;
+  weekdays: number[] | null;
+  runDate: string | null;
+  timezone: string;
+  enabled: boolean;
+  lastRunAt: string | null;
+  nextRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaskInputPayload {
+  chatId: number;
+  instruction: string;
+  scheduleKind: TaskScheduleKind;
+  timeOfDay: string;
+  weekdays?: number[];
+  runDate?: string | null;
+  enabled?: boolean;
+  messageThreadId?: number | null;
+  entityId?: string;
+  createdByUserId?: string;
+}
+
+export interface TaskUpdatePayload {
+  instruction?: string;
+  scheduleKind?: TaskScheduleKind;
+  timeOfDay?: string;
+  weekdays?: number[] | null;
+  runDate?: string | null;
+  enabled?: boolean;
+}
+
 export interface DataTableSummary {
   id: string;
   label: string;
@@ -810,4 +853,17 @@ export const api = {
     ),
   getDebugTrace: (id: number) =>
     request<{ trace: MessageReportDetail }>(`/api/debug/trace/${id}`),
+  getTasks: () => request<{ tasks: Task[] }>("/api/tasks"),
+  createTask: (payload: TaskInputPayload) =>
+    request<{ task: Task }>("/api/tasks", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateTask: (id: number, patch: TaskUpdatePayload) =>
+    request<{ task: Task }>(`/api/tasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteTask: (id: number) =>
+    request<{ ok: boolean }>(`/api/tasks/${id}`, { method: "DELETE" }),
 };

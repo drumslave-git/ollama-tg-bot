@@ -51,6 +51,35 @@ describe("buildSystemPrompt", () => {
     expect(dm).not.toContain("group id:");
   });
 
+  it("surfaces the current speaker's id, tag, and label in DMs (not just the id)", () => {
+    const dm = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      isGroupChat: false,
+      entityId: "dm-1",
+      currentUserId: "312973896",
+      currentUserTag: "user:alice:312973896",
+      currentUserLabel: "Alice (@alice)",
+    });
+    expect(dm).toContain("current speaker id: 312973896");
+    expect(dm).toContain("[user:alice:312973896]");
+    expect(dm).toContain("Alice (@alice)");
+  });
+
+  it("notes owner status and a replied-to task in the session block", () => {
+    const prompt = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      entityId: "dm-1",
+      currentUserId: "42",
+      currentUserIsOwner: true,
+      repliedTask: { id: 7, instruction: "ask how they are doing" },
+    });
+    expect(prompt).toContain("OWNER");
+    expect(prompt).toContain("tasks_update");
+    expect(prompt).toContain("#7");
+  });
+
   it("includes the owner section and mood when provided", () => {
     const prompt = buildSystemPrompt({
       settings: makeSettings(),
