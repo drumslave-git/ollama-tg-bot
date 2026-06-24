@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useDashboard } from "../context/DashboardContext";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { Badge, badgeVariant } from "../components/ui/Badge";
@@ -8,19 +9,82 @@ import {
   useLiveClock,
 } from "../pages/debug/debugUtils";
 
-const navItems = [
-  { to: "/", label: "Overview", end: true },
-  { to: "/character", label: "Character", end: false },
-  { to: "/history", label: "History", end: false },
-  { to: "/memory", label: "Memory", end: false },
-  { to: "/mood", label: "Mood", end: false },
-  { to: "/tasks", label: "Tasks", end: false },
-  { to: "/vision", label: "Vision", end: false },
-  { to: "/settings", label: "Settings", end: false },
-  { to: "/debug", label: "Debug", end: false },
-  { to: "/data", label: "Data", end: false },
-  { to: "/workflow", label: "Workflow", end: false },
-] as const;
+interface NavItem {
+  to: string;
+  label: string;
+  end?: boolean;
+}
+
+interface NavSection {
+  label: string | null;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    label: null,
+    items: [{ to: "/", label: "Overview", end: true }],
+  },
+  {
+    label: "Persona",
+    items: [
+      { to: "/character", label: "Character" },
+      { to: "/mood", label: "Mood" },
+    ],
+  },
+  {
+    label: "Content",
+    items: [
+      { to: "/history", label: "History" },
+      { to: "/memory", label: "Memory" },
+      { to: "/vision", label: "Vision" },
+      { to: "/tasks", label: "Tasks" },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { to: "/settings", label: "Settings" },
+      { to: "/workflow", label: "Workflow" },
+      { to: "/debug", label: "Debug" },
+      { to: "/data", label: "Data" },
+    ],
+  },
+];
+
+function MenuIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
 
 export function AppLayout() {
   const {
@@ -34,6 +98,14 @@ export function AppLayout() {
     load,
   } = useDashboard();
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  // Close the mobile menu whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
   const memoryScheduled = stats?.memoryJobStatus === "scheduled";
   const visionScheduled = stats?.visionJobStatus === "scheduled";
   const now = useLiveClock(memoryScheduled || visionScheduled);
@@ -46,39 +118,70 @@ export function AppLayout() {
 
   return (
     <div className="min-h-screen">
+      {/* Mobile top bar with hamburger toggle. */}
+      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-surface px-4 py-3 md:hidden">
+        <div>
+          <h1 className="m-0 text-base font-bold tracking-tight">LLM Bot</h1>
+        </div>
+        <button
+          type="button"
+          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={menuOpen}
+          aria-controls="main-nav"
+          onClick={() => setMenuOpen((open) => !open)}
+          className="inline-flex items-center justify-center rounded-md border border-border p-2 text-muted transition-colors hover:bg-surface-hover hover:text-text"
+        >
+          {menuOpen ? <CloseIcon /> : <MenuIcon />}
+        </button>
+      </header>
+
       <aside
+        id="main-nav"
         className={cn(
-          "z-40 flex shrink-0 flex-col gap-6 border-border bg-surface",
-          "sticky top-0 w-full border-b p-4",
-          "md:fixed md:inset-y-0 md:left-0 md:w-60 md:overflow-y-auto md:border-b-0 md:border-r md:p-6",
+          "z-30 flex-col gap-6 border-border bg-surface",
+          "border-b p-4",
+          "md:fixed md:inset-y-0 md:left-0 md:flex md:w-60 md:overflow-y-auto md:border-b-0 md:border-r md:p-6",
+          menuOpen ? "flex" : "hidden md:flex",
         )}
       >
-        <div>
+        <div className="hidden md:block">
           <h1 className="m-0 mb-0.5 text-lg font-bold tracking-tight">
             LLM Bot
           </h1>
           <p className="m-0 text-sm text-muted">Dashboard</p>
         </div>
 
-        <nav
-          className="flex flex-row flex-wrap gap-1 md:flex-col"
-          aria-label="Main"
-        >
-          {navItems.map(({ to, label, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn(
-                  "block rounded-md px-3 py-2 text-sm font-medium text-muted no-underline transition-colors",
-                  "hover:bg-surface-hover hover:text-text",
-                  isActive && "bg-accent/10 text-accent",
-                )
-              }
+        <nav className="flex flex-col gap-4" aria-label="Main">
+          {navSections.map((section) => (
+            <div
+              key={section.label ?? "main"}
+              className={cn(
+                "flex flex-col gap-1",
+                section.label && "border-t border-border pt-4",
+              )}
             >
-              {label}
-            </NavLink>
+              {section.label ? (
+                <span className="mb-1.5 px-3 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-muted/80">
+                  {section.label}
+                </span>
+              ) : null}
+              {section.items.map(({ to, label, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    cn(
+                      "block rounded-md px-3 py-2 text-sm font-medium text-muted no-underline transition-colors",
+                      "hover:bg-surface-hover hover:text-text",
+                      isActive && "bg-accent/10 text-accent",
+                    )
+                  }
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
 
