@@ -1,5 +1,5 @@
 export function memoryDebugRunPath(runId: number): string {
-  return `/modules/memory/debug/${runId}`;
+  return `/memory/debug/${runId}`;
 }
 
 export function parseMemoryDebugRunId(value: string | undefined): number | null {

@@ -10,7 +10,7 @@ function manifestByModuleId(): Map<string, { name: string; description: string }
   const map = new Map<string, { name: string; description: string }>();
   for (const entry of getModuleEntries()) {
     map.set(entry.id, {
-      name: entry.dashboard?.label ?? entry.name,
+      name: entry.name,
       description: entry.description,
     });
   }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useParams } from "react-router-dom";
-import { api, type VisionJobRunDetail } from "@llm-tg-bot/dashboard/api";
+import { api, type MemoryJobRunDetail } from "@llm-tg-bot/dashboard/api";
 import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { useLiveStats } from "@llm-tg-bot/dashboard/liveSocket";
@@ -15,7 +15,7 @@ import {
   PhaseRow,
   statusClass,
 } from "@llm-tg-bot/dashboard/pages/debug/DebugReportParts";
-import { parseVisionDebugRunId } from "./debugPaths";
+import { parseMemoryDebugRunId } from "./debugPaths";
 
 function badgeClass(status: string): string {
   const base =
@@ -34,11 +34,11 @@ const metaDd = "m-0 text-[0.92rem]";
 const fieldsGrid =
   "m-0 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-x-4 gap-y-3";
 
-export function VisionDebugRunDetail() {
+export function MemoryDebugRunDetail() {
   const { runId: runIdParam } = useParams();
-  const runId = parseVisionDebugRunId(runIdParam);
+  const runId = parseMemoryDebugRunId(runIdParam);
   const { apiOnline } = useDashboard();
-  const [detail, setDetail] = useState<VisionJobRunDetail | null>(null);
+  const [detail, setDetail] = useState<MemoryJobRunDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<unknown>(null);
 
@@ -48,7 +48,7 @@ export function VisionDebugRunDetail() {
       if (!silent) setLoading(true);
       setError(null);
       try {
-        const data = await api.getVisionJobRun(runId);
+        const data = await api.getMemoryJobRun(runId);
         setDetail(data.run);
       } catch (err) {
         setError(err);
@@ -89,7 +89,7 @@ export function VisionDebugRunDetail() {
       : null;
 
   if (runId == null) {
-    return <Navigate to="/modules/vision/debug" replace />;
+    return <Navigate to="/memory/debug" replace />;
   }
 
   const outcomeStatus =
@@ -143,12 +143,12 @@ export function VisionDebugRunDetail() {
                 <dd className={metaDd}>{report.chatsScanned}</dd>
               </div>
               <div>
-                <dt className={metaDt}>Backfilled</dt>
-                <dd className={metaDd}>{report.mediaBackfilled}</dd>
+                <dt className={metaDt}>Processed</dt>
+                <dd className={metaDd}>{report.chatsProcessed}</dd>
               </div>
               <div>
-                <dt className={metaDt}>Failed</dt>
-                <dd className={metaDd}>{report.mediaFailed}</dd>
+                <dt className={metaDt}>Skipped</dt>
+                <dd className={metaDd}>{report.chatsSkipped}</dd>
               </div>
               {detail.runAt ? (
                 <div>

@@ -10,9 +10,13 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { DataPage } from "./pages/DataPage";
 import { DebugPage } from "./pages/DebugPage";
 import { WorkflowPage } from "./pages/WorkflowPage";
-import { ModulesPage } from "./pages/ModulesPage";
-import { ModuleDetailPage } from "./pages/ModuleDetailPage";
-import { ModuleDebugPage } from "./pages/ModuleDebugPage";
+import { HistoryPage } from "./features/history/HistoryPage";
+import { MemoriesPage } from "./features/memory/MemoriesPage";
+import { MemoryDebugPage } from "./features/memory/MemoryDebugPage";
+import { MoodPage } from "./features/mood-evaluation/MoodPage";
+import { TasksPage } from "./features/tasks/TasksPage";
+import { TasksDebugPage } from "./features/tasks/TasksDebugPage";
+import { VisionPage } from "./features/vision/VisionPage";
 
 function DashboardRoutes() {
   const {
@@ -54,15 +58,36 @@ function DashboardRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<OverviewPage />} />
         <Route path="character" element={<CharacterPage />} />
+        <Route path="history" element={<HistoryPage />} />
+        <Route path="memory" element={<MemoriesPage />} />
+        <Route path="memory/debug/*" element={<MemoryDebugPage />} />
+        <Route path="mood" element={<MoodPage />} />
+        <Route path="tasks" element={<TasksPage />} />
+        <Route path="tasks/debug" element={<TasksDebugPage />} />
+        <Route path="vision/*" element={<VisionPage />} />
         <Route path="settings" element={<SettingsPage />} />
-        <Route path="modules" element={<ModulesPage />} />
-        <Route path="modules/:moduleId/debug/*" element={<ModuleDebugPage />} />
-        <Route path="modules/:moduleId" element={<ModuleDetailPage />} />
-        <Route path="memories" element={<Navigate to="/modules/memory" replace />} />
-        <Route path="mood" element={<Navigate to="/modules/mood-evaluation" replace />} />
         <Route path="debug/*" element={<DebugPage />} />
         <Route path="data" element={<DataPage />} />
         <Route path="workflow" element={<WorkflowPage />} />
+        {/* Back-compat redirects from the former Modules navigation. */}
+        <Route path="memories" element={<Navigate to="/memory" replace />} />
+        <Route path="modules" element={<Navigate to="/" replace />} />
+        <Route path="modules/memory" element={<Navigate to="/memory" replace />} />
+        <Route
+          path="modules/memory/debug/*"
+          element={<Navigate to="/memory/debug" replace />}
+        />
+        <Route
+          path="modules/mood-evaluation"
+          element={<Navigate to="/mood" replace />}
+        />
+        <Route path="modules/history" element={<Navigate to="/history" replace />} />
+        <Route path="modules/tasks" element={<Navigate to="/tasks" replace />} />
+        <Route path="modules/vision" element={<Navigate to="/vision" replace />} />
+        <Route
+          path="modules/vision/debug/*"
+          element={<Navigate to="/vision" replace />}
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

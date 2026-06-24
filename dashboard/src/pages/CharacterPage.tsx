@@ -13,6 +13,7 @@ import {
   SectionTitle,
 } from "../components/ui/Layout";
 import { cn } from "../lib/cn";
+import { PersonalityMoodDefaultsPanel } from "../features/mood-evaluation/PersonalityMoodDefaultsPanel";
 
 export function CharacterPage() {
   const {
@@ -163,8 +164,7 @@ export function CharacterPage() {
         description={
           <>
             Manage personalities and choose which one the bot uses for every
-            reply. Per-character mood default baselines are configured under
-            Modules → Mood.
+            reply, including each character&apos;s mood default baselines.
           </>
         }
       />
@@ -351,6 +351,8 @@ export function CharacterPage() {
           </Button>
         </div>
       </Card>
+
+      <PersonalityMoodDefaultsPanel />
     </Page>
   );
 }

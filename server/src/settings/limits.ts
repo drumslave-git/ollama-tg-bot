@@ -185,7 +185,6 @@ export function validateSettingsFields(settings: Settings): void {
 
   const checks: [string, boolean][] = [
     ["model must be a string", isString(settings.model)],
-    ["stickersEnabled must be true or false", isBoolean(settings.stickersEnabled)],
     ["thinkingEnabled must be true or false", isBoolean(settings.thinkingEnabled)],
     ["maintenanceModeEnabled must be true or false", isBoolean(settings.maintenanceModeEnabled)],
     [
@@ -302,12 +301,6 @@ export function validateSettingsFields(settings: Settings): void {
       isString(settings.stickerPackName) &&
         (settings.stickerPackName.trim() === "" ||
           /^[a-zA-Z0-9_]{1,64}$/.test(settings.stickerPackName.trim())),
-    ],
-    [
-      "stickerPackName is required when stickers are enabled",
-      isBoolean(settings.stickersEnabled) &&
-        isString(settings.stickerPackName) &&
-        (!settings.stickersEnabled || settings.stickerPackName.trim() !== ""),
     ],
     [
       "stickerReplyChance must be 0–100",

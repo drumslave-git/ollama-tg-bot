@@ -4,34 +4,30 @@ import {
   formatCountdown,
   useLiveClock,
 } from "@llm-tg-bot/dashboard/pages/debug/debugUtils";
-import { MemoryDebugRunDetail } from "./MemoryDebugRunDetail";
-import { MemoryDebugRunList } from "./MemoryDebugRunList";
+import { VisionDebugRunDetail } from "./VisionDebugRunDetail";
+import { VisionDebugRunList } from "./VisionDebugRunList";
 
 const secondaryBtn =
   "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function MemoryDebugPage() {
+export function VisionPage() {
   const navigate = useNavigate();
-  const detailMatch = useMatch({
-    path: "/modules/memory/debug/:runId",
-    end: true,
-  });
+  const detailMatch = useMatch({ path: "/vision/:runId", end: true });
   const { stats } = useDashboard();
-  const scheduled = stats?.memoryJobStatus === "scheduled";
+  const scheduled = stats?.visionJobStatus === "scheduled";
   const now = useLiveClock(scheduled);
   const countdown = scheduled
-    ? formatCountdown(stats?.memoryJobRunAt, now)
+    ? formatCountdown(stats?.visionJobRunAt, now)
     : null;
 
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">
-            Memory job debug
-          </h2>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Vision</h2>
           <p className="m-0 max-w-xl text-[0.92rem] text-muted">
-            Debounced maintenance runs with per-record phases and LLM I/O.
+            Debounced backfill runs with per-media phases and LLM I/O. Configure
+            the backfill delay under Settings.
             {scheduled && countdown ? (
               <>
                 {" "}
@@ -45,7 +41,7 @@ export function MemoryDebugPage() {
             <button
               type="button"
               className={secondaryBtn}
-              onClick={() => navigate("/modules/memory/debug")}
+              onClick={() => navigate("/vision")}
             >
               ← Back
             </button>
@@ -54,8 +50,8 @@ export function MemoryDebugPage() {
       </header>
 
       <Routes>
-        <Route index element={<MemoryDebugRunList />} />
-        <Route path=":runId" element={<MemoryDebugRunDetail />} />
+        <Route index element={<VisionDebugRunList />} />
+        <Route path=":runId" element={<VisionDebugRunDetail />} />
       </Routes>
     </div>
   );

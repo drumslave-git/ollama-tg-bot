@@ -20,7 +20,6 @@ export interface Settings {
   derivedHistoryLimits?: DerivedHistoryLimits;
   ownerUsername: string;
   ownerUserId: string;
-  stickersEnabled: boolean;
   stickerPackName: string;
   stickerReplyChance: number;
   moodCooldownMinutes?: number;
@@ -129,18 +128,6 @@ export interface MoodPayload {
 }
 
 export type MemoryScope = "user" | "group" | "general";
-
-export interface DashboardModuleSummary {
-  id: string;
-  name: string;
-  description: string;
-  apiBasePath: string | null;
-  settingsKeys: string[];
-  dataTables: string[];
-  dashboard: { label: string; description?: string } | null;
-  hasDb: boolean;
-  hasUi: boolean;
-}
 
 export interface DashboardDebugEvent {
   chatId: string;
@@ -540,7 +527,6 @@ export interface StickerCatalogEntry {
 }
 
 export interface StickerCatalog {
-  enabled: boolean;
   packName: string;
   stickers: StickerCatalogEntry[];
   loaded: boolean;
@@ -722,8 +708,6 @@ export const api = {
       `/api/settings/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}`,
     ),
   getStats: () => request<Stats>("/api/stats"),
-  getModules: () =>
-    request<{ modules: DashboardModuleSummary[] }>("/api/modules"),
   getWorkflow: () => request<WorkflowDefinition>("/api/workflow"),
   clearErrors: () =>
     request<{ ok: boolean }>("/api/stats/errors/clear", {

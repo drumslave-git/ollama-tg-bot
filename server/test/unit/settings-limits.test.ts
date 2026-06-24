@@ -186,14 +186,6 @@ describe("validateSettingsFields", () => {
     ).toThrow(/ownerUserId is required/);
   });
 
-  it("requires a sticker pack name when stickers are enabled", () => {
-    expect(() =>
-      validateSettingsFields(
-        makeSettings({ stickersEnabled: true, stickerPackName: "" }),
-      ),
-    ).toThrow(/stickerPackName is required/);
-  });
-
   it("rejects an invalid reasoningEffort", () => {
     expect(() =>
       validateSettingsFields(

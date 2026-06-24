@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
+import { ButtonLink } from "@llm-tg-bot/dashboard/components/ui/Button";
 import { GeneralMemoriesPanel } from "./GeneralMemoriesPanel";
 import { MemoriesPanel, type MemoryKind } from "./MemoriesPanel";
-import { MemoryJobConfigSection } from "./MemoryJobConfigSection";
 
 type TabKind = MemoryKind | "general";
 
@@ -19,6 +19,19 @@ export function MemoriesPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Memory</h2>
+          <p className="m-0 max-w-xl text-[0.92rem] text-muted">
+            View and edit stored facts per user, group, and globally. Background
+            maintenance is configured under Settings.
+          </p>
+        </div>
+        <ButtonLink variant="secondary" to="/memory/debug">
+          Job debug
+        </ButtonLink>
+      </header>
+
       <div
         className="mb-3 flex flex-wrap gap-2"
         role="tablist"
@@ -52,7 +65,6 @@ export function MemoriesPage() {
           General
         </button>
       </div>
-      <MemoryJobConfigSection apiOnline={apiOnline === true} />
       {kind === "general" ? (
         <GeneralMemoriesPanel apiOnline={apiOnline === true} embedded />
       ) : (

@@ -144,7 +144,7 @@ export function PersonalityMoodDefaultsPanel() {
       <p className="mt-1.5 text-xs text-muted">
         Baseline mood (0–5 per trait) for each character personality. Global
         mood drifts back toward the active character&apos;s defaults during
-        cooldown. Create and name personalities on the Character page.
+        cooldown. Create and name personalities above.
       </p>
 
       {error != null ? (
@@ -159,7 +159,7 @@ export function PersonalityMoodDefaultsPanel() {
       {personalities.length === 0 ? (
         <p className="mt-1.5 text-xs text-muted">
           No personalities yet — mood defaults apply once you create a character
-          on the Character page.
+          above.
         </p>
       ) : (
         <div className="flex flex-col gap-4">

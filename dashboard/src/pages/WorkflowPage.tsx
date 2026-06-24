@@ -284,7 +284,7 @@ export function WorkflowPage() {
     <Page className="gap-4">
       <PageHeader
         title="Workflow"
-        description="Live view of the message pipeline discovered from loaded modules. The diagram updates automatically when pipeline hosts change."
+        description="Live view of the message pipeline. The diagram updates automatically when pipeline hosts change."
       />
 
       <div className="flex flex-wrap gap-3 text-sm">

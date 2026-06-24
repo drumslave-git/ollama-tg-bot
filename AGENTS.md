@@ -11,7 +11,7 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 | Workspace | Role |
 |-----------|------|
 | `server/` | Bot, LLM client, SQLite, REST API, and **all feature logic** under `src/features/*` |
-| `dashboard/` | Vite + React admin UI (per-module pages under `src/modules/*`) |
+| `dashboard/` | Vite + React admin UI (per-feature pages under `src/features/*`) |
 
 There are only **two workspaces** (`server`, `dashboard`). Features are plain folders inside `server/src/features/<name>` — not separate npm packages. (`modules/yt-dlp` is an unwired placeholder for a planned MCP tool.)
 
@@ -47,7 +47,7 @@ LLM-backed bot features live as **plain folders** in `server/src/features/<name>
 | `server/src/features/<name>/*.ts` | Runtime logic — pipeline hosts (`run`, `shouldRun`), prompts, parsers |
 | `server/src/features/<name>/db/*.ts` | SQLite tables + REST routes (optional; exports a `ModuleDbExports` object) |
 | `server/src/features/<name>/register-mcp-tools.ts` | MCP tool registrar (optional) |
-| `dashboard/src/modules/<name>/index.tsx` | Dashboard React page(s) (optional; exports `moduleUi`) |
+| `dashboard/src/features/<name>/*.tsx` | Dashboard React page(s) (optional; routed directly in `dashboard/src/App.tsx`) |
 
 Shared infrastructure: `server/src/shared/` (structured-output helpers, auxiliary LLM client, `BotMcpRegistry`); pipeline contracts/types in `server/src/contracts/`. Features import server code (db, bot, llm, pipeline helpers) **directly** — there is no callback wall.
 
@@ -77,7 +77,7 @@ Rules:
 
 **MCP tools:** Features expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod. Shared registry: `BotMcpRegistry` in `server/src/shared/`. A feature with tools exports `registerMcpTools(server, context)` and is listed in `module-registry.ts` with `mcpTools: { workflowStepId, toolNames, registrar }`. Host loads them in `server/src/runtime/mcp-tools.ts`; the main reply runs them through `server/src/llm/tool-loop.ts` (generic tool rounds with `tool_choice: auto` and `buildToolRoundSystemPrompt()` — no personality/mood/reply-format on tool passes; thinking off + auxiliary temperature; then always a structured JSON final pass). Tools: **link-fetch** → `fetch_link(url)`; **web-search** → `search_web(query)` (explicit user request only). System prompt adds usage guidance via `buildMcpToolsPromptSection` in `server/src/pipeline/adapters/system-prompt.ts`.
 
-To add a feature: create `server/src/features/<name>/`, implement the pipeline host(s), add them to the order in `server/src/runtime/module-hosts.ts`, register metadata/db/MCP in `server/src/runtime/module-registry.ts`, add any new external deps to `server/package.json`, add a dashboard page under `dashboard/src/modules/<name>/index.tsx` if needed, and cover with tests in `server/test/features/<name>/`.
+To add a feature: create `server/src/features/<name>/`, implement the pipeline host(s), add them to the order in `server/src/runtime/module-hosts.ts`, register metadata/db/MCP in `server/src/runtime/module-registry.ts`, add any new external deps to `server/package.json`, add a dashboard page under `dashboard/src/features/<name>/` and route it in `dashboard/src/App.tsx` if needed, and cover with tests in `server/test/features/<name>/`.
 
 
 **Node:** `>=22.13.0` (see `.nvmrc`).
@@ -151,10 +151,10 @@ Owner-managed scheduled jobs that post an in-character message into a chat at a 
 - **Schedule math** (`schedule.ts`): dependency-free via `Intl`. `computeNextRun(schedule, from, timezone)` returns the next UTC instant (or `null` for a spent `once` task). Timezone comes from the `TZ` env (`config.timezone`) — a single global zone. Each task stores the `timezone` it was created under; on startup `startTaskScheduler` reconciles any enabled task whose stored timezone differs from the current `TZ` (recompute `next_run_at`, re-pin `timezone`), so changing `TZ` re-homes existing tasks without recreating them.
 - **Wall-clock scheduler** (`scheduler.ts`, wired in `server/src/runtime/task-scheduler.ts`, started from `server/src/index.ts`): polls every ~30s (independent of the message queue — unlike the debounced memory/vision jobs), fires due tasks, then advances `next_run_at`. When `computeNextRun` returns `null` (a spent `once` task), the task is **deleted**, not disabled. Paused while maintenance mode is on.
 - **Removal vs disable**: stopping/cancelling a task **deletes** it (`tasks_delete` / spent one-shots / dashboard Delete). `enabled:false` is only a manual pause for recurring tasks (dashboard toggle / `tasks_update`). The prompt and tool descriptions steer the model to `tasks_delete` for "stop/cancel". Startup reconciliation also clears any leftover disabled/`null`-next `once` rows.
-- **Debug log** (`db/task-events.ts`): a 50-row ring buffer of lifecycle events (`created`, `updated`, `deleted`, `fired`, `fire_failed`) recorded from `service.ts` (create/update/delete) and `fire.ts` (fire outcomes, with the generated text or error in `detail`). Served at `GET /api/tasks/debug` (`DELETE` clears it); dashboard debug page `dashboard/src/modules/tasks/TasksDebugPage.tsx` (registered as `moduleUi.DebugPage`, reachable at `/modules/tasks/debug`).
+- **Debug log** (`db/task-events.ts`): a 50-row ring buffer of lifecycle events (`created`, `updated`, `deleted`, `fired`, `fire_failed`) recorded from `service.ts` (create/update/delete) and `fire.ts` (fire outcomes, with the generated text or error in `detail`). Served at `GET /api/tasks/debug` (`DELETE` clears it); dashboard debug page `dashboard/src/features/tasks/TasksDebugPage.tsx`, reachable at `/tasks/debug`.
 - **Fire path** (`fire.ts`): runs a short in-character LLM pass (personality + mood, like the maintenance announce) to produce a fresh variation each time, sends it via `getBot()`, appends to history, and records the sent `message_id → task_id` in `task_messages`.
 - **Reply to edit/cancel**: when an addressed message replies to one of a task's fired messages, `getTaskIdByMessage` resolves the task and a `[SESSION]` line names it so the model can `tasks_update`/`tasks_delete` it verbally (mirrors the reply→trace link used by `/explain`).
-- **DB** (`server/src/features/tasks/db/`): tables `tasks`, `task_messages`, and `task_events`; REST CRUD under `/api/tasks`. Schedule validation + next-run computation live in `service.ts` (shared by routes and MCP tools). Dashboard page + debug page: `dashboard/src/modules/tasks/`.
+- **DB** (`server/src/features/tasks/db/`): tables `tasks`, `task_messages`, and `task_events`; REST CRUD under `/api/tasks`. Schedule validation + next-run computation live in `service.ts` (shared by routes and MCP tools). Dashboard page + debug page: `dashboard/src/features/tasks/`.
 
 ### Group behavior
 
@@ -210,10 +210,12 @@ The main reply is **plain text** — no `response_format` is sent (grammar-const
 |-------|---------|
 | `/` | Overview, stats, error log |
 | `/character` | Default + custom system prompts |
-| `/settings` | LLM, model, owner, maintenance mode, performance, vision |
-| `/modules` | Discovered feature modules list |
-| `/modules/:id` | Per-module config/data UI (from module `ui/`) |
-| `/modules/:id/debug` | Per-module background job debug (memory: run list + phase/LLM detail like `/debug`; vision: same pattern; live countdown when scheduled) |
+| `/settings` | LLM, model, owner, maintenance mode, performance, vision, stickers, background maintenance, vision backfill |
+| `/history` | Stored chat transcripts per Telegram chat |
+| `/memory` | User/group/general facts; `/memory/debug` for the maintenance job run list + phase/LLM detail |
+| `/mood` | Global mood state and cooldown (per-character mood defaults live on `/character`) |
+| `/tasks` | Scheduled tasks per chat; `/tasks/debug` for the event log |
+| `/vision` | Vision backfill job run list + phase/LLM detail (live countdown when scheduled) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
 | `/data` | Raw SQLite table browser |
 | `/workflow` | Live pipeline diagram from `GET /api/workflow` (core pipeline hosts + queue order) |

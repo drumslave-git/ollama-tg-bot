@@ -9,8 +9,6 @@ import {
 } from "@llm-tg-bot/dashboard/api";
 import { useLiveMood } from "@llm-tg-bot/dashboard/liveSocket";
 
-import { PersonalityMoodDefaultsPanel } from "./PersonalityMoodDefaultsPanel";
-
 const MOOD_KEYS: MoodKey[] = [
   "irritated",
   "exhausted",
@@ -155,9 +153,9 @@ export function MoodPage() {
         <div>
           <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Mood</h2>
           <p className="m-0 max-w-xl text-[0.92rem] text-muted">
-            Global mood state, cooldown, and per-character mood default baselines.
-            Cooldown drifts current mood back toward the active character&apos;s
-            defaults in the background.
+            Global mood state and cooldown. Cooldown drifts current mood back
+            toward the active character&apos;s defaults in the background.
+            Per-character mood baselines live on the Character page.
           </p>
         </div>
       </header>
@@ -282,8 +280,6 @@ export function MoodPage() {
           </div>
         </section>
       ) : null}
-
-      <PersonalityMoodDefaultsPanel />
     </div>
   );
 }

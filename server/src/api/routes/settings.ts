@@ -52,7 +52,6 @@ function stickerCatalogResponse() {
   const settings = getSettings();
   const catalog = getStickerCatalogState();
   return {
-    enabled: settings.stickersEnabled,
     packName: catalog.packName || settings.stickerPackName,
     stickers: catalog.stickers,
     loaded: catalog.loaded,
@@ -86,7 +85,6 @@ settingsRouter.patch("/", async (req, res) => {
       "chatTimeoutSec",
       "visionMaxDimension",
       "ownerUsername",
-      "stickersEnabled",
       "stickerPackName",
       "stickerReplyChance",
       "moodCooldownMinutes",
@@ -116,10 +114,7 @@ settingsRouter.patch("/", async (req, res) => {
     const updated = updateSettings(patch);
     await ensureModelContextCache(updated.model, config.llmBaseUrl);
 
-    if (
-      body.stickersEnabled !== undefined ||
-      body.stickerPackName !== undefined
-    ) {
+    if (body.stickerPackName !== undefined) {
       try {
         const bot = getBot();
         await syncStickerCatalogFromSettings(

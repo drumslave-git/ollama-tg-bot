@@ -116,9 +116,8 @@ export async function syncStickerCatalogFromSettings(
   settings: Record<string, unknown>,
   log: BotHostLogging,
 ): Promise<{ ok: boolean; count: number; error?: string }> {
-  const stickersEnabled = Boolean(settings.stickersEnabled);
   const packName = String(settings.stickerPackName ?? "").trim();
-  if (!stickersEnabled || !packName) {
+  if (!packName) {
     clearStickerCatalog();
     return { ok: true, count: 0 };
   }

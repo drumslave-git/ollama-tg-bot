@@ -11,8 +11,12 @@ import {
 const navItems = [
   { to: "/", label: "Overview", end: true },
   { to: "/character", label: "Character", end: false },
+  { to: "/history", label: "History", end: false },
+  { to: "/memory", label: "Memory", end: false },
+  { to: "/mood", label: "Mood", end: false },
+  { to: "/tasks", label: "Tasks", end: false },
+  { to: "/vision", label: "Vision", end: false },
   { to: "/settings", label: "Settings", end: false },
-  { to: "/modules", label: "Modules", end: false },
   { to: "/debug", label: "Debug", end: false },
   { to: "/data", label: "Data", end: false },
   { to: "/workflow", label: "Workflow", end: false },

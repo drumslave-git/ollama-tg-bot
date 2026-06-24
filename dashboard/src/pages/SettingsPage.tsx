@@ -10,6 +10,9 @@ import LlmConnectionSection from "../components/settings/LlmConnectionSection";
 import OwnerSection from "../components/settings/OwnerSection";
 import BotBehaviorSection from "../components/settings/BotBehaviorSection";
 import VisionSection from "../components/settings/VisionSection";
+import { StickersSettingsSection } from "../components/settings/StickersSettingsSection";
+import { VisionBackfillSection } from "../components/settings/VisionBackfillSection";
+import { MemoryJobConfigSection } from "../features/memory/MemoryJobConfigSection";
 import { Button } from "../components/ui/Button";
 import {
   Actions,
@@ -22,6 +25,7 @@ import {
 
 export function SettingsPage() {
   const {
+    apiOnline,
     settings,
     draft,
     setDraft,
@@ -75,8 +79,8 @@ export function SettingsPage() {
         title="Settings"
         description={
           <>
-            LLM connection, model, owner account, and performance limits. Module
-            features (memory, mood, stickers, etc.) are configured under Modules.
+            LLM connection, model, owner account, and performance limits, plus
+            stickers, background maintenance, and vision backfill.
           </>
         }
       />
@@ -168,6 +172,10 @@ export function SettingsPage() {
           </Actions>
         </fieldset>
       </Card>
+
+      <StickersSettingsSection />
+      <MemoryJobConfigSection apiOnline={apiOnline === true} />
+      <VisionBackfillSection />
     </Page>
   );
 }

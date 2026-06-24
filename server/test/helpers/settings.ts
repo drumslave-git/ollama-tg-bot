@@ -21,7 +21,6 @@ export function makeSettings(overrides: Partial<Settings> = {}): Settings {
     visionMaxDimension: 768,
     ownerUsername: "",
     ownerUserId: "",
-    stickersEnabled: false,
     stickerPackName: "",
     stickerReplyChance: 70,
     moodCooldownMinutes: 120,

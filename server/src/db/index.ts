@@ -49,9 +49,7 @@ export interface Settings {
   ownerUsername: string;
   /** Resolved numeric user id for ownerUsername (set by the server). */
   ownerUserId: string;
-  /** Send stickers from a configured Telegram sticker set. */
-  stickersEnabled: boolean;
-  /** Telegram sticker set name (e.g. HotCherry or MyPack_by_botname). */
+  /** Telegram sticker set name (empty = stickers off). */
   stickerPackName: string;
   /** How often the model should include a sticker (0–100). */
   stickerReplyChance: number;
@@ -90,7 +88,6 @@ const DEFAULT_SETTINGS: Settings = {
   visionMaxDimension: 768,
   ownerUsername: "",
   ownerUserId: "",
-  stickersEnabled: false,
   stickerPackName: "",
   stickerReplyChance: 70,
   moodCooldownMinutes: 120,
@@ -195,7 +192,6 @@ export function getSettings(): Settings {
     visionMaxDimension: getSetting<number>("visionMaxDimension"),
     ownerUsername: getSetting<string>("ownerUsername"),
     ownerUserId: getSetting<string>("ownerUserId"),
-    stickersEnabled: getSetting<boolean>("stickersEnabled"),
     stickerPackName: getSetting<string>("stickerPackName"),
     stickerReplyChance: getSetting<number>("stickerReplyChance"),
     moodCooldownMinutes: getSetting<number>("moodCooldownMinutes"),

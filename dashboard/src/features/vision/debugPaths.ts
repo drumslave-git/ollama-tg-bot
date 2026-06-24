@@ -1,5 +1,5 @@
 export function visionDebugRunPath(runId: number): string {
-  return `/modules/vision/debug/${runId}`;
+  return `/vision/${runId}`;
 }
 
 export function parseVisionDebugRunId(value: string | undefined): number | null {

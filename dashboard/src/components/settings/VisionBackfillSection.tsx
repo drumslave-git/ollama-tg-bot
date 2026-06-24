@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@llm-tg-bot/dashboard/api";
-import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
-import { SettingsNumberField } from "@llm-tg-bot/dashboard/SettingsNumberField";
+import { api } from "../../api";
+import { useDashboard } from "../../context/DashboardContext";
+import { SettingsNumberField } from "../../SettingsNumberField";
 
 const primaryBtn =
   "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function VisionPage() {
+export function VisionBackfillSection() {
   const { apiOnline } = useDashboard();
   const [backfillDebounceSec, setBackfillDebounceSec] = useState(60);
   const [loading, setLoading] = useState(true);
@@ -78,7 +78,7 @@ export function VisionPage() {
               onClick={() => void save()}
               disabled={apiOnline !== true || saving}
             >
-              {saving ? "Saving…" : "Save module settings"}
+              {saving ? "Saving…" : "Save vision settings"}
             </button>
             {saved ? <span className="text-muted">Saved</span> : null}
           </div>

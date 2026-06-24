@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, type TaskEvent, type TaskEventKind } from "@llm-tg-bot/dashboard/api";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
@@ -111,6 +112,16 @@ export function TasksDebugPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <header>
+        <p className="m-0 mb-1 text-sm text-muted">
+          <Link to="/tasks" className="text-accent no-underline hover:underline">
+            Tasks
+          </Link>
+          <span aria-hidden="true"> / </span>
+          <span>Event log</span>
+        </p>
+        <h2 className="m-0 text-2xl font-bold tracking-tight">Task event log</h2>
+      </header>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="m-0 text-sm text-muted">
           Most recent {events.length} task events (fires, creations, changes, removals).

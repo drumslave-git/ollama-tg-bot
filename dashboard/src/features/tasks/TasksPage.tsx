@@ -8,6 +8,7 @@ import {
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
 import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
+import { ButtonLink } from "@llm-tg-bot/dashboard/components/ui/Button";
 
 const primaryBtn =
   "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
@@ -306,13 +307,19 @@ export function TasksPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <header>
-        <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Tasks</h2>
-        <p className="m-0 max-w-xl text-[0.92rem] text-muted">
-          Scheduled jobs that post an in-character message into a chat at a set time.
-          {tasks.length > 0 ? ` ${tasks.length} total.` : ""} Times use the server
-          timezone. Updates live.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Tasks</h2>
+          <p className="m-0 max-w-xl text-[0.92rem] text-muted">
+            Scheduled jobs that post an in-character message into a chat at a set
+            time.
+            {tasks.length > 0 ? ` ${tasks.length} total.` : ""} Times use the
+            server timezone. Updates live.
+          </p>
+        </div>
+        <ButtonLink variant="secondary" to="/tasks/debug">
+          Event log
+        </ButtonLink>
       </header>
 
       {error != null ? (
