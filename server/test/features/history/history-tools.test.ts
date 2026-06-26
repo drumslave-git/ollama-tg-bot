@@ -96,6 +96,24 @@ describe.skipIf(!hasTestDb)("history MCP tools (Postgres)", () => {
     expect(result.text).toContain("[image not yet described]");
   });
 
+  it("keeps the text but redacts base64 in a combined row", async () => {
+    await appendMessage(
+      ENTITY,
+      "user:alice:1",
+      "check this out\n[sent image]: data:image/jpeg;base64,QUJDREVGR0hJSktM",
+    );
+    const registry = await buildRegistry();
+
+    const result = await registry.callTool(HISTORY_TODAY_GET_LATEST_TOOL_NAME, {
+      entity_id: ENTITY,
+      count: 5,
+    });
+
+    expect(result.text).not.toContain("base64");
+    expect(result.text).toContain("check this out");
+    expect(result.text).toContain("[image not yet described]");
+  });
+
   it("history_get_in_range rejects an invalid range", async () => {
     const registry = await buildRegistry();
     const result = await registry.callTool(HISTORY_GET_IN_RANGE_TOOL_NAME, {

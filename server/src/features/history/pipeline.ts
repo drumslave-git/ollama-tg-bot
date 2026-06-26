@@ -4,11 +4,13 @@ import type {
   PipelineStepResult,
 } from "../../contracts/index.js";
 import { stripCurrentBotAddressing } from "../addressing/index.js";
+import { linkProcessingMessage } from "../../debug/message-report.js";
 import {
   buildBase64MediaHistoryContent,
   buildMediaHistoryContent,
   buildPassiveHistoryContent,
   buildTextHistoryContent,
+  combineHistoryContent,
   mediaKindForMessage,
 } from "./format.js";
 import {
@@ -121,15 +123,10 @@ export const intakeHistoryHost: PipelineModuleHost = {
       enrichedText,
       botId,
     );
-    if (textContent) {
-      appendMessage(convKey, role, textContent, { messageId });
-      parts.push("text");
-      services.logging.logEvent("passive_history_stored", {
-        ...msgLog,
-        kind: "text",
-      });
-    }
 
+    // One message is stored as one row: the text and any pending base64 media
+    // are combined, so the media line rides along with the user's text.
+    let mediaContent: string | null = null;
     if (messageHasVisionMedia(msg)) {
       const mediaKind = mediaKindForMessage(msg, !!msg.sticker);
       const loaded = await loadVisionFromMessage(
@@ -141,24 +138,42 @@ export const intakeHistoryHost: PipelineModuleHost = {
       } else if (loaded && loaded.images.length > 0) {
         const image = loaded.images[0] as { base64: string; mimeHint: string };
         const sticker = loaded.sourceSticker ?? msg.sticker;
-        const mediaHistory = buildBase64MediaHistoryContent(
-          from as never,
-          msg,
-          mediaKind,
-          image.base64,
-          image.mimeHint,
-          botId,
-          stickerPackEmoji(sticker) ?? null,
-        );
-        if (mediaHistory) {
-          appendMessage(convKey, role, mediaHistory, { messageId });
-          parts.push("media");
-          services.logging.logEvent("passive_history_stored", {
-            ...msgLog,
-            kind: "media",
+        mediaContent =
+          buildBase64MediaHistoryContent(
+            from as never,
+            msg,
             mediaKind,
-          });
-        }
+            image.base64,
+            image.mimeHint,
+            botId,
+            stickerPackEmoji(sticker) ?? null,
+          ) ?? null;
+      }
+    }
+
+    const combined = combineHistoryContent(textContent, mediaContent);
+    if (combined) {
+      const chatMessageId = await appendMessage(convKey, role, combined, {
+        messageId,
+      });
+      if (chatMessageId != null) {
+        state.chatMessageId = chatMessageId;
+        linkProcessingMessage(state.turnId, chatMessageId);
+      }
+      if (textContent) {
+        parts.push("text");
+        services.logging.logEvent("passive_history_stored", {
+          ...msgLog,
+          kind: "text",
+        });
+      }
+      if (mediaContent) {
+        parts.push("media");
+        services.logging.logEvent("passive_history_stored", {
+          ...msgLog,
+          kind: "media",
+          mediaKind: mediaKindForMessage(msg, !!msg.sticker),
+        });
       }
     }
 

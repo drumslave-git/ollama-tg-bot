@@ -337,12 +337,20 @@ async function requestChat(
     think,
   );
   const traceLabelText = traceLabel ?? "llm";
+  const traceSampling = formatTraceSamplingLine(
+    providerSettings,
+    auxiliary,
+    responseFormat,
+    tools,
+  );
   const llmStarted = performance.now();
   if (traceTurnId != null) {
     getMessageReport(traceTurnId)?.beginLlmWait(
       traceLabelText,
       model,
       settings.chatTimeoutSec,
+      sanitizeLlmPayloadForDebug(requestBody),
+      traceSampling,
     );
   }
 
@@ -396,12 +404,7 @@ async function requestChat(
         prepared as ChatMessage[],
         data,
         traceLayout,
-        formatTraceSamplingLine(
-          providerSettings,
-          auxiliary,
-          responseFormat,
-          tools,
-        ),
+        traceSampling,
         sanitizeLlmPayloadForDebug(requestBody),
         sanitizeLlmPayloadForDebug(response),
         llmDurationMs,
@@ -450,12 +453,20 @@ async function requestChatStreaming(
   } as ChatCompletionCreateParamsStreaming;
 
   const traceLabelText = traceLabel ?? "llm";
+  const traceSampling = formatTraceSamplingLine(
+    providerSettings,
+    false,
+    responseFormat,
+    undefined,
+  );
   const llmStarted = performance.now();
   if (traceTurnId != null) {
     getMessageReport(traceTurnId)?.beginLlmWait(
       traceLabelText,
       model,
       settings.chatTimeoutSec,
+      sanitizeLlmPayloadForDebug(requestBody),
+      traceSampling,
     );
   }
 
@@ -529,7 +540,7 @@ async function requestChatStreaming(
       prepared as ChatMessage[],
       data,
       traceLayout,
-      formatTraceSamplingLine(providerSettings, false, responseFormat, undefined),
+      traceSampling,
       sanitizeLlmPayloadForDebug(requestBody),
       sanitizeLlmPayloadForDebug({
         streamed: true,

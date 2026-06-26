@@ -5,7 +5,7 @@ let db: SqlDatabase;
 /**
  * Maps a delivered bot message back to the task that produced it, so a reply to
  * one of those messages can be linked to the task for verbal edit/cancel.
- * Mirrors the reply→trace link in `server/src/db/debug/traces.ts`.
+ * Mirrors the reply→processing link in `server/src/db/debug/message-processing.ts`.
  */
 export async function bindTaskMessagesDatabase(
   database: SqlDatabase,

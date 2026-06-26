@@ -1,18 +1,22 @@
 import { Router } from "express";
-import { listDebugChats, listDebugTracesForChat, getDebugTraceById } from "../../db/debug/traces.js";
+import {
+  getProcessingDetail,
+  listProcessingChats,
+  listProcessingsForChat,
+} from "../../db/debug/message-processing.js";
 
 export const debugRouter = Router();
 
 debugRouter.get("/chats", async (_req, res) => {
-  res.json({ chats: await listDebugChats() });
+  res.json({ chats: await listProcessingChats() });
 });
 
-debugRouter.get("/chat/:chatId", async (req, res) => {
-  res.json({ traces: await listDebugTracesForChat(req.params.chatId) });
+debugRouter.get("/chat/:entityId", async (req, res) => {
+  res.json({ processings: await listProcessingsForChat(req.params.entityId) });
 });
 
-debugRouter.get("/trace/:id", async (req, res) => {
-  const trace = await getDebugTraceById(Number(req.params.id));
-  if (!trace) return res.status(404).json({ error: "Trace not found" });
-  res.json({ trace });
+debugRouter.get("/processing/:id", async (req, res) => {
+  const processing = await getProcessingDetail(Number(req.params.id));
+  if (!processing) return res.status(404).json({ error: "Processing not found" });
+  res.json({ processing });
 });

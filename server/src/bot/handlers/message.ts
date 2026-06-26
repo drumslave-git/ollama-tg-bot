@@ -1,6 +1,5 @@
 import type { Context } from "grammy";
 import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
-import { getMaxDebugTraceId } from "../../db/debug/traces.js";
 import { beginMessageReport } from "../../debug/message-report.js";
 import { extractText } from "../messages/message-content.js";
 import { summarizeMessageContent } from "../replies/replies.js";
@@ -17,13 +16,12 @@ import { runIntakePipeline } from "../../pipeline/queue-runner.js";
 import { deliverEarlyReply } from "../../pipeline/deliver.js";
 import { enqueueMessage } from "../../runtime/message-queue.js";
 
-let nextTurnId: number | null = null;
+// Ephemeral, process-local handle that keys a turn's in-flight debug report.
+// It is no longer persisted — debug processings are keyed by chat_messages.id.
+let nextTurnId = 1;
 
-async function allocateTurnId(): Promise<number> {
-  if (nextTurnId == null) {
-    nextTurnId = (await getMaxDebugTraceId()) + 1;
-  }
-  return nextTurnId!++;
+function allocateTurnId(): number {
+  return nextTurnId++;
 }
 
 export async function messageHandler(ctx: Context, botToken: string) {
@@ -34,7 +32,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
   let msgLog: EventFields = {};
 
   try {
-    turnId = await allocateTurnId();
+    turnId = allocateTurnId();
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id != null ? String(ctx.from.id) : null;
     const chatType = ctx.chat?.type ?? "unknown";

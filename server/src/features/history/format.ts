@@ -163,8 +163,11 @@ export function buildPassiveHistoryContent(
   return buildTextHistoryContent(user, message, trimmed, botId);
 }
 
-const BASE64_DATA_URI =
-  /^data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/i;
+/** A stored pending-media line: `[sent image]: data:…;base64,…`. */
+const BASE64_MEDIA_LINE =
+  /^(\[(?:sent|replied)[^\]]*\]):\s*data:(image\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]+)\s*$/i;
+
+const STICKER_EMOJI_LINE = /^\(sticker emoji:\s*(.+?)\)\s*$/i;
 
 /** History line with pending vision — base64 data URI after the media prefix. */
 export function buildBase64MediaHistoryContent(
@@ -192,12 +195,27 @@ export function buildBase64MediaHistoryContent(
   return `${prefix}: ${body}`;
 }
 
+/** A single message is one stored row: join its text and pending-media parts. */
+export function combineHistoryContent(
+  textContent: string | null,
+  mediaContent: string | null,
+): string | null {
+  const parts = [textContent, mediaContent]
+    .map((part) => part?.trim())
+    .filter((part): part is string => Boolean(part));
+  return parts.length > 0 ? parts.join("\n") : null;
+}
+
 export interface ParsedBase64MediaHistory {
   prefix: string;
   mediaKind: MediaKind;
   mimeHint: string;
   base64: string;
   packEmoji?: string;
+  /** Content lines around the media block (e.g. the user's text), media removed. */
+  surroundingLines: string[];
+  /** Index in the original line array where the media block sits. */
+  mediaLineIndex: number;
 }
 
 /** True when history content still holds a base64 data URI awaiting vision backfill. */
@@ -216,43 +234,50 @@ export function filterInjectableHistory(
   return history.filter(isInjectableHistoryMessage);
 }
 
+/**
+ * Locate the pending base64 media block inside a stored row. One message is one
+ * row, so the media line may be preceded by the user's text; `surroundingLines`
+ * keeps that text so callers can rewrite only the media block.
+ */
 export function parseBase64MediaHistoryContent(
   content: string,
 ): ParsedBase64MediaHistory | null {
-  const trimmed = content.trim();
-  const colon = trimmed.indexOf(": ");
-  if (colon < 0) return null;
+  const lines = content.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const match = BASE64_MEDIA_LINE.exec(lines[i]!.trim());
+    if (!match) continue;
 
-  const prefix = trimmed.slice(0, colon).trim();
-  if (!prefix.startsWith("[sent ") && !prefix.startsWith("[replied")) {
-    return null;
+    const prefix = match[1]!;
+    const mediaKind: MediaKind = prefix.toLowerCase().includes("sticker")
+      ? "sticker"
+      : "image";
+    const emojiMatch = STICKER_EMOJI_LINE.exec(lines[i + 1]?.trim() ?? "");
+    const blockEnd = emojiMatch ? i + 1 : i;
+
+    return {
+      prefix,
+      mediaKind,
+      mimeHint: match[2]!,
+      base64: match[3]!,
+      packEmoji: emojiMatch ? emojiMatch[1]!.trim() || undefined : undefined,
+      surroundingLines: [...lines.slice(0, i), ...lines.slice(blockEnd + 1)],
+      mediaLineIndex: i,
+    };
   }
-
-  const rest = trimmed.slice(colon + 2).trim();
-  const lines = rest.split("\n");
-  const uriMatch = BASE64_DATA_URI.exec(lines[0]?.trim() ?? "");
-  if (!uriMatch) return null;
-
-  const mediaKind: MediaKind = prefix.includes("sticker")
-    ? "sticker"
-    : "image";
-  const emojiLine = lines.find((line) =>
-    line.trim().startsWith("(sticker emoji:"),
-  );
-  const packEmoji = emojiLine
-    ? emojiLine.replace(/^\(sticker emoji:\s*/i, "").replace(/\)\s*$/, "")
-    : undefined;
-
-  return {
-    prefix,
-    mediaKind,
-    mimeHint: uriMatch[1]!,
-    base64: uriMatch[2]!,
-    packEmoji: packEmoji || undefined,
-  };
+  return null;
 }
 
-/** Replace a base64 media line with a vision description, keeping the prefix. */
+/** Rebuild a row's content, swapping the media block body but keeping the text. */
+function rebuildMediaContent(
+  parsed: ParsedBase64MediaHistory,
+  body: string,
+): string {
+  const lines = [...parsed.surroundingLines];
+  lines.splice(parsed.mediaLineIndex, 0, `${parsed.prefix}: ${body}`);
+  return lines.join("\n");
+}
+
+/** Replace a base64 media block with a vision description, keeping prefix and text. */
 export function replaceBase64WithVisionDescription(
   content: string,
   visionDescription: string,
@@ -264,7 +289,14 @@ export function replaceBase64WithVisionDescription(
   if (parsed.mediaKind === "sticker" && parsed.packEmoji) {
     body = `${body}. it represents emoji ${parsed.packEmoji}`;
   }
-  return `${parsed.prefix}: ${body}`;
+  return rebuildMediaContent(parsed, body);
+}
+
+/** Redact a not-yet-described base64 media block to a short placeholder, keeping text. */
+export function redactBase64MediaForDisplay(content: string): string | null {
+  const parsed = parseBase64MediaHistoryContent(content);
+  if (!parsed) return null;
+  return rebuildMediaContent(parsed, `[${parsed.mediaKind} not yet described]`);
 }
 
 /** One stored row as a tagged line for tool output or debug display. */

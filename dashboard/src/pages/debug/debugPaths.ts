@@ -1,25 +1,28 @@
-export function debugChatPath(chatId: string): string {
-  return `/debug/${encodeURIComponent(chatId)}`;
+export function debugChatPath(entityId: string): string {
+  return `/debug/${encodeURIComponent(entityId)}`;
 }
 
-export function debugMessagePath(chatId: string, messageId: number): string {
-  return `/debug/${encodeURIComponent(chatId)}/${messageId}`;
+export function debugProcessingPath(
+  entityId: string,
+  processingId: number,
+): string {
+  return `/debug/${encodeURIComponent(entityId)}/${processingId}`;
 }
 
-export function decodeRouteChatId(chatId: string | undefined): string | null {
-  if (!chatId) return null;
+export function decodeRouteEntityId(entityId: string | undefined): string | null {
+  if (!entityId) return null;
   try {
-    return decodeURIComponent(chatId);
+    return decodeURIComponent(entityId);
   } catch {
-    return chatId;
+    return entityId;
   }
 }
 
-export function parseRouteMessageId(
-  messageId: string | undefined,
+export function parseRouteProcessingId(
+  processingId: string | undefined,
 ): number | null {
-  if (!messageId) return null;
-  const parsed = Number(messageId);
+  if (!processingId) return null;
+  const parsed = Number(processingId);
   if (!Number.isInteger(parsed) || parsed <= 0) return null;
   return parsed;
 }

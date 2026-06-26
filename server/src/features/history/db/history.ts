@@ -222,16 +222,18 @@ export async function appendMessage(
   role: string,
   content: string,
   options?: { messageId?: number },
-): Promise<void> {
+): Promise<number | null> {
   const trimmed = content.trim();
-  if (!trimmed) return;
+  if (!trimmed) return null;
 
-  await db.query(
+  const { rows } = await db.query<{ id: number }>(
     `INSERT INTO chat_messages (entity_id, role, content, message_id)
-     VALUES ($1, $2, $3, $4)`,
+     VALUES ($1, $2, $3, $4)
+     RETURNING id`,
     [entityId, role, trimmed, options?.messageId ?? null],
   );
   getModuleLiveHooks().emitDataUpdated?.(["chat_messages"]);
+  return rows[0]?.id ?? null;
 }
 
 export async function appendAssistantMessage(

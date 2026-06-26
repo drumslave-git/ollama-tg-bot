@@ -12,8 +12,7 @@ import {
 } from "./db/history.js";
 import {
   formatStoredMessageLine,
-  isBase64MediaHistoryContent,
-  parseBase64MediaHistoryContent,
+  redactBase64MediaForDisplay,
 } from "./format.js";
 import type { StoredMessage } from "./types.js";
 
@@ -63,11 +62,8 @@ function startOfTodayEpoch(): number {
 
 /** Replace not-yet-described base64 media with a short placeholder so tool output never dumps base64. */
 function sanitizeForTool(message: StoredMessage): StoredMessage {
-  if (!isBase64MediaHistoryContent(message.content)) return message;
-  const parsed = parseBase64MediaHistoryContent(message.content);
-  const kind = parsed?.mediaKind ?? "media";
-  const prefix = parsed?.prefix ?? `[sent ${kind}]`;
-  return { ...message, content: `${prefix}: [${kind} not yet described]` };
+  const redacted = redactBase64MediaForDisplay(message.content);
+  return redacted == null ? message : { ...message, content: redacted };
 }
 
 function isoFromStored(message: StoredMessage): string {

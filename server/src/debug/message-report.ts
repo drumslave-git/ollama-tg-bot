@@ -1,22 +1,13 @@
-import type { ChatMessage } from "../llm/client.js";
-import type { VerbosePromptLayout } from "../llm/client.js";
+import type { ChatMessage, VerbosePromptLayout } from "../llm/client.js";
 import {
-  type MessageReportListSummary,
-  type MessageReportRecord,
-  type ReportDetail,
-  type ReportPhase,
-  type ReportStatus,
-  upsertMessageReport,
-} from "../db/debug/traces.js";
+  type EntryType,
+  type ProcessingStatus,
+  ensureMessageProcessing,
+  reportMessageProcessing,
+  setMessageProcessingStatus,
+} from "../db/debug/message-processing.js";
 
-export type {
-  MessageReportListSummary,
-  MessageReportRecord,
-  ReportDetail,
-  MessageReport,
-  ReportPhase,
-  ReportStatus,
-} from "../db/debug/traces.js";
+export type { ProcessingStatus, EntryType } from "../db/debug/message-processing.js";
 
 const IGNORE_LABELS: Record<string, string> = {
   from_bot: "Sender is a bot",
@@ -40,19 +31,6 @@ const TRIGGER_LABELS: Record<string, string> = {
   image: "Image reaction trigger",
 };
 
-function llmPhaseId(label: string): string {
-  if (label === "main reply") return "completions";
-  const toolRound = /^main reply tools (\d+)$/.exec(label);
-  if (toolRound) return `completions-tools-${toolRound[1]}`;
-  return `llm-${label.replace(/\s+/g, "-")}`;
-}
-
-function llmPhaseTitle(label: string): string {
-  const toolRound = /^main reply tools (\d+)$/.exec(label);
-  if (toolRound) return `Main reply · tools (round ${toolRound[1]})`;
-  return LLM_TITLES[label] ?? label;
-}
-
 const LLM_TITLES: Record<string, string> = {
   "address detection": "Address check",
   "web search decision": "Search decision",
@@ -65,352 +43,245 @@ const LLM_TITLES: Record<string, string> = {
   "group memory merge": "Memory merge (group)",
 };
 
+function llmTitle(label: string): string {
+  const toolRound = /^main reply tools (\d+)$/.exec(label);
+  if (toolRound) return `Main reply · tools (round ${toolRound[1]})`;
+  return LLM_TITLES[label] ?? label;
+}
+
 interface ChatResponseShape {
-  message?: {
-    content?: string;
-    reasoning?: string;
-  };
+  message?: { content?: string; reasoning?: string };
   toolCalls?: Array<{ name: string; arguments: string }>;
   done_reason?: string;
   eval_count?: number;
 }
 
-const sessions = new Map<number, MessageReportSession>();
-
-const PROCESSING_TICK_MS = 2000;
-let processingTick: ReturnType<typeof setInterval> | null = null;
-
-function trackProcessingSession(session: MessageReportSession): void {
-  sessions.set(session.turnId, session);
-  if (processingTick != null) return;
-  processingTick = setInterval(() => {
-    if (sessions.size === 0) {
-      if (processingTick != null) clearInterval(processingTick);
-      processingTick = null;
-      return;
-    }
-    for (const active of sessions.values()) {
-      active.tick();
-    }
-  }, PROCESSING_TICK_MS);
+function jsonContent(value: unknown): string {
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
 }
 
-function releaseProcessingSession(turnId: number): void {
-  sessions.delete(turnId);
-}
+const sessions = new Map<number, MessageProcessingReport>();
 
-export class MessageReportSession {
+/**
+ * Live recorder for one inbound message turn. It keeps the same method surface
+ * the pipeline already calls (okPhase/recordLlmCall/finalize…), but each call now
+ * appends a `message_processing_entries` row keyed by the chat_messages.id of the
+ * triggering message. Until that row is stored (see {@link linkProcessingMessage}),
+ * calls are buffered, then flushed in order.
+ */
+export class MessageProcessingReport {
   readonly turnId: number;
-  readonly chatId: string;
-  convKey: string;
-  readonly userId: string | null;
-  readonly chatType: string;
-  readonly messageId: number | null;
-  readonly messagePreview: string;
   private readonly startedAt = performance.now();
-  private status: ReportStatus = "processing";
-  private hasMedia = false;
-  private mediaKind?: string;
-  private routing:
-    | {
-        decision: "pending";
-        pendingLabel: string;
-      }
-    | {
-        decision: "ignored";
-        ignoreReason: string;
-        ignoreLabel: string;
-        addressSource?: string;
-      }
-    | {
-        decision: "accepted";
-        trigger: "addressed" | "random" | "image";
-        triggerLabel: string;
-        addressSource?: string;
-      }
-    | {
-        decision: "queued";
-        position: number;
-        queueLabel: string;
-      }
-    | null = null;
-  private phases: ReportPhase[] = [];
-  private result: MessageReportRecord["result"] = {};
-  /** Telegram message ids of the bot's sent reply chunks (for /explain lookup). */
-  private replyMessageIds: number[] = [];
+  private chatMessageId: number | null = null;
+  private buffer: Array<() => Promise<void>> = [];
   /**
-   * Monotonic write sequence. Persisting is fire-and-forget from many sync call
-   * sites, and the Postgres pool gives no execution-order guarantee across
-   * connections — so a late "processing" write could otherwise land after the
-   * final "processed" one. Each write carries the next seq, and the DB ignores
-   * any update older than what it has stored (see upsertMessageReport).
+   * Serializes every persisted write for this turn. Entries are fire-and-forget
+   * from sync call sites and each one `await`s `ensureMessageProcessing` before
+   * its INSERT, so without this chain two entries emitted back-to-back (e.g. an
+   * LLM request + waiting line) could race and land out of order.
    */
-  private seq = 0;
+  private writeChain: Promise<void> = Promise.resolve();
+  private replyMessageIds: number[] = [];
 
-  constructor(input: {
-    turnId: number;
-    chatId: string;
-    convKey?: string;
-    userId: string | null;
-    chatType: string;
-    messageId: number | null;
-    messagePreview: string;
-  }) {
-    this.turnId = input.turnId;
-    this.chatId = input.chatId;
-    this.convKey = input.convKey ?? "";
-    this.userId = input.userId;
-    this.chatType = input.chatType;
-    this.messageId = input.messageId;
-    this.messagePreview = input.messagePreview;
+  constructor(turnId: number) {
+    this.turnId = turnId;
   }
 
-  setConvKey(convKey: string): void {
-    this.convKey = convKey;
-  }
-
-  setIntake(input: { hasMedia: boolean; mediaKind?: string }): void {
-    this.hasMedia = input.hasMedia;
-    this.mediaKind = input.mediaKind;
-    this.persistIfInFlight();
-  }
-
-  /** Write the trace as soon as the bot receives a message. */
-  markReceived(): void {
-    this.routing = {
-      decision: "pending",
-      pendingLabel: "Message received",
-    };
-    this.upsertPhase({
-      id: "intake",
-      title: "Message received",
-      status: "ok",
-      summary: this.messagePreview.slice(0, 120) || "(non-text message)",
+  private enqueue(task: () => Promise<void>): void {
+    this.writeChain = this.writeChain.then(task).catch((err) => {
+      console.error("Failed to persist message processing entry:", err);
     });
   }
 
-  /** Re-persist in-flight traces so the dashboard can show live duration. */
-  tick(): void {
-    if (this.status === "processing") {
-      this.persist();
-    }
+  /** Resolves once every queued write for this turn has been flushed. */
+  flush(): Promise<void> {
+    return this.writeChain;
   }
 
-  finishIgnored(ignoreReason: string, addressSource?: string): void {
-    this.status = "ignored";
-    this.routing = {
-      decision: "ignored",
-      ignoreReason,
-      ignoreLabel: IGNORE_LABELS[ignoreReason] ?? ignoreReason,
-      addressSource: addressSource
-        ? humanAddressLabel(addressSource)
-        : undefined,
+  /** Link this turn to its stored chat message and flush any buffered entries. */
+  link(chatMessageId: number): void {
+    this.chatMessageId = chatMessageId;
+    this.enqueue(async () => {
+      await ensureMessageProcessing(chatMessageId);
+    });
+    const pending = this.buffer;
+    this.buffer = [];
+    for (const run of pending) this.enqueue(run);
+  }
+
+  private entry(title: string, type: EntryType, content: string): void {
+    const run = async () => {
+      if (this.chatMessageId == null) return;
+      await reportMessageProcessing(this.chatMessageId, title, type, content);
     };
-    this.persist();
-    releaseProcessingSession(this.turnId);
+    if (this.chatMessageId == null) {
+      this.buffer.push(run);
+      return;
+    }
+    this.enqueue(run);
+  }
+
+  private elapsedMs(): number {
+    return Math.round(performance.now() - this.startedAt);
+  }
+
+  private finish(status: ProcessingStatus): void {
+    const elapsed = this.elapsedMs();
+    const replyIds = this.replyMessageIds;
+    const run = async () => {
+      if (this.chatMessageId == null) return;
+      await setMessageProcessingStatus(this.chatMessageId, status, {
+        totalTimeSpentMs: elapsed,
+        replyMessageIds: replyIds.length ? replyIds : undefined,
+      });
+    };
+    if (this.chatMessageId == null) this.buffer.push(run);
+    else this.enqueue(run);
+    sessions.delete(this.turnId);
+  }
+
+  // ---- Routing / queue milestones -----------------------------------------
+
+  setIntake(_input: { hasMedia: boolean; mediaKind?: string }): void {
+    // The stored chat message already captures the content; nothing to record.
+  }
+
+  setConvKey(_convKey: string): void {
+    // Chat is resolved via the chat_messages relation; no entry needed.
   }
 
   setAccepted(input: {
     trigger: "addressed" | "random" | "image";
     addressSource?: string;
   }): void {
-    this.status = "processing";
-    this.routing = {
-      decision: "accepted",
-      trigger: input.trigger,
-      triggerLabel: TRIGGER_LABELS[input.trigger] ?? input.trigger,
-      addressSource: input.addressSource
-        ? humanAddressLabel(input.addressSource)
-        : undefined,
-    };
-    this.persist();
+    const source = input.addressSource
+      ? ` · ${ADDRESS_LABELS[input.addressSource] ?? input.addressSource}`
+      : "";
+    this.entry(
+      "Accepted",
+      "text",
+      `${TRIGGER_LABELS[input.trigger] ?? input.trigger}${source}`,
+    );
   }
 
   setQueued(position: number): void {
-    this.status = "processing";
-    this.routing = {
-      decision: "queued",
-      position,
-      queueLabel: `Queued · position ${position}`,
-    };
-    this.upsertPhase({
-      id: "queue",
-      title: "Queue",
-      status: "waiting",
-      summary: `Position ${position} in queue`,
-    });
-    this.persist();
+    this.entry("Queued", "text", `Position ${position} in queue`);
   }
 
   setProcessingStarted(): void {
-    this.upsertPhase({
-      id: "queue",
-      title: "Queue",
-      status: "ok",
-      summary: "Processing started",
-    });
-    this.persistIfInFlight();
+    this.entry("Processing started", "text", "Picked up from the queue");
   }
 
-  skipPhase(
-    id: string,
-    title: string,
-    summary: string,
-    options?: { replace?: boolean },
-  ): void {
-    const phase: ReportPhase = { id, title, status: "skipped", summary };
-    if (options?.replace) {
-      this.upsertPhase(phase);
-      return;
-    }
-    this.phases.push(phase);
-    this.persistIfInFlight();
-  }
+  // ---- Generic pipeline phases --------------------------------------------
 
   okPhase(
-    id: string,
+    _id: string,
     title: string,
     summary: string,
     durationMs?: number,
-    detail?: ReportDetail,
-    options?: { replace?: boolean },
+    detail?: unknown,
   ): void {
-    const phase: ReportPhase = {
-      id,
-      title,
-      status: "ok",
-      summary,
-      ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
-      ...(detail ? { detail } : {}),
-    };
-    if (options?.replace) {
-      this.upsertPhase(phase);
-      return;
-    }
-    this.phases.push(phase);
-    this.persistIfInFlight();
+    const suffix = durationMs != null ? ` · ${Math.round(durationMs)}ms` : "";
+    this.entry(title, "text", `${summary}${suffix}`);
+    if (detail != null) this.entry(`${title} · detail`, "json", jsonContent(detail));
+  }
+
+  skipPhase(_id: string, title: string, summary: string): void {
+    this.entry(`${title} (skipped)`, "text", summary);
   }
 
   failPhase(
-    id: string,
+    _id: string,
     title: string,
     summary: string,
     durationMs?: number,
-    options?: { replace?: boolean },
   ): void {
-    const phase: ReportPhase = {
-      id,
-      title,
-      status: "failed",
-      summary,
-      ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
-    };
-    if (options?.replace) {
-      this.upsertPhase(phase);
-      return;
-    }
-    this.phases.push(phase);
-    this.persistIfInFlight();
+    const suffix = durationMs != null ? ` · ${Math.round(durationMs)}ms` : "";
+    this.entry(`${title} (failed)`, "text", `${summary}${suffix}`);
   }
 
-  /** Mark an in-flight LLM request so Debug shows a waiting state. */
-  beginLlmWait(label: string, model: string, timeoutSec: number): void {
-    const title = llmPhaseTitle(label);
-    this.upsertPhase({
-      id: llmPhaseId(label),
-      title,
-      status: "waiting",
-      summary: `Waiting for LLM · ${model} · up to ${timeoutSec}s`,
-    });
+  // ---- LLM lifecycle: request → waiting → response ------------------------
+
+  beginLlmWait(
+    label: string,
+    model: string,
+    timeoutSec: number,
+    requestBody?: unknown,
+    samplingLine?: string,
+  ): void {
+    const title = llmTitle(label);
+    if (requestBody != null) {
+      this.entry(`LLM request · ${title}`, "json", jsonContent(requestBody));
+    }
+    const sampling = samplingLine ? ` · ${samplingLine}` : "";
+    this.entry(
+      `Waiting for LLM · ${title}`,
+      "text",
+      `${model} · up to ${timeoutSec}s${sampling}`,
+    );
   }
 
   failLlmWait(label: string, summary: string, durationMs?: number): void {
-    const title = llmPhaseTitle(label);
-    this.upsertPhase({
-      id: llmPhaseId(label),
-      title,
-      status: "failed",
-      summary,
-      ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
-    });
+    const suffix = durationMs != null ? ` · ${Math.round(durationMs)}ms` : "";
+    this.entry(`LLM failed · ${llmTitle(label)}`, "text", `${summary}${suffix}`);
   }
 
   recordLlmCall(
     label: string,
     model: string,
     maxTokens: number,
-    messages: ChatMessage[],
+    _messages: ChatMessage[],
     response: ChatResponseShape,
-    layout?: VerbosePromptLayout,
-    samplingLine?: string,
-    requestBody?: unknown,
+    _layout?: VerbosePromptLayout,
+    _samplingLine?: string,
+    _requestBody?: unknown,
     responseBody?: unknown,
     durationMs?: number,
   ): void {
-    const title = llmPhaseTitle(label);
-    const id = llmPhaseId(label);
-    const sections: Array<{ title: string; body: string }> = [];
-
-    if (layout) {
-      sections.push({ title: "System", body: layout.system });
-      sections.push({ title: "Latest turn", body: layout.latest });
-    } else {
-      sections.push({
-        title: "Messages",
-        body: messages
-          .map(
-            (m, i) =>
-              `[${i + 1}] ${m.role}${m.images?.length ? ` (${m.images.length} image(s))` : ""}\n${m.content}`,
-          )
-          .join("\n\n"),
-      });
-    }
-
+    const title = llmTitle(label);
     const content = response.message?.content ?? "";
     const reasoning = response.message?.reasoning ?? "";
     const toolCalls = response.toolCalls ?? [];
-    const meta = [
-      `done: ${response.done_reason ?? "unknown"}`,
-      `tokens: ${response.eval_count ?? 0}`,
-      `max_tokens: ${maxTokens}`,
-      samplingLine,
-    ]
-      .filter(Boolean)
-      .join(" · ");
 
-    const summaryParts = [`${model}`];
+    const summary: string[] = [model];
     if (toolCalls.length > 0) {
-      summaryParts.push(
+      summary.push(
         `${toolCalls.length} tool call${toolCalls.length === 1 ? "" : "s"}: ${toolCalls
-          .map((call) => call.name)
+          .map((c) => c.name)
           .join(", ")}`,
       );
     } else {
-      summaryParts.push(`${content.length} chars output`);
+      summary.push(`${content.length} chars output`);
     }
-    if (reasoning) summaryParts.push(`${reasoning.length} chars reasoning`);
+    if (reasoning) summary.push(`${reasoning.length} chars reasoning`);
+    summary.push(`done: ${response.done_reason ?? "unknown"}`);
+    summary.push(`tokens: ${response.eval_count ?? 0}/${maxTokens}`);
+    if (durationMs != null) summary.push(`${Math.round(durationMs)}ms`);
 
-    this.upsertPhase({
-      id,
-      title,
-      status: "ok",
-      summary: summaryParts.join(" · "),
-      ...(durationMs != null ? { durationMs: Math.round(durationMs) } : {}),
-      detail: {
-        type: "llm",
-        model,
-        sampling: samplingLine,
-        requestBody,
-        responseBody,
-        sections,
-        output: {
-          content,
-          reasoning: reasoning || undefined,
-          meta,
-          ...(toolCalls.length > 0 ? { toolCalls } : {}),
-        },
-      },
-    });
+    this.entry(
+      `LLM response · ${title}`,
+      "json",
+      jsonContent(responseBody ?? { content, reasoning, toolCalls }),
+    );
+    this.entry(`LLM result · ${title}`, "text", summary.join(" · "));
+  }
+
+  // ---- Terminal states -----------------------------------------------------
+
+  finishIgnored(ignoreReason: string, addressSource?: string): void {
+    const source = addressSource
+      ? ` · ${ADDRESS_LABELS[addressSource] ?? addressSource}`
+      : "";
+    this.entry(
+      "Ignored",
+      "text",
+      `${IGNORE_LABELS[ignoreReason] ?? ignoreReason}${source}`,
+    );
+    this.finish("ignored");
   }
 
   finalizeProcessed(options?: {
@@ -419,248 +290,53 @@ export class MessageReportSession {
     sticker?: string;
     replyMessageIds?: number[];
   }): void {
-    this.status = "processed";
-    this.result = {
-      ...this.result,
-      replyChars: options?.replyChars,
-      chunks: options?.chunks,
-      sticker: options?.sticker,
-    };
     if (options?.replyMessageIds?.length) {
       this.replyMessageIds = options.replyMessageIds;
     }
-    this.persist();
-    releaseProcessingSession(this.turnId);
-  }
-
-  finalizeError(error: string): void {
-    this.status = "error";
-    this.result = { ...this.result, error };
-    this.persist();
-    releaseProcessingSession(this.turnId);
+    const parts: string[] = [];
+    if (options?.replyChars != null) parts.push(`${options.replyChars} chars`);
+    if (options?.chunks != null) parts.push(`${options.chunks} chunk(s)`);
+    if (options?.sticker) parts.push(`sticker ${options.sticker}`);
+    this.entry("Replied", "text", parts.join(" · ") || "Reply delivered");
+    this.finish("processed");
   }
 
   finalizeEarlyReply(input: { reason: string; replyChars?: number }): void {
-    this.status = "processed";
-    this.result = {
-      error: input.reason,
-      replyChars: input.replyChars,
-    };
-    this.persist();
-    releaseProcessingSession(this.turnId);
+    const chars = input.replyChars != null ? ` · ${input.replyChars} chars` : "";
+    this.entry("Early reply", "text", `${input.reason}${chars}`);
+    this.finish("processed");
   }
 
-  private buildReport(): MessageReportRecord {
-    const durationMs = Math.round(performance.now() - this.startedAt);
-    return {
-      status: this.status,
-      headline: buildHeadline(
-        this.status,
-        durationMs,
-        this.routing,
-        this.phases,
-        this.result,
-      ),
-      durationMs,
-      intake: {
-        messagePreview: this.messagePreview,
-        hasMedia: this.hasMedia,
-        mediaKind: this.mediaKind,
-      },
-      routing:
-        this.routing ??
-        (this.status === "processing"
-          ? {
-              decision: "pending",
-              pendingLabel: "Message received",
-            }
-          : {
-              decision: "ignored",
-              ignoreReason: "unknown",
-              ignoreLabel: "Unknown",
-            }),
-      phases: this.phases,
-      result: this.result,
-    };
+  finalizeError(error: string): void {
+    this.entry("Error", "text", error);
+    this.finish("error");
   }
-
-  private upsertPhase(phase: ReportPhase): void {
-    const idx = this.phases.findIndex((entry) => entry.id === phase.id);
-    if (idx >= 0) {
-      this.phases[idx] = phase;
-    } else {
-      this.phases.push(phase);
-    }
-    this.persistIfInFlight();
-  }
-
-  private persistIfInFlight(): void {
-    if (this.status === "processing") {
-      this.persist();
-    }
-  }
-
-  private persist(): void {
-    const report = this.buildReport();
-    const listSummary: MessageReportListSummary = {
-      headline: report.headline,
-      badges: buildBadges(report),
-      trigger:
-        report.routing.decision === "accepted"
-          ? report.routing.trigger
-          : undefined,
-      ignoreLabel:
-        report.routing.decision === "ignored"
-          ? report.routing.ignoreLabel
-          : undefined,
-    };
-
-    // Fire-and-forget; wrap in Promise.resolve so a non-promise return (e.g. a
-    // test mock) can't throw, and surface async failures instead of swallowing.
-    void Promise.resolve(
-      upsertMessageReport({
-        id: this.turnId,
-        chatId: this.chatId,
-        convKey: this.convKey,
-        userId: this.userId,
-        chatType: this.chatType,
-        messageId: this.messageId,
-        messagePreview: this.messagePreview,
-        status: this.status,
-        listSummary,
-        report,
-        replyMessageIds: this.replyMessageIds,
-        durationMs: report.durationMs,
-        seq: ++this.seq,
-      }),
-    ).catch((err) => {
-      console.error("Failed to persist message report:", err);
-    });
-  }
-}
-
-function buildBadges(report: MessageReportRecord): string[] {
-  const badges: string[] = [];
-  if (report.routing.decision === "accepted") {
-    badges.push(report.routing.triggerLabel);
-  } else if (report.routing.decision === "queued") {
-    badges.push(`queued #${report.routing.position}`);
-  } else if (report.routing.decision === "ignored") {
-    badges.push(report.routing.ignoreLabel);
-  } else if (report.status === "processing") {
-    badges.push("in progress");
-  }
-
-  for (const phase of report.phases) {
-    if (phase.status !== "ok") continue;
-    if (phase.id.startsWith("llm-")) continue;
-    if (["delivery", "routing"].includes(phase.id)) continue;
-    badges.push(phase.title.toLowerCase());
-  }
-
-  return [...new Set(badges)].slice(0, 6);
-}
-
-function buildHeadline(
-  status: ReportStatus,
-  durationMs: number,
-  routing: MessageReportSession["routing"],
-  phases: ReportPhase[],
-  result: MessageReportRecord["result"],
-): string {
-  const duration = formatDuration(durationMs);
-
-  if (status === "ignored") {
-    const label =
-      routing?.decision === "ignored" ? routing.ignoreLabel : "Ignored";
-    return `Ignored · ${label}`;
-  }
-
-  if (status === "processing") {
-    const waitingPhase = [...phases].reverse().find((p) => p.status === "waiting");
-    if (waitingPhase) {
-      return `Waiting for LLM · ${waitingPhase.title}`;
-    }
-    if (routing?.decision === "queued") {
-      return routing.queueLabel;
-    }
-    if (routing?.decision === "accepted") {
-      return `Processing · ${routing.triggerLabel}`;
-    }
-    if (routing?.decision === "pending") {
-      const activePhase = [...phases]
-        .reverse()
-        .find((p) => p.status === "ok" && p.id !== "intake");
-      if (activePhase) {
-        return `Processing · ${activePhase.title}`;
-      }
-      return `Processing · ${routing.pendingLabel}`;
-    }
-    const lastPhase = phases.at(-1);
-    if (lastPhase) {
-      return `Processing · ${lastPhase.title}`;
-    }
-    return "Processing · message received";
-  }
-
-  if (status === "error") {
-    return `Failed in ${duration}${result.error ? ` · ${result.error}` : ""}`;
-  }
-
-  const features = [
-    ...new Set(
-      phases
-        .filter((p) => p.status === "ok")
-        .map((p) => p.title.toLowerCase())
-        .filter((t) => t !== "main reply" && t !== "delivery"),
-    ),
-  ].slice(0, 4);
-
-  if (result.error && !result.replyChars) {
-    return `Stopped in ${duration} · ${result.error}`;
-  }
-
-  const replyPart =
-    result.replyChars != null ? `${result.replyChars} chars` : "replied";
-  const featureText = features.length > 0 ? ` · ${features.join(", ")}` : "";
-  return `Replied in ${duration} · ${replyPart}${featureText}`;
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function humanAddressLabel(source?: string): string | undefined {
-  if (!source) return undefined;
-  return ADDRESS_LABELS[source] ?? source;
 }
 
 export function beginMessageReport(input: {
   turnId: number;
-  chatId: number;
+  chatId?: number;
   convKey?: string;
-  userId: string | null;
-  chatType: string;
-  messageId: number | null;
-  messagePreview: string;
-}): MessageReportSession {
-  const session = new MessageReportSession({
-    turnId: input.turnId,
-    chatId: String(input.chatId),
-    convKey: input.convKey,
-    userId: input.userId,
-    chatType: input.chatType,
-    messageId: input.messageId,
-    messagePreview: input.messagePreview,
-  });
-  trackProcessingSession(session);
-  session.markReceived();
+  userId?: string | null;
+  chatType?: string;
+  messageId?: number | null;
+  messagePreview?: string;
+}): MessageProcessingReport {
+  const session = new MessageProcessingReport(input.turnId);
+  sessions.set(input.turnId, session);
   return session;
+}
+
+/** Link a turn's report to the stored chat message that triggered it. */
+export function linkProcessingMessage(
+  turnId: number,
+  chatMessageId: number,
+): void {
+  sessions.get(turnId)?.link(chatMessageId);
 }
 
 export function getMessageReport(
   turnId: number,
-): MessageReportSession | undefined {
+): MessageProcessingReport | undefined {
   return sessions.get(turnId);
 }

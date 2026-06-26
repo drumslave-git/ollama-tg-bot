@@ -1,120 +1,108 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { upsertMessageReport } = vi.hoisted(() => ({
-  upsertMessageReport: vi.fn(),
+const { ensureMessageProcessing, reportMessageProcessing, setMessageProcessingStatus } =
+  vi.hoisted(() => ({
+    ensureMessageProcessing: vi.fn(async (..._args: unknown[]) => 1),
+    reportMessageProcessing: vi.fn(async (..._args: unknown[]) => {}),
+    setMessageProcessingStatus: vi.fn(async (..._args: unknown[]) => {}),
+  }));
+
+vi.mock("../../src/db/debug/message-processing.js", () => ({
+  ensureMessageProcessing,
+  reportMessageProcessing,
+  setMessageProcessingStatus,
 }));
 
-vi.mock("../../src/db/debug/traces.js", () => ({
-  upsertMessageReport,
-}));
+import {
+  beginMessageReport,
+  linkProcessingMessage,
+} from "../../src/debug/message-report.js";
 
-import { beginMessageReport } from "../../src/debug/message-report.js";
-
-describe("beginMessageReport", () => {
+describe("message processing report", () => {
   beforeEach(() => {
-    upsertMessageReport.mockClear();
+    ensureMessageProcessing.mockClear();
+    reportMessageProcessing.mockClear();
+    setMessageProcessingStatus.mockClear();
   });
 
-  it("persists a processing trace immediately so in-flight turns are visible", () => {
-    const session = beginMessageReport({
-      turnId: 42,
-      chatId: 1001,
-      userId: "7",
-      chatType: "private",
-      messageId: 99,
-      messagePreview: "hello",
-    });
+  it("buffers entries until the chat message is linked, then flushes in order", async () => {
+    const session = beginMessageReport({ turnId: 1 });
 
-    expect(upsertMessageReport).toHaveBeenCalledTimes(1);
-    expect(upsertMessageReport.mock.calls[0]?.[0]).toMatchObject({
-      id: 42,
-      status: "processing",
-      messagePreview: "hello",
-    });
-    expect(upsertMessageReport.mock.calls[0]?.[0].report.routing).toEqual({
-      decision: "pending",
-      pendingLabel: "Message received",
-    });
-    expect(upsertMessageReport.mock.calls[0]?.[0].report.phases).toEqual([
-      expect.objectContaining({
-        id: "intake",
-        title: "Message received",
-        status: "ok",
-      }),
-    ]);
-    expect(upsertMessageReport.mock.calls[0]?.[0].report.headline).toBe(
-      "Processing · Message received",
-    );
-
+    // Before linking, nothing is written.
     session.okPhase("address", "Address check", "Addressed");
-    expect(upsertMessageReport).toHaveBeenCalledTimes(2);
-    expect(upsertMessageReport.mock.calls[1]?.[0].report.headline).toBe(
-      "Processing · Address check",
-    );
+    expect(reportMessageProcessing).not.toHaveBeenCalled();
 
-    session.finishIgnored("not_addressed");
-    expect(upsertMessageReport.mock.calls.at(-1)?.[0]).toMatchObject({
-      status: "ignored",
-    });
+    linkProcessingMessage(1, 555);
+    await session.flush();
+    expect(ensureMessageProcessing).toHaveBeenCalledWith(555);
+    expect(reportMessageProcessing).toHaveBeenCalledWith(
+      555,
+      "Address check",
+      "text",
+      "Addressed",
+    );
   });
 
-  it("re-persists on tick while processing for live dashboard duration", () => {
-    const session = beginMessageReport({
-      turnId: 11,
-      chatId: 3003,
-      userId: "1",
-      chatType: "private",
-      messageId: 2,
-      messagePreview: "tick",
-    });
-    upsertMessageReport.mockClear();
+  it("splits an LLM call into request, waiting and response entries in order", async () => {
+    const session = beginMessageReport({ turnId: 2 });
+    linkProcessingMessage(2, 7);
 
-    session.tick();
-    expect(upsertMessageReport).toHaveBeenCalledTimes(1);
-    expect(upsertMessageReport.mock.calls[0]?.[0].status).toBe("processing");
-  });
-
-  it("shows a waiting LLM phase and headline while the provider has not replied", () => {
-    const session = beginMessageReport({
-      turnId: 7,
-      chatId: 2002,
-      userId: "3",
-      chatType: "private",
-      messageId: 1,
-      messagePreview: "ping",
-    });
-
-    session.beginLlmWait("main reply", "test-model", 120);
-    const waitingPersist = upsertMessageReport.mock.calls.at(-1)?.[0];
-    expect(waitingPersist?.report.phases).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: "completions",
-          status: "waiting",
-          summary: "Waiting for LLM · test-model · up to 120s",
-        }),
-      ]),
-    );
-    expect(waitingPersist?.report.headline).toBe("Waiting for LLM · Main reply");
-
+    session.beginLlmWait("main reply", "test-model", 120, { foo: 1 }, "temp=0.7");
     session.recordLlmCall(
       "main reply",
       "test-model",
       512,
       [{ role: "user", content: "ping" }],
-      { message: { content: '{"reply":"pong"}' } },
+      { message: { content: '{"reply":"pong"}' }, done_reason: "stop" },
       undefined,
       undefined,
       undefined,
-      undefined,
+      { ok: true },
       1500,
     );
-    const donePersist = upsertMessageReport.mock.calls.at(-1)?.[0];
-    expect(donePersist?.report.phases).toHaveLength(2);
-    expect(donePersist?.report.phases[1]).toMatchObject({
-      id: "completions",
-      status: "ok",
-      durationMs: 1500,
-    });
+    await session.flush();
+
+    const titles = reportMessageProcessing.mock.calls.map((c) => c[1]);
+    expect(titles).toEqual([
+      "LLM request · Main reply",
+      "Waiting for LLM · Main reply",
+      "LLM response · Main reply",
+      "LLM result · Main reply",
+    ]);
+    // request + response carry JSON bodies; the rest are text.
+    const types = reportMessageProcessing.mock.calls.map((c) => c[2]);
+    expect(types).toEqual(["json", "text", "json", "text"]);
+  });
+
+  it("records an ignored terminal status", async () => {
+    const session = beginMessageReport({ turnId: 3 });
+    linkProcessingMessage(3, 9);
+
+    session.finishIgnored("not_addressed");
+    await session.flush();
+    expect(reportMessageProcessing).toHaveBeenCalledWith(
+      9,
+      "Ignored",
+      "text",
+      "Not addressed to the bot",
+    );
+    expect(setMessageProcessingStatus).toHaveBeenCalledWith(
+      9,
+      "ignored",
+      expect.objectContaining({ totalTimeSpentMs: expect.any(Number) }),
+    );
+  });
+
+  it("stores reply message ids on processed turns", async () => {
+    const session = beginMessageReport({ turnId: 4 });
+    linkProcessingMessage(4, 11);
+
+    session.finalizeProcessed({ replyChars: 42, replyMessageIds: [100, 101] });
+    await session.flush();
+    expect(setMessageProcessingStatus).toHaveBeenCalledWith(
+      11,
+      "processed",
+      expect.objectContaining({ replyMessageIds: [100, 101] }),
+    );
   });
 });

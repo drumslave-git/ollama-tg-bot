@@ -21,10 +21,7 @@ import {
 import { buildExplainSystemPrompt } from "../pipeline/adapters/system-prompt.js";
 import { getExplainNumPredict } from "../settings/limits.js";
 import { getResolvedSettings } from "../settings/runtime.js";
-import {
-  getDebugTraceById,
-  getTraceIdByReplyMessage,
-} from "../db/debug/traces.js";
+import { getProcessingByReplyMessage } from "../db/debug/message-processing.js";
 import { formatTraceForExplain } from "../debug/trace-format.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { isOwner } from "../bot/owner/owner.js";
@@ -112,11 +109,10 @@ export function createExplainExtension(): ExplainExtension {
       if (!replied || botId == null || replied.from?.id !== botId) return null;
 
       const repliedMessageId = replied.message_id;
-      const traceId = await getTraceIdByReplyMessage(
-        String(chatId),
+      const processing = await getProcessingByReplyMessage(
+        convKey,
         repliedMessageId,
       );
-      const trace = traceId != null ? await getDebugTraceById(traceId) : null;
 
       return {
         convKey,
@@ -124,7 +120,7 @@ export function createExplainExtension(): ExplainExtension {
         userId: resolveUserId(grammyCtx),
         inGroup: isGroupChat(grammyCtx),
         repliedMessageId,
-        traceText: trace ? formatTraceForExplain(trace) : null,
+        traceText: processing ? formatTraceForExplain(processing) : null,
         messageThreadId: grammyCtx.message?.message_thread_id,
         isForum: grammyCtx.chat?.is_forum === true,
       };

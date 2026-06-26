@@ -17,7 +17,14 @@ function isJsonObject(value: unknown): value is object {
 const preClasses =
   "m-0 max-h-[360px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/25 p-3 font-mono text-[0.78rem] leading-snug";
 
-export function DebugJsonView({ value }: { value: unknown }) {
+export function DebugJsonView({
+  value,
+  collapsed = 2,
+}: {
+  value: unknown;
+  /** react-json-view collapse depth: `true` collapses to the root, or a depth number. */
+  collapsed?: boolean | number;
+}) {
   if (value == null) {
     return (
       <span className="block p-3 text-sm text-muted">(empty)</span>
@@ -43,7 +50,7 @@ export function DebugJsonView({ value }: { value: unknown }) {
       <ReactJson
         src={src}
         name={false}
-        collapsed={2}
+        collapsed={collapsed}
         enableClipboard
         displayDataTypes={false}
         displayObjectSize={false}

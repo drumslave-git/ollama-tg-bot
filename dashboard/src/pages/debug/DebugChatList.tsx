@@ -6,7 +6,7 @@ import { useDashboard } from "../../context/DashboardContext";
 import { useLiveDebug } from "../../liveSocket";
 import { Card, LoadingState } from "../../components/ui/Layout";
 import { debugChatPath } from "./debugPaths";
-import { formatTime, patchChatSummaries } from "./debugUtils";
+import { formatTime } from "./debugUtils";
 
 const chatItemClass =
   "flex w-full cursor-pointer flex-row items-center justify-between gap-3 rounded-[10px] border border-border bg-surface-hover p-3.5 px-4 text-left text-inherit no-underline hover:border-accent hover:bg-accent/6";
@@ -39,27 +39,17 @@ export function DebugChatList() {
   }, [loadChats]);
 
   useLiveDebug(
-    useCallback(
-      (event) => {
-        if (!apiOnline) return;
-        if (event.listItem) {
-          setChats((prev) => patchChatSummaries(prev, event));
-        }
-        void loadChats(true);
-      },
-      [apiOnline, loadChats],
-    ),
+    useCallback(() => {
+      if (!apiOnline) return;
+      void loadChats(true);
+    }, [apiOnline, loadChats]),
     apiOnline === true,
   );
 
   return (
     <>
       {error != null ? (
-        <ErrorBanner
-          error={error}
-          compact
-          onRetry={() => void loadChats()}
-        />
+        <ErrorBanner error={error} compact onRetry={() => void loadChats()} />
       ) : null}
 
       {loading ? <LoadingState /> : null}
@@ -69,21 +59,21 @@ export function DebugChatList() {
           <h3 className="m-0 mb-4 text-base font-semibold text-text">Chats</h3>
           {chats.length === 0 ? (
             <p className="m-0 text-muted">
-              No reports yet. Send messages to the bot to populate this view.
+              No processings yet. Send messages to the bot to populate this view.
             </p>
           ) : (
             <div className="flex flex-col gap-2">
               {chats.map((chat) => (
                 <Link
-                  key={chat.chatId}
-                  to={debugChatPath(chat.chatId)}
+                  key={chat.entityId}
+                  to={debugChatPath(chat.entityId)}
                   className={chatItemClass}
                 >
                   <div>
                     <strong className="block">{chat.label}</strong>
                     <span className="text-muted">
-                      {chat.chatType === "private" ? "Private" : "Group"} ·{" "}
-                      {chat.traceCount} reports
+                      {chat.processingCount} processing
+                      {chat.processingCount === 1 ? "" : "s"}
                     </span>
                   </div>
                   <span className="text-sm text-muted">

@@ -107,6 +107,8 @@ export interface PipelineTurnState {
   historyPointer?: string;
   /** Telegram message_id for the current turn. */
   telegramMessageId?: number;
+  /** chat_messages.id of the stored triggering message — anchor for debug processing entries. */
+  chatMessageId?: number;
 
   userHistoryContent?: string | null;
   skipUserHistory?: boolean;

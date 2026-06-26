@@ -131,15 +131,63 @@ export interface MoodPayload {
 export type MemoryScope = "user" | "group" | "general";
 
 export interface DashboardDebugEvent {
-  chatId: string;
-  traceId: number;
-  listItem: MessageReportListItem | null;
-  trace: MessageReportDetail | null;
+  entityId: string;
+  processingId: number;
 }
 
 export interface DashboardDataEvent {
   tableIds?: string[];
 }
+
+export type ProcessingStatus =
+  | "processing"
+  | "processed"
+  | "ignored"
+  | "error";
+
+export type ProcessingEntryType = "text" | "json";
+
+export interface ProcessingEntry {
+  id: number;
+  title: string;
+  type: ProcessingEntryType;
+  content: string;
+  createdAt: string;
+}
+
+export interface DebugChatSummary {
+  entityId: string;
+  label: string;
+  processingCount: number;
+  latestAt: string | null;
+}
+
+export interface MessageProcessingListItem {
+  id: number;
+  chatMessageId: number;
+  messageId: number | null;
+  messagePreview: string;
+  userLabel: string | null;
+  status: ProcessingStatus;
+  totalTimeSpent: number | null;
+  entryCount: number;
+  createdAt: string;
+}
+
+export interface MessageProcessingDetail {
+  id: number;
+  entityId: string;
+  chatMessageId: number;
+  messageId: number | null;
+  messagePreview: string;
+  userLabel: string | null;
+  status: ProcessingStatus;
+  totalTimeSpent: number | null;
+  createdAt: string;
+  entries: ProcessingEntry[];
+}
+
+// ---- Shared phase model (used by the memory/vision background-job debug) ----
 
 export type PhaseStatus = "skipped" | "ok" | "failed" | "waiting";
 
@@ -187,81 +235,6 @@ export interface ReportPhase {
   durationMs?: number;
   summary: string;
   detail?: ReportDetail;
-}
-
-export interface MessageReportRecord {
-  status: "ignored" | "processing" | "processed" | "error";
-  headline: string;
-  durationMs: number;
-  intake: {
-    messagePreview: string;
-    hasMedia: boolean;
-    mediaKind?: string;
-  };
-  routing:
-    | {
-        decision: "pending";
-        pendingLabel: string;
-      }
-    | {
-        decision: "ignored";
-        ignoreReason: string;
-        ignoreLabel: string;
-        addressSource?: string;
-      }
-    | {
-        decision: "accepted";
-        trigger: "addressed" | "random" | "image";
-        triggerLabel: string;
-        addressSource?: string;
-      }
-    | {
-        decision: "queued";
-        position: number;
-        queueLabel: string;
-      };
-  phases: ReportPhase[];
-  result: {
-    replyChars?: number;
-    chunks?: number;
-    sticker?: string;
-    error?: string;
-  };
-}
-
-export interface DebugChatSummary {
-  chatId: string;
-  chatType: string;
-  label: string;
-  traceCount: number;
-  latestAt: string | null;
-}
-
-export interface MessageReportListItem {
-  id: number;
-  chatId: string;
-  userId: string | null;
-  userLabel: string | null;
-  messagePreview: string;
-  status: "ignored" | "processing" | "processed" | "error";
-  headline: string;
-  badges: string[];
-  durationMs: number | null;
-  createdAt: string;
-}
-
-export interface MessageReportDetail {
-  id: number;
-  chatId: string;
-  convKey: string;
-  userId: string | null;
-  chatType: string;
-  messageId: number | null;
-  messagePreview: string;
-  status: "ignored" | "processing" | "processed" | "error";
-  durationMs: number | null;
-  createdAt: string;
-  report: MessageReportRecord;
 }
 
 export interface BotErrorRecord {
@@ -849,12 +822,14 @@ export const api = {
     }),
   getDebugChats: () =>
     request<{ chats: DebugChatSummary[] }>("/api/debug/chats"),
-  getDebugTraces: (chatId: string) =>
-    request<{ traces: MessageReportListItem[] }>(
-      `/api/debug/chat/${encodeURIComponent(chatId)}`,
+  getDebugProcessings: (entityId: string) =>
+    request<{ processings: MessageProcessingListItem[] }>(
+      `/api/debug/chat/${encodeURIComponent(entityId)}`,
     ),
-  getDebugTrace: (id: number) =>
-    request<{ trace: MessageReportDetail }>(`/api/debug/trace/${id}`),
+  getDebugProcessing: (id: number) =>
+    request<{ processing: MessageProcessingDetail }>(
+      `/api/debug/processing/${id}`,
+    ),
   getTasks: () => request<{ tasks: Task[] }>("/api/tasks"),
   createTask: (payload: TaskInputPayload) =>
     request<{ task: Task }>("/api/tasks", {

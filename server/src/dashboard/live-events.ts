@@ -4,18 +4,11 @@ import {
   buildSettingsPayload,
   buildStatsPayload,
 } from "./payloads.js";
-import type {
-  MessageReportDetail,
-  MessageReportListItem,
-} from "../db/debug/traces.js";
-
 export type MemoryScope = "user" | "group" | "general";
 
 export interface DashboardDebugEvent {
-  chatId: string;
-  traceId: number;
-  listItem: MessageReportListItem | null;
-  trace: MessageReportDetail | null;
+  entityId: string;
+  processingId: number;
 }
 
 export interface DashboardDataEvent {

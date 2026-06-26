@@ -1,38 +1,38 @@
 import { Route, Routes, useMatch, useNavigate } from "react-router-dom";
 import { DebugChatList } from "./debug/DebugChatList";
-import { DebugChatMessages } from "./debug/DebugChatMessages";
-import { DebugMessageDetail } from "./debug/DebugMessageDetail";
-import { debugChatPath, decodeRouteChatId } from "./debug/debugPaths";
+import { DebugChatProcessings } from "./debug/DebugChatProcessings";
+import { DebugProcessingDetail } from "./debug/DebugProcessingDetail";
+import { debugChatPath, decodeRouteEntityId } from "./debug/debugPaths";
 import { Button } from "../components/ui/Button";
 import { Page, PageHeader } from "../components/ui/Layout";
 
 export function DebugPage() {
   const navigate = useNavigate();
   const detailMatch = useMatch({
-    path: "/debug/:chatId/:messageId",
+    path: "/debug/:entityId/:processingId",
     end: true,
   });
-  const messagesMatch = useMatch({ path: "/debug/:chatId", end: true });
-  const chatId = decodeRouteChatId(
-    detailMatch?.params.chatId ?? messagesMatch?.params.chatId,
+  const listMatch = useMatch({ path: "/debug/:entityId", end: true });
+  const entityId = decodeRouteEntityId(
+    detailMatch?.params.entityId ?? listMatch?.params.entityId,
   );
   function goBack() {
-    if (detailMatch && chatId) {
-      navigate(debugChatPath(chatId));
+    if (detailMatch && entityId) {
+      navigate(debugChatPath(entityId));
       return;
     }
-    if (messagesMatch) {
+    if (listMatch) {
       navigate("/debug");
     }
   }
 
-  const showBack = Boolean(detailMatch || messagesMatch);
+  const showBack = Boolean(detailMatch || listMatch);
 
   return (
     <Page>
       <PageHeader
         title="Debug"
-        description="Message processing reports (last 50 per chat). Updates live."
+        description="Message processings (last 50 per chat). Updates live."
         actions={
           showBack ? (
             <Button variant="secondary" onClick={goBack}>
@@ -44,8 +44,8 @@ export function DebugPage() {
 
       <Routes>
         <Route index element={<DebugChatList />} />
-        <Route path=":chatId" element={<DebugChatMessages />} />
-        <Route path=":chatId/:messageId" element={<DebugMessageDetail />} />
+        <Route path=":entityId" element={<DebugChatProcessings />} />
+        <Route path=":entityId/:processingId" element={<DebugProcessingDetail />} />
       </Routes>
     </Page>
   );
