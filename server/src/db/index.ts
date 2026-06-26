@@ -77,7 +77,7 @@ export interface Stats {
 
 const DEFAULT_SETTINGS: Settings = {
   model: "gpt-4o-mini",
-  embeddingModel: "bge-m3",
+  embeddingModel: "",
   activePersonalityId: 0,
   numPredict: 512,
   numCtx: 4096,

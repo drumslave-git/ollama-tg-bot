@@ -10,7 +10,7 @@ import type { Settings } from "../../src/db/index.js";
 export function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
     model: "gpt-4o-mini",
-    embeddingModel: "bge-m3",
+    embeddingModel: "",
     activePersonalityId: 0,
     numPredict: 512,
     numCtx: 4096,

@@ -2,7 +2,11 @@ import OpenAI from "openai";
 import { config } from "../config/index.js";
 import { getSettings } from "../db/index.js";
 
-/** bge-m3 embedding dimension. The chat_summaries vector column is sized to this. */
+/**
+ * Vector dimension the `chat_summaries.embedding` column is sized to. The chosen
+ * embedding model must emit vectors of this length (1024 fits e.g. bge-m3);
+ * switching to a different-dimension model requires recreating the table.
+ */
 export const EMBEDDING_DIM = 1024;
 
 function resolveOpenAiBaseUrl(): string {
@@ -22,13 +26,18 @@ function embeddingsClient(): OpenAI {
 }
 
 /**
- * Embed one or more texts via the configured embedding model (ollama bge-m3 by
- * default) on the OpenAI-compatible `/v1/embeddings` endpoint. Returns one
- * vector per input, in order.
+ * Embed one or more texts via the dashboard-configured embedding model on the
+ * OpenAI-compatible `/v1/embeddings` endpoint. Returns one vector per input, in
+ * order. Throws when no embedding model is configured.
  */
 export async function embed(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const model = (await getSettings()).embeddingModel;
+  const model = (await getSettings()).embeddingModel.trim();
+  if (!model) {
+    throw new Error(
+      "No embedding model configured (set one in the dashboard Settings → Embedding model)",
+    );
+  }
   const response = await embeddingsClient().embeddings.create({
     model,
     input: texts,

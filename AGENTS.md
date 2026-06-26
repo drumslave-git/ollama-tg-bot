@@ -96,7 +96,7 @@ To add a feature: create `server/src/features/<name>/`, implement the pipeline h
 | `DATABASE_URL` | Postgres connection string (required); needs the `pgvector` extension |
 | `TZ` | Optional IANA timezone for scheduled tasks + daily summaries (default `UTC`); jobs fire at wall-clock times in this zone |
 
-Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (Postgres), not `.env`. The embedding model (history-summary RAG, default `bge-m3`) is a dashboard setting too.
+Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (Postgres), not `.env`. The embedding model (history-summary RAG) is a dashboard setting too — no default; pick one from the provider's models (it must produce `EMBEDDING_DIM`-length vectors, see `server/src/llm/embeddings.ts`).
 
 ## Architecture
 
