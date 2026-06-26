@@ -33,11 +33,11 @@ function emit(event: string, payload?: unknown): void {
 }
 
 export function emitStatsUpdated(): void {
-  emit("dashboard:stats", buildStatsPayload());
+  void buildStatsPayload().then((payload) => emit("dashboard:stats", payload));
 }
 
 export function emitMoodUpdated(): void {
-  emit("dashboard:mood", buildMoodPayload());
+  void buildMoodPayload().then((payload) => emit("dashboard:mood", payload));
 }
 
 export function emitPersonalitiesUpdated(): void {

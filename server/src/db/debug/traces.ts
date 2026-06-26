@@ -347,7 +347,7 @@ export async function listDebugChats(): Promise<DebugChatSummary[]> {
   }>(
     `SELECT chat_id, chat_type, COUNT(*)::int AS trace_count, MAX(created_at) AS latest_at
        FROM debug_traces
-       GROUP BY chat_id
+       GROUP BY chat_id, chat_type
        ORDER BY latest_at DESC`,
   );
 

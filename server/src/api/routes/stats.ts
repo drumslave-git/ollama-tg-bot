@@ -4,9 +4,9 @@ import { clearErrors } from "../../db/index.js";
 
 export const statsRouter = Router();
 
-statsRouter.get("/", (_req, res) => {
+statsRouter.get("/", async (_req, res) => {
   try {
-    res.json(buildStatsPayload());
+    res.json(await buildStatsPayload());
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Failed to load stats",
@@ -14,7 +14,7 @@ statsRouter.get("/", (_req, res) => {
   }
 });
 
-statsRouter.post("/errors/clear", (_req, res) => {
-  clearErrors();
+statsRouter.post("/errors/clear", async (_req, res) => {
+  await clearErrors();
   res.json({ ok: true });
 });

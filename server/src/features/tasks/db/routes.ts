@@ -22,33 +22,33 @@ function parseWeekdays(value: unknown): number[] | null {
 
 export const tasksRouter = Router();
 
-tasksRouter.get("/", (req, res) => {
-  res.json({ tasks: listTasks(parseChatIdQuery(req.query.chatId)) });
+tasksRouter.get("/", async (req, res) => {
+  res.json({ tasks: await listTasks(parseChatIdQuery(req.query.chatId)) });
 });
 
-tasksRouter.get("/debug", (_req, res) => {
-  res.json({ events: listTaskEvents() });
+tasksRouter.get("/debug", async (_req, res) => {
+  res.json({ events: await listTaskEvents() });
 });
 
-tasksRouter.delete("/debug", (_req, res) => {
-  clearTaskEvents();
+tasksRouter.delete("/debug", async (_req, res) => {
+  await clearTaskEvents();
   res.json({ ok: true });
 });
 
-tasksRouter.get("/:id", (req, res) => {
-  const task = getTaskById(Number(req.params.id));
+tasksRouter.get("/:id", async (req, res) => {
+  const task = await getTaskById(Number(req.params.id));
   if (!task) return res.status(404).json({ error: "Task not found" });
   res.json({ task });
 });
 
-tasksRouter.post("/", (req, res) => {
+tasksRouter.post("/", async (req, res) => {
   const body = req.body ?? {};
   const chatId = Number(body.chatId);
   if (!Number.isFinite(chatId)) {
     return res.status(400).json({ error: "chatId is required" });
   }
   try {
-    const task = createTaskValidated({
+    const task = await createTaskValidated({
       chatId,
       messageThreadId:
         body.messageThreadId != null ? Number(body.messageThreadId) : null,
@@ -70,10 +70,10 @@ tasksRouter.post("/", (req, res) => {
   }
 });
 
-tasksRouter.patch("/:id", (req, res) => {
+tasksRouter.patch("/:id", async (req, res) => {
   const body = req.body ?? {};
   try {
-    const task = updateTaskValidated(Number(req.params.id), {
+    const task = await updateTaskValidated(Number(req.params.id), {
       instruction: body.instruction != null ? String(body.instruction) : undefined,
       scheduleKind: body.scheduleKind as ScheduleKind | undefined,
       timeOfDay: body.timeOfDay != null ? String(body.timeOfDay) : undefined,
@@ -96,8 +96,8 @@ tasksRouter.patch("/:id", (req, res) => {
   }
 });
 
-tasksRouter.delete("/:id", (req, res) => {
-  const ok = deleteTaskValidated(Number(req.params.id));
+tasksRouter.delete("/:id", async (req, res) => {
+  const ok = await deleteTaskValidated(Number(req.params.id));
   res.json({ ok });
 });
 

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   bindDebugTracesDatabase,
   getTraceIdByReplyMessage,
+  listDebugChats,
   upsertMessageReport,
   type MessageReportRecord,
 } from "../../src/db/debug/traces.js";
@@ -79,5 +80,18 @@ describe.skipIf(!hasTestDb)("debug trace reply-message linkage (Postgres)", () =
     await upsert(100, CHAT, [501]);
 
     expect(await getTraceIdByReplyMessage(CHAT, 501)).toBe(100);
+  });
+
+  it("groups chats with a per-chat trace count (Postgres GROUP BY)", async () => {
+    await upsert(100, CHAT, [501]);
+    await upsert(101, CHAT, [502]);
+    await upsert(200, "999", [777]);
+
+    const chats = await listDebugChats();
+    expect(Array.isArray(chats)).toBe(true);
+    const mine = chats.find((c) => c.chatId === CHAT);
+    expect(mine?.traceCount).toBe(2);
+    expect(mine?.chatType).toBe("private");
+    expect(chats.find((c) => c.chatId === "999")?.traceCount).toBe(1);
   });
 });

@@ -24,7 +24,7 @@ export function DebugChatList() {
       setError(null);
       try {
         const data = await api.getDebugChats();
-        setChats(data.chats);
+        setChats(Array.isArray(data.chats) ? data.chats : []);
       } catch (err) {
         setError(err);
       } finally {

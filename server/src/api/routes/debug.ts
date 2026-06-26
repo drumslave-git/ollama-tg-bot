@@ -3,16 +3,16 @@ import { listDebugChats, listDebugTracesForChat, getDebugTraceById } from "../..
 
 export const debugRouter = Router();
 
-debugRouter.get("/chats", (_req, res) => {
-  res.json({ chats: listDebugChats() });
+debugRouter.get("/chats", async (_req, res) => {
+  res.json({ chats: await listDebugChats() });
 });
 
-debugRouter.get("/chat/:chatId", (req, res) => {
-  res.json({ traces: listDebugTracesForChat(req.params.chatId) });
+debugRouter.get("/chat/:chatId", async (req, res) => {
+  res.json({ traces: await listDebugTracesForChat(req.params.chatId) });
 });
 
-debugRouter.get("/trace/:id", (req, res) => {
-  const trace = getDebugTraceById(Number(req.params.id));
+debugRouter.get("/trace/:id", async (req, res) => {
+  const trace = await getDebugTraceById(Number(req.params.id));
   if (!trace) return res.status(404).json({ error: "Trace not found" });
   res.json({ trace });
 });

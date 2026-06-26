@@ -3,13 +3,13 @@ import { listDataTables, getDataTable } from "../../db/data/browser.js";
 
 export const dataRouter = Router();
 
-dataRouter.get("/tables", (_req, res) => {
-  res.json({ tables: listDataTables() });
+dataRouter.get("/tables", async (_req, res) => {
+  res.json({ tables: await listDataTables() });
 });
 
-dataRouter.get("/table/:name", (req, res) => {
+dataRouter.get("/table/:name", async (req, res) => {
   try {
-    const table = getDataTable(req.params.name);
+    const table = await getDataTable(req.params.name);
     if (!table) return res.status(404).json({ error: "Table not found" });
     res.json(table);
   } catch (err) {

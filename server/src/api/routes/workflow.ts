@@ -3,6 +3,6 @@ import { buildWorkflowDefinitionFromSettings } from "../../pipeline/workflow.js"
 
 export const workflowRouter = Router();
 
-workflowRouter.get("/", (_req, res) => {
-  res.json(buildWorkflowDefinitionFromSettings());
+workflowRouter.get("/", async (_req, res) => {
+  res.json(await buildWorkflowDefinitionFromSettings());
 });
