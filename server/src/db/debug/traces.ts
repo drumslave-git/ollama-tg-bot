@@ -155,6 +155,7 @@ export async function bindDebugTracesDatabase(
       details_json TEXT NOT NULL DEFAULT '{}',
       reply_message_ids BIGINT[] NOT NULL DEFAULT '{}',
       duration_ms BIGINT,
+      seq BIGINT NOT NULL DEFAULT 0,
       created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
   `);
@@ -240,20 +241,28 @@ export async function upsertMessageReport(input: {
   report: MessageReportRecord;
   replyMessageIds?: number[];
   durationMs: number | null;
+  /**
+   * Monotonic per-trace write sequence. Concurrent fire-and-forget writes can
+   * reach the pool out of order, so a conflicting update only applies when its
+   * seq is newer — keeping the final status from being clobbered by a stale one.
+   */
+  seq?: number;
 }): Promise<void> {
   await db.query(
     `INSERT INTO debug_traces (
        id, chat_id, conv_key, user_id, chat_type, message_id,
        message_preview, status, summary_json, details_json,
-       reply_message_ids, duration_ms
-     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       reply_message_ids, duration_ms, seq
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
      ON CONFLICT (id) DO UPDATE SET
        conv_key = excluded.conv_key,
        status = excluded.status,
        summary_json = excluded.summary_json,
        details_json = excluded.details_json,
        reply_message_ids = excluded.reply_message_ids,
-       duration_ms = excluded.duration_ms`,
+       duration_ms = excluded.duration_ms,
+       seq = excluded.seq
+     WHERE excluded.seq >= debug_traces.seq`,
     [
       input.id,
       input.chatId,
@@ -267,6 +276,7 @@ export async function upsertMessageReport(input: {
       JSON.stringify(input.report),
       input.replyMessageIds ?? [],
       input.durationMs,
+      input.seq ?? 0,
     ],
   );
   await trimTracesForChat(input.chatId);

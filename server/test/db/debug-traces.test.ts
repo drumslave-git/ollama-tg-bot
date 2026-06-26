@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   bindDebugTracesDatabase,
+  getDebugTraceById,
   getTraceIdByReplyMessage,
   listDebugChats,
   upsertMessageReport,
   type MessageReportRecord,
 } from "../../src/db/debug/traces.js";
+import { bindKnownUsersDatabase } from "../../src/db/users/known-users.js";
 import {
   closeTestPool,
   dropTables,
@@ -51,11 +53,13 @@ async function upsert(
 
 describe.skipIf(!hasTestDb)("debug trace reply-message linkage (Postgres)", () => {
   beforeAll(async () => {
-    await dropTables("debug_traces");
+    await dropTables("debug_traces", "known_users");
     await bindDebugTracesDatabase(testDb);
+    // listDebugChats resolves private-chat labels from known_users.
+    await bindKnownUsersDatabase(testDb);
   });
   afterAll(closeTestPool);
-  beforeEach(() => truncateTables("debug_traces"));
+  beforeEach(() => truncateTables("debug_traces", "known_users"));
 
   it("resolves any of a trace's reply chunk ids back to the trace id", async () => {
     await upsert(100, CHAT, [501, 502]);
@@ -80,6 +84,28 @@ describe.skipIf(!hasTestDb)("debug trace reply-message linkage (Postgres)", () =
     await upsert(100, CHAT, [501]);
 
     expect(await getTraceIdByReplyMessage(CHAT, 501)).toBe(100);
+  });
+
+  it("ignores a stale (lower-seq) write so the final status is not clobbered", async () => {
+    const base = {
+      id: 300,
+      chatId: CHAT,
+      convKey: CHAT,
+      userId: null,
+      chatType: "private",
+      messageId: 1,
+      messagePreview: "hi",
+      listSummary: { headline: "x", badges: [] },
+      report: makeReport(),
+      replyMessageIds: [],
+      durationMs: 10,
+    };
+    // Final "processed" write lands first with a high seq...
+    await upsertMessageReport({ ...base, status: "processed", seq: 5 });
+    // ...then a late, out-of-order "processing" write with a lower seq arrives.
+    await upsertMessageReport({ ...base, status: "processing", seq: 3 });
+
+    expect((await getDebugTraceById(300))?.status).toBe("processed");
   });
 
   it("groups chats with a per-chat trace count (Postgres GROUP BY)", async () => {

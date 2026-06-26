@@ -138,6 +138,14 @@ export class MessageReportSession {
   private result: MessageReportRecord["result"] = {};
   /** Telegram message ids of the bot's sent reply chunks (for /explain lookup). */
   private replyMessageIds: number[] = [];
+  /**
+   * Monotonic write sequence. Persisting is fire-and-forget from many sync call
+   * sites, and the Postgres pool gives no execution-order guarantee across
+   * connections — so a late "processing" write could otherwise land after the
+   * final "processed" one. Each write carries the next seq, and the DB ignores
+   * any update older than what it has stored (see upsertMessageReport).
+   */
+  private seq = 0;
 
   constructor(input: {
     turnId: number;
@@ -507,19 +515,26 @@ export class MessageReportSession {
           : undefined,
     };
 
-    upsertMessageReport({
-      id: this.turnId,
-      chatId: this.chatId,
-      convKey: this.convKey,
-      userId: this.userId,
-      chatType: this.chatType,
-      messageId: this.messageId,
-      messagePreview: this.messagePreview,
-      status: this.status,
-      listSummary,
-      report,
-      replyMessageIds: this.replyMessageIds,
-      durationMs: report.durationMs,
+    // Fire-and-forget; wrap in Promise.resolve so a non-promise return (e.g. a
+    // test mock) can't throw, and surface async failures instead of swallowing.
+    void Promise.resolve(
+      upsertMessageReport({
+        id: this.turnId,
+        chatId: this.chatId,
+        convKey: this.convKey,
+        userId: this.userId,
+        chatType: this.chatType,
+        messageId: this.messageId,
+        messagePreview: this.messagePreview,
+        status: this.status,
+        listSummary,
+        report,
+        replyMessageIds: this.replyMessageIds,
+        durationMs: report.durationMs,
+        seq: ++this.seq,
+      }),
+    ).catch((err) => {
+      console.error("Failed to persist message report:", err);
     });
   }
 }
