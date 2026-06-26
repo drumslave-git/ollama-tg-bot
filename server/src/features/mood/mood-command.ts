@@ -11,19 +11,21 @@ function formatTraitLine(
   return `${marker} <code>${key}</code>: ${current}/5 <i>(default ${defaultValue})</i>`;
 }
 
-export function buildMoodCommandReply(
+export async function buildMoodCommandReply(
   settings: Record<string, unknown>,
   extension: MoodCommandExtension,
-): string {
-  extension.tickMoodCooldown();
+): Promise<string> {
+  await extension.tickMoodCooldown();
 
-  const defaults = extension.getActivePersonalityMoodDefaults();
-  const current = extension.getEffectiveMood();
-  const state = extension.getMoodStateView();
-  const activeId = extension.resolveActivePersonalityId(
+  const defaults = await extension.getActivePersonalityMoodDefaults();
+  const current = await extension.getEffectiveMood();
+  const state = await extension.getMoodStateView();
+  const activeId = await extension.resolveActivePersonalityId(
     Number(settings.activePersonalityId ?? 0),
   );
-  const activeName = activeId ? extension.getPersonalityById(activeId)?.name : null;
+  const activeName = activeId
+    ? (await extension.getPersonalityById(activeId))?.name
+    : null;
 
   const lines = ["<b>Mood</b> (global)"];
 

@@ -101,11 +101,15 @@ export function SettingsPage() {
             models={models}
             modelOptions={modelOptions}
             draftModel={draft.model}
+            draftEmbeddingModel={draft.embeddingModel}
             sectionErrorLlm={sectionErrors.llm}
             sectionErrorModels={sectionErrors.models}
             onTestConnection={() => void testLlmConnection()}
             onRefreshModels={() => void fetchModels()}
             onModelChange={(model) => setDraft({ ...draft, model })}
+            onEmbeddingModelChange={(embeddingModel) =>
+              setDraft({ ...draft, embeddingModel })
+            }
             onDismissLlmError={() => setSectionError("llm", null)}
             onDismissModelsError={() => setSectionError("models", null)}
           />

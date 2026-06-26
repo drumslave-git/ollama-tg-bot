@@ -22,13 +22,13 @@ let scheduler: TaskScheduler | null = null;
  * Self-heals tasks created under a different timezone (e.g. before `TZ` was set)
  * so they fire at the intended wall-clock time without manual recreation.
  */
-function reconcileTaskTimezones(): void {
-  for (const task of listTasks()) {
+async function reconcileTaskTimezones(): Promise<void> {
+  for (const task of await listTasks()) {
     // Clear leftover spent one-shots (e.g. disabled before one-shots were
     // removed on completion). Recurring tasks paused from the dashboard are
     // left intact.
     if (task.scheduleKind === "once" && (!task.enabled || task.nextRunAt == null)) {
-      deleteTaskValidated(task.id, "completed");
+      await deleteTaskValidated(task.id, "completed");
       continue;
     }
     if (!task.enabled) continue;
@@ -43,7 +43,7 @@ function reconcileTaskTimezones(): void {
       new Date(),
       config.timezone,
     );
-    retimeTask(task.id, config.timezone, nextRunAt);
+    await retimeTask(task.id, config.timezone, nextRunAt);
     logEvent("task_timezone_reconciled", {
       taskId: task.id,
       from: task.timezone,
@@ -54,18 +54,18 @@ function reconcileTaskTimezones(): void {
 }
 
 /** Start the wall-clock task scheduler. Called once at startup. */
-export function startTaskScheduler(): void {
+export async function startTaskScheduler(): Promise<void> {
   if (scheduler) return;
-  reconcileTaskTimezones();
+  await reconcileTaskTimezones();
   scheduler = createTaskScheduler({
     timezone: config.timezone,
     // Tasks are owner-driven proactive messages; pause them in maintenance mode.
-    canFire: () => !getSettings().maintenanceModeEnabled,
+    canFire: async () => !(await getSettings()).maintenanceModeEnabled,
     listDueTasks,
     fireTask,
     markTaskRun,
-    removeTask: (id) => {
-      deleteTaskValidated(id, "completed");
+    removeTask: async (id) => {
+      await deleteTaskValidated(id, "completed");
     },
     logEvent: (event, fields) => logEvent(event, fields as never),
     logEventError: (event, err, fields) =>

@@ -4,12 +4,13 @@ import type { Settings } from "../../src/db/index.js";
  * Build a valid {@link Settings} object for tests.
  *
  * Mirrors the production `DEFAULT_SETTINGS` so unit tests never need to import
- * `db/index.ts` (which pulls in `node:sqlite` and the dotenv-backed config).
+ * `db/index.ts` (which pulls in the Postgres pool and the dotenv-backed config).
  * Pass a partial override to exercise a specific field.
  */
 export function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
     model: "gpt-4o-mini",
+    embeddingModel: "bge-m3",
     activePersonalityId: 0,
     numPredict: 512,
     numCtx: 4096,

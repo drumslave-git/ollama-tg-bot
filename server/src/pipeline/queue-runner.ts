@@ -58,7 +58,7 @@ export async function runIntakePipeline(
   replyTrigger?: PipelineTurnState["replyTrigger"];
   earlyReply?: string;
 }> {
-  const enabledSteps = services.getWorkflowSteps();
+  const enabledSteps = await services.getWorkflowSteps();
   for (const host of getIntakePipelineHosts()) {
     if (!shouldRunEnabledHost(host, enabledSteps, state.turnId, services)) {
       continue;
@@ -86,7 +86,7 @@ export async function runIntakePipeline(
 
 export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
   const { ctx, state, services, turnId } = item;
-  const enabledSteps = services.getWorkflowSteps();
+  const enabledSteps = await services.getWorkflowSteps();
   let endTyping: (() => void) | undefined;
 
   try {

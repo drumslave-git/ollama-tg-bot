@@ -15,7 +15,7 @@ function makeServices(
       logEvent: vi.fn(),
       logEventError: vi.fn(),
     },
-    getSettings: () => ({}),
+    getSettings: async () => ({}),
     replyToUser,
     extensions: {
       [EXPLAIN_EXTENSION_ID]: extension,

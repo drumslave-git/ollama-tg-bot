@@ -5,18 +5,21 @@ services:
       - "${PORT:-3000}:${PORT:-3000}"
     networks:
       - traefik
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       BOT_TOKEN: ${BOT_TOKEN:?Set BOT_TOKEN}
       LLM_BASE_URL: ${LLM_BASE_URL:?Set LLM_BASE_URL}
       LLM_API_KEY: ${LLM_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       VRAM_AVAILABLE: ${VRAM_AVAILABLE:?Set VRAM_AVAILABLE}
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-bot}:${POSTGRES_PASSWORD:-bot}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-bot}}
       LOGGING_LEVEL: ${LOGGING_LEVEL:-}
       TZ: ${TZ:-UTC}
       NODE_ENV: production
       PORT: ${PORT:-3000}
-    volumes:
-      - bot-data:/app/data
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -34,10 +37,29 @@ services:
       - "homepage.icon="
       - "homepage.href=https://${TRAEFIK_HOST:-llm-tg-bot.example.com}"
 
-volumes:
-  bot-data:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bot}
+      POSTGRES_DB: ${POSTGRES_DB:-bot}
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Bind-mounted host directory for persistence (configurable via PG_DATA_DIR).
+      - "${PG_DATA_DIR:-./data/pg}:/var/lib/postgresql/data"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bot} -d ${POSTGRES_DB:-bot}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - default
 
 networks:
   traefik:
     external: true
     name: "${TRAEFIK_DOCKER_NETWORK:-proxy}"
+  default:

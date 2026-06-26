@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../contracts/index.js";
 import { getModuleDataTableConfigs } from "../../runtime/modules.js";
 
 const MAX_ROWS = 2000;
@@ -31,34 +31,34 @@ const TABLE_CONFIGS: Record<string, TableConfig> = {
     label: "Settings",
     columns: ["key", "value"],
     query: "SELECT key, value FROM settings ORDER BY key",
-    countQuery: "SELECT COUNT(*) AS n FROM settings",
+    countQuery: "SELECT COUNT(*)::int AS n FROM settings",
   },
   stats: {
     label: "Stats",
     columns: ["key", "value"],
     query: "SELECT key, value FROM stats ORDER BY key",
-    countQuery: "SELECT COUNT(*) AS n FROM stats",
+    countQuery: "SELECT COUNT(*)::int AS n FROM stats",
   },
   stats_meta: {
     label: "Stats meta",
     columns: ["key", "value"],
     query: "SELECT key, value FROM stats_meta ORDER BY key",
-    countQuery: "SELECT COUNT(*) AS n FROM stats_meta",
+    countQuery: "SELECT COUNT(*)::int AS n FROM stats_meta",
   },
   known_users: {
     label: "Known users",
     columns: ["user_id", "username", "first_name", "last_name", "updated_at"],
     query: `SELECT user_id, username, first_name, last_name, updated_at
-            FROM known_users ORDER BY updated_at DESC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM known_users",
+            FROM known_users ORDER BY updated_at DESC LIMIT $1`,
+    countQuery: "SELECT COUNT(*)::int AS n FROM known_users",
     timeColumns: ["updated_at"],
   },
   error_log: {
     label: "Error log",
     columns: ["id", "message", "stack", "chat_id", "user_id", "created_at"],
     query: `SELECT id, message, stack, chat_id, user_id, created_at
-            FROM error_log ORDER BY id DESC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM error_log",
+            FROM error_log ORDER BY id DESC LIMIT $1`,
+    countQuery: "SELECT COUNT(*)::int AS n FROM error_log",
     timeColumns: ["created_at"],
   },
 };
@@ -79,31 +79,36 @@ const TABLE_ORDER = [
   "error_log",
 ] as const;
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindDataBrowserDatabase(database: DatabaseSync): void {
+export function bindDataBrowserDatabase(database: SqlDatabase): void {
   db = database;
 }
 
-export function listDataTables(): DataTableSummary[] {
-  return TABLE_ORDER.filter((id) => TABLE_CONFIGS[id]).map((id) => {
-    const config = TABLE_CONFIGS[id];
-    const row = db.prepare(config.countQuery).get() as { n: number };
-    return { id, label: config.label, count: row.n };
-  });
+export async function listDataTables(): Promise<DataTableSummary[]> {
+  const ids = TABLE_ORDER.filter((id) => TABLE_CONFIGS[id]);
+  return Promise.all(
+    ids.map(async (id) => {
+      const config = TABLE_CONFIGS[id];
+      const { rows } = await db.query<{ n: number }>(config.countQuery);
+      return { id, label: config.label, count: rows[0]?.n ?? 0 };
+    }),
+  );
 }
 
-export function getDataTable(tableId: string): DataTablePayload | null {
+export async function getDataTable(
+  tableId: string,
+): Promise<DataTablePayload | null> {
   const config = allTableConfigs()[tableId];
   if (!config) return null;
 
-  const totalRow = db.prepare(config.countQuery).get() as { n: number };
-  const total = totalRow.n;
+  const { rows: totalRows } = await db.query<{ n: number }>(config.countQuery);
+  const total = totalRows[0]?.n ?? 0;
   const limited = total > MAX_ROWS;
-  const usesLimit = config.query.includes("LIMIT ?");
-  const rows = usesLimit
-    ? (db.prepare(config.query).all(MAX_ROWS) as Record<string, unknown>[])
-    : (db.prepare(config.query).all() as Record<string, unknown>[]);
+  const usesLimit = config.query.includes("LIMIT $1");
+  const { rows } = usesLimit
+    ? await db.query<Record<string, unknown>>(config.query, [MAX_ROWS])
+    : await db.query<Record<string, unknown>>(config.query);
 
   const timeCols = new Set(config.timeColumns ?? []);
   const formatted = rows.map((row) => formatRow(row, timeCols));

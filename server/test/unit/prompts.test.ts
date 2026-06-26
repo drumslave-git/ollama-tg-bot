@@ -8,7 +8,7 @@ import {
 } from "../../src/pipeline/adapters/system-prompt.js";
 import { FETCH_LINK_TOOL_NAME } from "../../src/features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../src/features/web-search/index.js";
-import { HISTORY_GET_LATEST_TOOL_NAME } from "../../src/features/history/mcp-tools.js";
+import { HISTORY_TODAY_GET_LATEST_TOOL_NAME } from "../../src/features/history/mcp-tools.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("buildBaseSystemPrompt", () => {
@@ -145,7 +145,7 @@ describe("buildExplainSystemPrompt", () => {
       traceText: "trace body",
     });
     expect(prompt).not.toContain("[SESSION]");
-    expect(prompt).not.toContain(HISTORY_GET_LATEST_TOOL_NAME);
+    expect(prompt).not.toContain(HISTORY_TODAY_GET_LATEST_TOOL_NAME);
     expect(prompt).toContain("trace body");
   });
 });

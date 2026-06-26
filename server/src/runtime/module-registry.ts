@@ -13,6 +13,9 @@ import { MEMORY_TOOL_NAMES } from "../features/memory/mcp-tools.js";
 import { tasksDbModule } from "../features/tasks/db/index.js";
 import { registerMcpTools as registerTasksTools } from "../features/tasks/register-mcp-tools.js";
 import { TASKS_TOOL_NAMES } from "../features/tasks/mcp-tools.js";
+import { summariesDbModule } from "../features/summaries/db/index.js";
+import { registerMcpTools as registerSummariesTools } from "../features/summaries/register-mcp-tools.js";
+import { SUMMARIES_TOOL_NAMES } from "../features/summaries/mcp-tools.js";
 
 /**
  * Static registry of feature modules. Replaces the former manifest.json
@@ -63,6 +66,20 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
       workflowStepId: "history",
       toolNames: HISTORY_TOOL_NAMES,
       registrar: registerHistoryTools,
+      alwaysOn: true,
+    },
+  },
+  {
+    id: "summaries",
+    name: "History summaries",
+    description:
+      "Daily LLM summaries of chat history, embedded for semantic recall via the always-on history_summaries_search MCP tool.",
+    dataTables: ["chat_summaries"],
+    db: summariesDbModule,
+    mcpTools: {
+      workflowStepId: "summaries",
+      toolNames: SUMMARIES_TOOL_NAMES,
+      registrar: registerSummariesTools,
       alwaysOn: true,
     },
   },

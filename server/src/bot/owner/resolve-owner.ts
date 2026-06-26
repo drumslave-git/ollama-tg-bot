@@ -22,7 +22,7 @@ export async function resolveOwnerUsername(
     );
   }
 
-  const known = findKnownUserByUsername(username);
+  const known = await findKnownUserByUsername(username);
   if (known) return known.userId;
 
   try {

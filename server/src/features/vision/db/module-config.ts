@@ -1,50 +1,50 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import {
   DEFAULT_VISION_MODULE_CONFIG,
   validateVisionModuleConfig,
   type VisionModuleConfig,
 } from "../index.js";
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindVisionConfigDatabase(database: DatabaseSync): void {
+export async function bindVisionConfigDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS vision_module_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       backfill_debounce_sec INTEGER NOT NULL DEFAULT 60
     );
   `);
-  const row = db
-    .prepare(`SELECT id FROM vision_module_config WHERE id = 1`)
-    .get() as { id: number } | undefined;
-  if (!row) {
-    db.prepare(
-      `INSERT INTO vision_module_config (id, backfill_debounce_sec) VALUES (1, ?)`,
-    ).run(DEFAULT_VISION_MODULE_CONFIG.backfillDebounceSec);
-  }
+  await db.query(
+    `INSERT INTO vision_module_config (id, backfill_debounce_sec)
+     VALUES (1, $1) ON CONFLICT (id) DO NOTHING`,
+    [DEFAULT_VISION_MODULE_CONFIG.backfillDebounceSec],
+  );
 }
 
-export function getVisionModuleConfig(): VisionModuleConfig {
-  const row = db
-    .prepare(`SELECT backfill_debounce_sec FROM vision_module_config WHERE id = 1`)
-    .get() as { backfill_debounce_sec: number } | undefined;
+export async function getVisionModuleConfig(): Promise<VisionModuleConfig> {
+  const { rows } = await db.query<{ backfill_debounce_sec: number }>(
+    `SELECT backfill_debounce_sec FROM vision_module_config WHERE id = 1`,
+  );
   return {
     backfillDebounceSec:
-      row?.backfill_debounce_sec ??
+      rows[0]?.backfill_debounce_sec ??
       DEFAULT_VISION_MODULE_CONFIG.backfillDebounceSec,
   };
 }
 
-export function updateVisionModuleConfig(
+export async function updateVisionModuleConfig(
   partial: Partial<VisionModuleConfig>,
-): VisionModuleConfig {
+): Promise<VisionModuleConfig> {
   const next = validateVisionModuleConfig({
-    ...getVisionModuleConfig(),
+    ...(await getVisionModuleConfig()),
     ...partial,
   });
-  db.prepare(
-    `UPDATE vision_module_config SET backfill_debounce_sec = ? WHERE id = 1`,
-  ).run(next.backfillDebounceSec);
+  await db.query(
+    `UPDATE vision_module_config SET backfill_debounce_sec = $1 WHERE id = 1`,
+    [next.backfillDebounceSec],
+  );
   return next;
 }

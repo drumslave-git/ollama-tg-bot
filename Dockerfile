@@ -38,9 +38,7 @@ COPY --from=build /app/server/dist ./server/dist
 COPY --from=build /app/dashboard/dist ./dashboard/dist
 
 ENV NODE_ENV=production
-ENV DATABASE_PATH=/app/data/bot.db
-
-VOLUME ["/app/data"]
+# Storage is Postgres + pgvector — set DATABASE_URL at runtime (see docker-compose.yml).
 
 EXPOSE 3000
 

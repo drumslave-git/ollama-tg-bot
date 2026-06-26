@@ -14,11 +14,13 @@ interface LlmConnectionSectionProps {
   models: any[];
   modelOptions: { value: string; label: string }[];
   draftModel: string;
+  draftEmbeddingModel: string;
   sectionErrorLlm: any;
   sectionErrorModels: any;
   onTestConnection: () => void;
   onRefreshModels: () => void;
   onModelChange: (value: string) => void;
+  onEmbeddingModelChange: (value: string) => void;
   onDismissLlmError: () => void;
   onDismissModelsError: () => void;
 }
@@ -34,11 +36,13 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
   models,
   modelOptions,
   draftModel,
+  draftEmbeddingModel,
   sectionErrorLlm,
   sectionErrorModels,
   onTestConnection,
   onRefreshModels,
   onModelChange,
+  onEmbeddingModelChange,
   onDismissLlmError,
   onDismissModelsError,
 }) => {
@@ -148,6 +152,38 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
 
           <Hint>
             Use a vision model (e.g. llava) for images and stickers.
+          </Hint>
+
+          <div className="min-w-0 flex-1">
+            <label htmlFor="embeddingModel">Embedding model</label>
+            <select
+              id="embeddingModel"
+              value={
+                modelOptions.some((o) => o.value === draftEmbeddingModel)
+                  ? draftEmbeddingModel
+                  : ""
+              }
+              onChange={(e) => onEmbeddingModelChange(e.target.value)}
+              disabled={modelsLoading}
+            >
+              {modelOptions.some((o) => o.value === draftEmbeddingModel) ? null : (
+                <option value="" disabled>
+                  {draftEmbeddingModel
+                    ? `${draftEmbeddingModel} (not pulled locally)`
+                    : "Select an embedding model"}
+                </option>
+              )}
+              {modelOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Hint>
+            Used to embed daily history summaries for semantic recall (e.g.
+            bge-m3). Changing to a model with a different vector dimension
+            requires recreating the summaries table.
           </Hint>
         </>
       ) : null}

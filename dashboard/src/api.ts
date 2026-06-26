@@ -7,6 +7,7 @@ export interface Settings {
   llmBaseUrl: string;
   llmApiKeyConfigured: boolean;
   model: string;
+  embeddingModel: string;
   activePersonalityId: number;
   baseSystemPrompt?: string;
   numPredict: number;

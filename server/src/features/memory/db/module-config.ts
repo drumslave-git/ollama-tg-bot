@@ -1,61 +1,50 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import {
   DEFAULT_MEMORY_MODULE_CONFIG,
   validateMemoryModuleConfig,
   type MemoryModuleConfig,
 } from "../index.js";
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindMemoryConfigDatabase(database: DatabaseSync): void {
+export async function bindMemoryConfigDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS memory_module_config (
       id INTEGER PRIMARY KEY CHECK (id = 1),
       maintenance_debounce_sec INTEGER NOT NULL DEFAULT 60
     );
   `);
-  // Migrate the legacy column name from the extraction-based memory job.
-  const columns = db
-    .prepare(`PRAGMA table_info(memory_module_config)`)
-    .all() as unknown as { name: string }[];
-  const names = new Set(columns.map((c) => c.name));
-  if (names.has("extraction_debounce_sec") && !names.has("maintenance_debounce_sec")) {
-    db.exec(
-      `ALTER TABLE memory_module_config
-       RENAME COLUMN extraction_debounce_sec TO maintenance_debounce_sec`,
-    );
-  }
-  const row = db
-    .prepare(`SELECT id FROM memory_module_config WHERE id = 1`)
-    .get() as { id: number } | undefined;
-  if (!row) {
-    db.prepare(
-      `INSERT INTO memory_module_config (id, maintenance_debounce_sec) VALUES (1, ?)`,
-    ).run(DEFAULT_MEMORY_MODULE_CONFIG.maintenanceDebounceSec);
-  }
+  await db.query(
+    `INSERT INTO memory_module_config (id, maintenance_debounce_sec)
+     VALUES (1, $1) ON CONFLICT (id) DO NOTHING`,
+    [DEFAULT_MEMORY_MODULE_CONFIG.maintenanceDebounceSec],
+  );
 }
 
-export function getMemoryModuleConfig(): MemoryModuleConfig {
-  const row = db
-    .prepare(`SELECT maintenance_debounce_sec FROM memory_module_config WHERE id = 1`)
-    .get() as { maintenance_debounce_sec: number } | undefined;
+export async function getMemoryModuleConfig(): Promise<MemoryModuleConfig> {
+  const { rows } = await db.query<{ maintenance_debounce_sec: number }>(
+    `SELECT maintenance_debounce_sec FROM memory_module_config WHERE id = 1`,
+  );
   return {
     maintenanceDebounceSec:
-      row?.maintenance_debounce_sec ??
+      rows[0]?.maintenance_debounce_sec ??
       DEFAULT_MEMORY_MODULE_CONFIG.maintenanceDebounceSec,
   };
 }
 
-export function updateMemoryModuleConfig(
+export async function updateMemoryModuleConfig(
   partial: Partial<MemoryModuleConfig>,
-): MemoryModuleConfig {
+): Promise<MemoryModuleConfig> {
   const next = validateMemoryModuleConfig({
-    ...getMemoryModuleConfig(),
+    ...(await getMemoryModuleConfig()),
     ...partial,
   });
-  db.prepare(
-    `UPDATE memory_module_config SET maintenance_debounce_sec = ? WHERE id = 1`,
-  ).run(next.maintenanceDebounceSec);
+  await db.query(
+    `UPDATE memory_module_config SET maintenance_debounce_sec = $1 WHERE id = 1`,
+    [next.maintenanceDebounceSec],
+  );
   return next;
 }

@@ -30,7 +30,7 @@ export const completionsHost: PipelineModuleHost = {
     }
 
     const started = performance.now();
-    const built = buildChatContextForTurn(state);
+    const built = await buildChatContextForTurn(state);
 
     const report = services.getReport(state.turnId);
 

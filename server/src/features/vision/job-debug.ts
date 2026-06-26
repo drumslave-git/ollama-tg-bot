@@ -6,13 +6,13 @@ import {
 
 let notifyStats: (() => void) | null = null;
 
-let pendingBackfillStats: (() => {
+let pendingBackfillStats: (() => Promise<{
   pendingMediaRows: number;
   chatsWithPending: number;
-}) | null = null;
+}>) | null = null;
 
 export function configureVisionJobDebugStats(
-  provider: () => { pendingMediaRows: number; chatsWithPending: number },
+  provider: () => Promise<{ pendingMediaRows: number; chatsWithPending: number }>,
   onUpdate?: () => void,
 ): void {
   pendingBackfillStats = provider;
@@ -27,8 +27,8 @@ export const visionJobDebug: VisionJobDebugStore = createVisionJobDebug({
   },
 });
 
-export function getVisionJobDebugSnapshot(): VisionJobDebugSnapshot {
-  const pending = pendingBackfillStats?.() ?? {
+export async function getVisionJobDebugSnapshot(): Promise<VisionJobDebugSnapshot> {
+  const pending = (await pendingBackfillStats?.()) ?? {
     pendingMediaRows: 0,
     chatsWithPending: 0,
   };

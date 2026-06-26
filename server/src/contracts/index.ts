@@ -28,4 +28,6 @@ export type {
   DataTableConfig,
   ModuleDbExports,
   ModuleDbHost,
+  SqlDatabase,
+  SqlQueryResult,
 } from "./db-contract.js";

@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import {
   applyMoodCooldown,
   moodValuesEqual,
@@ -12,8 +12,8 @@ const MOOD_ANCHOR_KEY = "moodAnchor";
 const MOOD_VALUES_KEY = "moodValues";
 const MOOD_UPDATED_AT_KEY = "moodUpdatedAt";
 
-let db: DatabaseSync;
-let readSettings: () => { moodCooldownMinutes: number } = () => {
+let db: SqlDatabase;
+let readSettings: () => Promise<{ moodCooldownMinutes: number }> = () => {
   throw new Error("Mood module not initialized");
 };
 
@@ -26,39 +26,41 @@ export interface MoodStateView extends MoodState {
   effectiveValues: MoodValues;
 }
 
-export function bindMoodDatabase(database: DatabaseSync): void {
+export function bindMoodDatabase(database: SqlDatabase): void {
   db = database;
 }
 
 export function configureMoodAccess(
-  getSettings: () => { moodCooldownMinutes: number },
+  getSettings: () => Promise<{ moodCooldownMinutes: number }>,
 ): void {
   readSettings = getSettings;
 }
 
-function moodDefaults(): MoodValues {
+function moodDefaults(): Promise<MoodValues> {
   return getActivePersonalityMoodDefaults();
 }
 
-function moodCooldownMinutes(): number {
-  return readSettings().moodCooldownMinutes;
+async function moodCooldownMinutes(): Promise<number> {
+  return (await readSettings()).moodCooldownMinutes;
 }
 
-function readMeta(key: string): string | null {
-  const row = db
-    .prepare("SELECT value FROM stats_meta WHERE key = ?")
-    .get(key) as { value: string } | undefined;
-  return row?.value ?? null;
+async function readMeta(key: string): Promise<string | null> {
+  const { rows } = await db.query<{ value: string }>(
+    "SELECT value FROM stats_meta WHERE key = $1",
+    [key],
+  );
+  return rows[0]?.value ?? null;
 }
 
-function writeMeta(key: string, value: string): void {
-  db.prepare(
-    "INSERT INTO stats_meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-  ).run(key, value);
+async function writeMeta(key: string, value: string): Promise<void> {
+  await db.query(
+    "INSERT INTO stats_meta (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+    [key, value],
+  );
 }
 
-function deleteMeta(key: string): void {
-  db.prepare("DELETE FROM stats_meta WHERE key = ?").run(key);
+async function deleteMeta(key: string): Promise<void> {
+  await db.query("DELETE FROM stats_meta WHERE key = $1", [key]);
 }
 
 function parseMoodJson(
@@ -76,12 +78,16 @@ function parseMoodJson(
   }
 }
 
-function getMoodAnchorState(): { anchor: MoodValues; updatedAt: string } | null {
-  const updatedAt = readMeta(MOOD_UPDATED_AT_KEY);
+async function getMoodAnchorState(): Promise<{
+  anchor: MoodValues;
+  updatedAt: string;
+} | null> {
+  const updatedAt = await readMeta(MOOD_UPDATED_AT_KEY);
   if (!updatedAt) return null;
 
-  const defaults = moodDefaults();
-  const anchorJson = readMeta(MOOD_ANCHOR_KEY) ?? readMeta(MOOD_VALUES_KEY);
+  const defaults = await moodDefaults();
+  const anchorJson =
+    (await readMeta(MOOD_ANCHOR_KEY)) ?? (await readMeta(MOOD_VALUES_KEY));
   const anchor = parseMoodJson(anchorJson, defaults);
   if (!anchor) return null;
 
@@ -89,49 +95,53 @@ function getMoodAnchorState(): { anchor: MoodValues; updatedAt: string } | null 
 }
 
 /** Apply linear cooldown from the last interaction anchor and persist decayed values. */
-export function tickMoodCooldown(): boolean {
-  const anchorState = getMoodAnchorState();
+export async function tickMoodCooldown(): Promise<boolean> {
+  const anchorState = await getMoodAnchorState();
   if (!anchorState) return false;
 
-  const defaults = moodDefaults();
+  const defaults = await moodDefaults();
   const decayed = applyMoodCooldown(
     anchorState.anchor,
     defaults,
     anchorState.updatedAt,
-    moodCooldownMinutes(),
+    await moodCooldownMinutes(),
   );
 
-  const current = parseMoodJson(readMeta(MOOD_VALUES_KEY), defaults);
+  const current = parseMoodJson(await readMeta(MOOD_VALUES_KEY), defaults);
   if (current && moodValuesEqual(current, decayed)) return false;
 
-  writeMeta(MOOD_VALUES_KEY, JSON.stringify(decayed));
+  await writeMeta(MOOD_VALUES_KEY, JSON.stringify(decayed));
   getModuleLiveHooks().emitMoodUpdated?.();
   return true;
 }
 
-export function getMoodState(): MoodState | null {
-  const anchorState = getMoodAnchorState();
+export async function getMoodState(): Promise<MoodState | null> {
+  const anchorState = await getMoodAnchorState();
   if (!anchorState) return null;
 
-  const values = parseMoodJson(readMeta(MOOD_VALUES_KEY), moodDefaults());
+  const values = parseMoodJson(
+    await readMeta(MOOD_VALUES_KEY),
+    await moodDefaults(),
+  );
   if (!values) return null;
 
   return { values, updatedAt: anchorState.updatedAt };
 }
 
 /** Current mood kept up to date by the background cooldown worker. */
-export function getEffectiveMood(): MoodValues {
-  const defaults = moodDefaults();
-  const current = parseMoodJson(readMeta(MOOD_VALUES_KEY), defaults);
+export async function getEffectiveMood(): Promise<MoodValues> {
+  const defaults = await moodDefaults();
+  const current = parseMoodJson(await readMeta(MOOD_VALUES_KEY), defaults);
   if (current) return current;
   return { ...defaults };
 }
 
-export function getMoodStateView(): MoodStateView | null {
-  const anchorState = getMoodAnchorState();
+export async function getMoodStateView(): Promise<MoodStateView | null> {
+  const anchorState = await getMoodAnchorState();
   if (!anchorState) return null;
 
-  const values = parseMoodJson(readMeta(MOOD_VALUES_KEY), moodDefaults());
+  const defaults = await moodDefaults();
+  const values = parseMoodJson(await readMeta(MOOD_VALUES_KEY), defaults);
   if (!values) return null;
 
   return {
@@ -139,31 +149,31 @@ export function getMoodStateView(): MoodStateView | null {
     updatedAt: anchorState.updatedAt,
     effectiveValues: applyMoodCooldown(
       anchorState.anchor,
-      moodDefaults(),
+      defaults,
       anchorState.updatedAt,
-      moodCooldownMinutes(),
+      await moodCooldownMinutes(),
     ),
   };
 }
 
-export function saveMoodState(values: MoodValues): MoodState {
-  const normalized = normalizeMoodValues(values, moodDefaults());
+export async function saveMoodState(values: MoodValues): Promise<MoodState> {
+  const normalized = normalizeMoodValues(values, await moodDefaults());
   const updatedAt = new Date().toISOString();
   const encoded = JSON.stringify(normalized);
 
-  writeMeta(MOOD_ANCHOR_KEY, encoded);
-  writeMeta(MOOD_VALUES_KEY, encoded);
-  writeMeta(MOOD_UPDATED_AT_KEY, updatedAt);
+  await writeMeta(MOOD_ANCHOR_KEY, encoded);
+  await writeMeta(MOOD_VALUES_KEY, encoded);
+  await writeMeta(MOOD_UPDATED_AT_KEY, updatedAt);
 
   getModuleLiveHooks().emitMoodUpdated?.();
   return { values: normalized, updatedAt };
 }
 
-export function resetMoodState(): boolean {
-  const hadValues = readMeta(MOOD_VALUES_KEY) != null;
-  deleteMeta(MOOD_ANCHOR_KEY);
-  deleteMeta(MOOD_VALUES_KEY);
-  deleteMeta(MOOD_UPDATED_AT_KEY);
+export async function resetMoodState(): Promise<boolean> {
+  const hadValues = (await readMeta(MOOD_VALUES_KEY)) != null;
+  await deleteMeta(MOOD_ANCHOR_KEY);
+  await deleteMeta(MOOD_VALUES_KEY);
+  await deleteMeta(MOOD_UPDATED_AT_KEY);
   if (hadValues) {
     getModuleLiveHooks().emitMoodUpdated?.();
   }

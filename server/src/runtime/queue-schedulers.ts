@@ -41,8 +41,8 @@ import {
 
 let pipelineServices: PipelineHostServices | null = null;
 
-function getPipelineServices(): PipelineHostServices {
-  pipelineServices ??= createPipelineServices();
+async function getPipelineServices(): Promise<PipelineHostServices> {
+  pipelineServices ??= await createPipelineServices();
   return pipelineServices;
 }
 
@@ -60,11 +60,11 @@ export function initQueueSchedulers(): void {
   if (memoryScheduler && visionScheduler) return;
 
   configureVisionJobDebugStats(
-    () => {
+    async () => {
       let pendingMediaRows = 0;
       let chatsWithPending = 0;
-      for (const chatKey of listHistoryChatKeys(100)) {
-        const pending = getHistory(chatKey).filter((row) =>
+      for (const chatKey of await listHistoryChatKeys(100)) {
+        const pending = (await getHistory(chatKey)).filter((row) =>
           isBase64MediaHistoryContent(row.content),
         ).length;
         if (pending > 0) {
@@ -92,18 +92,18 @@ export function initQueueSchedulers(): void {
   memoryScheduler = createMemoryQueueScheduler({
   getQueueSize: getMessageQueueSize,
   getConfig: getMemoryModuleConfig,
-  listUserMemories: () =>
-    listAllUserFacts().map((r) => ({ id: r.userId, content: r.fact })),
-  listGroupMemories: () =>
-    listAllGroupFacts().map((r) => ({ id: r.groupId, content: r.fact })),
-  getGeneralContent: () => getGeneralFacts().join("\n"),
+  listUserMemories: async () =>
+    (await listAllUserFacts()).map((r) => ({ id: r.userId, content: r.fact })),
+  listGroupMemories: async () =>
+    (await listAllGroupFacts()).map((r) => ({ id: r.groupId, content: r.fact })),
+  getGeneralContent: async () => (await getGeneralFacts()).join("\n"),
   getRecordFingerprint: getMemoryChatFingerprint,
   setRecordFingerprint: setMemoryChatFingerprint,
   writeUserMemory: replaceUserFacts,
   writeGroupMemory: replaceGroupFacts,
   writeGeneralMemory: replaceGeneralFacts,
-  buildCleanupConfig: () => {
-    const settings = getSettings();
+  buildCleanupConfig: async () => {
+    const settings = await getSettings();
     const mergeFormat = MEMORY_MERGE_RESPONSE_FORMAT;
     return {
       model: settings.model,
@@ -113,7 +113,7 @@ export function initQueueSchedulers(): void {
         model: settings.model,
         apiKey: config.llmApiKey || undefined,
         numPredict: MEMORY_MERGE_NUM_PREDICT,
-        chatComplete: getPipelineServices().llm.createAuxiliaryChatComplete({
+        chatComplete: (await getPipelineServices()).llm.createAuxiliaryChatComplete({
           numPredict: MEMORY_MERGE_NUM_PREDICT,
           think: true,
           responseFormat: mergeFormat,
@@ -134,8 +134,8 @@ export function initQueueSchedulers(): void {
   listHistoryChatKeys,
   getHistory,
   mapHistoryBase64Media,
-  buildDescribeConfig: () => {
-    const settings = getSettings();
+  buildDescribeConfig: async () => {
+    const settings = await getSettings();
     return {
       model: settings.model,
       llmTimeoutSec: settings.chatTimeoutSec,

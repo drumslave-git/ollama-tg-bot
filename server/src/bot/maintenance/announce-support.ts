@@ -3,7 +3,7 @@ import { asObject, parseJsonContent } from "../../shared/index.js";
 import { listDistinctHistoryChatIds } from "../../db/history/index.js";
 import { MAINTENANCE_MODE_ON_BEHAVIOR } from "./maintenance-mode.js";
 
-export function collectMaintenanceAnnouncementChatIds(): number[] {
+export function collectMaintenanceAnnouncementChatIds(): Promise<number[]> {
   return listDistinctHistoryChatIds();
 }
 

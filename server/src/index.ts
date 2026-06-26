@@ -25,6 +25,10 @@ import {
   stopTaskScheduler,
 } from "./runtime/task-scheduler.js";
 import {
+  startSummariesScheduler,
+  stopSummariesScheduler,
+} from "./runtime/summaries-scheduler.js";
+import {
   emitDataUpdated,
   emitMemoryUpdated,
   emitMoodUpdated,
@@ -45,7 +49,7 @@ async function main(): Promise<void> {
   initQueueSchedulers();
   await loadMcpTools();
   const moduleRouters = await createModuleRouters();
-  const bootSettings = getSettings();
+  const bootSettings = await getSettings();
   void refreshModelContextCache(bootSettings.model, config.llmBaseUrl);
   startMoodCooldownWorker();
 
@@ -81,12 +85,14 @@ async function main(): Promise<void> {
   const liveSocket = initLiveSocket(server);
 
   await startBot();
-  startTaskScheduler();
+  void startTaskScheduler();
+  startSummariesScheduler();
 
   const shutdown = async () => {
     logInfo("Shutting down...");
     stopMoodCooldownWorker();
     stopTaskScheduler();
+    stopSummariesScheduler();
     await stopBot();
     await closePlaywrightBrowser();
     liveSocket.close();

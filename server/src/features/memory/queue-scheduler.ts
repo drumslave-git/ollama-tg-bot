@@ -18,20 +18,20 @@ interface MemoryRecord {
 
 export interface MemoryQueueSchedulerDeps {
   getQueueSize: () => number;
-  getConfig: () => MemoryModuleConfig;
-  listUserMemories: () => { id: string; content: string }[];
-  listGroupMemories: () => { id: string; content: string }[];
-  getGeneralContent: () => string;
-  getRecordFingerprint: (key: string) => string | null;
-  setRecordFingerprint: (key: string, fingerprint: string) => void;
-  writeUserMemory: (id: string, lines: string[]) => void;
-  writeGroupMemory: (id: string, lines: string[]) => void;
-  writeGeneralMemory: (lines: string[]) => void;
-  buildCleanupConfig: () => {
+  getConfig: () => Promise<MemoryModuleConfig>;
+  listUserMemories: () => Promise<{ id: string; content: string }[]>;
+  listGroupMemories: () => Promise<{ id: string; content: string }[]>;
+  getGeneralContent: () => Promise<string>;
+  getRecordFingerprint: (key: string) => Promise<string | null>;
+  setRecordFingerprint: (key: string, fingerprint: string) => Promise<void>;
+  writeUserMemory: (id: string, lines: string[]) => Promise<void>;
+  writeGroupMemory: (id: string, lines: string[]) => Promise<void>;
+  writeGeneralMemory: (lines: string[]) => Promise<void>;
+  buildCleanupConfig: () => Promise<{
     model: string;
     llmTimeoutSec: number;
     llm: MemoryLlmConfig;
-  };
+  }>;
   onStatusChange?: (status: MemoryJobStatus) => void;
   logEvent?: (event: string, fields?: Record<string, unknown>) => void;
   logEventError?: (
@@ -45,31 +45,33 @@ function fingerprint(content: string): string {
   return createHash("sha256").update(content.trim()).digest("hex");
 }
 
-function collectRecords(deps: MemoryQueueSchedulerDeps): MemoryRecord[] {
+async function collectRecords(
+  deps: MemoryQueueSchedulerDeps,
+): Promise<MemoryRecord[]> {
   const records: MemoryRecord[] = [];
-  for (const r of deps.listUserMemories()) {
+  for (const r of await deps.listUserMemories()) {
     if (!r.content.trim()) continue;
     records.push({ kind: "user", key: `user:${r.id}`, id: r.id, content: r.content });
   }
-  for (const r of deps.listGroupMemories()) {
+  for (const r of await deps.listGroupMemories()) {
     if (!r.content.trim()) continue;
     records.push({ kind: "group", key: `group:${r.id}`, id: r.id, content: r.content });
   }
-  const general = deps.getGeneralContent();
+  const general = await deps.getGeneralContent();
   if (general.trim()) {
     records.push({ kind: "general", key: "general", id: null, content: general });
   }
   return records;
 }
 
-function writeBack(
+async function writeBack(
   record: MemoryRecord,
   lines: string[],
   deps: MemoryQueueSchedulerDeps,
-): void {
-  if (record.kind === "user" && record.id) deps.writeUserMemory(record.id, lines);
-  else if (record.kind === "group" && record.id) deps.writeGroupMemory(record.id, lines);
-  else if (record.kind === "general") deps.writeGeneralMemory(lines);
+): Promise<void> {
+  if (record.kind === "user" && record.id) await deps.writeUserMemory(record.id, lines);
+  else if (record.kind === "group" && record.id) await deps.writeGroupMemory(record.id, lines);
+  else if (record.kind === "general") await deps.writeGeneralMemory(lines);
 }
 
 export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
@@ -88,7 +90,7 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
     deps.logEvent?.("memory_job_started", {});
 
     try {
-      const cfg = deps.buildCleanupConfig();
+      const cfg = await deps.buildCleanupConfig();
       const tracedCleanup = memoryJobDebug.wrapChatComplete(
         "memory maintenance",
         cfg.model,
@@ -100,7 +102,7 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
       );
       const llm: MemoryLlmConfig = { ...cfg.llm, chatComplete: tracedCleanup };
 
-      const records = collectRecords(deps);
+      const records = await collectRecords(deps);
       session.setScanSummary(records.length);
 
       for (const record of records) {
@@ -109,17 +111,17 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
           break;
         }
         const fp = fingerprint(record.content);
-        if (deps.getRecordFingerprint(record.key) === fp) {
+        if ((await deps.getRecordFingerprint(record.key)) === fp) {
           session.skipChat(record.key, "Unchanged since last maintenance");
           continue;
         }
 
         session.beginChat(record.key, record.content);
         const cleaned = await cleanMemoryDocument(record.kind, record.content, llm);
-        writeBack(record, cleaned, deps);
+        await writeBack(record, cleaned, deps);
 
         const storedContent = cleaned.join("\n");
-        deps.setRecordFingerprint(record.key, fingerprint(storedContent));
+        await deps.setRecordFingerprint(record.key, fingerprint(storedContent));
         const changed = storedContent.trim() !== record.content.trim();
         session.completeChat(record.key, changed, [record.kind]);
       }
@@ -133,14 +135,14 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
     }
   }
 
-  function schedule(): void {
+  async function schedule(): Promise<void> {
     if (timer) clearTimeout(timer);
     if (deps.getQueueSize() > 0) {
       memoryJobDebug.cancelScheduled();
       setStatus("idle");
       return;
     }
-    const delayMs = deps.getConfig().maintenanceDebounceSec * 1000;
+    const delayMs = (await deps.getConfig()).maintenanceDebounceSec * 1000;
     const runAt = new Date(Date.now() + delayMs);
     setStatus("scheduled");
     memoryJobDebug.scheduleRun(runAt);
@@ -165,7 +167,7 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
         setStatus("idle");
         return;
       }
-      schedule();
+      void schedule();
     },
     getStatus(): MemoryJobStatus {
       return status;

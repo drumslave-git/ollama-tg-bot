@@ -43,13 +43,17 @@ describe("task scheduler tick", () => {
     const scheduler = createTaskScheduler({
       timezone: "UTC",
       canFire: () => true,
-      listDueTasks: () => due,
+      listDueTasks: async () => due,
       fireTask: async (task) => {
         fired.push(task.id);
         return true;
       },
-      markTaskRun: (id, _last, next) => advanced.push({ id, next }),
-      removeTask: (id) => removed.push(id),
+      markTaskRun: (id, _last, next) => {
+        advanced.push({ id, next });
+      },
+      removeTask: (id) => {
+        removed.push(id);
+      },
     });
 
     await scheduler.runOnce();
@@ -64,7 +68,7 @@ describe("task scheduler tick", () => {
     const scheduler = createTaskScheduler({
       timezone: "UTC",
       canFire: () => false,
-      listDueTasks: () => [makeTask()],
+      listDueTasks: async () => [makeTask()],
       fireTask: async () => {
         fires += 1;
         return true;

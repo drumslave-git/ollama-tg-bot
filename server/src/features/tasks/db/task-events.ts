@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
 
 /** Most recent task events kept for the debug page. */
@@ -39,22 +39,26 @@ interface TaskEventRow {
   created_at: number;
 }
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindTaskEventsDatabase(database: DatabaseSync): void {
+export async function bindTaskEventsDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS task_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_id INTEGER,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      task_id BIGINT,
       kind TEXT NOT NULL,
-      chat_id INTEGER,
+      chat_id BIGINT,
       summary TEXT NOT NULL,
       detail TEXT,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_task_events_created ON task_events (id DESC);
   `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_task_events_created ON task_events (id DESC);`,
+  );
 }
 
 function rowToRecord(row: TaskEventRow): TaskEventRecord {
@@ -78,33 +82,38 @@ function rowToRecord(row: TaskEventRow): TaskEventRecord {
 }
 
 /** Record a task lifecycle event, trimming the log to the newest {@link MAX_TASK_EVENTS}. */
-export function recordTaskEvent(event: TaskEventInput): void {
+export async function recordTaskEvent(event: TaskEventInput): Promise<void> {
   if (!db) return;
-  db.prepare(
+  await db.query(
     `INSERT INTO task_events (task_id, kind, chat_id, summary, detail)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(
-    event.taskId ?? null,
-    event.kind,
-    event.chatId ?? null,
-    event.summary,
-    event.detail ? JSON.stringify(event.detail) : null,
+     VALUES ($1, $2, $3, $4, $5)`,
+    [
+      event.taskId ?? null,
+      event.kind,
+      event.chatId ?? null,
+      event.summary,
+      event.detail ? JSON.stringify(event.detail) : null,
+    ],
   );
-  db.prepare(
+  await db.query(
     `DELETE FROM task_events
-     WHERE id NOT IN (SELECT id FROM task_events ORDER BY id DESC LIMIT ?)`,
-  ).run(MAX_TASK_EVENTS);
+     WHERE id NOT IN (SELECT id FROM task_events ORDER BY id DESC LIMIT $1)`,
+    [MAX_TASK_EVENTS],
+  );
   getModuleLiveHooks().emitDataUpdated?.(["task_events"]);
 }
 
-export function listTaskEvents(limit = MAX_TASK_EVENTS): TaskEventRecord[] {
-  const rows = db
-    .prepare(`SELECT * FROM task_events ORDER BY id DESC LIMIT ?`)
-    .all(Math.min(limit, MAX_TASK_EVENTS)) as unknown as TaskEventRow[];
+export async function listTaskEvents(
+  limit = MAX_TASK_EVENTS,
+): Promise<TaskEventRecord[]> {
+  const { rows } = await db.query<TaskEventRow>(
+    `SELECT * FROM task_events ORDER BY id DESC LIMIT $1`,
+    [Math.min(limit, MAX_TASK_EVENTS)],
+  );
   return rows.map(rowToRecord);
 }
 
-export function clearTaskEvents(): void {
-  db.prepare(`DELETE FROM task_events`).run();
+export async function clearTaskEvents(): Promise<void> {
+  await db.query(`DELETE FROM task_events`);
   getModuleLiveHooks().emitDataUpdated?.(["task_events"]);
 }

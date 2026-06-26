@@ -1,9 +1,9 @@
 import type { Router } from "express";
-import type { DatabaseSync } from "node:sqlite";
 import {
   configureModuleLiveHooks,
   type DataTableConfig,
   type ModuleDbHost,
+  type SqlDatabase,
 } from "../contracts/index.js";
 import { MODULE_REGISTRY, type ModuleEntry } from "./module-registry.js";
 
@@ -14,10 +14,10 @@ export function getModuleEntries(): ModuleEntry[] {
   return MODULE_REGISTRY;
 }
 
-export function initModuleDatabases(db: DatabaseSync): void {
+export async function initModuleDatabases(db: SqlDatabase): Promise<void> {
   for (const entry of MODULE_REGISTRY) {
     if (!entry.db) continue;
-    entry.db.bindModuleDatabase(db);
+    await entry.db.bindModuleDatabase(db);
     loadedDbModules.push(entry);
     if (entry.db.getDataTableConfigs) {
       for (const [tableId, tableConfig] of Object.entries(

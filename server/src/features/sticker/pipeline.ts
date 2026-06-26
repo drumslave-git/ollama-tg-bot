@@ -39,7 +39,7 @@ export const stickerPipelineHost: PipelineModuleHost = {
   },
 
   async run(state, services): Promise<PipelineStepResult> {
-    const settings = getSettings();
+    const settings = await getSettings();
     const chance = Number(settings.stickerReplyChance ?? 0);
     const responseFormat = getStickerResponseFormat();
     const roll = rollStickerReplyChance(chance);

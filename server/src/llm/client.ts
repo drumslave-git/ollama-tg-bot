@@ -266,12 +266,13 @@ function messagesHaveImages(
 async function prepareMessages(
   messages: ChatMessage[],
 ): Promise<ChatMessage[]> {
+  const visionMaxDimension = (await getSettings()).visionMaxDimension;
   return Promise.all(
     messages.map(async (msg) => {
       if (!msg.images?.length) return msg;
       const images = await Promise.all(
         msg.images.map((b64) =>
-          normalizeImageForChat(b64, getSettings().visionMaxDimension),
+          normalizeImageForChat(b64, visionMaxDimension),
         ),
       );
       return { ...msg, images };
@@ -315,14 +316,14 @@ async function requestChat(
   prepared: ChatMessage[] | ChatCompletionMessageParam[],
   numPredict: number,
   auxiliary: boolean,
-  traceTurnId?: number,
-  traceLayout?: VerbosePromptLayout,
-  traceLabel?: string,
-  responseFormat?: JsonSchemaResponseFormat,
-  tools?: ChatCompletionTool[],
-  think?: boolean,
+  traceTurnId: number | undefined,
+  traceLayout: VerbosePromptLayout | undefined,
+  traceLabel: string | undefined,
+  responseFormat: JsonSchemaResponseFormat | undefined,
+  tools: ChatCompletionTool[] | undefined,
+  think: boolean | undefined,
+  settings: Settings,
 ): Promise<{ data: ChatResponse; choice: ChatCompletion["choices"][number] | undefined }> {
-  const settings = getResolvedSettings();
   const providerSettings =
     think === false ? { ...settings, thinkingEnabled: false } : settings;
   const requestBody = chatCompletionBody(
@@ -330,6 +331,7 @@ async function requestChat(
     prepared,
     numPredict,
     auxiliary,
+    settings,
     responseFormat,
     tools,
     think,
@@ -423,9 +425,9 @@ async function requestChatStreaming(
   traceLabel: string | undefined,
   responseFormat: JsonSchemaResponseFormat | undefined,
   think: boolean | undefined,
+  settings: Settings,
   onContentDelta: (accumulated: string) => void,
 ): Promise<ChatResponse> {
-  const settings = getResolvedSettings();
   const providerSettings =
     think === false ? { ...settings, thinkingEnabled: false } : settings;
   const baseBody = chatCompletionBody(
@@ -433,6 +435,7 @@ async function requestChatStreaming(
     prepared,
     numPredict,
     false,
+    settings,
     responseFormat,
     undefined,
     think,
@@ -610,11 +613,11 @@ function chatCompletionBody(
   messages: ChatMessage[] | ChatCompletionMessageParam[],
   numPredict: number,
   auxiliary: boolean,
+  settings: Settings,
   responseFormat?: JsonSchemaResponseFormat,
   tools?: ChatCompletionTool[],
   think?: boolean,
 ): ChatCompletionCreateParamsNonStreaming {
-  const settings = getResolvedSettings();
   const providerSettings =
     think === false ? { ...settings, thinkingEnabled: false } : settings;
   return {
@@ -674,7 +677,7 @@ export async function chatCompleteDetailed(
   messages: ChatMessage[] | ChatCompletionMessageParam[],
   options?: ChatCompleteOptions,
 ): Promise<ChatCompleteResult> {
-  const settings = getResolvedSettings();
+  const settings = getResolvedSettings(await getSettings());
   const model = options?.model ?? settings.model;
   const prepared = messagesHaveImages(messages)
     ? await prepareMessages(messages as ChatMessage[])
@@ -701,6 +704,7 @@ export async function chatCompleteDetailed(
         traceLabel,
         options.responseFormat,
         options.think,
+        settings,
         options.onContentDelta,
       );
       const streamedContent = pickAssistantContent(data);
@@ -722,6 +726,7 @@ export async function chatCompleteDetailed(
       options?.responseFormat,
       options?.tools,
       options?.think,
+      settings,
     );
     const content = pickAssistantContent(data);
     const thinking = pickReasoning(data);
@@ -746,7 +751,7 @@ export async function chatCompleteDetailed(
     }
     throw emptyResponseError(model, data, numPredict);
   } catch (err) {
-    throw wrapChatError(err, auxiliary);
+    throw wrapChatError(err, settings.chatTimeoutSec, auxiliary);
   }
 }
 
@@ -758,10 +763,12 @@ export async function chatComplete(
   return raw;
 }
 
-function wrapChatError(err: unknown, auxiliary = false): Error {
-  const settings = getSettings();
+function wrapChatError(
+  err: unknown,
+  timeoutSec: number,
+  auxiliary = false,
+): Error {
   const apiUrl = resolveBaseUrl();
-  const timeoutSec = settings.chatTimeoutSec;
 
   if (
     err instanceof APIConnectionTimeoutError ||

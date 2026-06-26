@@ -7,7 +7,7 @@ import { splitTelegramMessage } from "../../bot/replies/delivery.js";
 import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
 import { appendAssistantMessage } from "../../db/history/index.js";
 import { getEffectiveMood } from "../../db/mood/index.js";
-import { recordReply } from "../../db/index.js";
+import { getSettings, recordReply } from "../../db/index.js";
 import { chatCompleteDetailed } from "../../llm/client.js";
 import { buildSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
 import { getResolvedSettings } from "../../settings/runtime.js";
@@ -40,15 +40,15 @@ function hasVisibleContent(text: string): boolean {
 }
 
 async function generateTaskMessage(task: TaskRecord): Promise<string> {
-  const settings = getResolvedSettings();
+  const settings = getResolvedSettings(await getSettings());
   const systemPrompt = buildSystemPrompt({
     settings,
-    customPrompt: getActivePersonalityPrompt(),
+    customPrompt: await getActivePersonalityPrompt(),
     knownChatUsers: [],
     isGroupChat: task.entityId !== String(task.chatId),
-    ownerUserId: getOwnerUserId(),
-    ownerUsername: getOwnerUsername(),
-    mood: getEffectiveMood(),
+    ownerUserId: await getOwnerUserId(),
+    ownerUsername: await getOwnerUsername(),
+    mood: await getEffectiveMood(),
     entityId: task.entityId,
   });
 
@@ -76,7 +76,7 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logEventError("task_fire_generate_failed", err, { taskId: task.id });
-    recordTaskEvent({
+    await recordTaskEvent({
       taskId: task.id,
       kind: "fire_failed",
       chatId: task.chatId,
@@ -89,7 +89,7 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
     // The model echoed only chat tags/punctuation (stripped to nothing) — skip
     // rather than post a meaningless message like ":".
     logEvent("task_fire_empty", { taskId: task.id, raw: reply.slice(0, 80) });
-    recordTaskEvent({
+    await recordTaskEvent({
       taskId: task.id,
       kind: "fire_failed",
       chatId: task.chatId,
@@ -119,7 +119,7 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logEventError("task_fire_send_failed", err, { taskId: task.id });
-    recordTaskEvent({
+    await recordTaskEvent({
       taskId: task.id,
       kind: "fire_failed",
       chatId: task.chatId,
@@ -130,17 +130,17 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   }
 
   for (const sent of sentMessages) {
-    recordTaskMessage(task.id, String(task.chatId), sent.messageId);
+    await recordTaskMessage(task.id, String(task.chatId), sent.messageId);
   }
-  appendAssistantMessage(task.entityId, reply);
-  recordReply(false);
+  await appendAssistantMessage(task.entityId, reply);
+  await recordReply(false);
   logEvent("task_fired", {
     taskId: task.id,
     chatId: task.chatId,
     chunks: sentMessages.length,
     replyChars: reply.length,
   });
-  recordTaskEvent({
+  await recordTaskEvent({
     taskId: task.id,
     kind: "fired",
     chatId: task.chatId,

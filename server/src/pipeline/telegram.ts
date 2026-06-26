@@ -77,11 +77,11 @@ export function formatReplyContextFromTelegram(
   );
 }
 
-export function resolveMentionedUsersContextFromTelegram(
+export async function resolveMentionedUsersContextFromTelegram(
   text: string,
   telegram: PipelineTelegramContext,
-): string | null {
-  const mentionedUsers = resolveMentionedKnownUsers(
+): Promise<string | null> {
+  const mentionedUsers = await resolveMentionedKnownUsers(
     text.trim(),
     telegram.message as never,
     {

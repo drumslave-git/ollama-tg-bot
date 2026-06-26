@@ -6,6 +6,7 @@ import type { WebSearchSource } from "../features/web-search/index.js";
 import type { MoodValues } from "../mood/index.js";
 import { getActivePersonalityPrompt } from "../db/personalities/index.js";
 import { getEffectiveMood } from "../db/mood/index.js";
+import { getSettings } from "../db/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
 import { getTaskTurnContext } from "../features/tasks/index.js";
@@ -43,17 +44,22 @@ function appendWebSearchSources(
 }
 
 /** The task a turn replies to (when it replies to a task's fired message). */
-function resolveRepliedTask(): { id: number; instruction: string } | null {
+async function resolveRepliedTask(): Promise<{
+  id: number;
+  instruction: string;
+} | null> {
   const repliedTaskId = getTaskTurnContext()?.repliedTaskId ?? null;
-  const record = repliedTaskId != null ? getTaskById(repliedTaskId) : null;
+  const record = repliedTaskId != null ? await getTaskById(repliedTaskId) : null;
   return record ? { id: record.id, instruction: record.instruction } : null;
 }
 
-export function buildSystemPromptForTurn(state: PipelineTurnState): string {
-  const settings = getResolvedSettings();
+export async function buildSystemPromptForTurn(
+  state: PipelineTurnState,
+): Promise<string> {
+  const settings = getResolvedSettings(await getSettings());
   const groupChatId = state.groupChatId;
   const personalityPrompt =
-    state.personalityPrompt ?? getActivePersonalityPrompt();
+    state.personalityPrompt ?? (await getActivePersonalityPrompt());
   const speaker = state.currentSpeaker as { label?: string } | null | undefined;
 
   return buildSystemPrompt({
@@ -65,18 +71,18 @@ export function buildSystemPromptForTurn(state: PipelineTurnState): string {
     currentUserId: state.userId,
     currentUserTag: state.userRole ?? null,
     currentUserLabel: speaker?.label ?? null,
-    ownerUserId: getOwnerUserId(),
-    ownerUsername: getOwnerUsername(),
-    mood: (state.mood ?? getEffectiveMood()) as MoodValues | null,
+    ownerUserId: await getOwnerUserId(),
+    ownerUsername: await getOwnerUsername(),
+    mood: (state.mood ?? (await getEffectiveMood())) as MoodValues | null,
     entityId: state.convKey,
     now: new Date(),
     currentUserIsOwner: state.currentSpeakerIsOwner === true,
-    repliedTask: resolveRepliedTask(),
+    repliedTask: await resolveRepliedTask(),
   });
 }
 
-export function buildChatContextForTurn(state: PipelineTurnState) {
-  const settings = getResolvedSettings();
+export async function buildChatContextForTurn(state: PipelineTurnState) {
+  const settings = getResolvedSettings(await getSettings());
   const convKey = state.convKey;
   if (!convKey) {
     throw new Error("Missing conversation key");
@@ -97,7 +103,7 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
   const groupChatId = state.groupChatId;
 
   return buildChatMessages(
-    state.personalityPrompt ?? getActivePersonalityPrompt(),
+    state.personalityPrompt ?? (await getActivePersonalityPrompt()),
     convKey,
     latestTurn,
     {
@@ -105,11 +111,11 @@ export function buildChatContextForTurn(state: PipelineTurnState) {
       isGroupChat: state.inGroup,
       groupChatId,
       currentUserId: userId,
-      ownerUserId: getOwnerUserId(),
-      ownerUsername: getOwnerUsername(),
-      mood: (state.mood ?? getEffectiveMood()) as MoodValues | null,
+      ownerUserId: await getOwnerUserId(),
+      ownerUsername: await getOwnerUsername(),
+      mood: (state.mood ?? (await getEffectiveMood())) as MoodValues | null,
       currentUserIsOwner: state.currentSpeakerIsOwner === true,
-      repliedTask: resolveRepliedTask(),
+      repliedTask: await resolveRepliedTask(),
     },
   );
 }

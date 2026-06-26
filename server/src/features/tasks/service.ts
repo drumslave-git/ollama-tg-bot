@@ -103,7 +103,9 @@ function computeNext(schedule: NormalizedSchedule): string | null {
   return computeNextRun(spec, new Date(), config.timezone);
 }
 
-export function createTaskValidated(params: CreateTaskParams): TaskRecord {
+export async function createTaskValidated(
+  params: CreateTaskParams,
+): Promise<TaskRecord> {
   const instruction = params.instruction.trim();
   if (instruction.length < 2) {
     throw new TaskValidationError("instruction is required");
@@ -114,7 +116,7 @@ export function createTaskValidated(params: CreateTaskParams): TaskRecord {
     throw new TaskValidationError("that date and time is already in the past");
   }
 
-  const task = createTask({
+  const task = await createTask({
     chatId: params.chatId,
     messageThreadId: params.messageThreadId ?? null,
     entityId: params.entityId,
@@ -128,7 +130,7 @@ export function createTaskValidated(params: CreateTaskParams): TaskRecord {
     enabled: params.enabled,
     nextRunAt,
   });
-  recordTaskEvent({
+  await recordTaskEvent({
     taskId: task.id,
     kind: "created",
     chatId: task.chatId,
@@ -138,11 +140,11 @@ export function createTaskValidated(params: CreateTaskParams): TaskRecord {
   return task;
 }
 
-export function updateTaskValidated(
+export async function updateTaskValidated(
   id: number,
   patch: UpdateTaskParams,
-): TaskRecord | null {
-  const current = getTaskById(id);
+): Promise<TaskRecord | null> {
+  const current = await getTaskById(id);
   if (!current) return null;
 
   const schedule = normalizeSchedule({
@@ -164,7 +166,7 @@ export function updateTaskValidated(
     throw new TaskValidationError("instruction is required");
   }
 
-  const updated = updateTask(id, {
+  const updated = await updateTask(id, {
     instruction,
     scheduleKind: schedule.scheduleKind,
     timeOfDay: schedule.timeOfDay,
@@ -174,7 +176,7 @@ export function updateTaskValidated(
     nextRunAt,
   });
   if (updated) {
-    recordTaskEvent({
+    await recordTaskEvent({
       taskId: updated.id,
       kind: "updated",
       chatId: updated.chatId,
@@ -187,15 +189,15 @@ export function updateTaskValidated(
 
 export type TaskRemovalReason = "cancelled" | "completed";
 
-export function deleteTaskValidated(
+export async function deleteTaskValidated(
   id: number,
   reason: TaskRemovalReason = "cancelled",
-): boolean {
-  const existing = getTaskById(id);
-  deleteTaskMessages(id);
-  const deleted = deleteTask(id);
+): Promise<boolean> {
+  const existing = await getTaskById(id);
+  await deleteTaskMessages(id);
+  const deleted = await deleteTask(id);
   if (deleted && existing) {
-    recordTaskEvent({
+    await recordTaskEvent({
       taskId: existing.id,
       kind: "deleted",
       chatId: existing.chatId,

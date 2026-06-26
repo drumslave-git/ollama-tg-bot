@@ -15,12 +15,16 @@ Open `http://localhost:3000` (or your `PORT`). Set `LLM_BASE_URL` in `.env` befo
 
 ```bash
 npm install
-cp .env.example .env   # BOT_TOKEN, LLM_BASE_URL, VRAM_AVAILABLE
+cp .env.example .env   # BOT_TOKEN, LLM_BASE_URL, VRAM_AVAILABLE, DATABASE_URL
+docker compose up -d db # start Postgres + pgvector (or point DATABASE_URL at your own)
 npm run dev
 ```
 
 - UI: http://localhost:5173 (Vite)
 - API + bot: http://localhost:3000 (Vite proxies `/api` there)
+
+Storage is **Postgres** with the `pgvector` extension (the bundled `db` compose
+service provides it). Set `DATABASE_URL` accordingly.
 
 ## Env
 
@@ -29,6 +33,7 @@ npm run dev
 | `BOT_TOKEN` | everywhere | required |
 | `LLM_BASE_URL` | everywhere | required (OpenAI-compatible API base URL) |
 | `VRAM_AVAILABLE` | everywhere | required (GPU GB, e.g. `24`) |
+| `DATABASE_URL` | everywhere | required (Postgres + pgvector connection string) |
 | `LLM_API_KEY` | optional | empty (local servers usually skip this) |
 | `TAVILY_API_KEY` | optional | empty (web search off) |
 | `LOGGING_LEVEL` | optional | `ERROR` (`DEBUG`) |
@@ -36,7 +41,7 @@ npm run dev
 
 Do not put `PORT` in `.env` for local dev — it is only for `docker-compose.yml` (`PORT:PORT` mapping + app listen).
 
-LLM base URL and API key are set in **`.env`** (`LLM_BASE_URL`, optional `LLM_API_KEY`). Model, prompts, owner, maintenance mode, and performance limits live in the **dashboard** (SQLite). Tavily is configured via **`TAVILY_API_KEY`** in `.env`.
+LLM base URL and API key are set in **`.env`** (`LLM_BASE_URL`, optional `LLM_API_KEY`). Model, embedding model, prompts, owner, maintenance mode, and performance limits live in the **dashboard** (stored in Postgres). Tavily is configured via **`TAVILY_API_KEY`** in `.env`.
 
 ### Web search (Tavily)
 
@@ -57,7 +62,7 @@ When an addressed message contains `http(s)` links, the bot detects them, opens 
 
 ## Feature modules
 
-Bot capabilities are organized as plain folders under `server/src/features/<name>/` — one Node process, no separate packages. Each feature contributes one or more **pipeline hosts** (with typed `run`/`shouldRun`), and may add SQLite tables (`features/<name>/db/`), an MCP tool (`register-mcp-tools.ts`), and a dashboard page (`dashboard/src/features/<name>/`).
+Bot capabilities are organized as plain folders under `server/src/features/<name>/` — one Node process, no separate packages. Each feature contributes one or more **pipeline hosts** (with typed `run`/`shouldRun`), and may add Postgres tables (`features/<name>/db/`), an MCP tool (`register-mcp-tools.ts`), and a dashboard page (`dashboard/src/features/<name>/`).
 
 | Feature | Role |
 |---------|------|
@@ -75,7 +80,7 @@ Pipeline order is declared in `server/src/runtime/module-hosts.ts`; feature meta
 
 ## Stack
 
-Node 22.13+, TypeScript, Grammy, Express, SQLite, React (Vite), Docker.
+Node 22.13+, TypeScript, Grammy, Express, Postgres + pgvector, React (Vite), Docker.
 
 ## License
 

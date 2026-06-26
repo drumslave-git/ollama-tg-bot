@@ -18,9 +18,9 @@ function hasDirectBotMention(ctx: Context): boolean {
 }
 
 /** True when maintenance mode is on and the message should not proceed. */
-export function isMaintenanceBlocked(ctx: Context): boolean {
-  if (!getSettings().maintenanceModeEnabled) return false;
-  if (!isOwner(ctx)) return true;
+export async function isMaintenanceBlocked(ctx: Context): Promise<boolean> {
+  if (!(await getSettings()).maintenanceModeEnabled) return false;
+  if (!(await isOwner(ctx))) return true;
   if (isGroupChat(ctx) && !hasDirectBotMention(ctx)) return true;
   return false;
 }

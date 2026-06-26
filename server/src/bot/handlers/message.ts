@@ -19,9 +19,9 @@ import { enqueueMessage } from "../../runtime/message-queue.js";
 
 let nextTurnId: number | null = null;
 
-function allocateTurnId(): number {
+async function allocateTurnId(): Promise<number> {
   if (nextTurnId == null) {
-    nextTurnId = getMaxDebugTraceId() + 1;
+    nextTurnId = (await getMaxDebugTraceId()) + 1;
   }
   return nextTurnId!++;
 }
@@ -34,7 +34,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
   let msgLog: EventFields = {};
 
   try {
-    turnId = allocateTurnId();
+    turnId = await allocateTurnId();
     const chatId = ctx.chat?.id;
     const userId = ctx.from?.id != null ? String(ctx.from.id) : null;
     const chatType = ctx.chat?.type ?? "unknown";
@@ -103,13 +103,13 @@ export async function messageHandler(ctx: Context, botToken: string) {
       });
     }
 
-    if (isMaintenanceBlocked(ctx)) {
+    if (await isMaintenanceBlocked(ctx)) {
       logEvent("message_ignored", { ...msgLog, reason: "maintenance_mode" });
       report?.finishIgnored("maintenance_mode");
       return;
     }
 
-    const services = createPipelineServices();
+    const services = await createPipelineServices();
     const state = createInitialPipelineState({
       turnId,
       rawText: text ?? "",

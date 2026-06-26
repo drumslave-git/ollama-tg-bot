@@ -42,7 +42,7 @@ export const turnSetupHost: PipelineModuleHost = {
     state.inGroup = isGroupChat(state.telegram) ?? false;
     state.userRole = userRoleTag(state.telegram.from) ?? null;
     state.currentSpeaker = currentSpeakerFromUser(state.telegram.from) ?? null;
-    state.currentSpeakerIsOwner = isOwner(state.telegram) ?? false;
+    state.currentSpeakerIsOwner = (await isOwner(state.telegram)) ?? false;
     state.messageThreadId = (state.telegram.message as Message | undefined)
       ?.message_thread_id;
     state.isForum = state.telegram.chat?.is_forum === true;
@@ -58,7 +58,7 @@ export const turnSetupHost: PipelineModuleHost = {
     state.replyContext =
       formatReplyContext(state.telegram, state.currentSpeaker) ?? null;
     state.mentionedUsersContext =
-      resolveMentionedUsersContext(rawText, state.telegram) ?? null;
+      (await resolveMentionedUsersContext(rawText, state.telegram)) ?? null;
 
     return {
       status: "ok",
@@ -105,7 +105,7 @@ export const intakeHistoryHost: PipelineModuleHost = {
 
     const rawText = (msg.text ?? msg.caption ?? "").trim();
     const enrichedText = rawText
-      ? enrichTextWithUserMentions(rawText, msg, {
+      ? await enrichTextWithUserMentions(rawText, msg, {
           botId,
           botUsername: state.telegram.me?.username,
           senderId: (from as { id?: number } | undefined)?.id,

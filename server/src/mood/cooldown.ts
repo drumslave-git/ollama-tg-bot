@@ -6,9 +6,9 @@ const MOOD_COOLDOWN_TICK_MS = 60_000;
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
-function runTick(): void {
+async function runTick(): Promise<void> {
   try {
-    const changed = tickMoodCooldown();
+    const changed = await tickMoodCooldown();
     if (changed) {
       logEvent("mood_cooldown_tick", { changed: true });
     }
@@ -19,8 +19,8 @@ function runTick(): void {
 
 export function startMoodCooldownWorker(): void {
   if (timer) return;
-  runTick();
-  timer = setInterval(runTick, MOOD_COOLDOWN_TICK_MS);
+  void runTick();
+  timer = setInterval(() => void runTick(), MOOD_COOLDOWN_TICK_MS);
   logInfo(`Mood cooldown worker started (every ${MOOD_COOLDOWN_TICK_MS / 1000}s)`);
 }
 

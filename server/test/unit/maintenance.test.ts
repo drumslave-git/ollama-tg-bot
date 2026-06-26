@@ -35,59 +35,59 @@ function ctx(over: {
   };
 }
 
-describe("isMaintenanceBlocked", () => {
+describe("isMaintenanceBlocked", async () => {
   beforeEach(() => {
-    mockedGetSettings.mockReturnValue(
+    mockedGetSettings.mockResolvedValue(
       makeSettings({ maintenanceModeEnabled: true }),
     );
-    mockedIsOwner.mockReturnValue(false);
+    mockedIsOwner.mockResolvedValue(false);
   });
 
-  it("is false when maintenance mode is off", () => {
-    mockedGetSettings.mockReturnValue(
+  it("is false when maintenance mode is off", async () => {
+    mockedGetSettings.mockResolvedValue(
       makeSettings({ maintenanceModeEnabled: false }),
     );
-    expect(isMaintenanceBlocked(ctx({ text: "hello" }) as never)).toBe(false);
+    expect(await isMaintenanceBlocked(ctx({ text: "hello" }) as never)).toBe(false);
   });
 
-  it("is false for the owner in private chat", () => {
-    mockedIsOwner.mockReturnValue(true);
+  it("is false for the owner in private chat", async () => {
+    mockedIsOwner.mockResolvedValue(true);
     expect(
-      isMaintenanceBlocked(ctx({ chatType: "private", text: "hello" }) as never),
+      await isMaintenanceBlocked(ctx({ chatType: "private", text: "hello" }) as never),
     ).toBe(false);
   });
 
-  it("is false for the owner with a direct @mention in a group", () => {
-    mockedIsOwner.mockReturnValue(true);
+  it("is false for the owner with a direct @mention in a group", async () => {
+    mockedIsOwner.mockResolvedValue(true);
     expect(
-      isMaintenanceBlocked(ctx({ text: "@alex_bot hello" }) as never),
+      await isMaintenanceBlocked(ctx({ text: "@alex_bot hello" }) as never),
     ).toBe(false);
   });
 
-  it("is true for the owner without an @mention in a group", () => {
-    mockedIsOwner.mockReturnValue(true);
-    expect(isMaintenanceBlocked(ctx({ text: "hello" }) as never)).toBe(true);
+  it("is true for the owner without an @mention in a group", async () => {
+    mockedIsOwner.mockResolvedValue(true);
+    expect(await isMaintenanceBlocked(ctx({ text: "hello" }) as never)).toBe(true);
   });
 
-  it("is true for a direct @mention from a non-owner in a group", () => {
+  it("is true for a direct @mention from a non-owner in a group", async () => {
     expect(
-      isMaintenanceBlocked(ctx({ text: "@alex_bot hello" }) as never),
+      await isMaintenanceBlocked(ctx({ text: "@alex_bot hello" }) as never),
     ).toBe(true);
   });
 
-  it("is true for unrelated group chatter", () => {
-    expect(isMaintenanceBlocked(ctx({ text: "just chatting" }) as never)).toBe(
+  it("is true for unrelated group chatter", async () => {
+    expect(await isMaintenanceBlocked(ctx({ text: "just chatting" }) as never)).toBe(
       true,
     );
   });
 
-  it("is true for a reply without an @mention in a group", () => {
-    expect(isMaintenanceBlocked(ctx({ text: "thanks" }) as never)).toBe(true);
+  it("is true for a reply without an @mention in a group", async () => {
+    expect(await isMaintenanceBlocked(ctx({ text: "thanks" }) as never)).toBe(true);
   });
 
-  it("is true for a private message from a non-owner", () => {
+  it("is true for a private message from a non-owner", async () => {
     expect(
-      isMaintenanceBlocked(
+      await isMaintenanceBlocked(
         ctx({ chatType: "private", text: "@alex_bot hello" }) as never,
       ),
     ).toBe(true);

@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import {
   DEFAULT_MOOD_VALUES,
   MOOD_KEYS,
@@ -12,8 +12,8 @@ export const MAX_PERSONALITIES = 32;
 export const MAX_PERSONALITY_NAME_LENGTH = 64;
 export const MAX_PERSONALITY_PROMPT_LENGTH = 32000;
 
-let db: DatabaseSync;
-let getActivePersonalityId: () => number = () => 0;
+let db: SqlDatabase;
+let getActivePersonalityId: () => Promise<number> = async () => 0;
 
 export interface PersonalityRecord {
   id: number;
@@ -24,32 +24,40 @@ export interface PersonalityRecord {
   updatedAt: string;
 }
 
-export function bindPersonalitiesDatabase(database: DatabaseSync): void {
+interface PersonalityRow {
+  id: number;
+  name: string;
+  prompt: string;
+  mood_defaults: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
+export async function bindPersonalitiesDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS personalities (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       name TEXT NOT NULL,
       prompt TEXT NOT NULL DEFAULT '',
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      mood_defaults TEXT,
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint,
+      updated_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_personalities_name
-      ON personalities (name COLLATE NOCASE);
   `);
-
-  const columns = db.prepare("PRAGMA table_info(personalities)").all() as {
-    name: string;
-  }[];
-  if (!columns.some((column) => column.name === "mood_defaults")) {
-    db.exec(`ALTER TABLE personalities ADD COLUMN mood_defaults TEXT`);
-  }
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_personalities_name
+       ON personalities (lower(name));`,
+  );
 }
 
 export function configurePersonalityAccess(
-  getSettingsFn: () => { activePersonalityId: number },
+  getSettingsFn: () => Promise<{ activePersonalityId: number }>,
 ): void {
-  getActivePersonalityId = () => getSettingsFn().activePersonalityId;
+  getActivePersonalityId = async () =>
+    (await getSettingsFn()).activePersonalityId;
 }
 
 export function normalizePersonalityMoodDefaults(
@@ -103,14 +111,7 @@ function parseMoodDefaultsColumn(raw: string | null | undefined): MoodValues {
   }
 }
 
-function rowToPersonality(r: {
-  id: number;
-  name: string;
-  prompt: string;
-  mood_defaults?: string | null;
-  created_at: number;
-  updated_at: number;
-}): PersonalityRecord {
+function rowToPersonality(r: PersonalityRow): PersonalityRecord {
   return {
     id: r.id,
     name: r.name,
@@ -121,107 +122,91 @@ function rowToPersonality(r: {
   };
 }
 
-export function countPersonalities(): number {
-  const row = db
-    .prepare("SELECT COUNT(*) AS n FROM personalities")
-    .get() as { n: number };
-  return row.n;
+export async function countPersonalities(): Promise<number> {
+  const { rows } = await db.query<{ n: number }>(
+    "SELECT COUNT(*)::int AS n FROM personalities",
+  );
+  return rows[0]?.n ?? 0;
 }
 
-export function listPersonalities(): PersonalityRecord[] {
-  const rows = db
-    .prepare(
-      `SELECT id, name, prompt, mood_defaults, created_at, updated_at
+export async function listPersonalities(): Promise<PersonalityRecord[]> {
+  const { rows } = await db.query<PersonalityRow>(
+    `SELECT id, name, prompt, mood_defaults, created_at, updated_at
        FROM personalities
        ORDER BY id ASC`,
-    )
-    .all() as {
-    id: number;
-    name: string;
-    prompt: string;
-    mood_defaults: string | null;
-    created_at: number;
-    updated_at: number;
-  }[];
-
+  );
   return rows.map(rowToPersonality);
 }
 
-export function getPersonalityById(id: number): PersonalityRecord | null {
-  const row = db
-    .prepare(
-      `SELECT id, name, prompt, mood_defaults, created_at, updated_at
-       FROM personalities WHERE id = ?`,
-    )
-    .get(id) as
-    | {
-        id: number;
-        name: string;
-        prompt: string;
-        mood_defaults: string | null;
-        created_at: number;
-        updated_at: number;
-      }
-    | undefined;
-
-  return row ? rowToPersonality(row) : null;
+export async function getPersonalityById(
+  id: number,
+): Promise<PersonalityRecord | null> {
+  const { rows } = await db.query<PersonalityRow>(
+    `SELECT id, name, prompt, mood_defaults, created_at, updated_at
+       FROM personalities WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ? rowToPersonality(rows[0]) : null;
 }
 
-export function resolveActivePersonalityId(storedId: number): number {
+export async function resolveActivePersonalityId(
+  storedId: number,
+): Promise<number> {
   if (storedId <= 0) return 0;
-  return getPersonalityById(storedId) ? storedId : 0;
+  return (await getPersonalityById(storedId)) ? storedId : 0;
 }
 
-export function getActivePersonalityPrompt(): string {
-  const id = resolveActivePersonalityId(getActivePersonalityId());
+export async function getActivePersonalityPrompt(): Promise<string> {
+  const id = await resolveActivePersonalityId(await getActivePersonalityId());
   if (!id) return "";
-  return getPersonalityById(id)?.prompt ?? "";
+  return (await getPersonalityById(id))?.prompt ?? "";
 }
 
-export function getActivePersonalityMoodDefaults(): MoodValues {
-  const id = resolveActivePersonalityId(getActivePersonalityId());
+export async function getActivePersonalityMoodDefaults(): Promise<MoodValues> {
+  const id = await resolveActivePersonalityId(await getActivePersonalityId());
   if (!id) return { ...DEFAULT_MOOD_VALUES };
-  return getPersonalityById(id)?.moodDefaults ?? { ...DEFAULT_MOOD_VALUES };
+  return (await getPersonalityById(id))?.moodDefaults ?? { ...DEFAULT_MOOD_VALUES };
 }
 
-function nameTaken(name: string, exceptId?: number): boolean {
-  const row = db
-    .prepare(
-      `SELECT 1 FROM personalities
-       WHERE name = ? COLLATE NOCASE
-       ${exceptId != null ? "AND id != ?" : ""}`,
-    )
-    .get(...(exceptId != null ? [name, exceptId] : [name]));
-  return Boolean(row);
+async function nameTaken(name: string, exceptId?: number): Promise<boolean> {
+  const { rows } =
+    exceptId != null
+      ? await db.query(
+          `SELECT 1 FROM personalities WHERE lower(name) = lower($1) AND id != $2`,
+          [name, exceptId],
+        )
+      : await db.query(
+          `SELECT 1 FROM personalities WHERE lower(name) = lower($1)`,
+          [name],
+        );
+  return rows.length > 0;
 }
 
-export function createPersonality(
+export async function createPersonality(
   name: string,
   prompt: string,
   moodDefaults: MoodValues = DEFAULT_MOOD_VALUES,
-): PersonalityRecord | null {
-  if (countPersonalities() >= MAX_PERSONALITIES) return null;
-  if (nameTaken(name)) return null;
+): Promise<PersonalityRecord | null> {
+  if ((await countPersonalities()) >= MAX_PERSONALITIES) return null;
+  if (await nameTaken(name)) return null;
 
   const normalizedMood = normalizePersonalityMoodDefaults(moodDefaults);
 
-  const result = db
-    .prepare(
-      `INSERT INTO personalities (name, prompt, mood_defaults, created_at, updated_at)
-       VALUES (?, ?, ?, unixepoch(), unixepoch())`,
-    )
-    .run(name, prompt, JSON.stringify(normalizedMood));
+  const { rows } = await db.query<{ id: number }>(
+    `INSERT INTO personalities (name, prompt, mood_defaults)
+       VALUES ($1, $2, $3) RETURNING id`,
+    [name, prompt, JSON.stringify(normalizedMood)],
+  );
 
-  const id = Number(result.lastInsertRowid);
   getModuleLiveHooks().emitPersonalitiesUpdated?.();
-  return getPersonalityById(id);
+  return rows[0] ? getPersonalityById(rows[0].id) : null;
 }
 
-export function updatePersonalityById(
+export async function updatePersonalityById(
   id: number,
   patch: { name?: string; prompt?: string; moodDefaults?: MoodValues },
-): PersonalityRecord | "duplicate" | null {
-  const existing = getPersonalityById(id);
+): Promise<PersonalityRecord | "duplicate" | null> {
+  const existing = await getPersonalityById(id);
   if (!existing) return null;
 
   const nextName =
@@ -235,24 +220,27 @@ export function updatePersonalityById(
       ? normalizePersonalityMoodDefaults(patch.moodDefaults, existing.moodDefaults)
       : existing.moodDefaults;
 
-  if (nextName !== existing.name && nameTaken(nextName, id)) {
+  if (nextName !== existing.name && (await nameTaken(nextName, id))) {
     return "duplicate";
   }
 
-  db.prepare(
+  await db.query(
     `UPDATE personalities
-     SET name = ?, prompt = ?, mood_defaults = ?, updated_at = unixepoch()
-     WHERE id = ?`,
-  ).run(nextName, nextPrompt, JSON.stringify(nextMood), id);
+       SET name = $1, prompt = $2, mood_defaults = $3,
+           updated_at = extract(epoch from now())::bigint
+       WHERE id = $4`,
+    [nextName, nextPrompt, JSON.stringify(nextMood), id],
+  );
 
   getModuleLiveHooks().emitPersonalitiesUpdated?.();
   return getPersonalityById(id);
 }
 
-export function deletePersonalityById(id: number): boolean {
-  const result = db.prepare("DELETE FROM personalities WHERE id = ?").run(id);
-  if (result.changes > 0) {
+export async function deletePersonalityById(id: number): Promise<boolean> {
+  const result = await db.query("DELETE FROM personalities WHERE id = $1", [id]);
+  const deleted = (result.rowCount ?? 0) > 0;
+  if (deleted) {
     getModuleLiveHooks().emitPersonalitiesUpdated?.();
   }
-  return result.changes > 0;
+  return deleted;
 }

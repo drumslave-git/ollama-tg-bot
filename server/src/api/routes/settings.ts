@@ -48,8 +48,8 @@ async function checkTavilyHealth(): Promise<boolean> {
   return true;
 }
 
-function stickerCatalogResponse() {
-  const settings = getSettings();
+async function stickerCatalogResponse() {
+  const settings = await getSettings();
   const catalog = getStickerCatalogState();
   return {
     packName: catalog.packName || settings.stickerPackName,
@@ -76,6 +76,7 @@ settingsRouter.patch("/", async (req, res) => {
     const body = req.body as Partial<Settings>;
     const allowed: (keyof Settings)[] = [
       "model",
+      "embeddingModel",
       "activePersonalityId",
       "numPredict",
       "temperature",
@@ -111,7 +112,7 @@ settingsRouter.patch("/", async (req, res) => {
       }
     }
 
-    const updated = updateSettings(patch);
+    const updated = await updateSettings(patch);
     await ensureModelContextCache(updated.model, config.llmBaseUrl);
 
     if (body.stickerPackName !== undefined) {
@@ -157,7 +158,7 @@ settingsRouter.get("/models", async (_req, res) => {
 
 settingsRouter.get("/budget", async (req, res) => {
   try {
-    const settings = getSettings();
+    const settings = await getSettings();
     const model =
       typeof req.query.model === "string" && req.query.model.trim()
         ? req.query.model.trim()
@@ -219,8 +220,8 @@ settingsRouter.post("/test-tavily", async (_req, res) => {
   }
 });
 
-settingsRouter.get("/stickers", (_req, res) => {
-  res.json(stickerCatalogResponse());
+settingsRouter.get("/stickers", async (_req, res) => {
+  res.json(await stickerCatalogResponse());
 });
 
 settingsRouter.get("/stickers/:index/preview", async (req, res) => {
@@ -244,13 +245,13 @@ settingsRouter.get("/stickers/:index/preview", async (req, res) => {
 settingsRouter.post("/stickers/refresh", async (_req, res) => {
   try {
     const bot = getBot();
-    const settings = getSettings();
+    const settings = await getSettings();
     await refreshStickerCatalog(
       bot.api,
       settings.stickerPackName,
       stickerCatalogLog,
     );
-    res.json(stickerCatalogResponse());
+    res.json(await stickerCatalogResponse());
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Failed to refresh stickers",

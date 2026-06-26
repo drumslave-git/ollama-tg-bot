@@ -1,21 +1,21 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
 import { normalizeFactText } from "./memory-facts.js";
 
 const MAX_GENERAL_FACTS = 128;
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindGeneralMemoryDatabase(database: DatabaseSync): void {
+export async function bindGeneralMemoryDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS general_facts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       fact TEXT NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_general_facts_id
-      ON general_facts (id);
   `);
 }
 
@@ -25,29 +25,24 @@ export interface GeneralFactRecord {
   createdAt: string;
 }
 
-export function getGeneralFacts(): string[] {
-  return listGeneralFacts().map((r) => r.fact);
-}
-
-export function listGeneralFacts(): GeneralFactRecord[] {
-  const rows = db
-    .prepare(
-      `SELECT id, fact, created_at FROM general_facts ORDER BY id ASC`,
-    )
-    .all() as unknown as {
-    id: number;
-    fact: string;
-    created_at: number;
-  }[];
-
-  return rows.map(rowToGeneralFactRecord);
-}
-
-function rowToGeneralFactRecord(r: {
+interface GeneralFactRow {
   id: number;
   fact: string;
   created_at: number;
-}): GeneralFactRecord {
+}
+
+export async function getGeneralFacts(): Promise<string[]> {
+  return (await listGeneralFacts()).map((r) => r.fact);
+}
+
+export async function listGeneralFacts(): Promise<GeneralFactRecord[]> {
+  const { rows } = await db.query<GeneralFactRow>(
+    `SELECT id, fact, created_at FROM general_facts ORDER BY id ASC`,
+  );
+  return rows.map(rowToGeneralFactRecord);
+}
+
+function rowToGeneralFactRecord(r: GeneralFactRow): GeneralFactRecord {
   return {
     id: r.id,
     fact: r.fact,
@@ -61,26 +56,29 @@ export interface GeneralMemoryMatch {
 }
 
 /** Case-insensitive substring search over general facts. */
-export function searchGeneralFacts(query: string, limit = 50): GeneralMemoryMatch[] {
+export async function searchGeneralFacts(
+  query: string,
+  limit = 50,
+): Promise<GeneralMemoryMatch[]> {
   const q = query.trim();
   if (!q) return [];
-  const rows = db
-    .prepare(
-      `SELECT id, fact FROM general_facts
-       WHERE instr(lower(fact), lower(?)) > 0
-       ORDER BY id ASC LIMIT ?`,
-    )
-    .all(q, limit) as unknown as { id: number; fact: string }[];
+  const { rows } = await db.query<{ id: number; fact: string }>(
+    `SELECT id, fact FROM general_facts
+       WHERE fact ILIKE '%' || $1 || '%'
+       ORDER BY id ASC LIMIT $2`,
+    [q, limit],
+  );
   return rows.map((r) => ({ id: r.id, fact: r.fact }));
 }
 
-export function getGeneralFactById(id: number): GeneralFactRecord | null {
-  const row = db
-    .prepare(`SELECT id, fact, created_at FROM general_facts WHERE id = ?`)
-    .get(id) as
-    | { id: number; fact: string; created_at: number }
-    | undefined;
-  return row ? rowToGeneralFactRecord(row) : null;
+export async function getGeneralFactById(
+  id: number,
+): Promise<GeneralFactRecord | null> {
+  const { rows } = await db.query<GeneralFactRow>(
+    `SELECT id, fact, created_at FROM general_facts WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ? rowToGeneralFactRecord(rows[0]) : null;
 }
 
 function notifyGeneralMemoryChanged(): void {
@@ -89,70 +87,65 @@ function notifyGeneralMemoryChanged(): void {
   hooks.emitDataUpdated?.(["general_facts"]);
 }
 
-export function deleteGeneralFactById(id: number): boolean {
-  const result = db.prepare(`DELETE FROM general_facts WHERE id = ?`).run(id);
-  if (result.changes > 0) notifyGeneralMemoryChanged();
-  return result.changes > 0;
+export async function deleteGeneralFactById(id: number): Promise<boolean> {
+  const result = await db.query(`DELETE FROM general_facts WHERE id = $1`, [id]);
+  const deleted = (result.rowCount ?? 0) > 0;
+  if (deleted) notifyGeneralMemoryChanged();
+  return deleted;
 }
 
-export function createGeneralFact(fact: string): GeneralFactRecord | null {
+export async function createGeneralFact(
+  fact: string,
+): Promise<GeneralFactRecord | null> {
   const normalized = normalizeFactText(fact);
   if (!normalized) return null;
 
-  const existing = new Set(
-    getGeneralFacts().map((f) => f.toLowerCase()),
-  );
+  const existing = new Set((await getGeneralFacts()).map((f) => f.toLowerCase()));
   if (existing.has(normalized.toLowerCase())) {
-    const row = db
-      .prepare(
-        `SELECT id, fact, created_at FROM general_facts
-         WHERE lower(fact) = lower(?)`,
-      )
-      .get(normalized) as
-      | { id: number; fact: string; created_at: number }
-      | undefined;
-    return row ? rowToGeneralFactRecord(row) : null;
+    const { rows } = await db.query<GeneralFactRow>(
+      `SELECT id, fact, created_at FROM general_facts
+         WHERE lower(fact) = lower($1)`,
+      [normalized],
+    );
+    return rows[0] ? rowToGeneralFactRecord(rows[0]) : null;
   }
 
-  const result = db
-    .prepare(`INSERT INTO general_facts (fact) VALUES (?)`)
-    .run(normalized);
-  pruneGeneralFacts();
+  const { rows } = await db.query<{ id: number }>(
+    `INSERT INTO general_facts (fact) VALUES ($1) RETURNING id`,
+    [normalized],
+  );
+  await pruneGeneralFacts();
   notifyGeneralMemoryChanged();
-  return getGeneralFactById(Number(result.lastInsertRowid));
+  return rows[0] ? getGeneralFactById(rows[0].id) : null;
 }
 
-export function updateGeneralFactById(
+export async function updateGeneralFactById(
   id: number,
   fact: string,
-): GeneralFactRecord | "duplicate" | null {
+): Promise<GeneralFactRecord | "duplicate" | null> {
   const normalized = normalizeFactText(fact);
   if (!normalized) return null;
 
-  const current = getGeneralFactById(id);
+  const current = await getGeneralFactById(id);
   if (!current) return null;
 
-  const duplicate = db
-    .prepare(
-      `SELECT 1 FROM general_facts
-       WHERE lower(fact) = lower(?) AND id != ?`,
-    )
-    .get(normalized, id);
-  if (duplicate) return "duplicate";
+  const { rows: dup } = await db.query(
+    `SELECT 1 FROM general_facts
+       WHERE lower(fact) = lower($1) AND id != $2`,
+    [normalized, id],
+  );
+  if (dup.length > 0) return "duplicate";
 
-  db.prepare(`UPDATE general_facts SET fact = ? WHERE id = ?`).run(
+  await db.query(`UPDATE general_facts SET fact = $1 WHERE id = $2`, [
     normalized,
     id,
-  );
+  ]);
   notifyGeneralMemoryChanged();
   return getGeneralFactById(id);
 }
 
-export function addGeneralFacts(facts: string[]): number {
-  const existing = new Set(
-    getGeneralFacts().map((f) => f.toLowerCase()),
-  );
-  const insert = db.prepare(`INSERT INTO general_facts (fact) VALUES (?)`);
+export async function addGeneralFacts(facts: string[]): Promise<number> {
+  const existing = new Set((await getGeneralFacts()).map((f) => f.toLowerCase()));
   let added = 0;
 
   for (const fact of facts) {
@@ -161,43 +154,43 @@ export function addGeneralFacts(facts: string[]): number {
     const key = normalized.toLowerCase();
     if (existing.has(key)) continue;
     existing.add(key);
-    insert.run(normalized);
+    await db.query(`INSERT INTO general_facts (fact) VALUES ($1)`, [normalized]);
     added++;
   }
 
-  pruneGeneralFacts();
+  await pruneGeneralFacts();
   if (added > 0) notifyGeneralMemoryChanged();
   return added;
 }
 
-export function clearAllGeneralFacts(): number {
-  const result = db.prepare(`DELETE FROM general_facts`).run();
-  const deleted = Number(result.changes);
+export async function clearAllGeneralFacts(): Promise<number> {
+  const result = await db.query(`DELETE FROM general_facts`);
+  const deleted = result.rowCount ?? 0;
   if (deleted > 0) notifyGeneralMemoryChanged();
   return deleted;
 }
 
-export function replaceGeneralFacts(facts: string[]): void {
-  db.prepare(`DELETE FROM general_facts`).run();
-  const insert = db.prepare(`INSERT INTO general_facts (fact) VALUES (?)`);
+export async function replaceGeneralFacts(facts: string[]): Promise<void> {
+  await db.query(`DELETE FROM general_facts`);
   for (const fact of facts) {
     const normalized = normalizeFactText(fact);
     if (!normalized) continue;
-    insert.run(normalized);
+    await db.query(`INSERT INTO general_facts (fact) VALUES ($1)`, [normalized]);
   }
-  pruneGeneralFacts();
+  await pruneGeneralFacts();
   notifyGeneralMemoryChanged();
 }
 
-function pruneGeneralFacts(): void {
-  db.prepare(
+async function pruneGeneralFacts(): Promise<void> {
+  await db.query(
     `DELETE FROM general_facts
      WHERE id NOT IN (
        SELECT id FROM general_facts
        ORDER BY id DESC
-       LIMIT ?
+       LIMIT $1
      )`,
-  ).run(MAX_GENERAL_FACTS);
+    [MAX_GENERAL_FACTS],
+  );
 }
 
 export { formatGeneralMemoryForPrompt } from "../index.js";

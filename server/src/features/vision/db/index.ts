@@ -1,5 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
-import type { ModuleDbExports } from "../../../contracts/index.js";
+import type { ModuleDbExports, SqlDatabase } from "../../../contracts/index.js";
 import { bindVisionConfigDatabase } from "./module-config.js";
 import { createVisionRouter } from "./routes.js";
 
@@ -8,8 +7,8 @@ export {
   updateVisionModuleConfig,
 } from "./module-config.js";
 
-export function bindModuleDatabase(database: DatabaseSync): void {
-  bindVisionConfigDatabase(database);
+export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
+  await bindVisionConfigDatabase(database);
 }
 
 export function createModuleRouter() {

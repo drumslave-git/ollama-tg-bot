@@ -61,7 +61,7 @@ export {
   resolveMentionedUsersContextFromTelegram as resolveMentionedUsersContext,
 };
 
-export function isOwner(telegram: PipelineTelegramContext): boolean {
+export function isOwner(telegram: PipelineTelegramContext): Promise<boolean> {
   return botIsOwner({ from: telegram.from, chat: telegram.chat } as Context);
 }
 
@@ -82,7 +82,7 @@ export function enrichTextWithUserMentions(
     senderId?: number;
     senderUsername?: string;
   },
-): string {
+): Promise<string> {
   return botEnrichTextWithUserMentions(text, message as never, options);
 }
 

@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { DatabaseSync } from "node:sqlite";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BotMcpRegistry } from "../../../src/shared/index.js";
 import {
@@ -7,6 +6,13 @@ import {
   bindGroupMemoryDatabase,
   bindUserMemoryDatabase,
 } from "../../../src/features/memory/db/index.js";
+import {
+  closeTestPool,
+  dropTables,
+  hasTestDb,
+  testDb,
+  truncateTables,
+} from "../../helpers/pg.js";
 import {
   MEMORY_GET_TOOL_NAME,
   MEMORY_SAVE_TOOL_NAME,
@@ -46,14 +52,18 @@ interface SearchStructured {
   results: { type: string; id: string | null; content: string }[];
 }
 
-beforeEach(() => {
-  const db = new DatabaseSync(":memory:");
-  bindUserMemoryDatabase(db);
-  bindGroupMemoryDatabase(db);
-  bindGeneralMemoryDatabase(db);
-});
+describe.skipIf(!hasTestDb)("memory MCP tools (Postgres)", () => {
+  beforeAll(async () => {
+    await dropTables("user_memories", "group_memories", "general_facts");
+    await bindUserMemoryDatabase(testDb);
+    await bindGroupMemoryDatabase(testDb);
+    await bindGeneralMemoryDatabase(testDb);
+  });
+  afterAll(closeTestPool);
+  beforeEach(() =>
+    truncateTables("user_memories", "group_memories", "general_facts"),
+  );
 
-describe("memory MCP tools", () => {
   it("memory_save appends a user fact and memory_get reads it back", async () => {
     const registry = await buildRegistry();
 

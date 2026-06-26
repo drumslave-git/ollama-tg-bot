@@ -87,7 +87,7 @@ export const visionReplyHost: PipelineModuleHost = {
     // them alongside the text in the main reply pass — no separate describe
     // request. Stored history media is captioned to text later by the vision
     // backfill scheduler, keeping long-term history token-light.
-    const maxDimension = getSettings().visionMaxDimension;
+    const maxDimension = (await getSettings()).visionMaxDimension;
     const images = loaded.images as { base64: string; mimeHint: string }[];
     const normalized: string[] = [];
     for (const image of images) {

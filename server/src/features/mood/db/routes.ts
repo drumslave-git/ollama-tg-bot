@@ -34,9 +34,9 @@ function requireHost(): ModuleDbHost {
 
 export const moodRouter = Router();
 
-moodRouter.get("/", (_req, res) => {
+moodRouter.get("/", async (_req, res) => {
   try {
-    res.json(requireHost().buildMoodPayload!());
+    res.json(await requireHost().buildMoodPayload!());
   } catch (err) {
     res.status(500).json({
       error: err instanceof Error ? err.message : "Failed to load mood",
@@ -44,13 +44,13 @@ moodRouter.get("/", (_req, res) => {
   }
 });
 
-moodRouter.get("/personalities", (_req, res) => {
+moodRouter.get("/personalities", async (_req, res) => {
   try {
     const h = requireHost();
-    const settings = h.getSettings();
+    const settings = await h.getSettings();
     res.json({
-      personalities: listPersonalities(),
-      activePersonalityId: resolveActivePersonalityId(
+      personalities: await listPersonalities(),
+      activePersonalityId: await resolveActivePersonalityId(
         Number(settings.activePersonalityId ?? 0),
       ),
     });
@@ -61,23 +61,23 @@ moodRouter.get("/personalities", (_req, res) => {
   }
 });
 
-moodRouter.get("/personality/:id", (req, res) => {
-  const personality = getPersonalityById(Number(req.params.id));
+moodRouter.get("/personality/:id", async (req, res) => {
+  const personality = await getPersonalityById(Number(req.params.id));
   if (!personality) return res.status(404).json({ error: "Personality not found" });
   res.json({ personality });
 });
 
-moodRouter.post("/personality", (req, res) => {
+moodRouter.post("/personality", async (req, res) => {
   const name = normalizePersonalityName(req.body.name);
   const prompt = normalizePersonalityPrompt(req.body.prompt);
   if (!name || !prompt) return res.status(400).json({ error: "Invalid personality data" });
 
   const moodDefaults = normalizePersonalityMoodDefaults(req.body.moodDefaults);
-  const personality = createPersonality(name, prompt, moodDefaults);
+  const personality = await createPersonality(name, prompt, moodDefaults);
   res.json({ personality });
 });
 
-moodRouter.patch("/personality/:id", (req, res) => {
+moodRouter.patch("/personality/:id", async (req, res) => {
   const id = Number(req.params.id);
   const patch: Parameters<typeof updatePersonalityById>[1] = {};
   if (req.body.name !== undefined) patch.name = normalizePersonalityName(req.body.name);
@@ -86,27 +86,27 @@ moodRouter.patch("/personality/:id", (req, res) => {
     patch.moodDefaults = normalizePersonalityMoodDefaults(req.body.moodDefaults);
   }
 
-  const personality = updatePersonalityById(id, patch);
+  const personality = await updatePersonalityById(id, patch);
   res.json({ personality });
 });
 
-moodRouter.delete("/personality/:id", (req, res) => {
+moodRouter.delete("/personality/:id", async (req, res) => {
   try {
     const h = requireHost();
     const id = Number(req.params.id);
-    const settings = h.getSettings();
+    const settings = await h.getSettings();
     const wasActive = Number(settings.activePersonalityId ?? 0) === id;
 
-    if (!deletePersonalityById(id)) {
+    if (!(await deletePersonalityById(id))) {
       return res.status(404).json({ error: "Personality not found" });
     }
 
-    let activePersonalityId = resolveActivePersonalityId(
+    let activePersonalityId = await resolveActivePersonalityId(
       Number(settings.activePersonalityId ?? 0),
     );
     if (wasActive) {
-      const updated = h.updateSettings({ activePersonalityId: 0 });
-      activePersonalityId = resolveActivePersonalityId(
+      const updated = await h.updateSettings({ activePersonalityId: 0 });
+      activePersonalityId = await resolveActivePersonalityId(
         Number(updated.activePersonalityId ?? 0),
       );
     }
@@ -119,39 +119,39 @@ moodRouter.delete("/personality/:id", (req, res) => {
   }
 });
 
-moodRouter.get("/state", (_req, res) => {
-  res.json(getMoodStateView());
+moodRouter.get("/state", async (_req, res) => {
+  res.json(await getMoodStateView());
 });
 
-moodRouter.patch("/state", (req, res) => {
+moodRouter.patch("/state", async (req, res) => {
   try {
     const h = requireHost();
     if (req.body.cooldownMinutes !== undefined) {
-      const settings = h.getSettings();
-      h.updateSettings({
+      const settings = await h.getSettings();
+      await h.updateSettings({
         ...settings,
         moodCooldownMinutes: Number(req.body.cooldownMinutes),
       });
     }
     if (req.body.current) {
-      const state = getMoodStateView();
+      const state = await getMoodStateView();
       const values = normalizeMoodValues(req.body.current);
-      saveMoodState({ ...state, ...values });
+      await saveMoodState({ ...state, ...values });
     }
-    res.json(h.buildMoodPayload!());
+    res.json(await h.buildMoodPayload!());
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : "Error" });
   }
 });
 
-moodRouter.post("/state/reset", (_req, res) => {
-  resetMoodState();
-  res.json(requireHost().buildMoodPayload!());
+moodRouter.post("/state/reset", async (_req, res) => {
+  await resetMoodState();
+  res.json(await requireHost().buildMoodPayload!());
 });
 
-moodRouter.post("/state/tick", (_req, res) => {
-  tickMoodCooldown();
-  res.json(requireHost().buildMoodPayload!());
+moodRouter.post("/state/tick", async (_req, res) => {
+  await tickMoodCooldown();
+  res.json(await requireHost().buildMoodPayload!());
 });
 
 export function createMoodRouter(): Router {

@@ -1,4 +1,6 @@
-let db: import("node:sqlite").DatabaseSync;
+import type { SqlDatabase } from "../../contracts/index.js";
+
+let db: SqlDatabase;
 
 const MAX_ENTRIES = 100;
 
@@ -17,64 +19,65 @@ export interface ErrorLogInput {
   userId?: string;
 }
 
-export function bindErrorLogDatabase(database: import("node:sqlite").DatabaseSync): void {
+export async function bindErrorLogDatabase(database: SqlDatabase): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS error_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       message TEXT NOT NULL,
       stack TEXT,
       chat_id TEXT,
       user_id TEXT,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
   `);
 }
 
-export function appendErrorLog(input: ErrorLogInput): void {
-  db.prepare(
+export async function appendErrorLog(input: ErrorLogInput): Promise<void> {
+  await db.query(
     `INSERT INTO error_log (message, stack, chat_id, user_id)
-     VALUES (?, ?, ?, ?)`,
-  ).run(
-    input.message.slice(0, 2000),
-    input.stack?.slice(0, 4000) ?? null,
-    input.chatId != null ? String(input.chatId) : null,
-    input.userId ?? null,
+     VALUES ($1, $2, $3, $4)`,
+    [
+      input.message.slice(0, 2000),
+      input.stack?.slice(0, 4000) ?? null,
+      input.chatId != null ? String(input.chatId) : null,
+      input.userId ?? null,
+    ],
   );
 
-  const row = db
-    .prepare(`SELECT COUNT(*) AS n FROM error_log`)
-    .get() as { n: number };
-  const excess = row.n - MAX_ENTRIES;
+  const { rows } = await db.query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM error_log`,
+  );
+  const excess = (rows[0]?.n ?? 0) - MAX_ENTRIES;
   if (excess > 0) {
-    db.prepare(
+    await db.query(
       `DELETE FROM error_log WHERE id IN (
-         SELECT id FROM error_log ORDER BY id ASC LIMIT ?
+         SELECT id FROM error_log ORDER BY id ASC LIMIT $1
        )`,
-    ).run(excess);
+      [excess],
+    );
   }
 }
 
-export function clearErrorLog(): number {
-  const result = db.prepare(`DELETE FROM error_log`).run();
-  return Number(result.changes);
+export async function clearErrorLog(): Promise<number> {
+  const result = await db.query(`DELETE FROM error_log`);
+  return result.rowCount ?? 0;
 }
 
-export function listRecentErrors(limit = 20): ErrorLogRecord[] {
-  const rows = db
-    .prepare(
-      `SELECT id, message, chat_id, user_id, created_at
-       FROM error_log
-       ORDER BY id DESC
-       LIMIT ?`,
-    )
-    .all(limit) as unknown as {
+export async function listRecentErrors(limit = 20): Promise<ErrorLogRecord[]> {
+  const { rows } = await db.query<{
     id: number;
     message: string;
     chat_id: string | null;
     user_id: string | null;
     created_at: number;
-  }[];
+  }>(
+    `SELECT id, message, chat_id, user_id, created_at
+       FROM error_log
+       ORDER BY id DESC
+       LIMIT $1`,
+    [limit],
+  );
 
   return rows.map((r) => ({
     id: r.id,

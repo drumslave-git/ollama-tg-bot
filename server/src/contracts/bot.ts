@@ -18,7 +18,7 @@ export interface BotHostServices {
   botUsername: string;
   botToken: string;
   logging: BotHostLogging;
-  getSettings: () => Record<string, unknown>;
+  getSettings: () => Promise<Record<string, unknown>>;
   replyToUser: (ctx: unknown, text: string) => Promise<unknown>;
   extensions: Record<string, unknown>;
 }

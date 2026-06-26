@@ -1,9 +1,9 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
 import type { ScheduleKind } from "../schedule.js";
 import { normalizeWeekdays } from "../schedule.js";
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
 export interface TaskRecord {
   id: number;
@@ -58,13 +58,13 @@ interface TaskRow {
   updated_at: number;
 }
 
-export function bindTasksDatabase(database: DatabaseSync): void {
+export async function bindTasksDatabase(database: SqlDatabase): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      chat_id INTEGER NOT NULL,
-      message_thread_id INTEGER,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      chat_id BIGINT NOT NULL,
+      message_thread_id BIGINT,
       entity_id TEXT NOT NULL,
       created_by_user_id TEXT NOT NULL,
       instruction TEXT NOT NULL,
@@ -76,12 +76,14 @@ export function bindTasksDatabase(database: DatabaseSync): void {
       enabled INTEGER NOT NULL DEFAULT 1,
       last_run_at TEXT,
       next_run_at TEXT,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint,
+      updated_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_tasks_chat ON tasks (chat_id);
-    CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks (enabled, next_run_at);
   `);
+  await db.query(`CREATE INDEX IF NOT EXISTS idx_tasks_chat ON tasks (chat_id);`);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_tasks_due ON tasks (enabled, next_run_at);`,
+  );
 }
 
 function rowToRecord(row: TaskRow): TaskRecord {
@@ -123,15 +125,13 @@ function notifyTasksChanged(): void {
   getModuleLiveHooks().emitDataUpdated?.(["tasks"]);
 }
 
-export function createTask(input: TaskInput): TaskRecord {
-  const result = db
-    .prepare(
-      `INSERT INTO tasks (
+export async function createTask(input: TaskInput): Promise<TaskRecord> {
+  const { rows } = await db.query<{ id: number }>(
+    `INSERT INTO tasks (
          chat_id, message_thread_id, entity_id, created_by_user_id, instruction,
          schedule_kind, time_of_day, weekdays, run_date, timezone, enabled, next_run_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .run(
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+    [
       input.chatId,
       input.messageThreadId ?? null,
       input.entityId,
@@ -144,9 +144,10 @@ export function createTask(input: TaskInput): TaskRecord {
       input.timezone,
       input.enabled === false ? 0 : 1,
       input.nextRunAt,
-    );
+    ],
+  );
   notifyTasksChanged();
-  return getTaskById(Number(result.lastInsertRowid))!;
+  return (await getTaskById(rows[0]!.id))!;
 }
 
 export interface TaskUpdate {
@@ -159,8 +160,11 @@ export interface TaskUpdate {
   nextRunAt?: string | null;
 }
 
-export function updateTask(id: number, patch: TaskUpdate): TaskRecord | null {
-  const current = getTaskById(id);
+export async function updateTask(
+  id: number,
+  patch: TaskUpdate,
+): Promise<TaskRecord | null> {
+  const current = await getTaskById(id);
   if (!current) return null;
 
   const next: TaskInput & { enabled: boolean } = {
@@ -178,36 +182,40 @@ export function updateTask(id: number, patch: TaskUpdate): TaskRecord | null {
     nextRunAt: patch.nextRunAt !== undefined ? patch.nextRunAt : current.nextRunAt,
   };
 
-  db.prepare(
+  await db.query(
     `UPDATE tasks SET
-       instruction = ?, schedule_kind = ?, time_of_day = ?, weekdays = ?,
-       run_date = ?, enabled = ?, next_run_at = ?, updated_at = unixepoch()
-     WHERE id = ?`,
-  ).run(
-    next.instruction,
-    next.scheduleKind,
-    next.timeOfDay,
-    serializeWeekdays(next.weekdays),
-    next.runDate ?? null,
-    next.enabled ? 1 : 0,
-    next.nextRunAt,
-    id,
+       instruction = $1, schedule_kind = $2, time_of_day = $3, weekdays = $4,
+       run_date = $5, enabled = $6, next_run_at = $7,
+       updated_at = extract(epoch from now())::bigint
+     WHERE id = $8`,
+    [
+      next.instruction,
+      next.scheduleKind,
+      next.timeOfDay,
+      serializeWeekdays(next.weekdays),
+      next.runDate ?? null,
+      next.enabled ? 1 : 0,
+      next.nextRunAt,
+      id,
+    ],
   );
   notifyTasksChanged();
   return getTaskById(id);
 }
 
 /** Record a firing: stamp last_run_at and the recomputed next_run_at (null disables). */
-export function markTaskRun(
+export async function markTaskRun(
   id: number,
   lastRunAt: string,
   nextRunAt: string | null,
-): void {
-  db.prepare(
+): Promise<void> {
+  await db.query(
     `UPDATE tasks SET
-       last_run_at = ?, next_run_at = ?, enabled = ?, updated_at = unixepoch()
-     WHERE id = ?`,
-  ).run(lastRunAt, nextRunAt, nextRunAt ? 1 : 0, id);
+       last_run_at = $1, next_run_at = $2, enabled = $3,
+       updated_at = extract(epoch from now())::bigint
+     WHERE id = $4`,
+    [lastRunAt, nextRunAt, nextRunAt ? 1 : 0, id],
+  );
   notifyTasksChanged();
 }
 
@@ -216,72 +224,74 @@ export function markTaskRun(
  * reconciliation when the configured `TZ` changes, so stored tasks fire in the
  * current zone instead of the one captured at creation.
  */
-export function retimeTask(
+export async function retimeTask(
   id: number,
   timezone: string,
   nextRunAt: string | null,
-): void {
-  db.prepare(
-    `UPDATE tasks SET timezone = ?, next_run_at = ?, enabled = ?, updated_at = unixepoch()
-     WHERE id = ?`,
-  ).run(timezone, nextRunAt, nextRunAt ? 1 : 0, id);
+): Promise<void> {
+  await db.query(
+    `UPDATE tasks SET timezone = $1, next_run_at = $2, enabled = $3,
+       updated_at = extract(epoch from now())::bigint
+     WHERE id = $4`,
+    [timezone, nextRunAt, nextRunAt ? 1 : 0, id],
+  );
   notifyTasksChanged();
 }
 
-export function deleteTask(id: number): boolean {
-  const result = db.prepare(`DELETE FROM tasks WHERE id = ?`).run(id);
-  if (result.changes > 0) notifyTasksChanged();
-  return result.changes > 0;
+export async function deleteTask(id: number): Promise<boolean> {
+  const result = await db.query(`DELETE FROM tasks WHERE id = $1`, [id]);
+  const deleted = (result.rowCount ?? 0) > 0;
+  if (deleted) notifyTasksChanged();
+  return deleted;
 }
 
-export function getTaskById(id: number): TaskRecord | null {
-  const row = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as
-    | TaskRow
-    | undefined;
-  return row ? rowToRecord(row) : null;
+export async function getTaskById(id: number): Promise<TaskRecord | null> {
+  const { rows } = await db.query<TaskRow>(`SELECT * FROM tasks WHERE id = $1`, [
+    id,
+  ]);
+  return rows[0] ? rowToRecord(rows[0]) : null;
 }
 
-export function listTasks(chatId?: number): TaskRecord[] {
-  const rows = (
+export async function listTasks(chatId?: number): Promise<TaskRecord[]> {
+  const { rows } =
     chatId == null
-      ? db.prepare(`SELECT * FROM tasks ORDER BY id DESC`).all()
-      : db
-          .prepare(`SELECT * FROM tasks WHERE chat_id = ? ORDER BY id DESC`)
-          .all(chatId)
-  ) as unknown as TaskRow[];
+      ? await db.query<TaskRow>(`SELECT * FROM tasks ORDER BY id DESC`)
+      : await db.query<TaskRow>(
+          `SELECT * FROM tasks WHERE chat_id = $1 ORDER BY id DESC`,
+          [chatId],
+        );
   return rows.map(rowToRecord);
 }
 
-export function searchTasks(query: string, chatId?: number): TaskRecord[] {
+export async function searchTasks(
+  query: string,
+  chatId?: number,
+): Promise<TaskRecord[]> {
   const q = query.trim();
   if (!q) return [];
-  const rows = (
+  const { rows } =
     chatId == null
-      ? db
-          .prepare(
-            `SELECT * FROM tasks WHERE instr(lower(instruction), lower(?)) > 0
+      ? await db.query<TaskRow>(
+          `SELECT * FROM tasks WHERE instruction ILIKE '%' || $1 || '%'
              ORDER BY id DESC`,
-          )
-          .all(q)
-      : db
-          .prepare(
-            `SELECT * FROM tasks WHERE chat_id = ?
-               AND instr(lower(instruction), lower(?)) > 0
+          [q],
+        )
+      : await db.query<TaskRow>(
+          `SELECT * FROM tasks WHERE chat_id = $1
+               AND instruction ILIKE '%' || $2 || '%'
              ORDER BY id DESC`,
-          )
-          .all(chatId, q)
-  ) as unknown as TaskRow[];
+          [chatId, q],
+        );
   return rows.map(rowToRecord);
 }
 
 /** Enabled tasks whose next_run_at is due (<= nowIso). */
-export function listDueTasks(nowIso: string): TaskRecord[] {
-  const rows = db
-    .prepare(
-      `SELECT * FROM tasks
-       WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= ?
+export async function listDueTasks(nowIso: string): Promise<TaskRecord[]> {
+  const { rows } = await db.query<TaskRow>(
+    `SELECT * FROM tasks
+       WHERE enabled = 1 AND next_run_at IS NOT NULL AND next_run_at <= $1
        ORDER BY next_run_at ASC`,
-    )
-    .all(nowIso) as unknown as TaskRow[];
+    [nowIso],
+  );
   return rows.map(rowToRecord);
 }

@@ -1,5 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { DatabaseSync } from "node:sqlite";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BotMcpRegistry } from "../../../src/shared/index.js";
 import {
@@ -8,11 +7,18 @@ import {
 } from "../../../src/features/history/db/history.js";
 import {
   HISTORY_GET_IN_RANGE_TOOL_NAME,
-  HISTORY_GET_LATEST_TOOL_NAME,
+  HISTORY_TODAY_GET_LATEST_TOOL_NAME,
   HISTORY_SEARCH_TOOL_NAME,
   HISTORY_TOOL_NAMES,
   registerHistoryMcpTools,
 } from "../../../src/features/history/mcp-tools.js";
+import {
+  closeTestPool,
+  dropTables,
+  hasTestDb,
+  testDb,
+  truncateTables,
+} from "../../helpers/pg.js";
 
 const ENTITY = "777";
 
@@ -33,17 +39,20 @@ interface HistoryToolStructured {
   messages: { role: string; content: string; at: string }[];
 }
 
-beforeEach(() => {
-  bindHistoryDatabase(new DatabaseSync(":memory:"));
-});
+describe.skipIf(!hasTestDb)("history MCP tools (Postgres)", () => {
+  beforeAll(async () => {
+    await dropTables("chat_messages");
+    await bindHistoryDatabase(testDb);
+  });
+  afterAll(closeTestPool);
+  beforeEach(() => truncateTables("chat_messages"));
 
-describe("history MCP tools", () => {
-  it("history_get_latest returns recent messages as transcript + structured content", async () => {
-    appendMessage(ENTITY, "user:alice:1", "hello");
-    appendMessage(ENTITY, "user:alice:1", "world");
+  it("history_today_get_latest returns recent messages as transcript + structured content", async () => {
+    await appendMessage(ENTITY, "user:alice:1", "hello");
+    await appendMessage(ENTITY, "user:alice:1", "world");
     const registry = await buildRegistry();
 
-    const result = await registry.callTool(HISTORY_GET_LATEST_TOOL_NAME, {
+    const result = await registry.callTool(HISTORY_TODAY_GET_LATEST_TOOL_NAME, {
       entity_id: ENTITY,
       count: 5,
     });
@@ -55,9 +64,9 @@ describe("history MCP tools", () => {
     expect(structured.count).toBe(2);
   });
 
-  it("history_search matches content case-insensitively", async () => {
-    appendMessage(ENTITY, "user:alice:1", "The Finals is a shooter");
-    appendMessage(ENTITY, "user:alice:1", "unrelated");
+  it("history_search matches content via full-text", async () => {
+    await appendMessage(ENTITY, "user:alice:1", "The Finals is a shooter");
+    await appendMessage(ENTITY, "user:alice:1", "unrelated");
     const registry = await buildRegistry();
 
     const result = await registry.callTool(HISTORY_SEARCH_TOOL_NAME, {
@@ -71,14 +80,14 @@ describe("history MCP tools", () => {
   });
 
   it("replaces pending base64 media with a placeholder", async () => {
-    appendMessage(
+    await appendMessage(
       ENTITY,
       "user:alice:1",
       "[sent image]: data:image/jpeg;base64,QUJDREVGR0hJSktM",
     );
     const registry = await buildRegistry();
 
-    const result = await registry.callTool(HISTORY_GET_LATEST_TOOL_NAME, {
+    const result = await registry.callTool(HISTORY_TODAY_GET_LATEST_TOOL_NAME, {
       entity_id: ENTITY,
       count: 5,
     });

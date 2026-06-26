@@ -111,7 +111,7 @@ export function registerTasksMcpTools(
       const ctx = getTaskTurnContext();
       if (!ctx?.isOwner) return errorResult(ownerWrite);
       try {
-        const task = createTaskValidated({
+        const task = await createTaskValidated({
           chatId: ctx.chatId,
           messageThreadId: ctx.messageThreadId,
           entityId: ctx.entityId,
@@ -174,12 +174,12 @@ export function registerTasksMcpTools(
     async ({ id, instruction, schedule_kind, time, weekdays, date, enabled }) => {
       const ctx = getTaskTurnContext();
       if (!ctx?.isOwner) return errorResult(ownerWrite);
-      const existing = getTaskById(id);
+      const existing = await getTaskById(id);
       if (!existing || existing.chatId !== ctx.chatId) {
         return errorResult(`No task #${id} in this chat.`);
       }
       try {
-        const updated = updateTaskValidated(id, {
+        const updated = await updateTaskValidated(id, {
           instruction: instruction.trim() ? instruction.trim() : undefined,
           scheduleKind: schedule_kind ? schedule_kind : undefined,
           timeOfDay: time.trim() ? time.trim() : undefined,
@@ -222,11 +222,11 @@ export function registerTasksMcpTools(
     async ({ id }) => {
       const ctx = getTaskTurnContext();
       if (!ctx?.isOwner) return errorResult(ownerWrite);
-      const existing = getTaskById(id);
+      const existing = await getTaskById(id);
       if (!existing || existing.chatId !== ctx.chatId) {
         return errorResult(`No task #${id} in this chat.`);
       }
-      const deleted = deleteTaskValidated(id);
+      const deleted = await deleteTaskValidated(id);
       config.log?.logEvent?.("tasks_tool_delete", { id, deleted });
       return textResult(
         deleted ? `Task #${id} cancelled.` : `No task #${id} in this chat.`,
@@ -254,7 +254,7 @@ export function registerTasksMcpTools(
     async ({ id }) => {
       const ctx = getTaskTurnContext();
       if (!ctx?.isOwner) return errorResult(ownerWrite);
-      const task = getTaskById(id);
+      const task = await getTaskById(id);
       if (!task || task.chatId !== ctx.chatId) {
         return errorResult(`No task #${id} in this chat.`);
       }
@@ -279,7 +279,7 @@ export function registerTasksMcpTools(
     async () => {
       const ctx = getTaskTurnContext();
       if (!ctx?.isOwner) return errorResult(ownerWrite);
-      const tasks = listTasks(ctx.chatId);
+      const tasks = await listTasks(ctx.chatId);
       const text =
         tasks.length === 0
           ? "(no scheduled tasks in this chat)"
@@ -311,7 +311,7 @@ export function registerTasksMcpTools(
     async ({ query }) => {
       const ctx = getTaskTurnContext();
       if (!ctx?.isOwner) return errorResult(ownerWrite);
-      const tasks = searchTasks(query, ctx.chatId);
+      const tasks = await searchTasks(query, ctx.chatId);
       const text =
         tasks.length === 0
           ? "(no matching tasks)"

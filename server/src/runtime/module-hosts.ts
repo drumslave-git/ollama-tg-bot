@@ -94,7 +94,8 @@ export function createBotHostServices(
       logEventError: (event, err, fields) =>
         logEventError(event, err, fields as never),
     },
-    getSettings: () => getSettings() as unknown as Record<string, unknown>,
+    getSettings: async () =>
+      (await getSettings()) as unknown as Record<string, unknown>,
     replyToUser: (ctx, text) => replyToUser(ctx as Context, text),
     extensions: {
       ...createExplainExtensions(),

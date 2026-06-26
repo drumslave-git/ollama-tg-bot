@@ -35,11 +35,13 @@ export interface ExplainTurnDeps {
       fields?: Record<string, unknown>,
     ) => void;
   };
-  getSettings: () => Record<string, unknown>;
-  resolveActivePersonalityId: (activePersonalityId: unknown) => number | null;
+  getSettings: () => Promise<Record<string, unknown>>;
+  resolveActivePersonalityId: (
+    activePersonalityId: unknown,
+  ) => Promise<number | null>;
   getPersonalityById: (
     id: number,
-  ) => { name: string; prompt: string } | null;
+  ) => Promise<{ name: string; prompt: string } | null>;
   buildExplainSystemPrompt: (input: ExplainPromptInput) => string;
   getMainReplyResponseFormat: () => JsonSchemaResponseFormat;
   /** Single plain completion — the explain pass uses no tools. */
@@ -55,13 +57,13 @@ export interface ExplainTurnDeps {
   prepareTelegramHtml: (body: string) => string;
   /** Start a Telegram "typing" indicator for this chat; returns a stop fn (or null). */
   startTyping: (ctx: unknown) => (() => void) | null;
-  recordReply: (hadError: boolean) => void;
+  recordReply: (hadError: boolean) => void | Promise<void>;
   recordError: (detail: {
     message: string;
     stack?: string;
     chatId?: number;
     userId?: string;
-  }) => void;
+  }) => void | Promise<void>;
   sendChunkedHtmlReply: (
     ctx: unknown,
     options: {
@@ -84,11 +86,11 @@ export interface ExplainTurnDeps {
 }
 
 export interface ExplainExtension {
-  isOwner: (ctx: unknown) => boolean;
+  isOwner: (ctx: unknown) => boolean | Promise<boolean>;
   /**
    * Build the turn from a /explain command. Returns null when the command is not
    * a reply to one of the bot's own messages (the only supported target).
    */
-  buildTurnInput: (ctx: unknown) => ExplainTurnInput | null;
+  buildTurnInput: (ctx: unknown) => ExplainTurnInput | null | Promise<ExplainTurnInput | null>;
   deps: ExplainTurnDeps;
 }

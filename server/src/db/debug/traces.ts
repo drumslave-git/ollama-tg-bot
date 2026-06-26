@@ -1,4 +1,6 @@
-let db: import("node:sqlite").DatabaseSync;
+import type { SqlDatabase } from "../../contracts/index.js";
+
+let db: SqlDatabase;
 
 export const MAX_TRACES_PER_CHAT = 50;
 
@@ -135,39 +137,31 @@ export interface MessageReportDetail {
   report: MessageReportRecord;
 }
 
-export function bindDebugTracesDatabase(
-  database: import("node:sqlite").DatabaseSync,
-): void {
+export async function bindDebugTracesDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS debug_traces (
-      id INTEGER PRIMARY KEY,
+      id BIGINT PRIMARY KEY,
       chat_id TEXT NOT NULL,
       conv_key TEXT NOT NULL DEFAULT '',
       user_id TEXT,
       chat_type TEXT NOT NULL,
-      message_id INTEGER,
+      message_id BIGINT,
       message_preview TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL,
       summary_json TEXT NOT NULL,
       details_json TEXT NOT NULL DEFAULT '{}',
-      reply_message_ids TEXT NOT NULL DEFAULT '[]',
-      duration_ms INTEGER,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      reply_message_ids BIGINT[] NOT NULL DEFAULT '{}',
+      duration_ms BIGINT,
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_debug_traces_chat
-      ON debug_traces (chat_id, id DESC);
   `);
-  // Add the reply-message link column to DBs created before it existed. The
-  // bot's sent reply ids let /explain resolve a replied-to message to its trace.
-  const columns = db
-    .prepare(`PRAGMA table_info(debug_traces)`)
-    .all() as { name: string }[];
-  if (!columns.some((c) => c.name === "reply_message_ids")) {
-    db.exec(
-      `ALTER TABLE debug_traces ADD COLUMN reply_message_ids TEXT NOT NULL DEFAULT '[]';`,
-    );
-  }
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_debug_traces_chat
+       ON debug_traces (chat_id, id DESC);`,
+  );
 }
 
 function parseListSummary(raw: string): MessageReportListSummary | null {
@@ -188,54 +182,52 @@ function parseReport(raw: string): MessageReportRecord | null {
   }
 }
 
-function trimTracesForChat(chatId: string): void {
-  const row = db
-    .prepare(`SELECT COUNT(*) AS n FROM debug_traces WHERE chat_id = ?`)
-    .get(chatId) as { n: number };
-  const excess = row.n - MAX_TRACES_PER_CHAT;
+async function trimTracesForChat(chatId: string): Promise<void> {
+  const { rows } = await db.query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM debug_traces WHERE chat_id = $1`,
+    [chatId],
+  );
+  const excess = (rows[0]?.n ?? 0) - MAX_TRACES_PER_CHAT;
   if (excess > 0) {
-    db.prepare(
+    await db.query(
       `DELETE FROM debug_traces WHERE id IN (
          SELECT id FROM debug_traces
-         WHERE chat_id = ?
+         WHERE chat_id = $1
          ORDER BY id ASC
-         LIMIT ?
+         LIMIT $2
        )`,
-    ).run(chatId, excess);
+      [chatId, excess],
+    );
   }
 }
 
 /**
  * Resolve a bot reply's Telegram message id back to the trace that produced it.
- * Reply ids are stored as a JSON array on each trace row, so this scans the
- * chat's traces (≤ MAX_TRACES_PER_CHAT) via SQLite's json_each.
+ * Reply ids are stored as a Postgres array on each trace row.
  */
-export function getTraceIdByReplyMessage(
+export async function getTraceIdByReplyMessage(
   chatId: string,
   messageId: number,
-): number | null {
-  const row = db
-    .prepare(
-      `SELECT id FROM debug_traces
-        WHERE chat_id = ?
-          AND EXISTS (
-            SELECT 1 FROM json_each(reply_message_ids) WHERE value = ?
-          )
+): Promise<number | null> {
+  const { rows } = await db.query<{ id: number }>(
+    `SELECT id FROM debug_traces
+        WHERE chat_id = $1
+          AND $2 = ANY(reply_message_ids)
         ORDER BY id DESC
         LIMIT 1`,
-    )
-    .get(chatId, messageId) as { id: number } | undefined;
-  return row?.id ?? null;
+    [chatId, messageId],
+  );
+  return rows[0]?.id ?? null;
 }
 
-export function getMaxDebugTraceId(): number {
-  const row = db
-    .prepare(`SELECT COALESCE(MAX(id), 0) AS max_id FROM debug_traces`)
-    .get() as { max_id: number };
-  return row.max_id;
+export async function getMaxDebugTraceId(): Promise<number> {
+  const { rows } = await db.query<{ max_id: number }>(
+    `SELECT COALESCE(MAX(id), 0) AS max_id FROM debug_traces`,
+  );
+  return rows[0]?.max_id ?? 0;
 }
 
-export function upsertMessageReport(input: {
+export async function upsertMessageReport(input: {
   id: number;
   chatId: string;
   convKey: string;
@@ -248,39 +240,42 @@ export function upsertMessageReport(input: {
   report: MessageReportRecord;
   replyMessageIds?: number[];
   durationMs: number | null;
-}): void {
-  db.prepare(
+}): Promise<void> {
+  await db.query(
     `INSERT INTO debug_traces (
        id, chat_id, conv_key, user_id, chat_type, message_id,
        message_preview, status, summary_json, details_json,
        reply_message_ids, duration_ms
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+     ON CONFLICT (id) DO UPDATE SET
        conv_key = excluded.conv_key,
        status = excluded.status,
        summary_json = excluded.summary_json,
        details_json = excluded.details_json,
        reply_message_ids = excluded.reply_message_ids,
        duration_ms = excluded.duration_ms`,
-  ).run(
-    input.id,
-    input.chatId,
-    input.convKey,
-    input.userId,
-    input.chatType,
-    input.messageId,
-    input.messagePreview.slice(0, 500),
-    input.status,
-    JSON.stringify(input.listSummary),
-    JSON.stringify(input.report),
-    JSON.stringify(input.replyMessageIds ?? []),
-    input.durationMs,
+    [
+      input.id,
+      input.chatId,
+      input.convKey,
+      input.userId,
+      input.chatType,
+      input.messageId,
+      input.messagePreview.slice(0, 500),
+      input.status,
+      JSON.stringify(input.listSummary),
+      JSON.stringify(input.report),
+      input.replyMessageIds ?? [],
+      input.durationMs,
+    ],
   );
-  trimTracesForChat(input.chatId);
-  void import("../../dashboard/live-events.js").then(({ emitDataUpdated, emitDebugUpdated }) => {
-    emitDebugUpdated(buildDebugLivePayload(input.id));
-    emitDataUpdated(["debug_traces"]);
-  });
+  await trimTracesForChat(input.chatId);
+  void import("../../dashboard/live-events.js").then(
+    async ({ emitDataUpdated, emitDebugUpdated }) => {
+      emitDebugUpdated(await buildDebugLivePayload(input.id));
+      emitDataUpdated(["debug_traces"]);
+    },
+  );
 }
 
 type DebugTraceListRow = {
@@ -294,14 +289,16 @@ type DebugTraceListRow = {
   created_at: number;
 };
 
-function rowToListItem(row: DebugTraceListRow): MessageReportListItem | null {
+async function rowToListItem(
+  row: DebugTraceListRow,
+): Promise<MessageReportListItem | null> {
   const list = parseListSummary(row.summary_json);
   if (!list) return null;
   return {
     id: row.id,
     chatId: row.chat_id,
     userId: row.user_id,
-    userLabel: formatUserLabel(row.user_id),
+    userLabel: await formatUserLabel(row.user_id),
     messagePreview: row.message_preview,
     status: row.status,
     headline: list.headline,
@@ -311,77 +308,83 @@ function rowToListItem(row: DebugTraceListRow): MessageReportListItem | null {
   };
 }
 
-export function getDebugTraceListItem(
+export async function getDebugTraceListItem(
   id: number,
-): MessageReportListItem | null {
-  const row = db
-    .prepare(
-      `SELECT id, chat_id, user_id, message_preview, status,
+): Promise<MessageReportListItem | null> {
+  const { rows } = await db.query<DebugTraceListRow>(
+    `SELECT id, chat_id, user_id, message_preview, status,
               summary_json, duration_ms, created_at
        FROM debug_traces
-       WHERE id = ?`,
-    )
-    .get(id) as DebugTraceListRow | undefined;
-  if (!row) return null;
-  return rowToListItem(row);
+       WHERE id = $1`,
+    [id],
+  );
+  if (!rows[0]) return null;
+  return rowToListItem(rows[0]);
 }
 
-export function buildDebugLivePayload(traceId: number): {
+export async function buildDebugLivePayload(traceId: number): Promise<{
   chatId: string;
   traceId: number;
   listItem: MessageReportListItem | null;
   trace: MessageReportDetail | null;
-} | null {
-  const trace = getDebugTraceById(traceId);
+} | null> {
+  const trace = await getDebugTraceById(traceId);
   if (!trace) return null;
   return {
     chatId: trace.chatId,
     traceId,
-    listItem: getDebugTraceListItem(traceId),
+    listItem: await getDebugTraceListItem(traceId),
     trace,
   };
 }
 
-export function listDebugChats(): DebugChatSummary[] {
-  const rows = db
-    .prepare(
-      `SELECT chat_id, chat_type, COUNT(*) AS trace_count, MAX(created_at) AS latest_at
-       FROM debug_traces
-       GROUP BY chat_id
-       ORDER BY latest_at DESC`,
-    )
-    .all() as Array<{
+export async function listDebugChats(): Promise<DebugChatSummary[]> {
+  const { rows } = await db.query<{
     chat_id: string;
     chat_type: string;
     trace_count: number;
     latest_at: number | null;
-  }>;
+  }>(
+    `SELECT chat_id, chat_type, COUNT(*)::int AS trace_count, MAX(created_at) AS latest_at
+       FROM debug_traces
+       GROUP BY chat_id
+       ORDER BY latest_at DESC`,
+  );
 
-  return rows.map((row) => ({
-    chatId: row.chat_id,
-    chatType: row.chat_type,
-    label: formatChatLabel(row.chat_id, row.chat_type),
-    traceCount: row.trace_count,
-    latestAt:
-      row.latest_at != null
-        ? new Date(row.latest_at * 1000).toISOString()
-        : null,
-  }));
+  return Promise.all(
+    rows.map(async (row) => ({
+      chatId: row.chat_id,
+      chatType: row.chat_type,
+      label: await formatChatLabel(row.chat_id, row.chat_type),
+      traceCount: row.trace_count,
+      latestAt:
+        row.latest_at != null
+          ? new Date(row.latest_at * 1000).toISOString()
+          : null,
+    })),
+  );
 }
 
-function formatChatLabel(chatId: string, chatType: string): string {
+type UserNameRow = {
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+async function lookupUserNameRow(userId: string): Promise<UserNameRow | null> {
+  const { rows } = await db.query<UserNameRow>(
+    `SELECT username, first_name, last_name FROM known_users WHERE user_id = $1`,
+    [userId],
+  );
+  return rows[0] ?? null;
+}
+
+async function formatChatLabel(
+  chatId: string,
+  chatType: string,
+): Promise<string> {
   if (chatType === "private") {
-    const user = db
-      .prepare(
-        `SELECT username, first_name, last_name FROM known_users WHERE user_id = ?`,
-      )
-      .get(chatId) as
-      | {
-          username: string | null;
-          first_name: string | null;
-          last_name: string | null;
-        }
-      | undefined;
+    const user = await lookupUserNameRow(chatId);
     if (user) {
       const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
       if (name && user.username) return `${name} (@${user.username})`;
@@ -393,19 +396,11 @@ function formatChatLabel(chatId: string, chatType: string): string {
   return `Group ${chatId}`;
 }
 
-function formatUserLabel(userId: string | null): string | null {
+async function formatUserLabel(
+  userId: string | null,
+): Promise<string | null> {
   if (!userId) return null;
-  const user = db
-    .prepare(
-      `SELECT username, first_name, last_name FROM known_users WHERE user_id = ?`,
-    )
-    .get(userId) as
-    | {
-        username: string | null;
-        first_name: string | null;
-        last_name: string | null;
-      }
-    | undefined;
+  const user = await lookupUserNameRow(userId);
   if (!user) return `User ${userId}`;
   const name = [user.first_name, user.last_name].filter(Boolean).join(" ");
   if (name && user.username) return `${name} (@${user.username})`;
@@ -414,61 +409,49 @@ function formatUserLabel(userId: string | null): string | null {
   return `User ${userId}`;
 }
 
-export function listDebugTracesForChat(
+export async function listDebugTracesForChat(
   chatId: string,
-): MessageReportListItem[] {
-  const rows = db
-    .prepare(
-      `SELECT id, chat_id, user_id, message_preview, status,
+): Promise<MessageReportListItem[]> {
+  const { rows } = await db.query<DebugTraceListRow>(
+    `SELECT id, chat_id, user_id, message_preview, status,
               summary_json, duration_ms, created_at
        FROM debug_traces
-       WHERE chat_id = ?
+       WHERE chat_id = $1
        ORDER BY id DESC
-       LIMIT ?`,
-    )
-    .all(chatId, MAX_TRACES_PER_CHAT) as Array<{
+       LIMIT $2`,
+    [chatId, MAX_TRACES_PER_CHAT],
+  );
+
+  const items = await Promise.all(rows.map((row) => rowToListItem(row)));
+  return items.filter((item): item is MessageReportListItem => item !== null);
+}
+
+export async function getDebugTraceById(
+  id: number,
+): Promise<MessageReportDetail | null> {
+  const { rows } = await db.query<{
     id: number;
     chat_id: string;
+    conv_key: string;
     user_id: string | null;
+    chat_type: string;
+    message_id: number | null;
     message_preview: string;
     status: ReportStatus;
     summary_json: string;
+    details_json: string;
     duration_ms: number | null;
     created_at: number;
-  }>;
-
-  return rows.flatMap((row) => {
-    const item = rowToListItem(row);
-    return item ? [item] : [];
-  });
-}
-
-export function getDebugTraceById(id: number): MessageReportDetail | null {
-  const row = db
-    .prepare(
-      `SELECT id, chat_id, conv_key, user_id, chat_type, message_id,
+  }>(
+    `SELECT id, chat_id, conv_key, user_id, chat_type, message_id,
               message_preview, status, summary_json, details_json,
               duration_ms, created_at
        FROM debug_traces
-       WHERE id = ?`,
-    )
-    .get(id) as
-    | {
-        id: number;
-        chat_id: string;
-        conv_key: string;
-        user_id: string | null;
-        chat_type: string;
-        message_id: number | null;
-        message_preview: string;
-        status: ReportStatus;
-        summary_json: string;
-        details_json: string;
-        duration_ms: number | null;
-        created_at: number;
-      }
-    | undefined;
+       WHERE id = $1`,
+    [id],
+  );
 
+  const row = rows[0];
   if (!row) return null;
 
   const report = parseReport(row.details_json);

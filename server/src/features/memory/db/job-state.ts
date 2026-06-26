@@ -1,10 +1,12 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindMemoryJobStateDatabase(database: DatabaseSync): void {
+export async function bindMemoryJobStateDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS memory_job_chat_state (
       conv_key TEXT PRIMARY KEY,
       fingerprint TEXT NOT NULL,
@@ -13,24 +15,26 @@ export function bindMemoryJobStateDatabase(database: DatabaseSync): void {
   `);
 }
 
-export function getMemoryChatFingerprint(convKey: string): string | null {
-  const row = db
-    .prepare(
-      `SELECT fingerprint FROM memory_job_chat_state WHERE conv_key = ?`,
-    )
-    .get(convKey) as { fingerprint: string } | undefined;
-  return row?.fingerprint ?? null;
+export async function getMemoryChatFingerprint(
+  convKey: string,
+): Promise<string | null> {
+  const { rows } = await db.query<{ fingerprint: string }>(
+    `SELECT fingerprint FROM memory_job_chat_state WHERE conv_key = $1`,
+    [convKey],
+  );
+  return rows[0]?.fingerprint ?? null;
 }
 
-export function setMemoryChatFingerprint(
+export async function setMemoryChatFingerprint(
   convKey: string,
   fingerprint: string,
-): void {
-  db.prepare(
+): Promise<void> {
+  await db.query(
     `INSERT INTO memory_job_chat_state (conv_key, fingerprint, processed_at)
-     VALUES (?, ?, datetime('now'))
-     ON CONFLICT(conv_key) DO UPDATE SET
+     VALUES ($1, $2, now()::text)
+     ON CONFLICT (conv_key) DO UPDATE SET
        fingerprint = excluded.fingerprint,
        processed_at = excluded.processed_at`,
-  ).run(convKey, fingerprint);
+    [convKey, fingerprint],
+  );
 }

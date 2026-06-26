@@ -47,13 +47,16 @@ export function createExplainExtension(): ExplainExtension {
       logEventError: (event, err, fields) =>
         logEventError(event, err, fields as never),
     },
-    getSettings: () => getSettings() as unknown as Record<string, unknown>,
-    resolveActivePersonalityId: (activePersonalityId) => {
-      const id = resolveActivePersonalityId(Number(activePersonalityId ?? 0));
+    getSettings: async () =>
+      (await getSettings()) as unknown as Record<string, unknown>,
+    resolveActivePersonalityId: async (activePersonalityId) => {
+      const id = await resolveActivePersonalityId(
+        Number(activePersonalityId ?? 0),
+      );
       return id > 0 ? id : null;
     },
-    getPersonalityById: (id) => {
-      const personality = getPersonalityById(id);
+    getPersonalityById: async (id) => {
+      const personality = await getPersonalityById(id);
       if (!personality) return null;
       return { name: personality.name, prompt: personality.prompt };
     },
@@ -69,13 +72,13 @@ export function createExplainExtension(): ExplainExtension {
     // and uses no tools. The output budget is sized from the context left after
     // the (potentially large) trace prompt so a generous budget can't push the
     // backend into truncating the prompt.
-    chatCompleteDetailed: (messages, options) => {
+    chatCompleteDetailed: async (messages, options) => {
       const promptChars = messages.reduce(
         (sum, m) => sum + (typeof m.content === "string" ? m.content.length : 0),
         0,
       );
       const numPredict = getExplainNumPredict(
-        getResolvedSettings(),
+        getResolvedSettings(await getSettings()),
         promptChars,
       );
       return chatCompleteDetailed(messages as never, {
@@ -97,7 +100,7 @@ export function createExplainExtension(): ExplainExtension {
 
   return {
     isOwner: (ctx) => isOwner(ctx as Context),
-    buildTurnInput: (ctx) => {
+    buildTurnInput: async (ctx) => {
       const grammyCtx = ctx as Context;
       const chatId = grammyCtx.chat?.id;
       const convKey = resolveConversationKey(grammyCtx);
@@ -109,11 +112,11 @@ export function createExplainExtension(): ExplainExtension {
       if (!replied || botId == null || replied.from?.id !== botId) return null;
 
       const repliedMessageId = replied.message_id;
-      const traceId = getTraceIdByReplyMessage(
+      const traceId = await getTraceIdByReplyMessage(
         String(chatId),
         repliedMessageId,
       );
-      const trace = traceId != null ? getDebugTraceById(traceId) : null;
+      const trace = traceId != null ? await getDebugTraceById(traceId) : null;
 
       return {
         convKey,

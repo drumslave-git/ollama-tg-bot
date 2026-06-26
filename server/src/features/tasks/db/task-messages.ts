@@ -1,55 +1,61 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
 /**
  * Maps a delivered bot message back to the task that produced it, so a reply to
  * one of those messages can be linked to the task for verbal edit/cancel.
  * Mirrors the reply→trace link in `server/src/db/debug/traces.ts`.
  */
-export function bindTaskMessagesDatabase(database: DatabaseSync): void {
+export async function bindTaskMessagesDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS task_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      task_id INTEGER NOT NULL,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+      task_id BIGINT NOT NULL,
       chat_id TEXT NOT NULL,
-      message_id INTEGER NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+      message_id BIGINT NOT NULL,
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_task_messages_lookup
-      ON task_messages (chat_id, message_id);
-    CREATE INDEX IF NOT EXISTS idx_task_messages_task
-      ON task_messages (task_id);
   `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_task_messages_lookup
+       ON task_messages (chat_id, message_id);`,
+  );
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_task_messages_task
+       ON task_messages (task_id);`,
+  );
 }
 
-export function recordTaskMessage(
+export async function recordTaskMessage(
   taskId: number,
   chatId: string,
   messageId: number,
-): void {
-  db.prepare(
-    `INSERT INTO task_messages (task_id, chat_id, message_id) VALUES (?, ?, ?)`,
-  ).run(taskId, chatId, messageId);
+): Promise<void> {
+  await db.query(
+    `INSERT INTO task_messages (task_id, chat_id, message_id) VALUES ($1, $2, $3)`,
+    [taskId, chatId, messageId],
+  );
 }
 
 /** Task id for a bot message the user replied to, or null when unrelated. */
-export function getTaskIdByMessage(
+export async function getTaskIdByMessage(
   chatId: string,
   messageId: number,
-): number | null {
-  const row = db
-    .prepare(
-      `SELECT task_id FROM task_messages
-       WHERE chat_id = ? AND message_id = ?
+): Promise<number | null> {
+  const { rows } = await db.query<{ task_id: number }>(
+    `SELECT task_id FROM task_messages
+       WHERE chat_id = $1 AND message_id = $2
        ORDER BY id DESC LIMIT 1`,
-    )
-    .get(chatId, messageId) as { task_id: number } | undefined;
-  return row?.task_id ?? null;
+    [chatId, messageId],
+  );
+  return rows[0]?.task_id ?? null;
 }
 
 /** Remove link rows for a deleted task (best-effort cleanup). */
-export function deleteTaskMessages(taskId: number): void {
-  db.prepare(`DELETE FROM task_messages WHERE task_id = ?`).run(taskId);
+export async function deleteTaskMessages(taskId: number): Promise<void> {
+  await db.query(`DELETE FROM task_messages WHERE task_id = $1`, [taskId]);
 }

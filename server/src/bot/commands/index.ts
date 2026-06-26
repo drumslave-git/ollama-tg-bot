@@ -18,8 +18,11 @@ import { resolveCallerRememberTarget, resolveCommandInlineOrReplyText, resolveRe
 
 export function registerBotCommands(bot: Bot, botUsername: string): void {
   bot.command("start", async (ctx) => {
-    const settings = getSettings();
+    const settings = await getSettings();
     const inGroup = isGroupChat(ctx);
+    const callerIsOwner = await isOwner(ctx);
+    const ownerUserId = await getOwnerUserId();
+    const ownerUsername = await getOwnerUsername();
     await replyToUser(
       ctx,
       (inGroup
@@ -40,13 +43,13 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
         `Current model: <code>${escapeHtml(settings.model)}</code>\n` +
         `Commands: /help@${botUsername}\n` +
         `Clear your memory: /forget@${botUsername}` +
-        (isOwner(ctx)
+        (callerIsOwner
           ? `\nOwner tools: /reset@${botUsername}` +
             (inGroup ? ` · /forgetgroup@${botUsername}` : "") +
             ` · /explain@${botUsername} (or reply with either)`
           : "") +
-        (isOwner(ctx) ? `\n\nYou are the configured bot owner.` : "") +
-        (!inGroup && !getOwnerUserId() && !getOwnerUsername()
+        (callerIsOwner ? `\n\nYou are the configured bot owner.` : "") +
+        (!inGroup && !ownerUserId && !ownerUsername
           ? `\n\nSet owner: enter your @username in the dashboard Settings page (message the bot once first).`
           : ""),
     );
@@ -72,9 +75,9 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
       if (username) {
         text += `\nYour username: @${escapeHtml(username)}`;
       }
-      if (isOwner(ctx)) {
+      if (await isOwner(ctx)) {
         text += "\n\nYou are the configured bot owner.";
-      } else if (!getOwnerUserId() && !getOwnerUsername()) {
+      } else if (!(await getOwnerUserId()) && !(await getOwnerUsername())) {
         text +=
           "\n\nSet owner in the dashboard Settings page using your @username (send /start here first so it can be resolved).";
       }
@@ -126,7 +129,7 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
   });
 
   bot.command("remember", async (ctx) => {
-    const owner = isOwner(ctx);
+    const owner = await isOwner(ctx);
     const inline = ctx.match as string;
     const factResolution = resolveCommandInlineOrReplyText(ctx, inline);
     const fact = factResolution?.text;

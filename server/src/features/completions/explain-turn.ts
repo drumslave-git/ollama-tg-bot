@@ -11,7 +11,7 @@ export async function runExplainTurn(
   input: ExplainTurnInput,
   deps: ExplainTurnDeps,
 ): Promise<void> {
-  const settings = deps.getSettings();
+  const settings = await deps.getSettings();
 
   const turnLog = {
     chatId: input.chatId,
@@ -41,10 +41,12 @@ export async function runExplainTurn(
   try {
     deps.logging.logEvent("explain_turn_started", turnLog);
 
-    const activeId = deps.resolveActivePersonalityId(
+    const activeId = await deps.resolveActivePersonalityId(
       settings.activePersonalityId,
     );
-    const activePersonality = activeId ? deps.getPersonalityById(activeId) : null;
+    const activePersonality = activeId
+      ? await deps.getPersonalityById(activeId)
+      : null;
 
     const system = deps.buildExplainSystemPrompt({
       settings,

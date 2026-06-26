@@ -3,7 +3,7 @@ import { getBot } from "../index.js";
 import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
 import { appendAssistantMessage } from "../../db/history/index.js";
 import { getEffectiveMood } from "../../db/mood/index.js";
-import { recordReply } from "../../db/index.js";
+import { getSettings, recordReply } from "../../db/index.js";
 import { chatCompleteDetailed } from "../../llm/client.js";
 import { buildSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
 import { getResolvedSettings } from "../../settings/runtime.js";
@@ -29,15 +29,15 @@ export {
 export async function generateMaintenanceAnnouncement(
   enabled: boolean,
 ): Promise<string> {
-  const settings = getResolvedSettings();
+  const settings = getResolvedSettings(await getSettings());
   const systemPrompt = buildSystemPrompt({
     settings,
-    customPrompt: getActivePersonalityPrompt(),
+    customPrompt: await getActivePersonalityPrompt(),
     knownChatUsers: [],
     isGroupChat: false,
-    ownerUserId: getOwnerUserId(),
-    ownerUsername: getOwnerUsername(),
-    mood: getEffectiveMood(),
+    ownerUserId: await getOwnerUserId(),
+    ownerUsername: await getOwnerUsername(),
+    mood: await getEffectiveMood(),
   });
 
   const { raw } = await chatCompleteDetailed(
@@ -82,14 +82,14 @@ async function sendAnnouncementToChat(
     }
   }
 
-  appendAssistantMessage(String(chatId), plainText);
+  await appendAssistantMessage(String(chatId), plainText);
   return true;
 }
 
 export async function broadcastMaintenanceAnnouncement(
   enabled: boolean,
 ): Promise<void> {
-  const chatIds = collectMaintenanceAnnouncementChatIds();
+  const chatIds = await collectMaintenanceAnnouncementChatIds();
   if (chatIds.length === 0) {
     logEvent("maintenance_announce_skipped", {
       enabled,
@@ -122,7 +122,7 @@ export async function broadcastMaintenanceAnnouncement(
   }
 
   if (sent > 0) {
-    recordReply(false);
+    await recordReply(false);
   }
 
   logEvent("maintenance_announce_broadcast", {

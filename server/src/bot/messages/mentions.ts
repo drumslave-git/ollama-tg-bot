@@ -26,23 +26,23 @@ export interface MentionContext {
 }
 
 /** Resolve @mentions and name references against known_users. */
-export function resolveMentionedKnownUsers(
+export async function resolveMentionedKnownUsers(
   text: string,
   message: Message | undefined,
   context: MentionContext = {},
-): MentionedKnownUser[] {
+): Promise<MentionedKnownUser[]> {
   const trimmed = text.trim();
   if (!trimmed) return [];
   return collectMentionedKnownUsers(trimmed, message, context);
 }
 
 /** Passive history / transcript: append a compact mention footer. */
-export function enrichTextWithUserMentions(
+export async function enrichTextWithUserMentions(
   text: string,
   message: Message | undefined,
   context: MentionContext = {},
-): string {
-  const mentions = resolveMentionedKnownUsers(text, message, context);
+): Promise<string> {
+  const mentions = await resolveMentionedKnownUsers(text, message, context);
   if (mentions.length === 0) return text;
 
   const lines = mentions.map((m) => `• ${m.visible} → ${m.description}`);
@@ -55,9 +55,9 @@ export function enrichTextWithUserMentions(
 /**
  * Prominent latest-turn block — model must use this when asked who someone is.
  */
-export function formatMentionedUsersContext(
+export async function formatMentionedUsersContext(
   mentions: MentionedKnownUser[],
-): string | null {
+): Promise<string | null> {
   const known = mentions.filter((m) => m.isKnown);
   if (known.length === 0) return null;
 
@@ -68,7 +68,7 @@ export function formatMentionedUsersContext(
 
   for (const m of known) {
     lines.push(`• ${m.visible} → ${m.description}`);
-    const facts = getUserFacts(m.userId);
+    const facts = await getUserFacts(m.userId);
     if (facts.length > 0) {
       for (const fact of facts) {
         lines.push(`  - ${fact}`);
@@ -83,11 +83,11 @@ export function formatMentionedUsersContext(
   return lines.join("\n");
 }
 
-function collectMentionedKnownUsers(
+async function collectMentionedKnownUsers(
   text: string,
   message: Message | undefined,
   context: MentionContext,
-): MentionedKnownUser[] {
+): Promise<MentionedKnownUser[]> {
   const { botId, botUsername, senderId } = context;
   const excludeUserIds = [
     senderId != null ? String(senderId) : null,
@@ -109,14 +109,14 @@ function collectMentionedKnownUsers(
   };
 
   if (message) {
-    for (const entityMention of collectEntityMentions(message, context)) {
+    for (const entityMention of await collectEntityMentions(message, context)) {
       if (seen.has(entityMention.userId)) continue;
       seen.add(entityMention.userId);
       mentions.push(entityMention);
     }
   }
 
-  const plainTextMatches = findKnownUsersMentionedInText(text, {
+  const plainTextMatches = await findKnownUsersMentionedInText(text, {
     excludeUserIds: [...excludeUserIds, ...seen],
     botUsername,
   });
@@ -156,10 +156,10 @@ function pickVisibleReference(text: string, record: KnownUserRecord): string {
   return `"${formatKnownUserLabel(record)}"`;
 }
 
-function collectEntityMentions(
+async function collectEntityMentions(
   message: Message,
   context: MentionContext,
-): MentionedKnownUser[] {
+): Promise<MentionedKnownUser[]> {
   const { text, entities } = messageTextAndEntities(message);
   if (!text) return [];
 
@@ -175,7 +175,7 @@ function collectEntityMentions(
       if (senderId != null && user.id === senderId) continue;
 
       const visible = `"${sliceEntity(text, entity.offset, entity.length)}"`;
-      const known = getKnownUserById(String(user.id));
+      const known = await getKnownUserById(String(user.id));
       if (known) {
         mentions.push({
           userId: known.userId,
@@ -201,7 +201,7 @@ function collectEntityMentions(
       if (botUser && username === botUser) continue;
       if (senderUser && username === senderUser) continue;
 
-      const known = findKnownUserByUsername(username);
+      const known = await findKnownUserByUsername(username);
       if (known) {
         mentions.push({
           userId: known.userId,

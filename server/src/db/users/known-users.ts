@@ -1,6 +1,7 @@
 import type { User } from "@grammyjs/types";
+import type { SqlDatabase } from "../../contracts/index.js";
 
-let db: import("node:sqlite").DatabaseSync;
+let db: SqlDatabase;
 
 export interface KnownUserRecord {
   userId: string;
@@ -9,21 +10,23 @@ export interface KnownUserRecord {
   lastName: string | null;
 }
 
-export function bindKnownUsersDatabase(
-  database: import("node:sqlite").DatabaseSync,
-): void {
+export async function bindKnownUsersDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS known_users (
       user_id TEXT PRIMARY KEY,
       username TEXT,
       first_name TEXT,
       last_name TEXT,
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      updated_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_known_users_username
-      ON known_users (username);
   `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_known_users_username
+       ON known_users (username);`,
+  );
 }
 
 function rowToRecord(row: {
@@ -48,86 +51,77 @@ export function formatKnownUserLabel(record: KnownUserRecord): string {
   return `User ${record.userId}`;
 }
 
-export function rememberTelegramUser(user: User | undefined): void {
+export async function rememberTelegramUser(
+  user: User | undefined,
+): Promise<void> {
   if (!user?.id) return;
 
-  db.prepare(
+  await db.query(
     `INSERT INTO known_users (user_id, username, first_name, last_name, updated_at)
-     VALUES (?, ?, ?, ?, unixepoch())
-     ON CONFLICT(user_id) DO UPDATE SET
+     VALUES ($1, $2, $3, $4, extract(epoch from now())::bigint)
+     ON CONFLICT (user_id) DO UPDATE SET
        username = excluded.username,
        first_name = excluded.first_name,
        last_name = excluded.last_name,
-       updated_at = unixepoch()`,
-  ).run(
-    String(user.id),
-    user.username?.toLowerCase() ?? null,
-    user.first_name ?? null,
-    user.last_name ?? null,
+       updated_at = extract(epoch from now())::bigint`,
+    [
+      String(user.id),
+      user.username?.toLowerCase() ?? null,
+      user.first_name ?? null,
+      user.last_name ?? null,
+    ],
   );
 }
 
-export function getKnownUserById(userId: string): KnownUserRecord | null {
-  const row = db
-    .prepare(
-      `SELECT user_id, username, first_name, last_name
-       FROM known_users WHERE user_id = ?`,
-    )
-    .get(userId) as
-    | {
-        user_id: string;
-        username: string | null;
-        first_name: string | null;
-        last_name: string | null;
-      }
-    | undefined;
-  return row ? rowToRecord(row) : null;
+type KnownUserRow = {
+  user_id: string;
+  username: string | null;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+export async function getKnownUserById(
+  userId: string,
+): Promise<KnownUserRecord | null> {
+  const { rows } = await db.query<KnownUserRow>(
+    `SELECT user_id, username, first_name, last_name
+       FROM known_users WHERE user_id = $1`,
+    [userId],
+  );
+  return rows[0] ? rowToRecord(rows[0]) : null;
 }
 
-export function getKnownUsersByIds(userIds: string[]): KnownUserRecord[] {
+export async function getKnownUsersByIds(
+  userIds: string[],
+): Promise<KnownUserRecord[]> {
   const unique = [...new Set(userIds.filter(Boolean))];
   if (unique.length === 0) return [];
 
-  const placeholders = unique.map(() => "?").join(", ");
-  const rows = db
-    .prepare(
-      `SELECT user_id, username, first_name, last_name
-       FROM known_users WHERE user_id IN (${placeholders})`,
-    )
-    .all(...unique) as Array<{
-    user_id: string;
-    username: string | null;
-    first_name: string | null;
-    last_name: string | null;
-  }>;
+  const { rows } = await db.query<KnownUserRow>(
+    `SELECT user_id, username, first_name, last_name
+       FROM known_users WHERE user_id = ANY($1)`,
+    [unique],
+  );
 
   return rows.map(rowToRecord);
 }
 
-export function findKnownUserByUsername(
+export async function findKnownUserByUsername(
   username: string,
-): KnownUserRecord | null {
+): Promise<KnownUserRecord | null> {
   const normalized = username.trim().replace(/^@/, "").toLowerCase();
   if (!normalized) return null;
 
-  const row = db
-    .prepare(
-      `SELECT user_id, username, first_name, last_name
+  const { rows } = await db.query<KnownUserRow>(
+    `SELECT user_id, username, first_name, last_name
        FROM known_users
-       WHERE lower(username) = ?
+       WHERE lower(username) = $1
        ORDER BY updated_at DESC
        LIMIT 1`,
-    )
-    .get(normalized) as
-    | {
-        user_id: string;
-        username: string | null;
-        first_name: string | null;
-        last_name: string | null;
-      }
-    | undefined;
+    [normalized],
+  );
 
-  return row ? rowToRecord(row) : null;
+  return rows[0] ? rowToRecord(rows[0]) : null;
 }
 
 const MIN_NAME_MATCH_LEN = 3;
@@ -151,13 +145,13 @@ function nameSearchTerms(record: KnownUserRecord): string[] {
 }
 
 /** Find known users referenced by @username or by first/last name in plain text. */
-export function findKnownUsersMentionedInText(
+export async function findKnownUsersMentionedInText(
   text: string,
   options: {
     excludeUserIds?: string[];
     botUsername?: string;
   } = {},
-): KnownUserRecord[] {
+): Promise<KnownUserRecord[]> {
   const trimmed = text.trim();
   if (!trimmed) return [];
 
@@ -168,24 +162,18 @@ export function findKnownUsersMentionedInText(
   for (const match of trimmed.matchAll(/@([a-zA-Z0-9_]{4,32})/g)) {
     const username = match[1]?.toLowerCase();
     if (!username || (botUser && username === botUser)) continue;
-    const known = findKnownUserByUsername(username);
+    const known = await findKnownUserByUsername(username);
     if (!known || exclude.has(known.userId)) continue;
     found.set(known.userId, known);
   }
 
-  const rows = db
-    .prepare(
-      `SELECT user_id, username, first_name, last_name
+  const { rows } = await db.query<KnownUserRow>(
+    `SELECT user_id, username, first_name, last_name
        FROM known_users
        ORDER BY updated_at DESC
-       LIMIT ?`,
-    )
-    .all(KNOWN_USER_SCAN_LIMIT) as Array<{
-    user_id: string;
-    username: string | null;
-    first_name: string | null;
-    last_name: string | null;
-  }>;
+       LIMIT $1`,
+    [KNOWN_USER_SCAN_LIMIT],
+  );
 
   const candidates = rows
     .map(rowToRecord)

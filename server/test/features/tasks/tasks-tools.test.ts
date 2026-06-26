@@ -1,8 +1,14 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { DatabaseSync } from "node:sqlite";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BotMcpRegistry } from "../../../src/shared/index.js";
 import { bindModuleDatabase } from "../../../src/features/tasks/db/index.js";
+import {
+  closeTestPool,
+  dropTables,
+  hasTestDb,
+  testDb,
+  truncateTables,
+} from "../../helpers/pg.js";
 import {
   TASKS_TOOL_NAMES,
   registerTasksMcpTools,
@@ -48,12 +54,22 @@ interface ListStructured {
   tasks: { id: number }[];
 }
 
-beforeEach(() => {
-  bindModuleDatabase(new DatabaseSync(":memory:"));
+const TABLES = ["tasks", "task_messages", "task_events"];
+
+beforeAll(async () => {
+  if (!hasTestDb) return;
+  await dropTables(...TABLES);
+  await bindModuleDatabase(testDb);
+});
+afterAll(async () => {
+  if (hasTestDb) await closeTestPool();
+});
+beforeEach(async () => {
+  if (hasTestDb) await truncateTables(...TABLES);
   clearTaskTurnContext();
 });
 
-describe("tasks MCP tools — owner gating", () => {
+describe.skipIf(!hasTestDb)("tasks MCP tools — owner gating", () => {
   it("rejects creation when the speaker is not the owner", async () => {
     const registry = await buildRegistry();
     setTaskTurnContext(turn({ isOwner: false }));
@@ -74,7 +90,7 @@ describe("tasks MCP tools — owner gating", () => {
   });
 });
 
-describe("tasks MCP tools — happy path", () => {
+describe.skipIf(!hasTestDb)("tasks MCP tools — happy path", () => {
   it("creates a task bound to the turn's chat", async () => {
     const registry = await buildRegistry();
     setTaskTurnContext(turn());

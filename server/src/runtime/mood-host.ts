@@ -17,12 +17,12 @@ export function createMoodExtension(): MoodCommandExtension {
     getActivePersonalityMoodDefaults,
     getEffectiveMood,
     getMoodStateView,
-    resolveActivePersonalityId: (activePersonalityId) => {
-      const id = resolveActivePersonalityId(activePersonalityId);
+    resolveActivePersonalityId: async (activePersonalityId) => {
+      const id = await resolveActivePersonalityId(activePersonalityId);
       return id > 0 ? id : null;
     },
-    getPersonalityById: (id) => {
-      const personality = getPersonalityById(id);
+    getPersonalityById: async (id) => {
+      const personality = await getPersonalityById(id);
       return personality ? { name: personality.name } : null;
     },
   };

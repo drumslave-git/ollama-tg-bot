@@ -220,7 +220,7 @@ export interface PipelineHostServices {
     ) => void;
   };
   llm: PipelineLlmServices;
-  getWorkflowSteps: () => string[];
+  getWorkflowSteps: () => Promise<string[]>;
   getReport: (turnId: number) => PipelineReportWriter | null;
 }
 

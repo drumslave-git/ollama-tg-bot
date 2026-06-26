@@ -10,12 +10,12 @@ import {
 
 export const visionRouter = Router();
 
-visionRouter.get("/config", (_req, res) => {
-  res.json(getVisionModuleConfig());
+visionRouter.get("/config", async (_req, res) => {
+  res.json(await getVisionModuleConfig());
 });
 
-visionRouter.get("/debug", (_req, res) => {
-  res.json(getVisionJobDebugSnapshot());
+visionRouter.get("/debug", async (_req, res) => {
+  res.json(await getVisionJobDebugSnapshot());
 });
 
 visionRouter.get("/debug/runs/:id", (req, res) => {
@@ -28,10 +28,10 @@ visionRouter.get("/debug/runs/:id", (req, res) => {
   res.json({ run });
 });
 
-visionRouter.patch("/config", (req, res) => {
+visionRouter.patch("/config", async (req, res) => {
   try {
     const body = req.body as Partial<{ backfillDebounceSec: number }>;
-    const updated = updateVisionModuleConfig({
+    const updated = await updateVisionModuleConfig({
       backfillDebounceSec: body.backfillDebounceSec,
     });
     res.json(updated);

@@ -10,7 +10,7 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 
 | Workspace | Role |
 |-----------|------|
-| `server/` | Bot, LLM client, SQLite, REST API, and **all feature logic** under `src/features/*` |
+| `server/` | Bot, LLM client, Postgres/pgvector, REST API, and **all feature logic** under `src/features/*` |
 | `dashboard/` | Vite + React admin UI (per-feature pages under `src/features/*`) |
 
 There are only **two workspaces** (`server`, `dashboard`). Features are plain folders inside `server/src/features/<name>` — not separate npm packages. (`modules/yt-dlp` is an unwired placeholder for a planned MCP tool.)
@@ -45,7 +45,7 @@ LLM-backed bot features live as **plain folders** in `server/src/features/<name>
 | Path | Role |
 |------|------|
 | `server/src/features/<name>/*.ts` | Runtime logic — pipeline hosts (`run`, `shouldRun`), prompts, parsers |
-| `server/src/features/<name>/db/*.ts` | SQLite tables + REST routes (optional; exports a `ModuleDbExports` object) |
+| `server/src/features/<name>/db/*.ts` | Postgres tables (async, via the `SqlDatabase` handle) + REST routes (optional; exports a `ModuleDbExports` object) |
 | `server/src/features/<name>/register-mcp-tools.ts` | MCP tool registrar (optional) |
 | `dashboard/src/features/<name>/*.tsx` | Dashboard React page(s) (optional; routed directly in `dashboard/src/App.tsx`) |
 
@@ -93,20 +93,26 @@ To add a feature: create `server/src/features/<name>/`, implement the pipeline h
 | `LOGGING_LEVEL` | `ERROR` (default), `DEBUG` (lifecycle events to console) |
 | `TAVILY_API_KEY` | Optional web search via Tavily |
 | `PORT` | Docker/production listen port only — not for local dev |
-| `DATABASE_PATH` | Optional SQLite path (default `data/bot.db`) |
-| `TZ` | Optional IANA timezone for scheduled tasks (default `UTC`); tasks fire at wall-clock times in this zone |
+| `DATABASE_URL` | Postgres connection string (required); needs the `pgvector` extension |
+| `TZ` | Optional IANA timezone for scheduled tasks + daily summaries (default `UTC`); jobs fire at wall-clock times in this zone |
 
-Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (SQLite), not `.env`.
+Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (Postgres), not `.env`. The embedding model (history-summary RAG, default `bge-m3`) is a dashboard setting too.
 
 ## Architecture
 
 ```
 Telegram → Grammy handlers → message pipeline (module hosts) → delivery
                 ↓
-         SQLite (settings, history, memories, stats)
+   Postgres + pgvector (settings, history, summaries, memories, stats)
                 ↑
          Express /api ← dashboard (Vite dev proxy)
 ```
+
+**Storage is Postgres** (with the `pgvector` extension), accessed through an async
+`SqlDatabase` handle (`server/src/db/pool.ts`) bound into each module's `db/*.ts`.
+Raw `chat_messages` carry a `tsvector` for full-text search; `chat_summaries`
+(daily LLM topic summaries) carry a `vector(1024)` embedding for hybrid
+vector + FTS recall. All db access is `async`/awaited end-to-end.
 
 ### Message flow
 
@@ -117,14 +123,14 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory maintenance cleans each stored memory document via an LLM pass (skips records whose content fingerprint is unchanged since the last run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
 6. **`server/src/runtime/module-hosts.ts`** — Explicitly imports the feature pipeline and bot command hosts from `server/src/features/*`. Intake and queue host arrays define the processing order directly. Static feature metadata/db/MCP wiring is in `server/src/runtime/module-registry.ts`. Background schedulers are wired in `server/src/runtime/queue-schedulers.ts` via `initQueueSchedulers()` (called at startup — the module has no import-time side effects).
 7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from the static `module-registry.ts` (`mcpTools.registrar`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
-8. **`server/src/pipeline/turn-services.ts`** — Concrete, typed functions (SQLite, Telegram helpers, vision, LLM adapters) that pipeline hosts import directly. Replaces the former `PipelineHostCallbacks` indirection.
+8. **`server/src/pipeline/turn-services.ts`** — Concrete, typed functions (Postgres, Telegram helpers, vision, LLM adapters) that pipeline hosts import directly. Replaces the former `PipelineHostCallbacks` indirection.
 9. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
 
 ### LLM
 
 - Client: `server/src/llm/client.ts` (OpenAI SDK → `/v1/chat/completions`; optional `showModel` / catalog fetch for context-budget metadata)
 - OpenAI-compatible parsing: `server/src/llm/openai-compat.ts` (`content` vs `reasoning` / `reasoning_content`, request `options`)
-- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in SQLite (50 per chat); traces persist as **processing** as soon as the bot **receives** a message; addressed messages show **queued** routing with queue position until processing starts; phase updates stream while the turn runs; main reply MCP tool rounds appear as separate **Main reply · tools (round N)** LLM phases (with `tools` in the request body), followed by **Main reply** for the JSON final pass; sticker **selection** runs before delivery, **Sticker** sent phase logs after the Telegram sticker; in-flight LLM calls add a **waiting** phase until the provider responds; dashboard sidebar shows queue size + memory/vision job status (scheduled jobs show live countdown via `memoryJobRunAt` / `visionJobRunAt`) via `dashboard:stats`
+- Debug traces: `server/src/debug/message-report.ts`, `server/src/db/debug/traces.ts` — per-message processing stored in Postgres (50 per chat); traces persist as **processing** as soon as the bot **receives** a message; addressed messages show **queued** routing with queue position until processing starts; phase updates stream while the turn runs; main reply MCP tool rounds appear as separate **Main reply · tools (round N)** LLM phases (with `tools` in the request body), followed by **Main reply** for the JSON final pass; sticker **selection** runs before delivery, **Sticker** sent phase logs after the Telegram sticker; in-flight LLM calls add a **waiting** phase until the provider responds; dashboard sidebar shows queue size + memory/vision job status (scheduled jobs show live countdown via `memoryJobRunAt` / `visionJobRunAt`) via `dashboard:stats`
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
 
@@ -202,7 +208,7 @@ The main reply is **plain text** — no `response_format` is sent (grammar-const
 - **NEVER use real or user-provided data in committed code** — do not copy Telegram user IDs, usernames, chat IDs, display names, message text, conversation excerpts, `.env` values, API keys, or any other personal or environment-specific data from bug reports, traces, dashboards, ACP context, or chat into source, tests, fixtures, prompts, or comments. Always invent clearly fictional placeholders (e.g. `user:alice:424242`, `testuser`, `-100999001`).
 - **English-only source** — tests, prompts, comments, and code must be written in proper English. No Cyrillic and no transliteration of foreign words.
 - **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.
-- **SQLite settings** — add new keys to `DEFAULT_SETTINGS` in `server/src/db/index.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
+- **Settings** (stored in Postgres) — add new keys to `DEFAULT_SETTINGS` in `server/src/db/index.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
 
 ## Dashboard pages
 
@@ -217,7 +223,7 @@ The main reply is **plain text** — no `response_format` is sent (grammar-const
 | `/tasks` | Scheduled tasks per chat; `/tasks/debug` for the event log |
 | `/vision` | Vision backfill job run list + phase/LLM detail (live countdown when scheduled) |
 | `/debug` | Per-message processing traces (chat → message → step detail) |
-| `/data` | Raw SQLite table browser |
+| `/data` | Raw Postgres table browser |
 | `/workflow` | Live pipeline diagram from `GET /api/workflow` (core pipeline hosts + queue order) |
 
 State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/api.ts`.
@@ -265,7 +271,7 @@ Maintain test coverage for all new features and bug fixes. Update `AGENTS.md` wh
 
 ### What `npm test` covers
 
-[Vitest](https://vitest.dev) runs the single server suite — every `server/test/**/*.test.ts` (feature suites in `server/test/features/<name>/`, shared in `server/test/shared/`, server units in `server/test/unit/**`; fixture in `server/test/helpers/settings.ts`; config `server/vitest.config.ts`). Live tests (`**/live/**`) are excluded. Note: `server/test/shims/node-sqlite.mjs` is aliased in for `node:sqlite` because the bundled Vite predates that builtin.
+[Vitest](https://vitest.dev) runs the single server suite — every `server/test/**/*.test.ts` (feature suites in `server/test/features/<name>/`, shared in `server/test/shared/`, server units in `server/test/unit/**`; fixture in `server/test/helpers/settings.ts`; config `server/vitest.config.ts`). Live tests (`**/live/**`) are excluded. Postgres-backed db tests are opt-in: they skip unless `TEST_DATABASE_URL` points at a `pgvector` server (they exercise FTS + vector features no in-memory fake reproduces) — see `server/test/helpers/pg.ts`. They share one database, so run them serially: `TEST_DATABASE_URL=… npx vitest run --no-file-parallelism -w server`.
 
 ### Opt-in live LLM suites
 

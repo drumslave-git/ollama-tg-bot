@@ -1,38 +1,51 @@
-import { beforeEach, describe, expect, it } from "vitest";
-import { DatabaseSync } from "node:sqlite";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
   appendAssistantMessage,
   appendMessage,
   bindHistoryDatabase,
   getHistory,
   getLatestMessages,
+  getMessagesByMessageIds,
   getMessagesInRange,
   listHistoryChatKeys,
   searchMessages,
 } from "../../../src/features/history/db/history.js";
+import {
+  closeTestPool,
+  dropTables,
+  hasTestDb,
+  testDb,
+  truncateTables,
+} from "../../helpers/pg.js";
 
 const ENTITY = "12345";
-let db: DatabaseSync;
 
-function insertAt(entityId: string, content: string, createdAt: number): void {
-  db.prepare(
+async function insertAt(
+  entityId: string,
+  content: string,
+  createdAt: number,
+): Promise<void> {
+  await testDb.query(
     `INSERT INTO chat_messages (entity_id, role, content, created_at)
-     VALUES (?, 'user:a:1', ?, ?)`,
-  ).run(entityId, content, createdAt);
+     VALUES ($1, 'user:a:1', $2, $3)`,
+    [entityId, content, createdAt],
+  );
 }
 
-beforeEach(() => {
-  db = new DatabaseSync(":memory:");
-  bindHistoryDatabase(db);
-});
+describe.skipIf(!hasTestDb)("history storage (Postgres)", () => {
+  beforeAll(async () => {
+    await dropTables("chat_messages");
+    await bindHistoryDatabase(testDb);
+  });
+  afterAll(closeTestPool);
+  beforeEach(() => truncateTables("chat_messages"));
 
-describe("history storage", () => {
-  it("appends and reads back chronologically with timestamps", () => {
-    appendMessage(ENTITY, "user:alice:1", "first");
-    appendMessage(ENTITY, "user:bob:2", "second");
-    appendAssistantMessage(ENTITY, "reply");
+  it("appends and reads back chronologically with timestamps", async () => {
+    await appendMessage(ENTITY, "user:alice:1", "first");
+    await appendMessage(ENTITY, "user:bob:2", "second");
+    await appendAssistantMessage(ENTITY, "reply");
 
-    const all = getHistory(ENTITY);
+    const all = await getHistory(ENTITY);
     expect(all.map((m) => m.content)).toEqual([
       "first",
       "second",
@@ -41,42 +54,52 @@ describe("history storage", () => {
     expect(typeof all[0]!.createdAt).toBe("number");
   });
 
-  it("ignores blank content", () => {
-    appendMessage(ENTITY, "user:a:1", "   ");
-    expect(getHistory(ENTITY)).toHaveLength(0);
+  it("ignores blank content", async () => {
+    await appendMessage(ENTITY, "user:a:1", "   ");
+    expect(await getHistory(ENTITY)).toHaveLength(0);
   });
 
-  it("getLatestMessages returns the last N, oldest first", () => {
-    for (let i = 1; i <= 5; i += 1) appendMessage(ENTITY, "user:a:1", `m${i}`);
-    expect(getLatestMessages(ENTITY, 2).map((m) => m.content)).toEqual([
+  it("getLatestMessages returns the last N, oldest first", async () => {
+    for (let i = 1; i <= 5; i += 1)
+      await appendMessage(ENTITY, "user:a:1", `m${i}`);
+    expect((await getLatestMessages(ENTITY, 2)).map((m) => m.content)).toEqual([
       "m4",
       "m5",
     ]);
   });
 
-  it("searchMessages does case-insensitive substring match", () => {
-    appendMessage(ENTITY, "user:a:1", "Hello World");
-    appendMessage(ENTITY, "user:a:1", "goodbye");
-    expect(searchMessages(ENTITY, "world").map((m) => m.content)).toEqual([
+  it("searchMessages matches by full-text and substring fallback", async () => {
+    await appendMessage(ENTITY, "user:a:1", "Hello World");
+    await appendMessage(ENTITY, "user:a:1", "goodbye");
+    expect((await searchMessages(ENTITY, "world")).map((m) => m.content)).toEqual([
       "Hello World",
     ]);
-    expect(searchMessages(ENTITY, "missing")).toHaveLength(0);
+    expect(await searchMessages(ENTITY, "missing")).toHaveLength(0);
   });
 
-  it("getMessagesInRange filters inclusively by created_at", () => {
-    insertAt(ENTITY, "old", 1000);
-    insertAt(ENTITY, "mid", 2000);
-    insertAt(ENTITY, "new", 3000);
-    expect(getMessagesInRange(ENTITY, 1500, 2500).map((m) => m.content)).toEqual(
-      ["mid"],
-    );
-    expect(getMessagesInRange(ENTITY, 1000, 3000)).toHaveLength(3);
+  it("getMessagesInRange filters inclusively by created_at", async () => {
+    await insertAt(ENTITY, "old", 1000);
+    await insertAt(ENTITY, "mid", 2000);
+    await insertAt(ENTITY, "new", 3000);
+    expect(
+      (await getMessagesInRange(ENTITY, 1500, 2500)).map((m) => m.content),
+    ).toEqual(["mid"]);
+    expect(await getMessagesInRange(ENTITY, 1000, 3000)).toHaveLength(3);
   });
 
-  it("isolates messages per entity and lists distinct keys", () => {
-    appendMessage(ENTITY, "user:a:1", "mine");
-    appendMessage("999", "user:b:2", "theirs");
-    expect(getHistory(ENTITY).map((m) => m.content)).toEqual(["mine"]);
-    expect(listHistoryChatKeys().sort()).toEqual(["12345", "999"]);
+  it("getMessagesByMessageIds fetches specific telegram ids", async () => {
+    await appendMessage(ENTITY, "user:a:1", "one", { messageId: 101 });
+    await appendMessage(ENTITY, "user:a:1", "two", { messageId: 102 });
+    await appendMessage(ENTITY, "user:a:1", "three", { messageId: 103 });
+    expect(
+      (await getMessagesByMessageIds(ENTITY, [101, 103])).map((m) => m.content),
+    ).toEqual(["one", "three"]);
+  });
+
+  it("isolates messages per entity and lists distinct keys", async () => {
+    await appendMessage(ENTITY, "user:a:1", "mine");
+    await appendMessage("999", "user:b:2", "theirs");
+    expect((await getHistory(ENTITY)).map((m) => m.content)).toEqual(["mine"]);
+    expect((await listHistoryChatKeys()).sort()).toEqual(["12345", "999"]);
   });
 });

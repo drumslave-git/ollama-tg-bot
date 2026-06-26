@@ -1,8 +1,8 @@
-import type { DatabaseSync } from "node:sqlite";
 import type {
   DataTableConfig,
   ModuleDbExports,
   ModuleDbHost,
+  SqlDatabase,
 } from "../../../contracts/index.js";
 import { bindMoodDatabase, configureMoodAccess } from "./mood.js";
 import {
@@ -19,23 +19,27 @@ const DATA_TABLE_CONFIGS: Record<string, DataTableConfig> = {
     label: "Personalities",
     columns: ["id", "name", "prompt", "mood_defaults", "created_at", "updated_at"],
     query: `SELECT id, name, prompt, mood_defaults, created_at, updated_at
-            FROM personalities ORDER BY id ASC LIMIT ?`,
-    countQuery: "SELECT COUNT(*) AS n FROM personalities",
+            FROM personalities ORDER BY id ASC LIMIT $1`,
+    countQuery: "SELECT COUNT(*)::int AS n FROM personalities",
     timeColumns: ["created_at", "updated_at"],
   },
 };
 
-export function bindModuleDatabase(database: DatabaseSync): void {
-  bindPersonalitiesDatabase(database);
+export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
+  await bindPersonalitiesDatabase(database);
   bindMoodDatabase(database);
 }
 
 export function configureModuleAccess(host: ModuleDbHost): void {
-  configurePersonalityAccess(() => ({
-    activePersonalityId: Number(host.getSettings().activePersonalityId ?? 0),
+  configurePersonalityAccess(async () => ({
+    activePersonalityId: Number(
+      (await host.getSettings()).activePersonalityId ?? 0,
+    ),
   }));
-  configureMoodAccess(() => ({
-    moodCooldownMinutes: Number(host.getSettings().moodCooldownMinutes ?? 120),
+  configureMoodAccess(async () => ({
+    moodCooldownMinutes: Number(
+      (await host.getSettings()).moodCooldownMinutes ?? 120,
+    ),
   }));
   configureMoodRoutes(host);
 }

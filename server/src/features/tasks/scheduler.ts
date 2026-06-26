@@ -6,12 +6,16 @@ export interface TaskSchedulerDeps {
   tickMs?: number;
   timezone: string;
   /** Whether firing is currently allowed (e.g. false during maintenance mode). */
-  canFire: () => boolean;
-  listDueTasks: (nowIso: string) => TaskRecord[];
+  canFire: () => boolean | Promise<boolean>;
+  listDueTasks: (nowIso: string) => Promise<TaskRecord[]>;
   fireTask: (task: TaskRecord) => Promise<boolean>;
-  markTaskRun: (id: number, lastRunAt: string, nextRunAt: string) => void;
+  markTaskRun: (
+    id: number,
+    lastRunAt: string,
+    nextRunAt: string,
+  ) => void | Promise<void>;
   /** Remove a task that has no future run (a fired one-shot). */
-  removeTask: (id: number) => void;
+  removeTask: (id: number) => void | Promise<void>;
   logEvent?: (event: string, fields?: Record<string, unknown>) => void;
   logEventError?: (
     event: string,
@@ -43,9 +47,9 @@ export function createTaskScheduler(deps: TaskSchedulerDeps) {
     if (running) return; // skip overlapping ticks (a slow LLM fire)
     running = true;
     try {
-      if (!deps.canFire()) return;
+      if (!(await deps.canFire())) return;
       const nowIso = new Date().toISOString();
-      const due = deps.listDueTasks(nowIso);
+      const due = await deps.listDueTasks(nowIso);
       for (const task of due) {
         try {
           await deps.fireTask(task);
@@ -57,9 +61,9 @@ export function createTaskScheduler(deps: TaskSchedulerDeps) {
         if (next === null) {
           // No future run (a spent one-shot) — remove it rather than leave a
           // disabled row behind.
-          deps.removeTask(task.id);
+          await deps.removeTask(task.id);
         } else {
-          deps.markTaskRun(task.id, nowIso, next);
+          await deps.markTaskRun(task.id, nowIso, next);
         }
       }
     } catch (err) {

@@ -26,7 +26,7 @@ export function buildWorkflowDefinition(enabledSteps: string[]) {
   );
 }
 
-export function buildWorkflowDefinitionFromSettings() {
-  const enabledSteps = getSettings().workflowSteps ?? [];
+export async function buildWorkflowDefinitionFromSettings() {
+  const enabledSteps = (await getSettings()).workflowSteps ?? [];
   return buildWorkflowDefinition(enabledSteps);
 }

@@ -1,7 +1,5 @@
-import fs from "node:fs";
-import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { config } from "../config/index.js";
+import { db, initPool } from "./pool.js";
 import {
   appendErrorLog,
   bindErrorLogDatabase,
@@ -28,6 +26,8 @@ import { buildModuleDbHost } from "../runtime/module-db-host.js";
 
 export interface Settings {
   model: string;
+  /** Model used for embeddings (history summaries RAG), e.g. bge-m3. */
+  embeddingModel: string;
   /** Id of the personality whose prompt is layered on the base system prompt (0 = none). */
   activePersonalityId: number;
   /** Max tokens LLM may generate per reply (lower = faster). */
@@ -77,6 +77,7 @@ export interface Stats {
 
 const DEFAULT_SETTINGS: Settings = {
   model: "gpt-4o-mini",
+  embeddingModel: "bge-m3",
   activePersonalityId: 0,
   numPredict: 512,
   numCtx: 4096,
@@ -99,50 +100,34 @@ const DEFAULT_SETTINGS: Settings = {
   workflowEdges: [],
 };
 
-let db: DatabaseSync;
-
 export async function initDatabase(): Promise<void> {
-  const dir = path.dirname(config.databasePath);
-  fs.mkdirSync(dir, { recursive: true });
+  await initPool();
 
-  db = new DatabaseSync(config.databasePath);
-  db.exec("PRAGMA journal_mode = WAL");
-
-  db.exec(`
-    DROP TABLE IF EXISTS message_refs;
-    DROP TABLE IF EXISTS group_activity;
-
+  await db.query(`
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
-
+  `);
+  await db.query(`
     CREATE TABLE IF NOT EXISTS stats (
       key TEXT PRIMARY KEY,
-      value INTEGER NOT NULL DEFAULT 0
+      value BIGINT NOT NULL DEFAULT 0
     );
-
+  `);
+  await db.query(`
     CREATE TABLE IF NOT EXISTS stats_meta (
       key TEXT PRIMARY KEY,
       value TEXT
     );
   `);
 
-  const existsSetting = db.prepare(
-    "SELECT 1 FROM settings WHERE key = ?",
-  );
-  const insertSetting = db.prepare(
-    "INSERT INTO settings (key, value) VALUES (?, ?)",
-  );
-
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
-    if (!existsSetting.get(key)) {
-      insertSetting.run(key, JSON.stringify(value));
-    }
+    await db.query(
+      "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING",
+      [key, JSON.stringify(value)],
+    );
   }
-
-  const existsStat = db.prepare("SELECT 1 FROM stats WHERE key = ?");
-  const insertStat = db.prepare("INSERT INTO stats (key, value) VALUES (?, 0)");
 
   for (const key of [
     "messagesReceived",
@@ -150,62 +135,72 @@ export async function initDatabase(): Promise<void> {
     "visionRequests",
     "errors",
   ]) {
-    if (!existsStat.get(key)) {
-      insertStat.run(key);
-    }
+    await db.query(
+      "INSERT INTO stats (key, value) VALUES ($1, 0) ON CONFLICT (key) DO NOTHING",
+      [key],
+    );
   }
 
   await initModuleDatabases(db);
   configureModuleDatabases(buildModuleDbHost());
 
-  bindErrorLogDatabase(db);
-  bindDebugTracesDatabase(db);
-  bindKnownUsersDatabase(db);
+  await bindErrorLogDatabase(db);
+  await bindDebugTracesDatabase(db);
+  await bindKnownUsersDatabase(db);
   bindDataBrowserDatabase(db);
 }
 
-function getSetting<T>(key: keyof Settings): T {
-  const row = db
-    .prepare("SELECT value FROM settings WHERE key = ?")
-    .get(key) as { value: string } | undefined;
-  if (!row) return DEFAULT_SETTINGS[key] as T;
-  return JSON.parse(row.value) as T;
+async function setSetting<K extends keyof Settings>(
+  key: K,
+  value: Settings[K],
+): Promise<void> {
+  await db.query(
+    "INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+    [key, JSON.stringify(value)],
+  );
 }
 
-function setSetting<K extends keyof Settings>(key: K, value: Settings[K]): void {
-  db.prepare(
-    "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-  ).run(key, JSON.stringify(value));
-}
-
-export function getSettings(): Settings {
+export async function getSettings(): Promise<Settings> {
+  const { rows } = await db.query<{ key: string; value: string }>(
+    "SELECT key, value FROM settings",
+  );
+  const stored = new Map(rows.map((r) => [r.key, r.value]));
+  const read = <T>(key: keyof Settings): T => {
+    const raw = stored.get(key);
+    if (raw === undefined) return DEFAULT_SETTINGS[key] as unknown as T;
+    return JSON.parse(raw) as T;
+  };
   return {
-    model: getSetting<string>("model"),
-    activePersonalityId: getSetting<number>("activePersonalityId"),
-    numPredict: getSetting<number>("numPredict"),
-    numCtx: getSetting<number>("numCtx"),
-    temperature: getSetting<number>("temperature"),
-    topP: getSetting<number>("topP"),
-    topK: getSetting<number>("topK"),
-    repeatPenalty: getSetting<number>("repeatPenalty"),
-    chatTimeoutSec: getSetting<number>("chatTimeoutSec"),
-    visionMaxDimension: getSetting<number>("visionMaxDimension"),
-    ownerUsername: getSetting<string>("ownerUsername"),
-    ownerUserId: getSetting<string>("ownerUserId"),
-    stickerPackName: getSetting<string>("stickerPackName"),
-    stickerReplyChance: getSetting<number>("stickerReplyChance"),
-    moodCooldownMinutes: getSetting<number>("moodCooldownMinutes"),
-    thinkingEnabled: getSetting<boolean>("thinkingEnabled"),
-    reasoningEffort: getSetting<Settings["reasoningEffort"]>("reasoningEffort"),
-    maintenanceModeEnabled: getSetting<boolean>("maintenanceModeEnabled"),
-    workflowSteps: getSetting<string[]>("workflowSteps"),
-    workflowNodes: getSetting<{ id: string; x: number; y: number }[]>("workflowNodes"),
-    workflowEdges: getSetting<{ id: string; source: string; target: string }[]>("workflowEdges"),
+    model: read<string>("model"),
+    embeddingModel: read<string>("embeddingModel"),
+    activePersonalityId: read<number>("activePersonalityId"),
+    numPredict: read<number>("numPredict"),
+    numCtx: read<number>("numCtx"),
+    temperature: read<number>("temperature"),
+    topP: read<number>("topP"),
+    topK: read<number>("topK"),
+    repeatPenalty: read<number>("repeatPenalty"),
+    chatTimeoutSec: read<number>("chatTimeoutSec"),
+    visionMaxDimension: read<number>("visionMaxDimension"),
+    ownerUsername: read<string>("ownerUsername"),
+    ownerUserId: read<string>("ownerUserId"),
+    stickerPackName: read<string>("stickerPackName"),
+    stickerReplyChance: read<number>("stickerReplyChance"),
+    moodCooldownMinutes: read<number>("moodCooldownMinutes"),
+    thinkingEnabled: read<boolean>("thinkingEnabled"),
+    reasoningEffort: read<Settings["reasoningEffort"]>("reasoningEffort"),
+    maintenanceModeEnabled: read<boolean>("maintenanceModeEnabled"),
+    workflowSteps: read<string[]>("workflowSteps"),
+    workflowNodes: read<{ id: string; x: number; y: number }[]>("workflowNodes"),
+    workflowEdges:
+      read<{ id: string; source: string; target: string }[]>("workflowEdges"),
   };
 }
 
-export function updateSettings(partial: Partial<Settings>): Settings {
-  const current = getSettings();
+export async function updateSettings(
+  partial: Partial<Settings>,
+): Promise<Settings> {
+  const current = await getSettings();
   const { numCtx: _ignoredCtx, ...rest } = partial;
   const next = { ...current, ...rest };
   if (partial.ownerUsername !== undefined) {
@@ -230,12 +225,15 @@ export function updateSettings(partial: Partial<Settings>): Settings {
   const resolved = getResolvedSettings(normalized);
   validateSettingsFields(resolved);
 
-  if (resolved.activePersonalityId > 0 && !getPersonalityById(resolved.activePersonalityId)) {
+  if (
+    resolved.activePersonalityId > 0 &&
+    !(await getPersonalityById(resolved.activePersonalityId))
+  ) {
     throw new Error("activePersonalityId does not match a saved personality");
   }
 
   for (const key of Object.keys(resolved) as (keyof Settings)[]) {
-    setSetting(key, resolved[key]);
+    await setSetting(key, resolved[key]);
   }
 
   void refreshModelContextCache(resolved.model, config.llmBaseUrl);
@@ -259,28 +257,27 @@ export function updateSettings(partial: Partial<Settings>): Settings {
   return resolved;
 }
 
-function incrementStat(key: keyof Stats): void {
+async function incrementStat(key: keyof Stats): Promise<void> {
   if (key === "lastActivityAt") return;
-  db.prepare("UPDATE stats SET value = value + 1 WHERE key = ?").run(key);
+  await db.query("UPDATE stats SET value = value + 1 WHERE key = $1", [key]);
 }
 
-export function getStats(): Stats {
-  const rows = db.prepare("SELECT key, value FROM stats").all() as {
-    key: string;
-    value: number;
-  }[];
+export async function getStats(): Promise<Stats> {
+  const { rows } = await db.query<{ key: string; value: number }>(
+    "SELECT key, value FROM stats",
+  );
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
 
-  const lastRow = db
-    .prepare("SELECT value FROM stats_meta WHERE key = 'lastActivityAt'")
-    .get() as { value: string } | undefined;
+  const { rows: metaRows } = await db.query<{ value: string }>(
+    "SELECT value FROM stats_meta WHERE key = 'lastActivityAt'",
+  );
 
   return {
     messagesReceived: map.messagesReceived ?? 0,
     messagesReplied: map.messagesReplied ?? 0,
     visionRequests: map.visionRequests ?? 0,
     errors: map.errors ?? 0,
-    lastActivityAt: lastRow?.value ?? null,
+    lastActivityAt: metaRows[0]?.value ?? null,
   };
 }
 
@@ -291,16 +288,16 @@ function notifyStatsChanged(): void {
   });
 }
 
-export function recordMessageReceived(): void {
-  incrementStat("messagesReceived");
-  touchActivity();
+export async function recordMessageReceived(): Promise<void> {
+  await incrementStat("messagesReceived");
+  await touchActivity();
   notifyStatsChanged();
 }
 
-export function recordReply(usedVision: boolean): void {
-  incrementStat("messagesReplied");
-  if (usedVision) incrementStat("visionRequests");
-  touchActivity();
+export async function recordReply(usedVision: boolean): Promise<void> {
+  await incrementStat("messagesReplied");
+  if (usedVision) await incrementStat("visionRequests");
+  await touchActivity();
   notifyStatsChanged();
 }
 
@@ -311,11 +308,11 @@ export interface ErrorLogInput {
   userId?: string;
 }
 
-export function recordError(detail?: ErrorLogInput): void {
-  incrementStat("errors");
-  touchActivity();
+export async function recordError(detail?: ErrorLogInput): Promise<void> {
+  await incrementStat("errors");
+  await touchActivity();
   if (detail) {
-    appendErrorLog(detail);
+    await appendErrorLog(detail);
   }
   void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
     emitStatsUpdated();
@@ -323,9 +320,9 @@ export function recordError(detail?: ErrorLogInput): void {
   });
 }
 
-export function clearErrors(): number {
-  const deleted = clearErrorLog();
-  db.prepare("UPDATE stats SET value = 0 WHERE key = 'errors'").run();
+export async function clearErrors(): Promise<number> {
+  const deleted = await clearErrorLog();
+  await db.query("UPDATE stats SET value = 0 WHERE key = 'errors'");
   void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitStatsUpdated }) => {
     emitStatsUpdated();
     emitDataUpdated(["stats", "error_log"]);
@@ -333,8 +330,9 @@ export function clearErrors(): number {
   return deleted;
 }
 
-function touchActivity(): void {
-  db.prepare(
-    "INSERT INTO stats_meta (key, value) VALUES ('lastActivityAt', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-  ).run(new Date().toISOString());
+async function touchActivity(): Promise<void> {
+  await db.query(
+    "INSERT INTO stats_meta (key, value) VALUES ('lastActivityAt', $1) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+    [new Date().toISOString()],
+  );
 }

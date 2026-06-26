@@ -56,30 +56,33 @@ export interface MemoryMcpConfig {
 }
 
 /** Read the stored memory document for a scope. */
-function readMemory(type: "user" | "group" | "general", id: string): string {
+async function readMemory(
+  type: "user" | "group" | "general",
+  id: string,
+): Promise<string> {
   switch (type) {
     case "user":
       return getUserMemoryContent(id);
     case "group":
       return getGroupMemoryContent(id);
     case "general":
-      return getGeneralFacts().join("\n");
+      return (await getGeneralFacts()).join("\n");
   }
 }
 
 /** Append content to a scope; returns whether anything new was stored. */
-function saveMemory(
+async function saveMemory(
   type: "user" | "group" | "general",
   id: string,
   content: string,
-): boolean {
+): Promise<boolean> {
   switch (type) {
     case "user":
-      return addUserFacts(id, [content]) > 0;
+      return (await addUserFacts(id, [content])) > 0;
     case "group":
-      return addGroupFacts(id, [content]) > 0;
+      return (await addGroupFacts(id, [content])) > 0;
     case "general":
-      return addGeneralFacts([content]) > 0;
+      return (await addGeneralFacts([content])) > 0;
   }
 }
 
@@ -128,7 +131,7 @@ export function registerMemoryMcpTools(
           isError: true,
         };
       }
-      const content = readMemory(type, scopeId ?? "");
+      const content = await readMemory(type, scopeId ?? "");
       config.log?.logEvent?.("memory_tool_get", {
         type,
         id: scopeId ?? undefined,
@@ -178,18 +181,23 @@ export function registerMemoryMcpTools(
     },
     async ({ query, limit }) => {
       const cap = limit ?? 50;
+      const [userMatches, groupMatches, generalMatches] = await Promise.all([
+        searchUserMemories(query, cap),
+        searchGroupMemories(query, cap),
+        searchGeneralFacts(query, cap),
+      ]);
       const results: Array<{ type: string; id: string | null; content: string }> = [
-        ...searchUserMemories(query, cap).map((m) => ({
+        ...userMatches.map((m) => ({
           type: "user",
           id: m.userId,
           content: m.content,
         })),
-        ...searchGroupMemories(query, cap).map((m) => ({
+        ...groupMatches.map((m) => ({
           type: "group",
           id: m.groupId,
           content: m.content,
         })),
-        ...searchGeneralFacts(query, cap).map((m) => ({
+        ...generalMatches.map((m) => ({
           type: "general",
           id: null,
           content: m.fact,
@@ -260,7 +268,7 @@ export function registerMemoryMcpTools(
           isError: true,
         };
       }
-      const saved = saveMemory(type, scopeId ?? "", content);
+      const saved = await saveMemory(type, scopeId ?? "", content);
       config.log?.logEvent?.("memory_tool_save", {
         type,
         id: scopeId ?? undefined,

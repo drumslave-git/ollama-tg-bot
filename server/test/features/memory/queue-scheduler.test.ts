@@ -11,16 +11,16 @@ function makeDeps(
   let cleanupCalls = 0;
   const deps: MemoryQueueSchedulerDeps = {
     getQueueSize: () => 0,
-    getConfig: () => ({ maintenanceDebounceSec: 5 }),
-    listUserMemories: () => [],
-    listGroupMemories: () => [],
-    getGeneralContent: () => "",
-    getRecordFingerprint: (key) => fingerprints.get(key) ?? null,
-    setRecordFingerprint: (key, fp) => void fingerprints.set(key, fp),
-    writeUserMemory: () => {},
-    writeGroupMemory: () => {},
-    writeGeneralMemory: () => {},
-    buildCleanupConfig: () => ({
+    getConfig: async () => ({ maintenanceDebounceSec: 5 }),
+    listUserMemories: async () => [],
+    listGroupMemories: async () => [],
+    getGeneralContent: async () => "",
+    getRecordFingerprint: async (key) => fingerprints.get(key) ?? null,
+    setRecordFingerprint: async (key, fp) => void fingerprints.set(key, fp),
+    writeUserMemory: async () => {},
+    writeGroupMemory: async () => {},
+    writeGeneralMemory: async () => {},
+    buildCleanupConfig: async () => ({
       model: "stub",
       llmTimeoutSec: 30,
       llm: {
@@ -50,8 +50,8 @@ describe("memory maintenance scheduler", () => {
     let stored = "Likes tea.\nLikes tea.\nLives in Lisbon.";
     const writes: string[][] = [];
     const { deps, cleanupCalls } = makeDeps({
-      listUserMemories: () => [{ id: "1", content: stored }],
-      writeUserMemory: (_id, lines) => {
+      listUserMemories: async () => [{ id: "1", content: stored }],
+      writeUserMemory: async (_id, lines) => {
         writes.push(lines);
         stored = lines.join("\n");
       },

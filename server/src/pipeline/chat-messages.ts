@@ -70,11 +70,11 @@ function buildLatestTurnMessage(options: LatestTurnOptions): string {
   return parts.filter(Boolean).join("\n\n");
 }
 
-function loadKnownChatUsers(
+async function loadKnownChatUsers(
   chatKey: string,
   currentUserId: string | null,
-): ReturnType<typeof getKnownUsersByIds> {
-  const history = getHistory(chatKey);
+): Promise<Awaited<ReturnType<typeof getKnownUsersByIds>>> {
+  const history = await getHistory(chatKey);
   const roles = history.map((m) => m.role);
   const participantIds = extractParticipantUserIds(
     roles,
@@ -83,32 +83,34 @@ function loadKnownChatUsers(
   return getKnownUsersByIds(participantIds);
 }
 
-export function loadChatParticipants(
+export async function loadChatParticipants(
   chatKey: string,
   currentUserId: string | null,
-): { userId: string; label: string }[] {
-  const history = getHistory(chatKey);
+): Promise<{ userId: string; label: string }[]> {
+  const history = await getHistory(chatKey);
   const roles = history.map((m) => m.role);
   const participantIds = extractParticipantUserIds(
     roles,
     currentUserId ? [currentUserId] : [],
   );
 
-  return participantIds.map((userId) => {
-    const known = getKnownUserById(userId);
-    if (known) {
-      return { userId, label: formatKnownUserLabel(known) };
-    }
-    const fromHistory = history.find((m) => m.role.endsWith(`:${userId}`));
-    if (fromHistory) {
-      const tag = fromHistory.role;
-      return {
-        userId,
-        label: tag.startsWith("user:") ? tag : `User ${userId}`,
-      };
-    }
-    return { userId, label: `User ${userId}` };
-  });
+  return Promise.all(
+    participantIds.map(async (userId) => {
+      const known = await getKnownUserById(userId);
+      if (known) {
+        return { userId, label: formatKnownUserLabel(known) };
+      }
+      const fromHistory = history.find((m) => m.role.endsWith(`:${userId}`));
+      if (fromHistory) {
+        const tag = fromHistory.role;
+        return {
+          userId,
+          label: tag.startsWith("user:") ? tag : `User ${userId}`,
+        };
+      }
+      return { userId, label: `User ${userId}` };
+    }),
+  );
 }
 
 export interface BuiltChatPayload {
@@ -119,7 +121,7 @@ export interface BuiltChatPayload {
   storedHistoryCount: number;
 }
 
-export function buildChatMessages(
+export async function buildChatMessages(
   customSystemPrompt: string,
   chatKey: string,
   latestTurn: LatestTurnOptions,
@@ -134,7 +136,7 @@ export function buildChatMessages(
     currentUserIsOwner?: boolean;
     repliedTask?: { id: number; instruction: string } | null;
   },
-): BuiltChatPayload {
+): Promise<BuiltChatPayload> {
   const {
     settings,
     isGroupChat = false,
@@ -147,7 +149,7 @@ export function buildChatMessages(
     repliedTask = null,
   } = options;
 
-  const knownChatUsers = loadKnownChatUsers(chatKey, currentUserId);
+  const knownChatUsers = await loadKnownChatUsers(chatKey, currentUserId);
 
   const system = buildSystemPrompt({
     settings,
@@ -191,15 +193,15 @@ export function buildChatMessages(
   };
 }
 
-export function recordExchange(
+export async function recordExchange(
   chatKey: string,
   userRole: string | null,
   userContent: string | null,
   assistantText: string,
   options?: { skipUser?: boolean; anchorMessageId?: number },
-): void {
+): Promise<void> {
   if (!options?.skipUser && userRole && userContent?.trim()) {
-    appendMessage(
+    await appendMessage(
       chatKey,
       userRole,
       userContent,
@@ -210,7 +212,7 @@ export function recordExchange(
   }
   // Autoincrement id + created_at already order the reply after everything
   // stored so far, so a plain append is enough.
-  appendAssistantMessage(chatKey, assistantText);
+  await appendAssistantMessage(chatKey, assistantText);
   logEvent("history_exchange_stored", {
     convKey: chatKey,
     skipUser: Boolean(options?.skipUser),

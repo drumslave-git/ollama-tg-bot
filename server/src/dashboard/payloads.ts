@@ -19,8 +19,8 @@ import {
   getResolvedSettings,
 } from "../settings/runtime.js";
 
-export function buildStatsPayload() {
-  const stats = getStats();
+export async function buildStatsPayload() {
+  const stats = await getStats();
   let botRunning = false;
   try {
     getBot();
@@ -38,31 +38,31 @@ export function buildStatsPayload() {
       (Date.now() - processStartedAt.getTime()) / 1000,
     ),
     startedAt: processStartedAt.toISOString(),
-    recentErrors: listRecentErrors(20),
+    recentErrors: await listRecentErrors(20),
   };
 }
 
-export function buildMoodPayload() {
-  const settings = getSettings();
-  const activePersonalityId = resolveActivePersonalityId(
+export async function buildMoodPayload() {
+  const settings = await getSettings();
+  const activePersonalityId = await resolveActivePersonalityId(
     settings.activePersonalityId,
   );
   const activePersonality = activePersonalityId
-    ? getPersonalityById(activePersonalityId)
+    ? await getPersonalityById(activePersonalityId)
     : null;
 
   return {
-    defaults: getActivePersonalityMoodDefaults(),
+    defaults: await getActivePersonalityMoodDefaults(),
     activePersonalityId,
     activePersonalityName: activePersonality?.name ?? null,
     cooldownMinutes: settings.moodCooldownMinutes,
     traitHints: MOOD_TRAIT_HINTS,
-    current: getMoodStateView(),
+    current: await getMoodStateView(),
   };
 }
 
 export async function buildSettingsPayload() {
-  const settings = getSettings();
+  const settings = await getSettings();
   await ensureModelContextCache(settings.model, config.llmBaseUrl);
   const resolved = getResolvedSettings(settings);
   return {

@@ -8,7 +8,7 @@ export const botHost: BotModuleHost = {
   async onStart(services: BotHostServices): Promise<void> {
     await syncStickerCatalogFromSettings(
       services.api as Api,
-      services.getSettings(),
+      await services.getSettings(),
       services.logging,
     );
   },

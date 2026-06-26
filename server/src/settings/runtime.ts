@@ -1,5 +1,4 @@
 import type { Settings } from "../db/index.js";
-import { getSettings } from "../db/index.js";
 import { config } from "../config/index.js";
 import {
   buildContextBudget,
@@ -13,7 +12,10 @@ import {
   type HistoryLimits,
 } from "./limits.js";
 
-export function getResolvedSettings(settings: Settings = getSettings()): Settings {
+// These are pure transforms over a Settings object. Callers resolve `settings`
+// once (await getSettings()) and pass it in, keeping these synchronous so they
+// can run inside sync helpers (e.g. the LLM request body builders).
+export function getResolvedSettings(settings: Settings): Settings {
   const normalized = normalizeTokenBudget(settings);
   const model = getModelContextForBudget(
     normalized.model,
@@ -23,15 +25,11 @@ export function getResolvedSettings(settings: Settings = getSettings()): Setting
   return { ...normalized, numCtx };
 }
 
-export function getResolvedHistoryLimits(
-  settings: Settings = getSettings(),
-): HistoryLimits {
+export function getResolvedHistoryLimits(settings: Settings): HistoryLimits {
   return getHistoryLimits(getResolvedSettings(settings));
 }
 
-export function getContextBudgetForSettings(
-  settings: Settings = getSettings(),
-): ContextBudget {
+export function getContextBudgetForSettings(settings: Settings): ContextBudget {
   const normalized = normalizeTokenBudget(settings);
   const model = getModelContextForBudget(
     normalized.model,

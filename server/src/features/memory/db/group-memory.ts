@@ -1,24 +1,28 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
 import { normalizeFactText } from "./memory-facts.js";
 
 const MAX_MEMORY_CHARS = 12000;
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindGroupMemoryDatabase(database: DatabaseSync): void {
+export async function bindGroupMemoryDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS group_memories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       group_id TEXT NOT NULL UNIQUE,
       content TEXT NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint,
+      updated_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_group_memories_group
-      ON group_memories (group_id);
   `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_group_memories_group
+       ON group_memories (group_id);`,
+  );
 }
 
 export interface GroupFactRecord {
@@ -28,36 +32,38 @@ export interface GroupFactRecord {
   createdAt: string;
 }
 
-export function getGroupFacts(groupId: string): string[] {
-  const content = getGroupMemoryContent(groupId);
+interface GroupMemoryRow {
+  id: number;
+  group_id: string;
+  content: string;
+  updated_at: number;
+}
+
+export async function getGroupFacts(groupId: string): Promise<string[]> {
+  const content = await getGroupMemoryContent(groupId);
   return content ? [content] : [];
 }
 
-export function getGroupMemoryContent(groupId: string): string {
-  const row = db
-    .prepare(`SELECT content FROM group_memories WHERE group_id = ?`)
-    .get(groupId) as { content: string } | undefined;
-  return row?.content ?? "";
+export async function getGroupMemoryContent(groupId: string): Promise<string> {
+  const { rows } = await db.query<{ content: string }>(
+    `SELECT content FROM group_memories WHERE group_id = $1`,
+    [groupId],
+  );
+  return rows[0]?.content ?? "";
 }
 
-export function listAllGroupFacts(): GroupFactRecord[] {
-  const rows = db
-    .prepare(
-      `SELECT id, group_id, content, updated_at FROM group_memories
+export async function listAllGroupFacts(): Promise<GroupFactRecord[]> {
+  const { rows } = await db.query<GroupMemoryRow>(
+    `SELECT id, group_id, content, updated_at FROM group_memories
        ORDER BY group_id ASC`,
-    )
-    .all() as unknown as {
-    id: number;
-    group_id: string;
-    content: string;
-    updated_at: number;
-  }[];
-
+  );
   return rows.map(rowToGroupFactRecord);
 }
 
-export function listGroupFacts(groupId: string): GroupFactRecord[] {
-  const row = getGroupMemoryRecord(groupId);
+export async function listGroupFacts(
+  groupId: string,
+): Promise<GroupFactRecord[]> {
+  const row = await getGroupMemoryRecord(groupId);
   return row ? [row] : [];
 }
 
@@ -67,25 +73,22 @@ export interface GroupMemoryMatch {
 }
 
 /** Case-insensitive substring search over group memory documents. */
-export function searchGroupMemories(query: string, limit = 50): GroupMemoryMatch[] {
+export async function searchGroupMemories(
+  query: string,
+  limit = 50,
+): Promise<GroupMemoryMatch[]> {
   const q = query.trim();
   if (!q) return [];
-  const rows = db
-    .prepare(
-      `SELECT group_id, content FROM group_memories
-       WHERE instr(lower(content), lower(?)) > 0
-       ORDER BY group_id ASC LIMIT ?`,
-    )
-    .all(q, limit) as unknown as { group_id: string; content: string }[];
+  const { rows } = await db.query<{ group_id: string; content: string }>(
+    `SELECT group_id, content FROM group_memories
+       WHERE content ILIKE '%' || $1 || '%'
+       ORDER BY group_id ASC LIMIT $2`,
+    [q, limit],
+  );
   return rows.map((r) => ({ groupId: r.group_id, content: r.content }));
 }
 
-function rowToGroupFactRecord(r: {
-  id: number;
-  group_id: string;
-  content: string;
-  updated_at: number;
-}): GroupFactRecord {
+function rowToGroupFactRecord(r: GroupMemoryRow): GroupFactRecord {
   return {
     id: r.id,
     groupId: r.group_id,
@@ -94,27 +97,25 @@ function rowToGroupFactRecord(r: {
   };
 }
 
-export function getGroupFactById(id: number): GroupFactRecord | null {
-  const row = db
-    .prepare(
-      `SELECT id, group_id, content, updated_at FROM group_memories WHERE id = ?`,
-    )
-    .get(id) as
-    | { id: number; group_id: string; content: string; updated_at: number }
-    | undefined;
-  return row ? rowToGroupFactRecord(row) : null;
+export async function getGroupFactById(
+  id: number,
+): Promise<GroupFactRecord | null> {
+  const { rows } = await db.query<GroupMemoryRow>(
+    `SELECT id, group_id, content, updated_at FROM group_memories WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ? rowToGroupFactRecord(rows[0]) : null;
 }
 
-function getGroupMemoryRecord(groupId: string): GroupFactRecord | null {
-  const row = db
-    .prepare(
-      `SELECT id, group_id, content, updated_at FROM group_memories
-       WHERE group_id = ?`,
-    )
-    .get(groupId) as
-    | { id: number; group_id: string; content: string; updated_at: number }
-    | undefined;
-  return row ? rowToGroupFactRecord(row) : null;
+async function getGroupMemoryRecord(
+  groupId: string,
+): Promise<GroupFactRecord | null> {
+  const { rows } = await db.query<GroupMemoryRow>(
+    `SELECT id, group_id, content, updated_at FROM group_memories
+       WHERE group_id = $1`,
+    [groupId],
+  );
+  return rows[0] ? rowToGroupFactRecord(rows[0]) : null;
 }
 
 function notifyGroupMemoryChanged(): void {
@@ -123,49 +124,58 @@ function notifyGroupMemoryChanged(): void {
   hooks.emitDataUpdated?.(["group_memories"]);
 }
 
-export function deleteGroupFactById(id: number): boolean {
-  const result = db.prepare(`DELETE FROM group_memories WHERE id = ?`).run(id);
-  if (result.changes > 0) notifyGroupMemoryChanged();
-  return result.changes > 0;
+export async function deleteGroupFactById(id: number): Promise<boolean> {
+  const result = await db.query(`DELETE FROM group_memories WHERE id = $1`, [
+    id,
+  ]);
+  const deleted = (result.rowCount ?? 0) > 0;
+  if (deleted) notifyGroupMemoryChanged();
+  return deleted;
 }
 
-export function createGroupFact(
+export async function createGroupFact(
   groupId: string,
   fact: string,
-): GroupFactRecord | null {
+): Promise<GroupFactRecord | null> {
   const normalized = normalizeFactText(fact);
   if (!normalized) return null;
-  const existing = getGroupMemoryContent(groupId);
+  const existing = await getGroupMemoryContent(groupId);
   const content = appendUniqueLine(existing, normalized);
-  replaceGroupMemory(groupId, content);
+  await replaceGroupMemory(groupId, content);
   return getGroupMemoryRecord(groupId);
 }
 
-export function updateGroupFactById(
+export async function updateGroupFactById(
   id: number,
   fact: string,
-): GroupFactRecord | "duplicate" | null {
+): Promise<GroupFactRecord | "duplicate" | null> {
   const normalized = normalizeMemoryContent(fact);
   if (!normalized) return null;
 
-  const current = getGroupFactById(id);
+  const current = await getGroupFactById(id);
   if (!current) return null;
 
-  replaceGroupMemory(current.groupId, normalized);
+  await replaceGroupMemory(current.groupId, normalized);
   return getGroupMemoryRecord(current.groupId);
 }
 
-export function clearGroupFactsForGroup(groupId: string): number {
-  const result = db
-    .prepare(`DELETE FROM group_memories WHERE group_id = ?`)
-    .run(groupId);
-  const deleted = Number(result.changes);
+export async function clearGroupFactsForGroup(
+  groupId: string,
+): Promise<number> {
+  const result = await db.query(
+    `DELETE FROM group_memories WHERE group_id = $1`,
+    [groupId],
+  );
+  const deleted = result.rowCount ?? 0;
   if (deleted > 0) notifyGroupMemoryChanged();
   return deleted;
 }
 
-export function addGroupFacts(groupId: string, facts: string[]): number {
-  const existing = getGroupMemoryContent(groupId);
+export async function addGroupFacts(
+  groupId: string,
+  facts: string[],
+): Promise<number> {
+  const existing = await getGroupMemoryContent(groupId);
   let content = existing;
   let added = 0;
 
@@ -178,15 +188,16 @@ export function addGroupFacts(groupId: string, facts: string[]): number {
     added++;
   }
 
-  if (added > 0) replaceGroupMemory(groupId, content);
+  if (added > 0) await replaceGroupMemory(groupId, content);
   return added;
 }
 
-export function clearGroupMemory(groupId: string): void {
-  const result = db
-    .prepare(`DELETE FROM group_memories WHERE group_id = ?`)
-    .run(groupId);
-  if (result.changes > 0) notifyGroupMemoryChanged();
+export async function clearGroupMemory(groupId: string): Promise<void> {
+  const result = await db.query(
+    `DELETE FROM group_memories WHERE group_id = $1`,
+    [groupId],
+  );
+  if ((result.rowCount ?? 0) > 0) notifyGroupMemoryChanged();
 }
 
 export { formatGroupMemoryForPrompt } from "../index.js";
@@ -195,23 +206,30 @@ export function groupMemoryTotalChars(facts: string[]): number {
   return facts.reduce((n, f) => n + f.length, 0);
 }
 
-export function replaceGroupFacts(groupId: string, facts: string[]): void {
-  replaceGroupMemory(groupId, facts.join("\n").trim());
+export async function replaceGroupFacts(
+  groupId: string,
+  facts: string[],
+): Promise<void> {
+  await replaceGroupMemory(groupId, facts.join("\n").trim());
 }
 
-export function replaceGroupMemory(groupId: string, content: string): void {
+export async function replaceGroupMemory(
+  groupId: string,
+  content: string,
+): Promise<void> {
   const normalized = normalizeMemoryContent(content);
   if (!normalized) {
-    clearGroupMemory(groupId);
+    await clearGroupMemory(groupId);
     return;
   }
-  db.prepare(
+  await db.query(
     `INSERT INTO group_memories (group_id, content, updated_at)
-     VALUES (?, ?, unixepoch())
-     ON CONFLICT(group_id) DO UPDATE SET
+     VALUES ($1, $2, extract(epoch from now())::bigint)
+     ON CONFLICT (group_id) DO UPDATE SET
        content = excluded.content,
        updated_at = excluded.updated_at`,
-  ).run(groupId, normalized);
+    [groupId, normalized],
+  );
   notifyGroupMemoryChanged();
 }
 

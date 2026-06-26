@@ -87,7 +87,7 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
 }
 
 /** Convert wall-clock components in `timeZone` to an absolute UTC instant. */
-function zonedWallClockToUtc(
+export function zonedWallClockToUtc(
   year: number,
   month: number,
   day: number,
@@ -106,7 +106,7 @@ function zonedWallClockToUtc(
 }
 
 /** Wall-clock calendar date of an instant in `timeZone`. */
-function zonedDate(
+export function zonedDate(
   instant: Date,
   timeZone: string,
 ): { year: number; month: number; day: number } {
@@ -130,7 +130,7 @@ function weekdayOf(year: number, month: number, day: number): number {
 }
 
 /** Add `n` calendar days to a Y-M-D date, wrapping months/years. */
-function addCalendarDays(
+export function addCalendarDays(
   year: number,
   month: number,
   day: number,

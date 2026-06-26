@@ -27,6 +27,10 @@ function resolveLlmApiKey(): string {
   return (process.env.LLM_API_KEY ?? "").trim();
 }
 
+function resolveDatabaseUrl(): string {
+  return (process.env.DATABASE_URL ?? "").trim();
+}
+
 function resolveTimezone(): string {
   const raw = (process.env.TZ ?? "").trim();
   return raw || "UTC";
@@ -74,6 +78,12 @@ function collectRequiredEnvErrors(): string[] {
     errors.push("LLM_BASE_URL environment variable is required");
   }
 
+  if (!resolveDatabaseUrl()) {
+    errors.push(
+      "DATABASE_URL environment variable is required (Postgres connection string, e.g. postgres://user:pass@host:5432/db)",
+    );
+  }
+
   return errors;
 }
 
@@ -109,8 +119,8 @@ export function getVramAvailableGb(): number {
 export const config = {
   host: "0.0.0.0",
   port: resolvePort(),
-  databasePath:
-    process.env.DATABASE_PATH ?? path.join(rootDir, "data", "bot.db"),
+  /** Postgres connection string from env (DATABASE_URL). */
+  databaseUrl: resolveDatabaseUrl(),
   dashboardDist: path.join(rootDir, "dashboard", "dist"),
   /** Tavily API key from env (TAVILY_API_KEY). Empty = web search off. */
   tavilyApiKey: resolveTavilyApiKey(),

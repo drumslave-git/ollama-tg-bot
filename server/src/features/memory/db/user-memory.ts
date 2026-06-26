@@ -1,24 +1,28 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { SqlDatabase } from "../../../contracts/index.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
 import { normalizeFactText } from "./memory-facts.js";
 
 const MAX_MEMORY_CHARS = 12000;
 
-let db: DatabaseSync;
+let db: SqlDatabase;
 
-export function bindUserMemoryDatabase(database: DatabaseSync): void {
+export async function bindUserMemoryDatabase(
+  database: SqlDatabase,
+): Promise<void> {
   db = database;
-  db.exec(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS user_memories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
       user_id TEXT NOT NULL UNIQUE,
       content TEXT NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-      updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint,
+      updated_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
-    CREATE INDEX IF NOT EXISTS idx_user_memories_user
-      ON user_memories (user_id);
   `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_user_memories_user
+       ON user_memories (user_id);`,
+  );
 }
 
 export interface UserFactRecord {
@@ -28,36 +32,36 @@ export interface UserFactRecord {
   createdAt: string;
 }
 
-export function getUserFacts(userId: string): string[] {
-  const content = getUserMemoryContent(userId);
+interface UserMemoryRow {
+  id: number;
+  user_id: string;
+  content: string;
+  updated_at: number;
+}
+
+export async function getUserFacts(userId: string): Promise<string[]> {
+  const content = await getUserMemoryContent(userId);
   return content ? [content] : [];
 }
 
-export function getUserMemoryContent(userId: string): string {
-  const row = db
-    .prepare(`SELECT content FROM user_memories WHERE user_id = ?`)
-    .get(userId) as { content: string } | undefined;
-  return row?.content ?? "";
+export async function getUserMemoryContent(userId: string): Promise<string> {
+  const { rows } = await db.query<{ content: string }>(
+    `SELECT content FROM user_memories WHERE user_id = $1`,
+    [userId],
+  );
+  return rows[0]?.content ?? "";
 }
 
-export function listAllUserFacts(): UserFactRecord[] {
-  const rows = db
-    .prepare(
-      `SELECT id, user_id, content, updated_at FROM user_memories
+export async function listAllUserFacts(): Promise<UserFactRecord[]> {
+  const { rows } = await db.query<UserMemoryRow>(
+    `SELECT id, user_id, content, updated_at FROM user_memories
        ORDER BY user_id ASC`,
-    )
-    .all() as unknown as {
-    id: number;
-    user_id: string;
-    content: string;
-    updated_at: number;
-  }[];
-
+  );
   return rows.map(rowToUserFactRecord);
 }
 
-export function listUserFacts(userId: string): UserFactRecord[] {
-  const row = getUserMemoryRecord(userId);
+export async function listUserFacts(userId: string): Promise<UserFactRecord[]> {
+  const row = await getUserMemoryRecord(userId);
   return row ? [row] : [];
 }
 
@@ -67,25 +71,22 @@ export interface UserMemoryMatch {
 }
 
 /** Case-insensitive substring search over user memory documents. */
-export function searchUserMemories(query: string, limit = 50): UserMemoryMatch[] {
+export async function searchUserMemories(
+  query: string,
+  limit = 50,
+): Promise<UserMemoryMatch[]> {
   const q = query.trim();
   if (!q) return [];
-  const rows = db
-    .prepare(
-      `SELECT user_id, content FROM user_memories
-       WHERE instr(lower(content), lower(?)) > 0
-       ORDER BY user_id ASC LIMIT ?`,
-    )
-    .all(q, limit) as unknown as { user_id: string; content: string }[];
+  const { rows } = await db.query<{ user_id: string; content: string }>(
+    `SELECT user_id, content FROM user_memories
+       WHERE content ILIKE '%' || $1 || '%'
+       ORDER BY user_id ASC LIMIT $2`,
+    [q, limit],
+  );
   return rows.map((r) => ({ userId: r.user_id, content: r.content }));
 }
 
-function rowToUserFactRecord(r: {
-  id: number;
-  user_id: string;
-  content: string;
-  updated_at: number;
-}): UserFactRecord {
+function rowToUserFactRecord(r: UserMemoryRow): UserFactRecord {
   return {
     id: r.id,
     userId: r.user_id,
@@ -94,27 +95,25 @@ function rowToUserFactRecord(r: {
   };
 }
 
-export function getUserFactById(id: number): UserFactRecord | null {
-  const row = db
-    .prepare(
-      `SELECT id, user_id, content, updated_at FROM user_memories WHERE id = ?`,
-    )
-    .get(id) as
-    | { id: number; user_id: string; content: string; updated_at: number }
-    | undefined;
-  return row ? rowToUserFactRecord(row) : null;
+export async function getUserFactById(
+  id: number,
+): Promise<UserFactRecord | null> {
+  const { rows } = await db.query<UserMemoryRow>(
+    `SELECT id, user_id, content, updated_at FROM user_memories WHERE id = $1`,
+    [id],
+  );
+  return rows[0] ? rowToUserFactRecord(rows[0]) : null;
 }
 
-function getUserMemoryRecord(userId: string): UserFactRecord | null {
-  const row = db
-    .prepare(
-      `SELECT id, user_id, content, updated_at FROM user_memories
-       WHERE user_id = ?`,
-    )
-    .get(userId) as
-    | { id: number; user_id: string; content: string; updated_at: number }
-    | undefined;
-  return row ? rowToUserFactRecord(row) : null;
+async function getUserMemoryRecord(
+  userId: string,
+): Promise<UserFactRecord | null> {
+  const { rows } = await db.query<UserMemoryRow>(
+    `SELECT id, user_id, content, updated_at FROM user_memories
+       WHERE user_id = $1`,
+    [userId],
+  );
+  return rows[0] ? rowToUserFactRecord(rows[0]) : null;
 }
 
 function notifyUserMemoryChanged(): void {
@@ -123,49 +122,54 @@ function notifyUserMemoryChanged(): void {
   hooks.emitDataUpdated?.(["user_memories"]);
 }
 
-export function deleteUserFactById(id: number): boolean {
-  const result = db.prepare(`DELETE FROM user_memories WHERE id = ?`).run(id);
-  if (result.changes > 0) notifyUserMemoryChanged();
-  return result.changes > 0;
+export async function deleteUserFactById(id: number): Promise<boolean> {
+  const result = await db.query(`DELETE FROM user_memories WHERE id = $1`, [id]);
+  const deleted = (result.rowCount ?? 0) > 0;
+  if (deleted) notifyUserMemoryChanged();
+  return deleted;
 }
 
-export function createUserFact(
+export async function createUserFact(
   userId: string,
   fact: string,
-): UserFactRecord | null {
+): Promise<UserFactRecord | null> {
   const normalized = normalizeFactText(fact);
   if (!normalized) return null;
-  const existing = getUserMemoryContent(userId);
+  const existing = await getUserMemoryContent(userId);
   const content = appendUniqueLine(existing, normalized);
-  replaceUserMemory(userId, content);
+  await replaceUserMemory(userId, content);
   return getUserMemoryRecord(userId);
 }
 
-export function updateUserFactById(
+export async function updateUserFactById(
   id: number,
   fact: string,
-): UserFactRecord | "duplicate" | null {
+): Promise<UserFactRecord | "duplicate" | null> {
   const normalized = normalizeMemoryContent(fact);
   if (!normalized) return null;
 
-  const current = getUserFactById(id);
+  const current = await getUserFactById(id);
   if (!current) return null;
 
-  replaceUserMemory(current.userId, normalized);
+  await replaceUserMemory(current.userId, normalized);
   return getUserMemoryRecord(current.userId);
 }
 
-export function clearUserFactsForUser(userId: string): number {
-  const result = db
-    .prepare(`DELETE FROM user_memories WHERE user_id = ?`)
-    .run(userId);
-  const deleted = Number(result.changes);
+export async function clearUserFactsForUser(userId: string): Promise<number> {
+  const result = await db.query(
+    `DELETE FROM user_memories WHERE user_id = $1`,
+    [userId],
+  );
+  const deleted = result.rowCount ?? 0;
   if (deleted > 0) notifyUserMemoryChanged();
   return deleted;
 }
 
-export function addUserFacts(userId: string, facts: string[]): number {
-  const existing = getUserMemoryContent(userId);
+export async function addUserFacts(
+  userId: string,
+  facts: string[],
+): Promise<number> {
+  const existing = await getUserMemoryContent(userId);
   let content = existing;
   let added = 0;
 
@@ -178,15 +182,16 @@ export function addUserFacts(userId: string, facts: string[]): number {
     added++;
   }
 
-  if (added > 0) replaceUserMemory(userId, content);
+  if (added > 0) await replaceUserMemory(userId, content);
   return added;
 }
 
-export function clearUserMemory(userId: string): void {
-  const result = db
-    .prepare(`DELETE FROM user_memories WHERE user_id = ?`)
-    .run(userId);
-  if (result.changes > 0) notifyUserMemoryChanged();
+export async function clearUserMemory(userId: string): Promise<void> {
+  const result = await db.query(
+    `DELETE FROM user_memories WHERE user_id = $1`,
+    [userId],
+  );
+  if ((result.rowCount ?? 0) > 0) notifyUserMemoryChanged();
 }
 
 export { formatUserMemoryForPrompt } from "../index.js";
@@ -195,23 +200,30 @@ export function userMemoryTotalChars(facts: string[]): number {
   return facts.reduce((n, f) => n + f.length, 0);
 }
 
-export function replaceUserFacts(userId: string, facts: string[]): void {
-  replaceUserMemory(userId, facts.join("\n").trim());
+export async function replaceUserFacts(
+  userId: string,
+  facts: string[],
+): Promise<void> {
+  await replaceUserMemory(userId, facts.join("\n").trim());
 }
 
-export function replaceUserMemory(userId: string, content: string): void {
+export async function replaceUserMemory(
+  userId: string,
+  content: string,
+): Promise<void> {
   const normalized = normalizeMemoryContent(content);
   if (!normalized) {
-    clearUserMemory(userId);
+    await clearUserMemory(userId);
     return;
   }
-  db.prepare(
+  await db.query(
     `INSERT INTO user_memories (user_id, content, updated_at)
-     VALUES (?, ?, unixepoch())
-     ON CONFLICT(user_id) DO UPDATE SET
+     VALUES ($1, $2, extract(epoch from now())::bigint)
+     ON CONFLICT (user_id) DO UPDATE SET
        content = excluded.content,
        updated_at = excluded.updated_at`,
-  ).run(userId, normalized);
+    [userId, normalized],
+  );
   notifyUserMemoryChanged();
 }
 

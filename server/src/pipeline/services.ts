@@ -12,6 +12,7 @@ import { chatCompleteWithTools } from "../llm/tool-loop.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { getMessageReport } from "../debug/message-report.js";
+import { getSettings } from "../db/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getToolRoundNumPredict } from "../settings/limits.js";
 import {
@@ -44,8 +45,8 @@ function toReportWriter(turnId: number): PipelineReportWriter | null {
   };
 }
 
-function createLlmServices(): PipelineLlmServices {
-  const settings = getResolvedSettings();
+async function createLlmServices(): Promise<PipelineLlmServices> {
+  const settings = getResolvedSettings(await getSettings());
   return {
     baseUrl: config.llmBaseUrl,
     model: settings.model,
@@ -60,7 +61,7 @@ function createLlmServices(): PipelineLlmServices {
         traceLabel: options.traceLabel,
       }),
     createMainChatComplete: (options) => async (messages) => {
-      const currentSettings = getResolvedSettings();
+      const currentSettings = getResolvedSettings(await getSettings());
       const workflowSteps = currentSettings.workflowSteps ?? [];
       const registry = getMcpRegistry();
       registry.setEnabledToolNames(resolveEnabledMcpToolNames(workflowSteps));
@@ -113,15 +114,16 @@ function createLlmServices(): PipelineLlmServices {
   };
 }
 
-export function createPipelineServices(): PipelineHostServices {
+export async function createPipelineServices(): Promise<PipelineHostServices> {
   return {
     logging: {
       logEvent: (event, fields) => logEvent(event, fields as never),
       logEventError: (event, err, fields) =>
         logEventError(event, err, fields as never),
     },
-    llm: createLlmServices(),
-    getWorkflowSteps: () => getResolvedSettings().workflowSteps ?? [],
+    llm: await createLlmServices(),
+    getWorkflowSteps: async () =>
+      getResolvedSettings(await getSettings()).workflowSteps ?? [],
     getReport: toReportWriter,
   };
 }

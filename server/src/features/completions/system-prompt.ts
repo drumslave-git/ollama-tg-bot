@@ -17,8 +17,8 @@ export const systemPromptHost: PipelineModuleHost = {
   async run(state): Promise<PipelineStepResult> {
     const started = performance.now();
     // Bind tasks tool context to this turn before the main-reply tool loop.
-    captureTaskTurnContext(state);
-    const systemPromptContent = buildSystemPromptForTurn(state);
+    await captureTaskTurnContext(state);
+    const systemPromptContent = await buildSystemPromptForTurn(state);
 
     return {
       status: "ok",

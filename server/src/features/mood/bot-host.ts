@@ -30,7 +30,7 @@ export const botHost: BotModuleHost = {
         try {
           await services.replyToUser(
             grammyCtx,
-            buildMoodCommandReply(services.getSettings(), extension),
+            await buildMoodCommandReply(await services.getSettings(), extension),
           );
         } catch (err) {
           console.error("/mood command error:", err);

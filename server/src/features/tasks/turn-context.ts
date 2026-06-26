@@ -44,7 +44,9 @@ interface RepliedMessageShape {
 }
 
 /** Resolve the task id a turn replies to, when it replies to a bot task message. */
-function resolveRepliedTaskId(state: PipelineTurnState): number | null {
+async function resolveRepliedTaskId(
+  state: PipelineTurnState,
+): Promise<number | null> {
   const chatId = state.chatId;
   if (chatId == null) return null;
   const message = state.telegram.message as RepliedMessageShape | undefined;
@@ -57,7 +59,9 @@ function resolveRepliedTaskId(state: PipelineTurnState): number | null {
 }
 
 /** Capture the current turn's chat/owner context for the tasks tools. */
-export function captureTaskTurnContext(state: PipelineTurnState): void {
+export async function captureTaskTurnContext(
+  state: PipelineTurnState,
+): Promise<void> {
   if (state.chatId == null) {
     current = null;
     return;
@@ -69,6 +73,6 @@ export function captureTaskTurnContext(state: PipelineTurnState): void {
     isOwner: state.currentSpeakerIsOwner === true,
     inGroup: state.inGroup === true,
     messageThreadId: state.messageThreadId ?? null,
-    repliedTaskId: resolveRepliedTaskId(state),
+    repliedTaskId: await resolveRepliedTaskId(state),
   });
 }

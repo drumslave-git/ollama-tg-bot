@@ -17,12 +17,12 @@ const mockedListDistinctHistoryChatIds = vi.mocked(listDistinctHistoryChatIds);
 describe("maintenance announcement helpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedListDistinctHistoryChatIds.mockReturnValue([]);
+    mockedListDistinctHistoryChatIds.mockResolvedValue([]);
   });
 
-  it("loads chat ids from distinct history chat keys", () => {
-    mockedListDistinctHistoryChatIds.mockReturnValue([-100999001, 424242]);
-    expect(collectMaintenanceAnnouncementChatIds()).toEqual([
+  it("loads chat ids from distinct history chat keys", async () => {
+    mockedListDistinctHistoryChatIds.mockResolvedValue([-100999001, 424242]);
+    expect(await collectMaintenanceAnnouncementChatIds()).toEqual([
       -100999001,
       424242,
     ]);

@@ -15,7 +15,7 @@ export const personalityHost: PipelineModuleHost = {
 
   async run(state): Promise<PipelineStepResult> {
     const started = performance.now();
-    state.personalityPrompt = getActivePersonalityPrompt();
+    state.personalityPrompt = await getActivePersonalityPrompt();
 
     return {
       status: "ok",

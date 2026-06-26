@@ -25,13 +25,13 @@ export async function handleExplainCommand(
   const grammyCtx = ctx as Context;
   const botUsername = services.botUsername;
 
-  if (!extension.isOwner(grammyCtx)) {
+  if (!(await extension.isOwner(grammyCtx))) {
     await services.replyToUser(grammyCtx, "Only the bot owner can use /explain.");
     return;
   }
 
   // The only supported target is a reply to one of the bot's own messages.
-  const input = extension.buildTurnInput(grammyCtx);
+  const input = await extension.buildTurnInput(grammyCtx);
   if (!input) {
     await services.replyToUser(
       grammyCtx,

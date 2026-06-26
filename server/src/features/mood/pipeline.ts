@@ -35,7 +35,9 @@ export const moodPipelineHost: PipelineModuleHost = {
   },
 
   async run(state, services): Promise<PipelineStepResult> {
-    const decayedMood = normalizeMoodValues(getEffectiveMood() as MoodValues);
+    const decayedMood = normalizeMoodValues(
+      (await getEffectiveMood()) as MoodValues,
+    );
 
     const responseFormat = getMoodResponseFormat();
 
@@ -62,7 +64,7 @@ export const moodPipelineHost: PipelineModuleHost = {
     );
 
     const evaluatedMood = result.mood ?? decayedMood;
-    saveMoodState(evaluatedMood);
+    await saveMoodState(evaluatedMood);
     state.mood = evaluatedMood;
 
     return {
