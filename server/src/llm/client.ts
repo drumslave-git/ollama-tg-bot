@@ -30,7 +30,7 @@ import {
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "./openai-compat.js";
-import { getMessageReport } from "../debug/message-report.js";
+import { getRecorder } from "../debug/processing-recorder.js";
 import { sanitizeLlmPayloadForDebug } from "./debug-payload.js";
 import { extractModelMaxCtx } from "../settings/context-budget.js";
 
@@ -345,7 +345,7 @@ async function requestChat(
   );
   const llmStarted = performance.now();
   if (traceTurnId != null) {
-    getMessageReport(traceTurnId)?.beginLlmWait(
+    getRecorder(traceTurnId)?.beginLlmWait(
       traceLabelText,
       model,
       settings.chatTimeoutSec,
@@ -361,7 +361,7 @@ async function requestChat(
     });
   } catch (err) {
     if (traceTurnId != null) {
-      const report = getMessageReport(traceTurnId);
+      const report = getRecorder(traceTurnId);
       if (report) {
         const message = err instanceof Error ? err.message : String(err);
         report.failLlmWait(
@@ -395,7 +395,7 @@ async function requestChat(
   const choice = response.choices?.[0];
   const data = toChatResponse(choice, response.usage);
   if (traceTurnId != null) {
-    const report = getMessageReport(traceTurnId);
+    const report = getRecorder(traceTurnId);
     if (report) {
       report.recordLlmCall(
         traceLabelText,
@@ -461,7 +461,7 @@ async function requestChatStreaming(
   );
   const llmStarted = performance.now();
   if (traceTurnId != null) {
-    getMessageReport(traceTurnId)?.beginLlmWait(
+    getRecorder(traceTurnId)?.beginLlmWait(
       traceLabelText,
       model,
       settings.chatTimeoutSec,
@@ -508,7 +508,7 @@ async function requestChatStreaming(
     }
   } catch (err) {
     if (traceTurnId != null) {
-      const report = getMessageReport(traceTurnId);
+      const report = getRecorder(traceTurnId);
       if (report) {
         const message = err instanceof Error ? err.message : String(err);
         report.failLlmWait(
@@ -533,7 +533,7 @@ async function requestChatStreaming(
 
   const llmDurationMs = performance.now() - llmStarted;
   if (traceTurnId != null) {
-    getMessageReport(traceTurnId)?.recordLlmCall(
+    getRecorder(traceTurnId)?.recordLlmCall(
       traceLabelText,
       model,
       numPredict,

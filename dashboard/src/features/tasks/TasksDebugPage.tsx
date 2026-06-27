@@ -4,6 +4,7 @@ import { api, type TaskEvent, type TaskEventKind } from "@llm-tg-bot/dashboard/a
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
 import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
+import { TaskFiresDebug } from "./TaskFiresDebug";
 
 const KIND_LABEL: Record<TaskEventKind, string> = {
   created: "Created",
@@ -120,8 +121,12 @@ export function TasksDebugPage() {
           <span aria-hidden="true"> / </span>
           <span>Event log</span>
         </p>
-        <h2 className="m-0 text-2xl font-bold tracking-tight">Task event log</h2>
+        <h2 className="m-0 text-2xl font-bold tracking-tight">Task debug</h2>
       </header>
+
+      <TaskFiresDebug />
+
+      <hr className="m-0 border-0 border-t border-border" />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="m-0 text-sm text-muted">
           Most recent {events.length} task events (fires, creations, changes, removals).

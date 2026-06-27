@@ -187,6 +187,34 @@ export interface MessageProcessingDetail {
   entries: ProcessingEntry[];
 }
 
+export interface TaskDebugGroup {
+  taskId: number;
+  label: string;
+  fireCount: number;
+  latestAt: string | null;
+}
+
+export interface TaskFireListItem {
+  id: number;
+  taskId: number | null;
+  summary: string;
+  status: ProcessingStatus;
+  totalTimeSpent: number | null;
+  entryCount: number;
+  createdAt: string;
+}
+
+export interface TaskFireDetail {
+  id: number;
+  taskId: number | null;
+  taskInstruction: string | null;
+  summary: string;
+  status: ProcessingStatus;
+  totalTimeSpent: number | null;
+  createdAt: string;
+  entries: ProcessingEntry[];
+}
+
 // ---- Shared phase model (used by the memory/vision background-job debug) ----
 
 export type PhaseStatus = "skipped" | "ok" | "failed" | "waiting";
@@ -830,6 +858,12 @@ export const api = {
     request<{ processing: MessageProcessingDetail }>(
       `/api/debug/processing/${id}`,
     ),
+  getDebugTaskGroups: () =>
+    request<{ tasks: TaskDebugGroup[] }>("/api/debug/tasks"),
+  getDebugTaskFires: (taskId: number) =>
+    request<{ fires: TaskFireListItem[] }>(`/api/debug/task/${taskId}`),
+  getDebugTaskFire: (id: number) =>
+    request<{ fire: TaskFireDetail }>(`/api/debug/task-processing/${id}`),
   getTasks: () => request<{ tasks: Task[] }>("/api/tasks"),
   createTask: (payload: TaskInputPayload) =>
     request<{ task: Task }>("/api/tasks", {

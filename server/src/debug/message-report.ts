@@ -1,13 +1,18 @@
-import type { ChatMessage, VerbosePromptLayout } from "../llm/client.js";
 import {
-  type EntryType,
-  type ProcessingStatus,
+  type ProcessingSink,
+  ProcessingRecorder,
+  getRecorder,
+} from "./processing-recorder.js";
+import {
   ensureMessageProcessing,
   reportMessageProcessing,
   setMessageProcessingStatus,
 } from "../db/debug/message-processing.js";
 
-export type { ProcessingStatus, EntryType } from "../db/debug/message-processing.js";
+export type {
+  ProcessingStatus,
+  EntryType,
+} from "../db/debug/message-processing.js";
 
 const IGNORE_LABELS: Record<string, string> = {
   from_bot: "Sender is a bot",
@@ -31,117 +36,34 @@ const TRIGGER_LABELS: Record<string, string> = {
   image: "Image reaction trigger",
 };
 
-const LLM_TITLES: Record<string, string> = {
-  "address detection": "Address check",
-  "web search decision": "Search decision",
-  "mood evaluate": "Mood evaluation",
-  "main reply": "Main reply",
-  "vision describe": "Vision description",
-  "sticker pick": "Sticker selection",
-  "memory extract": "Memory extraction",
-  "user memory merge": "Memory merge (user)",
-  "group memory merge": "Memory merge (group)",
+/** Writes the message domain's processing entries via the shared recorder. */
+const messageSink: ProcessingSink = {
+  ensure: (ownerId) => ensureMessageProcessing(ownerId),
+  report: (ownerId, title, type, content) =>
+    reportMessageProcessing(ownerId, title, type, content),
+  setStatus: (ownerId, status, { totalTimeSpentMs, extra }) =>
+    setMessageProcessingStatus(ownerId, status, {
+      totalTimeSpentMs,
+      replyMessageIds: (extra as { replyMessageIds?: number[] } | undefined)
+        ?.replyMessageIds,
+    }),
 };
 
-function llmTitle(label: string): string {
-  const toolRound = /^main reply tools (\d+)$/.exec(label);
-  if (toolRound) return `Main reply · tools (round ${toolRound[1]})`;
-  return LLM_TITLES[label] ?? label;
-}
-
-interface ChatResponseShape {
-  message?: { content?: string; reasoning?: string };
-  toolCalls?: Array<{ name: string; arguments: string }>;
-  done_reason?: string;
-  eval_count?: number;
-}
-
-function jsonContent(value: unknown): string {
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return String(value);
-  }
-}
-
-const sessions = new Map<number, MessageProcessingReport>();
-
 /**
- * Live recorder for one inbound message turn. It keeps the same method surface
- * the pipeline already calls (okPhase/recordLlmCall/finalize…), but each call now
- * appends a `message_processing_entries` row keyed by the chat_messages.id of the
- * triggering message. Until that row is stored (see {@link linkProcessingMessage}),
- * calls are buffered, then flushed in order.
+ * Live recorder for one inbound message turn. Adds message-pipeline milestones
+ * (routing, queue, terminal states) on top of the shared {@link ProcessingRecorder}.
+ * `ownerId` is the chat_messages.id of the triggering message; until it is stored
+ * (see {@link linkProcessingMessage}) entries buffer, then flush in order.
  */
-export class MessageProcessingReport {
+export class MessageProcessingReport extends ProcessingRecorder {
   readonly turnId: number;
-  private readonly startedAt = performance.now();
-  private chatMessageId: number | null = null;
-  private buffer: Array<() => Promise<void>> = [];
-  /**
-   * Serializes every persisted write for this turn. Entries are fire-and-forget
-   * from sync call sites and each one `await`s `ensureMessageProcessing` before
-   * its INSERT, so without this chain two entries emitted back-to-back (e.g. an
-   * LLM request + waiting line) could race and land out of order.
-   */
-  private writeChain: Promise<void> = Promise.resolve();
   private replyMessageIds: number[] = [];
 
   constructor(turnId: number) {
+    // The turn id doubles as the recorder's trace id, so LLM entries from this
+    // turn route here via the shared registry.
+    super(messageSink, turnId);
     this.turnId = turnId;
-  }
-
-  private enqueue(task: () => Promise<void>): void {
-    this.writeChain = this.writeChain.then(task).catch((err) => {
-      console.error("Failed to persist message processing entry:", err);
-    });
-  }
-
-  /** Resolves once every queued write for this turn has been flushed. */
-  flush(): Promise<void> {
-    return this.writeChain;
-  }
-
-  /** Link this turn to its stored chat message and flush any buffered entries. */
-  link(chatMessageId: number): void {
-    this.chatMessageId = chatMessageId;
-    this.enqueue(async () => {
-      await ensureMessageProcessing(chatMessageId);
-    });
-    const pending = this.buffer;
-    this.buffer = [];
-    for (const run of pending) this.enqueue(run);
-  }
-
-  private entry(title: string, type: EntryType, content: string): void {
-    const run = async () => {
-      if (this.chatMessageId == null) return;
-      await reportMessageProcessing(this.chatMessageId, title, type, content);
-    };
-    if (this.chatMessageId == null) {
-      this.buffer.push(run);
-      return;
-    }
-    this.enqueue(run);
-  }
-
-  private elapsedMs(): number {
-    return Math.round(performance.now() - this.startedAt);
-  }
-
-  private finish(status: ProcessingStatus): void {
-    const elapsed = this.elapsedMs();
-    const replyIds = this.replyMessageIds;
-    const run = async () => {
-      if (this.chatMessageId == null) return;
-      await setMessageProcessingStatus(this.chatMessageId, status, {
-        totalTimeSpentMs: elapsed,
-        replyMessageIds: replyIds.length ? replyIds : undefined,
-      });
-    };
-    if (this.chatMessageId == null) this.buffer.push(run);
-    else this.enqueue(run);
-    sessions.delete(this.turnId);
   }
 
   // ---- Routing / queue milestones -----------------------------------------
@@ -161,113 +83,15 @@ export class MessageProcessingReport {
     const source = input.addressSource
       ? ` · ${ADDRESS_LABELS[input.addressSource] ?? input.addressSource}`
       : "";
-    this.entry(
-      "Accepted",
-      "text",
-      `${TRIGGER_LABELS[input.trigger] ?? input.trigger}${source}`,
-    );
+    this.note("Accepted", `${TRIGGER_LABELS[input.trigger] ?? input.trigger}${source}`);
   }
 
   setQueued(position: number): void {
-    this.entry("Queued", "text", `Position ${position} in queue`);
+    this.note("Queued", `Position ${position} in queue`);
   }
 
   setProcessingStarted(): void {
-    this.entry("Processing started", "text", "Picked up from the queue");
-  }
-
-  // ---- Generic pipeline phases --------------------------------------------
-
-  okPhase(
-    _id: string,
-    title: string,
-    summary: string,
-    durationMs?: number,
-    detail?: unknown,
-  ): void {
-    const suffix = durationMs != null ? ` · ${Math.round(durationMs)}ms` : "";
-    this.entry(title, "text", `${summary}${suffix}`);
-    if (detail != null) this.entry(`${title} · detail`, "json", jsonContent(detail));
-  }
-
-  skipPhase(_id: string, title: string, summary: string): void {
-    this.entry(`${title} (skipped)`, "text", summary);
-  }
-
-  failPhase(
-    _id: string,
-    title: string,
-    summary: string,
-    durationMs?: number,
-  ): void {
-    const suffix = durationMs != null ? ` · ${Math.round(durationMs)}ms` : "";
-    this.entry(`${title} (failed)`, "text", `${summary}${suffix}`);
-  }
-
-  // ---- LLM lifecycle: request → waiting → response ------------------------
-
-  beginLlmWait(
-    label: string,
-    model: string,
-    timeoutSec: number,
-    requestBody?: unknown,
-    samplingLine?: string,
-  ): void {
-    const title = llmTitle(label);
-    if (requestBody != null) {
-      this.entry(`LLM request · ${title}`, "json", jsonContent(requestBody));
-    }
-    const sampling = samplingLine ? ` · ${samplingLine}` : "";
-    this.entry(
-      `Waiting for LLM · ${title}`,
-      "text",
-      `${model} · up to ${timeoutSec}s${sampling}`,
-    );
-  }
-
-  failLlmWait(label: string, summary: string, durationMs?: number): void {
-    const suffix = durationMs != null ? ` · ${Math.round(durationMs)}ms` : "";
-    this.entry(`LLM failed · ${llmTitle(label)}`, "text", `${summary}${suffix}`);
-  }
-
-  recordLlmCall(
-    label: string,
-    model: string,
-    maxTokens: number,
-    _messages: ChatMessage[],
-    response: ChatResponseShape,
-    _layout?: VerbosePromptLayout,
-    _samplingLine?: string,
-    _requestBody?: unknown,
-    responseBody?: unknown,
-    durationMs?: number,
-  ): void {
-    const title = llmTitle(label);
-    const content = response.message?.content ?? "";
-    const reasoning = response.message?.reasoning ?? "";
-    const toolCalls = response.toolCalls ?? [];
-
-    const summary: string[] = [model];
-    if (toolCalls.length > 0) {
-      summary.push(
-        `${toolCalls.length} tool call${toolCalls.length === 1 ? "" : "s"}: ${toolCalls
-          .map((c) => c.name)
-          .join(", ")}`,
-      );
-    } else {
-      summary.push(`${content.length} chars output`);
-    }
-    if (reasoning) summary.push(`${reasoning.length} chars reasoning`);
-    summary.push(`done: ${response.done_reason ?? "unknown"}`);
-    summary.push(`tokens: ${response.eval_count ?? 0}/${maxTokens}`);
-    if (durationMs != null) summary.push(`${Math.round(durationMs)}ms`);
-
-    this.entry(
-      `LLM response · ${title}`,
-      "json",
-      jsonContent(responseBody ?? { content, reasoning, toolCalls }),
-    );
-    this.entry(`LLM result · ${title}`, "text", summary.join(" · "));
+    this.note("Processing started", "Picked up from the queue");
   }
 
   // ---- Terminal states -----------------------------------------------------
@@ -276,12 +100,8 @@ export class MessageProcessingReport {
     const source = addressSource
       ? ` · ${ADDRESS_LABELS[addressSource] ?? addressSource}`
       : "";
-    this.entry(
-      "Ignored",
-      "text",
-      `${IGNORE_LABELS[ignoreReason] ?? ignoreReason}${source}`,
-    );
-    this.finish("ignored");
+    this.note("Ignored", `${IGNORE_LABELS[ignoreReason] ?? ignoreReason}${source}`);
+    this.complete("ignored");
   }
 
   finalizeProcessed(options?: {
@@ -297,19 +117,19 @@ export class MessageProcessingReport {
     if (options?.replyChars != null) parts.push(`${options.replyChars} chars`);
     if (options?.chunks != null) parts.push(`${options.chunks} chunk(s)`);
     if (options?.sticker) parts.push(`sticker ${options.sticker}`);
-    this.entry("Replied", "text", parts.join(" · ") || "Reply delivered");
-    this.finish("processed");
+    this.note("Replied", parts.join(" · ") || "Reply delivered");
+    this.complete("processed", { replyMessageIds: this.replyMessageIds });
   }
 
   finalizeEarlyReply(input: { reason: string; replyChars?: number }): void {
     const chars = input.replyChars != null ? ` · ${input.replyChars} chars` : "";
-    this.entry("Early reply", "text", `${input.reason}${chars}`);
-    this.finish("processed");
+    this.note("Early reply", `${input.reason}${chars}`);
+    this.complete("processed");
   }
 
   finalizeError(error: string): void {
-    this.entry("Error", "text", error);
-    this.finish("error");
+    this.note("Error", error);
+    this.complete("error");
   }
 }
 
@@ -322,9 +142,8 @@ export function beginMessageReport(input: {
   messageId?: number | null;
   messagePreview?: string;
 }): MessageProcessingReport {
-  const session = new MessageProcessingReport(input.turnId);
-  sessions.set(input.turnId, session);
-  return session;
+  // The recorder registers itself in the shared registry under the turn id.
+  return new MessageProcessingReport(input.turnId);
 }
 
 /** Link a turn's report to the stored chat message that triggered it. */
@@ -332,11 +151,12 @@ export function linkProcessingMessage(
   turnId: number,
   chatMessageId: number,
 ): void {
-  sessions.get(turnId)?.link(chatMessageId);
+  getMessageReport(turnId)?.link(chatMessageId);
 }
 
 export function getMessageReport(
   turnId: number,
 ): MessageProcessingReport | undefined {
-  return sessions.get(turnId);
+  // A message turn id only ever maps to a message recorder.
+  return getRecorder(turnId) as MessageProcessingReport | undefined;
 }

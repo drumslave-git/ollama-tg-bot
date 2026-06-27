@@ -1,26 +1,30 @@
 import type { SqlDatabase } from "../../contracts/index.js";
 import { redactBase64MediaForDisplay } from "../../features/history/format.js";
+import {
+  type EntriesTableConfig,
+  type EntryType,
+  type ProcessingEntry,
+  type ProcessingStatus,
+  createEntriesTable,
+  insertEntry,
+  listEntries,
+} from "./processing-entries.js";
+
+export type { EntryType, ProcessingStatus } from "./processing-entries.js";
 
 let db: SqlDatabase;
 
 /** Keep at most this many processings per chat; older ones (and their entries) are trimmed. */
 export const MAX_PROCESSINGS_PER_CHAT = 50;
 
-export type ProcessingStatus =
-  | "processing"
-  | "processed"
-  | "ignored"
-  | "error";
+/** Entries table wiring for the message-processing domain. */
+const ENTRIES: EntriesTableConfig = {
+  entriesTable: "message_processing_entries",
+  processingsTable: "message_processings",
+  fkColumn: "message_processing_id",
+};
 
-export type EntryType = "text" | "json";
-
-export interface MessageProcessingEntry {
-  id: number;
-  title: string;
-  type: EntryType;
-  content: string;
-  createdAt: string;
-}
+export type MessageProcessingEntry = ProcessingEntry;
 
 export interface MessageProcessingListItem {
   id: number;
@@ -69,21 +73,7 @@ export async function bindMessageProcessingDatabase(
       created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
   `);
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS message_processing_entries (
-      id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      message_processing_id BIGINT NOT NULL
-        REFERENCES message_processings (id) ON DELETE CASCADE,
-      title TEXT NOT NULL,
-      type TEXT NOT NULL,
-      content TEXT NOT NULL DEFAULT '',
-      created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
-    );
-  `);
-  await db.query(
-    `CREATE INDEX IF NOT EXISTS idx_mpe_processing
-       ON message_processing_entries (message_processing_id, id);`,
-  );
+  await createEntriesTable(db, ENTRIES);
 }
 
 /** First line of a stored message, with any pending base64 media redacted. */
@@ -161,12 +151,7 @@ export async function reportMessageProcessing(
   const processingId = await ensureMessageProcessing(chatMessageId);
   if (processingId == null) return;
 
-  await db.query(
-    `INSERT INTO message_processing_entries
-       (message_processing_id, title, type, content)
-     VALUES ($1, $2, $3, $4)`,
-    [processingId, title, type, content],
-  );
+  await insertEntry(db, ENTRIES, processingId, title, type, content);
 
   const entityId = await entityForChatMessage(chatMessageId);
   if (entityId) {
@@ -305,29 +290,8 @@ export async function listProcessingsForChat(
   return Promise.all(rows.map(toListItem));
 }
 
-async function getEntries(
-  processingId: number,
-): Promise<MessageProcessingEntry[]> {
-  const { rows } = await db.query<{
-    id: number;
-    title: string;
-    type: EntryType;
-    content: string;
-    created_at: number;
-  }>(
-    `SELECT id, title, type, content, created_at
-       FROM message_processing_entries
-      WHERE message_processing_id = $1
-      ORDER BY id ASC`,
-    [processingId],
-  );
-  return rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    type: row.type,
-    content: row.content,
-    createdAt: new Date(row.created_at * 1000).toISOString(),
-  }));
+function getEntries(processingId: number): Promise<MessageProcessingEntry[]> {
+  return listEntries(db, ENTRIES, processingId);
 }
 
 export async function getProcessingDetail(

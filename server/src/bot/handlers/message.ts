@@ -1,6 +1,7 @@
 import type { Context } from "grammy";
 import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
 import { beginMessageReport } from "../../debug/message-report.js";
+import { allocateTraceId } from "../../debug/processing-recorder.js";
 import { extractText } from "../messages/message-content.js";
 import { summarizeMessageContent } from "../replies/replies.js";
 import { isSlashCommandMessage } from "../commands/slash-command.js";
@@ -16,12 +17,11 @@ import { runIntakePipeline } from "../../pipeline/queue-runner.js";
 import { deliverEarlyReply } from "../../pipeline/deliver.js";
 import { enqueueMessage } from "../../runtime/message-queue.js";
 
-// Ephemeral, process-local handle that keys a turn's in-flight debug report.
-// It is no longer persisted — debug processings are keyed by chat_messages.id.
-let nextTurnId = 1;
-
+// Ephemeral, process-local handle that keys a turn's in-flight debug report in
+// the shared recorder registry. Not persisted — debug processings are keyed by
+// chat_messages.id; the trace id only routes live LLM entries to this turn.
 function allocateTurnId(): number {
-  return nextTurnId++;
+  return allocateTraceId();
 }
 
 export async function messageHandler(ctx: Context, botToken: string) {

@@ -6,6 +6,7 @@ import type {
 import { bindTasksDatabase } from "./tasks.js";
 import { bindTaskMessagesDatabase } from "./task-messages.js";
 import { bindTaskEventsDatabase } from "./task-events.js";
+import { bindTaskProcessingDatabase } from "../../../db/debug/task-processing.js";
 import { createTasksRouter } from "./routes.js";
 
 export * from "./tasks.js";
@@ -57,6 +58,8 @@ export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
   await bindTasksDatabase(database);
   await bindTaskMessagesDatabase(database);
   await bindTaskEventsDatabase(database);
+  // After tasks — task_processings has a FK to tasks(id).
+  await bindTaskProcessingDatabase(database);
 }
 
 export function createModuleRouter() {

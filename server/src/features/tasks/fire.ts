@@ -18,6 +18,8 @@ import { prepareTelegramHtml, visibleTelegramText } from "../../telegram/html.js
 import type { TaskRecord } from "./db/tasks.js";
 import { recordTaskMessage } from "./db/task-messages.js";
 import { recordTaskEvent } from "./db/task-events.js";
+import { beginTaskProcessing } from "../../debug/task-report.js";
+import type { ProcessingRecorder } from "../../debug/processing-recorder.js";
 
 function buildTaskUserMessage(task: TaskRecord): string {
   return (
@@ -39,7 +41,10 @@ function hasVisibleContent(text: string): boolean {
   return /[\p{L}\p{N}]/u.test(text);
 }
 
-async function generateTaskMessage(task: TaskRecord): Promise<string> {
+async function generateTaskMessage(
+  task: TaskRecord,
+  traceTurnId?: number,
+): Promise<string> {
   const settings = getResolvedSettings(await getSettings());
   const systemPrompt = buildSystemPrompt({
     settings,
@@ -62,17 +67,25 @@ async function generateTaskMessage(task: TaskRecord): Promise<string> {
       responseFormat: getMainReplyResponseFormat(),
       numPredict: getMaintenanceAnnounceNumPredict(settings),
       traceLabel: "task fire",
+      traceTurnId,
     },
   );
 
   return extractTelegramReply(raw);
 }
 
+function replySummary(text: string): string {
+  return text.length > 90 ? `${text.slice(0, 90)}…` : text;
+}
+
 /** Generate and deliver one task's message; record the message→task links. */
 export async function fireTask(task: TaskRecord): Promise<boolean> {
+  const report: ProcessingRecorder | null = await beginTaskProcessing(task.id);
+  report?.note("Fired", task.instruction);
+
   let reply: string;
   try {
-    reply = await generateTaskMessage(task);
+    reply = await generateTaskMessage(task, report?.traceId);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     logEventError("task_fire_generate_failed", err, { taskId: task.id });
@@ -83,6 +96,8 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       summary: `Generation failed: ${task.instruction}`,
       detail: { instruction: task.instruction, error: message },
     });
+    report?.note("Generation failed", message);
+    report?.complete("error", { summary: `Generation failed: ${message}` });
     return false;
   }
   if (!hasVisibleContent(reply)) {
@@ -96,6 +111,8 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       summary: `Empty reply (no visible content): ${task.instruction}`,
       detail: { instruction: task.instruction, raw: reply.slice(0, 200) },
     });
+    report?.note("Empty reply", reply.slice(0, 200));
+    report?.complete("error", { summary: "Empty reply (no visible content)" });
     return false;
   }
 
@@ -126,6 +143,8 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       summary: `Send failed: ${task.instruction}`,
       detail: { instruction: task.instruction, error: message, reply },
     });
+    report?.note("Send failed", message);
+    report?.complete("error", { summary: `Send failed: ${message}` });
     return false;
   }
 
@@ -144,11 +163,16 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
     taskId: task.id,
     kind: "fired",
     chatId: task.chatId,
-    summary: reply.length > 90 ? `${reply.slice(0, 90)}…` : reply,
+    summary: replySummary(reply),
     detail: {
       instruction: task.instruction,
       sentMessages,
     },
   });
+  report?.note(
+    "Delivered",
+    `${sentMessages.length} chunk(s) · ${reply.length} chars`,
+  );
+  report?.complete("processed", { summary: replySummary(reply) });
   return true;
 }
