@@ -3,7 +3,7 @@ import {
   DEFAULT_MEMORY_MODULE_CONFIG,
   validateMemoryModuleConfig,
   type MemoryModuleConfig,
-} from "../index.js";
+} from "../module-config.js";
 
 let db: SqlDatabase;
 

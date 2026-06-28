@@ -200,7 +200,7 @@ export async function clearGroupMemory(groupId: string): Promise<void> {
   if ((result.rowCount ?? 0) > 0) notifyGroupMemoryChanged();
 }
 
-export { formatGroupMemoryForPrompt } from "../index.js";
+export { formatGroupMemoryForPrompt } from "../inject.js";
 
 export function groupMemoryTotalChars(facts: string[]): number {
   return facts.reduce((n, f) => n + f.length, 0);

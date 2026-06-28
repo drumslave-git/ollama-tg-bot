@@ -193,4 +193,4 @@ async function pruneGeneralFacts(): Promise<void> {
   );
 }
 
-export { formatGeneralMemoryForPrompt } from "../index.js";
+export { formatGeneralMemoryForPrompt } from "../inject.js";

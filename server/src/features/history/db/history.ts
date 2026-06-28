@@ -1,6 +1,6 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
-import { ASSISTANT_ROLE, type StoredMessage } from "../index.js";
+import { ASSISTANT_ROLE, type StoredMessage } from "../types.js";
 
 let db: SqlDatabase;
 

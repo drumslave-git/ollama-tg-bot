@@ -3,7 +3,7 @@ import {
   DEFAULT_VISION_MODULE_CONFIG,
   validateVisionModuleConfig,
   type VisionModuleConfig,
-} from "../index.js";
+} from "../module-config.js";
 
 let db: SqlDatabase;
 

@@ -194,7 +194,7 @@ export async function clearUserMemory(userId: string): Promise<void> {
   if ((result.rowCount ?? 0) > 0) notifyUserMemoryChanged();
 }
 
-export { formatUserMemoryForPrompt } from "../index.js";
+export { formatUserMemoryForPrompt } from "../inject.js";
 
 export function userMemoryTotalChars(facts: string[]): number {
   return facts.reduce((n, f) => n + f.length, 0);
