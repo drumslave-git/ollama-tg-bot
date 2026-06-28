@@ -49,7 +49,7 @@ describe.skipIf(!hasTestDb)("history storage (Postgres)", () => {
     expect(all.map((m) => m.content)).toEqual([
       "first",
       "second",
-      "[assistant said]: reply",
+      "reply",
     ]);
     expect(typeof all[0]!.createdAt).toBe("number");
   });

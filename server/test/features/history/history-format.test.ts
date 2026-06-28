@@ -148,6 +148,15 @@ describe("formatStoredMessageLine", () => {
     ).toBe("[user:alice:424242]: hello");
   });
 
+  it("adds the assistant envelope to clean stored content", () => {
+    expect(
+      formatStoredMessageLine({
+        role: ASSISTANT_ROLE,
+        content: "hi",
+      }),
+    ).toBe("[assistant said]: hi");
+  });
+
   it("keeps assistant envelope when already present", () => {
     expect(
       formatStoredMessageLine({

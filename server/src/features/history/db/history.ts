@@ -240,11 +240,10 @@ export async function appendAssistantMessage(
   entityId: string,
   assistantText: string,
 ): Promise<void> {
-  await appendMessage(
-    entityId,
-    ASSISTANT_ROLE,
-    `[assistant said]: ${assistantText.trim()}`,
-  );
+  // The `assistant` role already identifies the speaker; the human-readable
+  // `[assistant said]` tag is added at format time (see formatStoredMessageLine),
+  // so the stored content stays clean.
+  await appendMessage(entityId, ASSISTANT_ROLE, assistantText.trim());
 }
 
 export async function clearHistory(entityId: string): Promise<void> {
