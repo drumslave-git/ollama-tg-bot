@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { ModuleDbHost } from "../../../contracts/index.js";
-import { normalizeMoodValues } from "../index.js";
+import { normalizeMoodValues } from "../values.js";
 import {
   listPersonalities,
   getPersonalityById,

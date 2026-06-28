@@ -4,7 +4,7 @@ import {
   moodValuesEqual,
   normalizeMoodValues,
   type MoodValues,
-} from "../index.js";
+} from "../values.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
 import { getActivePersonalityMoodDefaults } from "./personalities.js";
 

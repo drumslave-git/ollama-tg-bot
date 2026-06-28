@@ -1,5 +1,4 @@
 import type { SqlDatabase } from "../../contracts/index.js";
-import { getModuleDataTableConfigs } from "../../runtime/modules.js";
 
 const MAX_ROWS = 2000;
 
@@ -18,66 +17,16 @@ export interface DataTablePayload {
   truncated: boolean;
 }
 
-interface TableConfig {
-  label: string;
-  columns: string[];
-  query: string;
-  countQuery: string;
-  timeColumns?: string[];
+interface ColumnInfo {
+  name: string;
+  dataType: string;
+  udtName: string;
 }
 
-const TABLE_CONFIGS: Record<string, TableConfig> = {
-  settings: {
-    label: "Settings",
-    columns: ["key", "value"],
-    query: "SELECT key, value FROM settings ORDER BY key",
-    countQuery: "SELECT COUNT(*)::int AS n FROM settings",
-  },
-  stats: {
-    label: "Stats",
-    columns: ["key", "value"],
-    query: "SELECT key, value FROM stats ORDER BY key",
-    countQuery: "SELECT COUNT(*)::int AS n FROM stats",
-  },
-  stats_meta: {
-    label: "Stats meta",
-    columns: ["key", "value"],
-    query: "SELECT key, value FROM stats_meta ORDER BY key",
-    countQuery: "SELECT COUNT(*)::int AS n FROM stats_meta",
-  },
-  known_users: {
-    label: "Known users",
-    columns: ["user_id", "username", "first_name", "last_name", "updated_at"],
-    query: `SELECT user_id, username, first_name, last_name, updated_at
-            FROM known_users ORDER BY updated_at DESC LIMIT $1`,
-    countQuery: "SELECT COUNT(*)::int AS n FROM known_users",
-    timeColumns: ["updated_at"],
-  },
-  error_log: {
-    label: "Error log",
-    columns: ["id", "message", "stack", "chat_id", "user_id", "created_at"],
-    query: `SELECT id, message, stack, chat_id, user_id, created_at
-            FROM error_log ORDER BY id DESC LIMIT $1`,
-    countQuery: "SELECT COUNT(*)::int AS n FROM error_log",
-    timeColumns: ["created_at"],
-  },
-};
-
-function allTableConfigs(): Record<string, TableConfig> {
-  return {
-    ...TABLE_CONFIGS,
-    ...Object.fromEntries(getModuleDataTableConfigs()),
-  };
-}
-
-/** Core SQLite tables only — module-owned tables are browsed on module pages. */
-const TABLE_ORDER = [
-  "settings",
-  "stats",
-  "stats_meta",
-  "known_users",
-  "error_log",
-] as const;
+/** Columns this big (vector embeddings, full-text search vectors) are previewed
+ *  as text rather than dumped in full — a single embedding is thousands of chars. */
+const PREVIEW_UDTS = new Set(["vector", "tsvector"]);
+const PREVIEW_CHARS = 240;
 
 let db: SqlDatabase;
 
@@ -85,13 +34,15 @@ export function bindDataBrowserDatabase(database: SqlDatabase): void {
   db = database;
 }
 
+/** Every base table in the public schema, with its live row count. */
 export async function listDataTables(): Promise<DataTableSummary[]> {
-  const ids = TABLE_ORDER.filter((id) => TABLE_CONFIGS[id]);
+  const names = await listTableNames();
   return Promise.all(
-    ids.map(async (id) => {
-      const config = TABLE_CONFIGS[id];
-      const { rows } = await db.query<{ n: number }>(config.countQuery);
-      return { id, label: config.label, count: rows[0]?.n ?? 0 };
+    names.map(async (id) => {
+      const { rows } = await db.query<{ n: number }>(
+        `SELECT COUNT(*)::int AS n FROM ${quoteIdent(id)}`,
+      );
+      return { id, label: humanizeTableName(id), count: rows[0]?.n ?? 0 };
     }),
   );
 }
@@ -99,28 +50,87 @@ export async function listDataTables(): Promise<DataTableSummary[]> {
 export async function getDataTable(
   tableId: string,
 ): Promise<DataTablePayload | null> {
-  const config = allTableConfigs()[tableId];
-  if (!config) return null;
+  // Validate against the real catalog before interpolating the name into SQL.
+  const names = await listTableNames();
+  if (!names.includes(tableId)) return null;
 
-  const { rows: totalRows } = await db.query<{ n: number }>(config.countQuery);
+  const columns = await listColumns(tableId);
+  const ident = quoteIdent(tableId);
+
+  const { rows: totalRows } = await db.query<{ n: number }>(
+    `SELECT COUNT(*)::int AS n FROM ${ident}`,
+  );
   const total = totalRows[0]?.n ?? 0;
-  const limited = total > MAX_ROWS;
-  const usesLimit = config.query.includes("LIMIT $1");
-  const { rows } = usesLimit
-    ? await db.query<Record<string, unknown>>(config.query, [MAX_ROWS])
-    : await db.query<Record<string, unknown>>(config.query);
 
-  const timeCols = new Set(config.timeColumns ?? []);
+  const selectList = columns.map(columnSelectExpr).join(", ");
+  const orderBy = orderByClause(columns);
+  const { rows } = await db.query<Record<string, unknown>>(
+    `SELECT ${selectList} FROM ${ident}${orderBy} LIMIT $1`,
+    [MAX_ROWS],
+  );
+
+  const timeCols = new Set(
+    columns.filter(isEpochColumn).map((column) => column.name),
+  );
   const formatted = rows.map((row) => formatRow(row, timeCols));
 
   return {
     id: tableId,
-    label: config.label,
-    columns: config.columns.map(snakeToCamel),
+    label: humanizeTableName(tableId),
+    columns: columns.map((column) => column.name),
     rows: formatted,
     total,
-    truncated: limited,
+    truncated: total > MAX_ROWS,
   };
+}
+
+async function listTableNames(): Promise<string[]> {
+  const { rows } = await db.query<{ table_name: string }>(
+    `SELECT table_name FROM information_schema.tables
+     WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+     ORDER BY table_name`,
+  );
+  return rows.map((row) => row.table_name);
+}
+
+async function listColumns(tableName: string): Promise<ColumnInfo[]> {
+  const { rows } = await db.query<{
+    column_name: string;
+    data_type: string;
+    udt_name: string;
+  }>(
+    `SELECT column_name, data_type, udt_name FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1
+     ORDER BY ordinal_position`,
+    [tableName],
+  );
+  return rows.map((row) => ({
+    name: row.column_name,
+    dataType: row.data_type,
+    udtName: row.udt_name,
+  }));
+}
+
+/** Bigint `*_at` columns hold epoch seconds — render them as ISO timestamps. */
+function isEpochColumn(column: ColumnInfo): boolean {
+  return column.dataType === "bigint" && /_at$/.test(column.name);
+}
+
+function columnSelectExpr(column: ColumnInfo): string {
+  const ident = quoteIdent(column.name);
+  if (PREVIEW_UDTS.has(column.udtName)) {
+    return `left(${ident}::text, ${PREVIEW_CHARS}) AS ${ident}`;
+  }
+  return ident;
+}
+
+/** Newest-first on the most meaningful column, else stable by the first column. */
+function orderByClause(columns: ColumnInfo[]): string {
+  const names = new Set(columns.map((column) => column.name));
+  for (const candidate of ["id", "created_at", "updated_at"]) {
+    if (names.has(candidate)) return ` ORDER BY ${quoteIdent(candidate)} DESC`;
+  }
+  return columns.length > 0 ? " ORDER BY 1" : "";
 }
 
 function formatRow(
@@ -129,16 +139,20 @@ function formatRow(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(row)) {
-    const camel = snakeToCamel(key);
     if (timeColumns.has(key) && typeof value === "number") {
-      out[camel] = new Date(value * 1000).toISOString();
+      out[key] = new Date(value * 1000).toISOString();
     } else {
-      out[camel] = value;
+      out[key] = value;
     }
   }
   return out;
 }
 
-function snakeToCamel(key: string): string {
-  return key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase());
+function humanizeTableName(name: string): string {
+  const spaced = name.replace(/_/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function quoteIdent(name: string): string {
+  return `"${name.replace(/"/g, '""')}"`;
 }

@@ -25,7 +25,6 @@ export {
   type ModuleLiveHooks,
 } from "./hooks.js";
 export type {
-  DataTableConfig,
   ModuleDbExports,
   ModuleDbHost,
   SqlDatabase,

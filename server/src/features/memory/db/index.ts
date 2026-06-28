@@ -1,5 +1,4 @@
 import type {
-  DataTableConfig,
   ModuleDbExports,
   SqlDatabase,
 } from "../../../contracts/index.js";
@@ -21,33 +20,6 @@ export {
   setMemoryChatFingerprint,
 } from "./job-state.js";
 
-const DATA_TABLE_CONFIGS: Record<string, DataTableConfig> = {
-  user_memories: {
-    label: "User memories",
-    columns: ["id", "user_id", "content", "created_at", "updated_at"],
-    query: `SELECT id, user_id, content, created_at, updated_at
-            FROM user_memories ORDER BY id DESC LIMIT $1`,
-    countQuery: "SELECT COUNT(*)::int AS n FROM user_memories",
-    timeColumns: ["created_at", "updated_at"],
-  },
-  group_memories: {
-    label: "Group memories",
-    columns: ["id", "group_id", "content", "created_at", "updated_at"],
-    query: `SELECT id, group_id, content, created_at, updated_at
-            FROM group_memories ORDER BY id DESC LIMIT $1`,
-    countQuery: "SELECT COUNT(*)::int AS n FROM group_memories",
-    timeColumns: ["created_at", "updated_at"],
-  },
-  general_facts: {
-    label: "General facts",
-    columns: ["id", "fact", "created_at"],
-    query: `SELECT id, fact, created_at
-            FROM general_facts ORDER BY id DESC LIMIT $1`,
-    countQuery: "SELECT COUNT(*)::int AS n FROM general_facts",
-    timeColumns: ["created_at"],
-  },
-};
-
 export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
   await bindUserMemoryDatabase(database);
   await bindGroupMemoryDatabase(database);
@@ -60,12 +32,7 @@ export function createModuleRouter() {
   return createMemoriesRouter();
 }
 
-export function getDataTableConfigs(): Record<string, DataTableConfig> {
-  return DATA_TABLE_CONFIGS;
-}
-
 export const memoryDbModule: ModuleDbExports = {
   bindModuleDatabase,
   createModuleRouter,
-  getDataTableConfigs,
 };

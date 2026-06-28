@@ -5,7 +5,7 @@ import {
   clampMoodLevel,
   normalizeMoodValues,
   type MoodValues,
-} from "../index.js";
+} from "../values.js";
 import { getModuleLiveHooks } from "../../../contracts/index.js";
 
 export const MAX_PERSONALITIES = 32;

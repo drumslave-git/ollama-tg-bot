@@ -1,14 +1,12 @@
 import type { Router } from "express";
 import {
   configureModuleLiveHooks,
-  type DataTableConfig,
   type ModuleDbHost,
   type SqlDatabase,
 } from "../contracts/index.js";
 import { MODULE_REGISTRY, type ModuleEntry } from "./module-registry.js";
 
 const loadedDbModules: ModuleEntry[] = [];
-const moduleDataTables = new Map<string, DataTableConfig>();
 
 export function getModuleEntries(): ModuleEntry[] {
   return MODULE_REGISTRY;
@@ -19,13 +17,6 @@ export async function initModuleDatabases(db: SqlDatabase): Promise<void> {
     if (!entry.db) continue;
     await entry.db.bindModuleDatabase(db);
     loadedDbModules.push(entry);
-    if (entry.db.getDataTableConfigs) {
-      for (const [tableId, tableConfig] of Object.entries(
-        entry.db.getDataTableConfigs(),
-      )) {
-        moduleDataTables.set(tableId, tableConfig);
-      }
-    }
   }
 }
 
@@ -45,10 +36,6 @@ export function createModuleRouters(): Array<{
     routers.push({ entry, router: entry.db.createModuleRouter() });
   }
   return routers;
-}
-
-export function getModuleDataTableConfigs(): Map<string, DataTableConfig> {
-  return moduleDataTables;
 }
 
 export function wireModuleLiveHooks(

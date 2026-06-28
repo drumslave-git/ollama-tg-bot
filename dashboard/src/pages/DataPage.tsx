@@ -244,8 +244,8 @@ export function DataPage() {
         title="Data"
         description={
           <>
-            Raw SQLite contents — one tab per table. Large tables show the newest{" "}
-            {2000} rows. Updates live.
+            Raw Postgres contents — one tab per table, every table in the
+            database. Large tables show the newest {2000} rows. Updates live.
           </>
         }
       />

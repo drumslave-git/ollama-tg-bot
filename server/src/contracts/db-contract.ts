@@ -17,14 +17,6 @@ export interface SqlDatabase {
   ): Promise<SqlQueryResult<R>>;
 }
 
-export interface DataTableConfig {
-  label: string;
-  columns: string[];
-  query: string;
-  countQuery: string;
-  timeColumns?: string[];
-}
-
 export interface ModuleDbHost {
   getSettings: () => Promise<Record<string, unknown>>;
   updateSettings: (
@@ -37,5 +29,4 @@ export interface ModuleDbExports {
   bindModuleDatabase: (database: SqlDatabase) => void | Promise<void>;
   configureModuleAccess?: (host: ModuleDbHost) => void;
   createModuleRouter?: () => Router;
-  getDataTableConfigs?: () => Record<string, DataTableConfig>;
 }
