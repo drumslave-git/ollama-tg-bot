@@ -74,6 +74,7 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
     name: "History summaries",
     description:
       "Daily LLM summaries of chat history, embedded for semantic recall via the always-on history_summaries_search MCP tool.",
+    apiBasePath: "/summaries",
     dataTables: ["chat_summaries"],
     db: summariesDbFeature,
     mcpTools: {

@@ -1,9 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
-import { api, type DataTablePayload } from "@llm-tg-bot/dashboard/api";
+import {
+  api,
+  type DataTablePayload,
+  type SummaryRunResult,
+} from "@llm-tg-bot/dashboard/api";
 
 const TABLE_ID = "chat_messages";
+
+/** Local wall-clock date as YYYY-MM-DD for the date input default. */
+function todayLocal(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
 
 interface MessageRow {
   id: number;
@@ -21,6 +32,12 @@ interface ChatGroup {
 
 const secondaryBtn =
   "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-4 py-2.5 text-sm font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+
+const primaryBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-transparent bg-accent-dim px-4 py-2.5 text-sm font-semibold text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
+
+const smallBtn =
+  "inline-flex cursor-pointer items-center justify-center rounded-md border border-border bg-surface-hover px-2.5 py-1 text-xs font-semibold text-text transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50";
 
 function formatTime(value: unknown): string {
   if (typeof value !== "string" || !value) return "—";
@@ -71,6 +88,40 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [summaryDate, setSummaryDate] = useState(todayLocal());
+  // Which run is in flight: a chat's entityId, "__all__", or null when idle.
+  const [runningChat, setRunningChat] = useState<string | null>(null);
+  const [runResults, setRunResults] = useState<SummaryRunResult[] | null>(null);
+  const [runError, setRunError] = useState<unknown>(null);
+
+  const resultsByChat = useMemo(() => {
+    const map = new Map<string, SummaryRunResult>();
+    for (const r of runResults ?? []) map.set(r.chatId, r);
+    return map;
+  }, [runResults]);
+
+  const runSummary = useCallback(
+    async (chatId?: string) => {
+      setRunError(null);
+      setRunningChat(chatId ?? "__all__");
+      try {
+        const res = await api.runSummary({ date: summaryDate, chatId });
+        // Merge per-chat runs into the existing result set; replace on "all".
+        setRunResults((prev) => {
+          if (!chatId || !prev) return res.results;
+          const merged = new Map(prev.map((r) => [r.chatId, r]));
+          for (const r of res.results) merged.set(r.chatId, r);
+          return [...merged.values()];
+        });
+      } catch (err) {
+        setRunError(err);
+      } finally {
+        setRunningChat(null);
+      }
+    },
+    [summaryDate],
+  );
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -132,6 +183,58 @@ export function HistoryPage() {
       {error ? <ErrorBanner error={error} /> : null}
 
       <section className="rounded-lg border border-border bg-surface p-6">
+        <h2 className="mb-1 text-lg font-semibold">Run a summary now</h2>
+        <p className="m-0 mb-3.5 max-w-2xl text-[0.88rem] text-muted">
+          Trigger the daily history summary on demand instead of waiting for the
+          scheduled job. Pick a day and summarize every chat, or just one below.
+          Re-running replaces that day's stored topics.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="date"
+            className="rounded-md border border-border bg-bg px-3 py-2 text-sm"
+            value={summaryDate}
+            onChange={(event) => setSummaryDate(event.target.value)}
+            max={todayLocal()}
+          />
+          <button
+            type="button"
+            className={primaryBtn}
+            onClick={() => void runSummary()}
+            disabled={runningChat !== null}
+          >
+            {runningChat === "__all__"
+              ? "Summarizing…"
+              : "Summarize all chats"}
+          </button>
+        </div>
+
+        {runError ? (
+          <div className="mt-3">
+            <ErrorBanner error={runError} />
+          </div>
+        ) : null}
+
+        {runResults ? (
+          <ul className="m-0 mt-3 list-none p-0 text-sm">
+            {runResults.map((r) => (
+              <li key={r.chatId} className="py-0.5">
+                <code className="font-mono text-[0.85em]">{r.chatId}</code>:{" "}
+                {r.error ? (
+                  <span className="text-danger">failed — {r.error}</span>
+                ) : (
+                  <span className="text-muted">
+                    {r.messageCount} message{r.messageCount === 1 ? "" : "s"} →{" "}
+                    {r.topicCount} topic{r.topicCount === 1 ? "" : "s"}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </section>
+
+      <section className="rounded-lg border border-border bg-surface p-6">
         <div className="mb-3.5 flex flex-wrap items-center gap-2">
           <input
             type="search"
@@ -181,12 +284,37 @@ export function HistoryPage() {
                           {group.messages.length === 1 ? "" : "s"}
                         </span>
                       </div>
-                      <span className="text-xs text-muted">
-                        Last{" "}
-                        <time dateTime={group.lastAt}>
-                          {formatTime(group.lastAt)}
-                        </time>
-                      </span>
+                      <div className="flex items-center gap-2.5">
+                        {resultsByChat.has(group.entityId) ? (
+                          <span className="text-xs text-muted">
+                            {(() => {
+                              const r = resultsByChat.get(group.entityId)!;
+                              return r.error
+                                ? `failed: ${r.error}`
+                                : `${summaryDate}: ${r.topicCount} topic${
+                                    r.topicCount === 1 ? "" : "s"
+                                  }`;
+                            })()}
+                          </span>
+                        ) : null}
+                        <span className="text-xs text-muted">
+                          Last{" "}
+                          <time dateTime={group.lastAt}>
+                            {formatTime(group.lastAt)}
+                          </time>
+                        </span>
+                        <button
+                          type="button"
+                          className={smallBtn}
+                          onClick={() => void runSummary(group.entityId)}
+                          disabled={runningChat !== null}
+                          title={`Summarize ${group.entityId} for ${summaryDate}`}
+                        >
+                          {runningChat === group.entityId
+                            ? "Summarizing…"
+                            : "Summarize"}
+                        </button>
+                      </div>
                     </header>
 
                     <ol className="m-0 list-none p-0">

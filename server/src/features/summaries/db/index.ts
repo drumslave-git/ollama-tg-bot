@@ -5,6 +5,7 @@ import type {
 import { bindSummariesDatabase } from "./summaries.js";
 import { bindSummariesJobStateDatabase } from "./job-state.js";
 import { bindSummariesConfigDatabase } from "./config.js";
+import { createSummariesRouter } from "./routes.js";
 
 export * from "./summaries.js";
 export * from "./job-state.js";
@@ -16,6 +17,11 @@ export async function bindFeatureDatabase(database: SqlDatabase): Promise<void> 
   await bindSummariesConfigDatabase(database);
 }
 
+export function createFeatureRouter() {
+  return createSummariesRouter();
+}
+
 export const summariesDbFeature: FeatureDbExports = {
   bindFeatureDatabase,
+  createFeatureRouter,
 };

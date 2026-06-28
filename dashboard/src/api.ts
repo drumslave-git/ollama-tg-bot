@@ -356,6 +356,13 @@ export interface TaskEvent {
   createdAt: string;
 }
 
+export interface SummaryRunResult {
+  chatId: string;
+  topicCount: number;
+  messageCount: number;
+  error?: string;
+}
+
 export interface DataTableSummary {
   id: string;
   label: string;
@@ -726,4 +733,12 @@ export const api = {
   getTaskEvents: () => request<{ events: TaskEvent[] }>("/api/tasks/debug"),
   clearTaskEvents: () =>
     request<{ ok: boolean }>("/api/tasks/debug", { method: "DELETE" }),
+  runSummary: (opts: { date?: string; chatId?: string } = {}) =>
+    request<{ date: string; results: SummaryRunResult[] }>(
+      "/api/summaries/run",
+      {
+        method: "POST",
+        body: JSON.stringify(opts),
+      },
+    ),
 };
