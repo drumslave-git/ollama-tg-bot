@@ -215,54 +215,30 @@ export interface TaskFireDetail {
   entries: ProcessingEntry[];
 }
 
-// ---- Shared phase model (used by the memory/vision background-job debug) ----
-
-export type PhaseStatus = "skipped" | "ok" | "failed" | "waiting";
-
-export interface ReportDetailFields {
-  type: "fields";
-  fields: Array<{ label: string; value: string }>;
+export interface JobModuleSummary {
+  moduleId: string;
+  runCount: number;
+  latestAt: string | null;
 }
 
-export interface ReportDetailText {
-  type: "text";
-  title: string;
-  body: string;
-}
-
-export interface ReportDetailLlm {
-  type: "llm";
-  model: string;
-  sampling?: string;
-  requestBody?: unknown;
-  responseBody?: unknown;
-  sections: Array<{ title: string; body: string }>;
-  output: {
-    content: string;
-    reasoning?: string;
-    meta?: string;
-    toolCalls?: Array<{ name: string; arguments: string }>;
-  };
-}
-
-export interface ReportDetailMood {
-  type: "mood";
-  traits: Record<string, number>;
-}
-
-export type ReportDetail =
-  | ReportDetailFields
-  | ReportDetailText
-  | ReportDetailLlm
-  | ReportDetailMood;
-
-export interface ReportPhase {
-  id: string;
-  title: string;
-  status: PhaseStatus;
-  durationMs?: number;
+export interface JobRunListItem {
+  id: number;
+  moduleId: string;
   summary: string;
-  detail?: ReportDetail;
+  status: ProcessingStatus;
+  totalTimeSpent: number | null;
+  entryCount: number;
+  createdAt: string;
+}
+
+export interface JobRunDetail {
+  id: number;
+  moduleId: string;
+  summary: string;
+  status: ProcessingStatus;
+  totalTimeSpent: number | null;
+  createdAt: string;
+  entries: ProcessingEntry[];
 }
 
 export interface BotErrorRecord {
@@ -290,128 +266,6 @@ export interface Stats {
   uptimeSeconds: number;
   startedAt: string;
   recentErrors: BotErrorRecord[];
-}
-
-export type ModuleJobStatus = "idle" | "scheduled" | "running";
-
-export type ModuleJobRunStatus =
-  | "scheduled"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
-
-export interface ModuleJobStep {
-  at: string;
-  label: string;
-  detail?: Record<string, unknown>;
-}
-
-export interface ModuleJobRun {
-  id: number;
-  status: ModuleJobRunStatus;
-  scheduledAt: string | null;
-  startedAt: string | null;
-  finishedAt: string | null;
-  error: string | null;
-  steps: ModuleJobStep[];
-}
-
-export interface ModuleJobDebugSnapshot {
-  moduleId: string;
-  status: ModuleJobStatus;
-  scheduledRunAt?: string | null;
-  currentRun: ModuleJobRun | null;
-  recentRuns: ModuleJobRun[];
-  lastUpdatedAt: string;
-}
-
-export interface MemoryJobRunListItem {
-  id: number;
-  status: ModuleJobRunStatus;
-  headline: string;
-  createdAt: string;
-  runAt: string | null;
-  durationMs: number | null;
-  chatsProcessed: number;
-  chatsSkipped: number;
-}
-
-export interface MemoryJobReportRecord {
-  status: ModuleJobRunStatus;
-  headline: string;
-  durationMs: number;
-  chatsScanned: number;
-  chatsProcessed: number;
-  chatsSkipped: number;
-  interrupted: boolean;
-  phases: ReportPhase[];
-  error?: string;
-}
-
-export interface MemoryJobRunDetail {
-  id: number;
-  status: ModuleJobRunStatus;
-  createdAt: string;
-  scheduledAt: string | null;
-  runAt: string | null;
-  startedAt: string | null;
-  finishedAt: string | null;
-  report: MemoryJobReportRecord;
-}
-
-export interface MemoryJobDebugSnapshot {
-  moduleId: string;
-  status: ModuleJobStatus;
-  scheduledRunAt: string | null;
-  currentRun: MemoryJobRunDetail | null;
-  recentRuns: MemoryJobRunListItem[];
-  lastUpdatedAt: string;
-}
-
-export interface VisionJobRunListItem {
-  id: number;
-  status: ModuleJobRunStatus;
-  headline: string;
-  createdAt: string;
-  runAt: string | null;
-  durationMs: number | null;
-  mediaBackfilled: number;
-  mediaFailed: number;
-}
-
-export interface VisionJobReportRecord {
-  status: ModuleJobRunStatus;
-  headline: string;
-  durationMs: number;
-  chatsScanned: number;
-  mediaBackfilled: number;
-  mediaFailed: number;
-  interrupted: boolean;
-  phases: ReportPhase[];
-  error?: string;
-}
-
-export interface VisionJobRunDetail {
-  id: number;
-  status: ModuleJobRunStatus;
-  createdAt: string;
-  scheduledAt: string | null;
-  runAt: string | null;
-  startedAt: string | null;
-  finishedAt: string | null;
-  report: VisionJobReportRecord;
-}
-
-export interface VisionJobDebugSnapshot {
-  moduleId: string;
-  status: ModuleJobStatus;
-  scheduledRunAt: string | null;
-  currentRun: VisionJobRunDetail | null;
-  recentRuns: VisionJobRunListItem[];
-  lastUpdatedAt: string;
-  pendingMediaRows: number;
-  chatsWithPending: number;
 }
 
 export interface UserMemoryFact {
@@ -789,14 +643,6 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
-  getMemoryJobDebug: () =>
-    request<MemoryJobDebugSnapshot>("/api/memories/debug"),
-  getMemoryJobRun: (id: number) =>
-    request<{ run: MemoryJobRunDetail }>(`/api/memories/debug/runs/${id}`),
-  getVisionJobDebug: () =>
-    request<VisionJobDebugSnapshot>("/api/vision/debug"),
-  getVisionJobRun: (id: number) =>
-    request<{ run: VisionJobRunDetail }>(`/api/vision/debug/runs/${id}`),
   llmHealth: async () => {
     await request<{ ok: boolean }>("/api/settings/test-llm", {
       method: "POST",
@@ -864,6 +710,12 @@ export const api = {
     request<{ fires: TaskFireListItem[] }>(`/api/debug/task/${taskId}`),
   getDebugTaskFire: (id: number) =>
     request<{ fire: TaskFireDetail }>(`/api/debug/task-processing/${id}`),
+  getDebugJobRuns: (moduleId: string) =>
+    request<{ runs: JobRunListItem[] }>(
+      `/api/debug/job/${encodeURIComponent(moduleId)}`,
+    ),
+  getDebugJobRun: (id: number) =>
+    request<{ run: JobRunDetail }>(`/api/debug/job-processing/${id}`),
   getTasks: () => request<{ tasks: Task[] }>("/api/tasks"),
   createTask: (payload: TaskInputPayload) =>
     request<{ task: Task }>("/api/tasks", {

@@ -62,15 +62,6 @@ export {
   type ModelContextInput,
 } from "./context-budget.js";
 export {
-  createModuleJobDebug,
-  type ModuleJobDebugSnapshot,
-  type ModuleJobDebugStore,
-  type ModuleJobRun,
-  type ModuleJobRunStatus,
-  type ModuleJobStatus,
-  type ModuleJobStep,
-} from "./job-debug.js";
-export {
   BotMcpRegistry,
   type McpToolRegistrar,
   type McpToolHostContext,

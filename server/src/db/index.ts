@@ -6,6 +6,7 @@ import {
   clearErrorLog,
 } from "./debug/error-log.js";
 import { bindMessageProcessingDatabase } from "./debug/message-processing.js";
+import { bindJobProcessingDatabase } from "./debug/job-processing.js";
 import { bindKnownUsersDatabase } from "./users/known-users.js";
 import { bindDataBrowserDatabase } from "./data/browser.js";
 import { getPersonalityById } from "./personalities/index.js";
@@ -149,6 +150,8 @@ export async function initDatabase(): Promise<void> {
   // After chat_messages (module dbs) and known_users — message_processings has a
   // FK to chat_messages and its labels read known_users.
   await bindMessageProcessingDatabase(db);
+  // Background-job run history (memory/vision backfill); no owner FK, capped per module.
+  await bindJobProcessingDatabase(db);
   bindDataBrowserDatabase(db);
 }
 

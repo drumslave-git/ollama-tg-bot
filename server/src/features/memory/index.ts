@@ -40,11 +40,7 @@ export {
   type MemoryQueueSchedulerDeps,
 } from "./queue-scheduler.js";
 export {
-  getMemoryJobDebugSnapshot,
-  getMemoryJobRunDetail,
   getMemoryJobScheduledRunAt,
   configureMemoryJobDebugStats,
   memoryJobDebug,
-  type MemoryJobDebugSnapshot,
-  type MemoryJobRunDetail,
 } from "./job-debug.js";

@@ -2,6 +2,18 @@ import { createHash } from "node:crypto";
 import { cleanMemoryDocument, type MemoryLlmConfig } from "./maintain.js";
 import type { MemoryModuleConfig } from "./module-config.js";
 import { memoryJobDebug } from "./job-debug.js";
+import { beginJobProcessing } from "../../debug/job-report.js";
+
+function maintenanceSummary(
+  processed: number,
+  skipped: number,
+  interrupted: boolean,
+): string {
+  const parts = [`${processed} processed`];
+  if (skipped > 0) parts.push(`${skipped} skipped`);
+  if (interrupted) parts.push("interrupted");
+  return parts.join(", ");
+}
 
 export type MemoryJobStatus = "idle" | "scheduled" | "running";
 
@@ -27,7 +39,7 @@ export interface MemoryQueueSchedulerDeps {
   writeUserMemory: (id: string, lines: string[]) => Promise<void>;
   writeGroupMemory: (id: string, lines: string[]) => Promise<void>;
   writeGeneralMemory: (lines: string[]) => Promise<void>;
-  buildCleanupConfig: () => Promise<{
+  buildCleanupConfig: (traceTurnId?: number) => Promise<{
     model: string;
     llmTimeoutSec: number;
     llm: MemoryLlmConfig;
@@ -86,50 +98,57 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
 
   async function runJob(): Promise<void> {
     if (deps.getQueueSize() > 0) return;
-    const session = memoryJobDebug.startRun();
+    setStatus("running");
+    const report = await beginJobProcessing("memory");
     deps.logEvent?.("memory_job_started", {});
 
+    let processed = 0;
+    let skipped = 0;
+    let interrupted = false;
+
     try {
-      const cfg = await deps.buildCleanupConfig();
-      const tracedCleanup = memoryJobDebug.wrapChatComplete(
-        "memory maintenance",
-        cfg.model,
-        cfg.llmTimeoutSec,
-        cfg.llm.chatComplete ??
-          (async () => {
-            throw new Error("cleanup chatComplete is not configured");
-          }),
-      );
-      const llm: MemoryLlmConfig = { ...cfg.llm, chatComplete: tracedCleanup };
+      // The cleanup chatComplete forwards traceTurnId, so the maintenance LLM
+      // call's request/response are captured as entries on this run.
+      const cfg = await deps.buildCleanupConfig(report?.traceId);
+      const llm = cfg.llm;
 
       const records = await collectRecords(deps);
-      session.setScanSummary(records.length);
+      report?.note("Scan records", `Found ${records.length} memory record(s)`);
 
       for (const record of records) {
         if (deps.getQueueSize() > 0) {
-          session.markInterrupted();
+          interrupted = true;
           break;
         }
         const fp = fingerprint(record.content);
         if ((await deps.getRecordFingerprint(record.key)) === fp) {
-          session.skipChat(record.key, "Unchanged since last maintenance");
+          skipped += 1;
+          report?.note(`Skipped · ${record.key}`, "Unchanged since last maintenance");
           continue;
         }
 
-        session.beginChat(record.key, record.content);
         const cleaned = await cleanMemoryDocument(record.kind, record.content, llm);
         await writeBack(record, cleaned, deps);
 
         const storedContent = cleaned.join("\n");
         await deps.setRecordFingerprint(record.key, fingerprint(storedContent));
         const changed = storedContent.trim() !== record.content.trim();
-        session.completeChat(record.key, changed, [record.kind]);
+        processed += 1;
+        report?.note(
+          `Record · ${record.key}`,
+          changed ? `Updated (${record.kind})` : "No memory changes",
+        );
       }
-      memoryJobDebug.completeRun();
+      if (interrupted) report?.note("Interrupted", "Queue activity resumed");
       deps.logEvent?.("memory_job_finished", {});
+      report?.complete("processed", {
+        summary: maintenanceSummary(processed, skipped, interrupted),
+      });
     } catch (err) {
-      memoryJobDebug.failRun(err);
       deps.logEventError?.("memory_job_failed", err, {});
+      report?.complete("error", {
+        summary: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       if (deps.getQueueSize() === 0) setStatus("idle");
     }

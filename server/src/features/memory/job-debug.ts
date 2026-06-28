@@ -1,35 +1,19 @@
-import { createMemoryJobDebug, type MemoryJobDebugStore } from "./job-report.js";
+import {
+  createJobStatusStore,
+  type JobStatusStore,
+} from "../../debug/job-status.js";
 
 let notifyStats: (() => void) | null = null;
 
+/** Wire the sidebar-stats refresh that fires when the job's status changes. */
 export function configureMemoryJobDebugStats(onUpdate: () => void): void {
   notifyStats = onUpdate;
 }
 
-export const memoryJobDebug: MemoryJobDebugStore = createMemoryJobDebug({
-  moduleId: "memory",
-  maxRuns: 30,
-  onUpdate: () => {
-    notifyStats?.();
-  },
+export const memoryJobDebug: JobStatusStore = createJobStatusStore(() => {
+  notifyStats?.();
 });
-
-export function getMemoryJobDebugSnapshot() {
-  return memoryJobDebug.snapshot();
-}
-
-export function getMemoryJobRunDetail(id: number) {
-  return memoryJobDebug.getRunDetail(id);
-}
 
 export function getMemoryJobScheduledRunAt(): string | null {
   return memoryJobDebug.getScheduledRunAt();
 }
-
-export {
-  createMemoryJobDebug,
-  type MemoryJobDebugSnapshot,
-  type MemoryJobRunDetail,
-  type MemoryJobRunListItem,
-  type MemoryJobDebugStore,
-} from "./job-report.js";

@@ -9,6 +9,11 @@ import {
   listProcessingsForTask,
   listTaskGroups,
 } from "../../db/debug/task-processing.js";
+import {
+  getJobProcessingDetail,
+  listJobModules,
+  listProcessingsForModule,
+} from "../../db/debug/job-processing.js";
 
 export const debugRouter = Router();
 
@@ -42,4 +47,20 @@ debugRouter.get("/task-processing/:id", async (req, res) => {
   const fire = await getTaskProcessingDetail(Number(req.params.id));
   if (!fire) return res.status(404).json({ error: "Task fire not found" });
   res.json({ fire });
+});
+
+// ---- Scheduled job run processings (modules → runs → entries) ------------
+
+debugRouter.get("/jobs", async (_req, res) => {
+  res.json({ modules: await listJobModules() });
+});
+
+debugRouter.get("/job/:moduleId", async (req, res) => {
+  res.json({ runs: await listProcessingsForModule(req.params.moduleId) });
+});
+
+debugRouter.get("/job-processing/:id", async (req, res) => {
+  const run = await getJobProcessingDetail(Number(req.params.id));
+  if (!run) return res.status(404).json({ error: "Job run not found" });
+  res.json({ run });
 });

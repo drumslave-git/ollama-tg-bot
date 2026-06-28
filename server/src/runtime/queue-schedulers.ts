@@ -10,7 +10,6 @@ import {
   configureVisionJobDebugStats,
   getVisionJobScheduledRunAt,
 } from "../features/vision/index.js";
-import { isBase64MediaHistoryContent } from "../features/history/index.js";
 import {
   getMemoryChatFingerprint,
   getMemoryModuleConfig,
@@ -59,28 +58,12 @@ let visionScheduler: QueueScheduler | null = null;
 export function initQueueSchedulers(): void {
   if (memoryScheduler && visionScheduler) return;
 
-  configureVisionJobDebugStats(
-    async () => {
-      let pendingMediaRows = 0;
-      let chatsWithPending = 0;
-      for (const chatKey of await listHistoryChatKeys(100)) {
-        const pending = (await getHistory(chatKey)).filter((row) =>
-          isBase64MediaHistoryContent(row.content),
-        ).length;
-        if (pending > 0) {
-          pendingMediaRows += pending;
-          chatsWithPending += 1;
-        }
-      }
-      return { pendingMediaRows, chatsWithPending };
-    },
-    () => {
-      setVisionJobRunAt(getVisionJobScheduledRunAt());
-      void import("../dashboard/live-events.js").then(({ emitStatsUpdated }) => {
-        emitStatsUpdated();
-      });
-    },
-  );
+  configureVisionJobDebugStats(() => {
+    setVisionJobRunAt(getVisionJobScheduledRunAt());
+    void import("../dashboard/live-events.js").then(({ emitStatsUpdated }) => {
+      emitStatsUpdated();
+    });
+  });
 
   configureMemoryJobDebugStats(() => {
     setMemoryJobRunAt(getMemoryJobScheduledRunAt());
@@ -102,7 +85,7 @@ export function initQueueSchedulers(): void {
   writeUserMemory: replaceUserFacts,
   writeGroupMemory: replaceGroupFacts,
   writeGeneralMemory: replaceGeneralFacts,
-  buildCleanupConfig: async () => {
+  buildCleanupConfig: async (traceTurnId) => {
     const settings = await getSettings();
     const mergeFormat = MEMORY_MERGE_RESPONSE_FORMAT;
     return {
@@ -118,6 +101,7 @@ export function initQueueSchedulers(): void {
           think: true,
           responseFormat: mergeFormat,
           traceLabel: "memory maintenance",
+          traceTurnId,
         }),
       },
     };
@@ -144,6 +128,7 @@ export function initQueueSchedulers(): void {
           numPredict: opts.numPredict,
           auxiliary: opts.auxiliary,
           traceLabel: opts.traceLabel ?? "vision describe (backfill)",
+          traceTurnId: opts.traceTurnId,
         }),
       log: {
         logEvent: (event, fields) => logEvent(event, fields as never),
