@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import type { Context } from "grammy";
 import { logEvent, logEventError, type EventFields } from "../../logging/event-log.js";
 import { beginMessageReport } from "../../debug/message-report.js";
@@ -149,6 +150,6 @@ export async function messageHandler(ctx: Context, botToken: string) {
     });
   } catch (err) {
     logEventError("handler_error", err, msgLog);
-    report?.finalizeError(err instanceof Error ? err.message : String(err));
+    report?.finalizeError(errorMessage(err));
   }
 }

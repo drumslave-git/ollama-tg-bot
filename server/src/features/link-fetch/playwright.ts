@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import { chromium, type Browser, type BrowserContext } from "playwright";
 import type { FetchedPage } from "./types.js";
 
@@ -69,7 +70,7 @@ async function fetchOnePage(
       url,
       title: "",
       text: "",
-      error: err instanceof Error ? err.message : String(err),
+      error: errorMessage(err),
     };
   } finally {
     await page.close();

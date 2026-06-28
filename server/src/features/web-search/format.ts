@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import type { WebSearchPayload, WebSearchResult, WebSearchSource } from "./types.js";
 
 export function formatWebSearchContext(
@@ -55,7 +56,7 @@ export function extractWebSearchSources(
 }
 
 export function formatWebSearchFailure(query: string, err: unknown): string {
-  const detail = err instanceof Error ? err.message : String(err);
+  const detail = errorMessage(err);
   return (
     `Web search was attempted for "${query}" but failed: ${detail}\n\n` +
     `Tell the user live lookup failed. Do not pretend you searched successfully.`

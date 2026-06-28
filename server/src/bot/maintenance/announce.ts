@@ -1,18 +1,8 @@
-import { getMainReplyResponseFormat } from "../../features/completions/index.js";
+import { errorMessage } from "../../logging/index.js";
 import { getBot } from "../index.js";
-import {
-  getActivePersonalityPrompt,
-  getEffectiveMood,
-} from "../../features/mood/db/index.js";
 import { appendAssistantMessage } from "../../features/history/db/index.js";
-import { getSettings, recordReply } from "../../db/index.js";
-import { chatCompleteDetailed } from "../../llm/client.js";
-import { buildSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
-import { getResolvedSettings } from "../../settings/runtime.js";
-import {
-  getMaintenanceAnnounceNumPredict,
-} from "../../settings/limits.js";
-import { getOwnerUserId, getOwnerUsername } from "../owner/owner.js";
+import { recordReply } from "../../db/index.js";
+import { generateOutOfBandReplyRaw } from "../../pipeline/out-of-band-reply.js";
 import { splitTelegramMessage } from "../replies/delivery.js";
 import { logEvent, logEventError } from "../../logging/event-log.js";
 import { prepareTelegramHtml } from "../../telegram/html.js";
@@ -31,32 +21,9 @@ export {
 export async function generateMaintenanceAnnouncement(
   enabled: boolean,
 ): Promise<string> {
-  const settings = getResolvedSettings(await getSettings());
-  const systemPrompt = buildSystemPrompt({
-    settings,
-    customPrompt: await getActivePersonalityPrompt(),
-    knownChatUsers: [],
-    isGroupChat: false,
-    ownerUserId: await getOwnerUserId(),
-    ownerUsername: await getOwnerUsername(),
-    mood: await getEffectiveMood(),
+  const raw = await generateOutOfBandReplyRaw({
+    userMessage: buildMaintenanceAnnouncementUserMessage(enabled),
   });
-
-  const { raw } = await chatCompleteDetailed(
-    [
-      { role: "system", content: systemPrompt },
-      {
-        role: "user",
-        content: buildMaintenanceAnnouncementUserMessage(enabled),
-      },
-    ],
-    {
-      auxiliary: true,
-      responseFormat: getMainReplyResponseFormat(),
-      numPredict: getMaintenanceAnnounceNumPredict(settings),
-    },
-  );
-
   return parseMaintenanceAnnouncementReply(raw);
 }
 
@@ -77,7 +44,7 @@ async function sendAnnouncementToChat(
       } catch (fallbackErr) {
         logEventError("maintenance_announce_send_failed", fallbackErr, {
           chatId,
-          originalError: err instanceof Error ? err.message : String(err),
+          originalError: errorMessage(err),
         });
         return false;
       }

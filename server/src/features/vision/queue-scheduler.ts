@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import {
   isBase64MediaHistoryContent,
   parseBase64MediaHistoryContent,
@@ -130,7 +131,7 @@ export function createVisionQueueScheduler(deps: VisionQueueSchedulerDeps) {
     } catch (err) {
       deps.logEventError?.("vision_backfill_failed", err, {});
       report?.complete("error", {
-        summary: err instanceof Error ? err.message : String(err),
+        summary: errorMessage(err),
       });
     } finally {
       if (deps.getQueueSize() === 0) setStatus("idle");

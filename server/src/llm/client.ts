@@ -1,3 +1,4 @@
+import { errorMessage } from "../logging/index.js";
 import type { JsonSchemaResponseFormat } from "../shared/index.js";
 import { toOpenAiResponseFormat } from "../shared/index.js";
 import OpenAI, {
@@ -363,7 +364,7 @@ async function requestChat(
     if (traceTurnId != null) {
       const report = getRecorder(traceTurnId);
       if (report) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = errorMessage(err);
         report.failLlmWait(
           traceLabelText,
           message,
@@ -510,7 +511,7 @@ async function requestChatStreaming(
     if (traceTurnId != null) {
       const report = getRecorder(traceTurnId);
       if (report) {
-        const message = err instanceof Error ? err.message : String(err);
+        const message = errorMessage(err);
         report.failLlmWait(
           traceLabelText,
           message,

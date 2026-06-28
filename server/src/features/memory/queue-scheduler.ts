@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import { createHash } from "node:crypto";
 import { cleanMemoryDocument, type MemoryLlmConfig } from "./maintain.js";
 import type { MemoryConfig } from "./config.js";
@@ -147,7 +148,7 @@ export function createMemoryQueueScheduler(deps: MemoryQueueSchedulerDeps) {
     } catch (err) {
       deps.logEventError?.("memory_job_failed", err, {});
       report?.complete("error", {
-        summary: err instanceof Error ? err.message : String(err),
+        summary: errorMessage(err),
       });
     } finally {
       if (deps.getQueueSize() === 0) setStatus("idle");

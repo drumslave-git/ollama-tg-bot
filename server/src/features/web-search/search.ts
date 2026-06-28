@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import type { FeatureDefinition, FeatureLogging } from "../../shared/index.js";
 import {
   extractWebSearchSources,
@@ -66,7 +67,7 @@ export async function runWebSearch(
       sources: [],
       answer: null,
       context: formatWebSearchFailure(query, err),
-      reason: err instanceof Error ? err.message : String(err),
+      reason: errorMessage(err),
     };
   }
 }

@@ -23,8 +23,5 @@
   ],
   "devDependencies": {
     "concurrently": "^9.1.2"
-  },
-  "dependencies": {
-    "@xyflow/react": "^12.11.0"
   }
 }

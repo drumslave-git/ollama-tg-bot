@@ -1,3 +1,4 @@
+import { errorMessage } from "./index.js";
 import { isDebugLogging } from "./index.js";
 
 export type EventFields = Record<
@@ -33,7 +34,7 @@ export function logEventError(
   err: unknown,
   fields: EventFields = {},
 ): void {
-  const message = err instanceof Error ? err.message : String(err);
+  const message = errorMessage(err);
   console.error(formatEventLine(event, { ...fields, error: message }));
   if (err instanceof Error && err.stack) {
     console.error(err.stack);

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import {
   auxiliaryChatComplete,
   type ChatMessage,
@@ -63,7 +64,7 @@ export async function evaluateMood(
     });
     return parsed;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     config.log?.logEventError?.("mood_evaluate_failed", err);
     return {
       mood: fallback,

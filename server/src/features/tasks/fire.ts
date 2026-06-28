@@ -1,20 +1,10 @@
-import {
-  extractTelegramReply,
-  getMainReplyResponseFormat,
-} from "../completions/index.js";
+import { errorMessage } from "../../logging/index.js";
+import { extractTelegramReply } from "../completions/index.js";
 import { getBot } from "../../bot/index.js";
 import { splitTelegramMessage } from "../../bot/replies/delivery.js";
-import {
-  getActivePersonalityPrompt,
-  getEffectiveMood,
-} from "../mood/db/index.js";
 import { appendAssistantMessage } from "../history/db/index.js";
-import { getSettings, recordReply } from "../../db/index.js";
-import { chatCompleteDetailed } from "../../llm/client.js";
-import { buildSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
-import { getResolvedSettings } from "../../settings/runtime.js";
-import { getMaintenanceAnnounceNumPredict } from "../../settings/limits.js";
-import { getOwnerUserId, getOwnerUsername } from "../../bot/owner/owner.js";
+import { recordReply } from "../../db/index.js";
+import { generateOutOfBandReplyRaw } from "../../pipeline/out-of-band-reply.js";
 import { logEvent, logEventError } from "../../logging/event-log.js";
 import { prepareTelegramHtml, visibleTelegramText } from "../../telegram/html.js";
 import type { TaskRecord } from "./db/tasks.js";
@@ -47,32 +37,13 @@ async function generateTaskMessage(
   task: TaskRecord,
   traceTurnId?: number,
 ): Promise<string> {
-  const settings = getResolvedSettings(await getSettings());
-  const systemPrompt = buildSystemPrompt({
-    settings,
-    customPrompt: await getActivePersonalityPrompt(),
-    knownChatUsers: [],
+  const raw = await generateOutOfBandReplyRaw({
+    userMessage: buildTaskUserMessage(task),
     isGroupChat: task.entityId !== String(task.chatId),
-    ownerUserId: await getOwnerUserId(),
-    ownerUsername: await getOwnerUsername(),
-    mood: await getEffectiveMood(),
     entityId: task.entityId,
+    traceLabel: "task fire",
+    traceTurnId,
   });
-
-  const { raw } = await chatCompleteDetailed(
-    [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: buildTaskUserMessage(task) },
-    ],
-    {
-      auxiliary: true,
-      responseFormat: getMainReplyResponseFormat(),
-      numPredict: getMaintenanceAnnounceNumPredict(settings),
-      traceLabel: "task fire",
-      traceTurnId,
-    },
-  );
-
   return extractTelegramReply(raw);
 }
 
@@ -89,7 +60,7 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   try {
     reply = await generateTaskMessage(task, report?.traceId);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     logEventError("task_fire_generate_failed", err, { taskId: task.id });
     await recordTaskEvent({
       taskId: task.id,
@@ -136,7 +107,7 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       });
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     logEventError("task_fire_send_failed", err, { taskId: task.id });
     await recordTaskEvent({
       taskId: task.id,

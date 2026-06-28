@@ -1,3 +1,4 @@
+import { errorMessage } from "../logging/index.js";
 import type {
   PipelineFeatureHost,
   PipelineTurnState,
@@ -224,7 +225,7 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
     });
   } catch (err) {
     getMessageReport(turnId)?.finalizeError(
-      err instanceof Error ? err.message : String(err),
+      errorMessage(err),
     );
     await deliverPipelineError(ctx, err, {
       turnId,

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import {
   auxiliaryChatComplete,
   type ChatMessage,
@@ -107,7 +108,7 @@ export async function pickSticker(
       reason: parsed.reason,
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return {
       choice: null,
       fileId: null,

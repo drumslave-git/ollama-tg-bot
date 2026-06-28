@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import {
   auxiliaryChatComplete,
   type ChatMessage,
@@ -77,7 +78,7 @@ export async function detectAddressing(
         );
     return parseAddressDecision(raw);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return { result: false, reason: `LLM request failed: ${message}` };
   }
 }

@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import { formatLinkFetchContext, formatLinkFetchFailure } from "./format.js";
 import { isSafePublicUrl } from "./extract.js";
 import { fetchPagesWithPlaywright } from "./playwright.js";
@@ -74,11 +75,11 @@ export async function fetchLink(
         url: normalized,
         title: "",
         text: "",
-        error: err instanceof Error ? err.message : String(err),
+        error: errorMessage(err),
       },
       context: formatLinkFetchFailure([normalized], err),
       resolved: false,
-      reason: err instanceof Error ? err.message : String(err),
+      reason: errorMessage(err),
     };
   }
 }

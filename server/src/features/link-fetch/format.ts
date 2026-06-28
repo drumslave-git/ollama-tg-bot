@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import type { FetchedPage } from "./types.js";
 
 export function formatLinkFetchContext(pages: FetchedPage[]): string {
@@ -28,7 +29,7 @@ export function formatLinkFetchContext(pages: FetchedPage[]): string {
 }
 
 export function formatLinkFetchFailure(urls: string[], err: unknown): string {
-  const detail = err instanceof Error ? err.message : String(err);
+  const detail = errorMessage(err);
   const list = urls.join(", ");
   return (
     `The message included link(s) (${list}) but Playwright could not fetch them: ${detail}\n\n` +

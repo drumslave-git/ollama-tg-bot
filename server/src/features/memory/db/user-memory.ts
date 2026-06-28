@@ -1,8 +1,10 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
 import { getFeatureLiveHooks } from "../../../contracts/index.js";
-import { normalizeFactText } from "./memory-facts.js";
-
-const MAX_MEMORY_CHARS = 12000;
+import {
+  appendUniqueLine,
+  normalizeFactText,
+  normalizeMemoryContent,
+} from "./memory-facts.js";
 
 let db: SqlDatabase;
 
@@ -221,23 +223,4 @@ export async function replaceUserMemory(
     [userId, normalized],
   );
   notifyUserMemoryChanged();
-}
-
-function appendUniqueLine(existing: string, fact: string): string {
-  const lines = existing
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  const key = fact.toLowerCase();
-  if (lines.some((line) => line.toLowerCase() === key)) {
-    return existing.trim();
-  }
-  return [...lines, fact].join("\n").slice(0, MAX_MEMORY_CHARS);
-}
-
-function normalizeMemoryContent(content: unknown): string | null {
-  if (typeof content !== "string") return null;
-  const normalized = content.trim();
-  if (normalized.length < 2) return null;
-  return normalized.slice(0, MAX_MEMORY_CHARS);
 }

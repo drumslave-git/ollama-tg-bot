@@ -1,3 +1,4 @@
+import { errorMessage } from "../../logging/index.js";
 import type { FeatureDefinition, FeatureLogging } from "../../shared/index.js";
 import { extractUrls } from "./extract.js";
 import {
@@ -71,7 +72,7 @@ export async function runLinkFetch(
       context: formatLinkFetchFailure(limited, err),
       urlCount: urls.length,
       resolved: false,
-      reason: err instanceof Error ? err.message : String(err),
+      reason: errorMessage(err),
       pages: [],
     };
   }
