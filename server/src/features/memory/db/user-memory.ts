@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import { normalizeFactText } from "./memory-facts.js";
 
 const MAX_MEMORY_CHARS = 12000;
@@ -117,7 +117,7 @@ async function getUserMemoryRecord(
 }
 
 function notifyUserMemoryChanged(): void {
-  const hooks = getModuleLiveHooks();
+  const hooks = getFeatureLiveHooks();
   hooks.emitMemoryUpdated?.("user");
   hooks.emitDataUpdated?.(["user_memories"]);
 }
@@ -195,10 +195,6 @@ export async function clearUserMemory(userId: string): Promise<void> {
 }
 
 export { formatUserMemoryForPrompt } from "../inject.js";
-
-export function userMemoryTotalChars(facts: string[]): number {
-  return facts.reduce((n, f) => n + f.length, 0);
-}
 
 export async function replaceUserFacts(
   userId: string,

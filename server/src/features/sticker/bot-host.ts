@@ -1,8 +1,8 @@
 import type { Api } from "grammy";
-import type { BotModuleHost, BotHostServices } from "../../contracts/index.js";
+import type { BotFeatureHost, BotHostServices } from "../../contracts/index.js";
 import { syncStickerCatalogFromSettings } from "./sticker-catalog.js";
 
-export const botHost: BotModuleHost = {
+export const botHost: BotFeatureHost = {
   id: "sticker-selection",
 
   async onStart(services: BotHostServices): Promise<void> {

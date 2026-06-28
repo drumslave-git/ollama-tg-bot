@@ -19,10 +19,13 @@ import {
   stickerPackEmoji as visionStickerPackEmoji,
 } from "../features/vision/index.js";
 import { getStickerCatalogForSelection } from "../features/sticker/sticker-catalog.js";
-import { getEffectiveMood, saveMoodState } from "../db/mood/index.js";
+import {
+  getActivePersonalityPrompt,
+  getEffectiveMood,
+  saveMoodState,
+} from "../features/mood/db/index.js";
 import { getSettings } from "../db/index.js";
-import { getActivePersonalityPrompt } from "../db/personalities/index.js";
-import { appendMessage, mapHistoryBase64Media } from "../db/history/index.js";
+import { appendMessage, mapHistoryBase64Media } from "../features/history/db/index.js";
 import { isOwner as botIsOwner } from "../bot/owner/owner.js";
 import { enrichTextWithUserMentions as botEnrichTextWithUserMentions } from "../bot/messages/mentions.js";
 import { currentSpeakerFromUser as botCurrentSpeakerFromUser } from "../bot/messages/speaker.js";

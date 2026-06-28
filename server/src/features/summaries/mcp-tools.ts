@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import { embedOne } from "../../llm/embeddings.js";
 import { searchSummaries } from "./db/summaries.js";
 
@@ -21,7 +21,7 @@ const summariesOutputSchema = z.object({
 });
 
 export interface SummariesMcpConfig {
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 export function registerSummariesMcpTools(

@@ -11,8 +11,7 @@ import {
 } from "../../db/debug/task-processing.js";
 import {
   getJobProcessingDetail,
-  listJobModules,
-  listProcessingsForModule,
+  listProcessingsForFeature,
 } from "../../db/debug/job-processing.js";
 
 export const debugRouter = Router();
@@ -49,14 +48,10 @@ debugRouter.get("/task-processing/:id", async (req, res) => {
   res.json({ fire });
 });
 
-// ---- Scheduled job run processings (modules → runs → entries) ------------
+// ---- Scheduled job run processings (features → runs → entries) -----------
 
-debugRouter.get("/jobs", async (_req, res) => {
-  res.json({ modules: await listJobModules() });
-});
-
-debugRouter.get("/job/:moduleId", async (req, res) => {
-  res.json({ runs: await listProcessingsForModule(req.params.moduleId) });
+debugRouter.get("/job/:featureId", async (req, res) => {
+  res.json({ runs: await listProcessingsForFeature(req.params.featureId) });
 });
 
 debugRouter.get("/job-processing/:id", async (req, res) => {

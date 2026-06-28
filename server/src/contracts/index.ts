@@ -2,13 +2,13 @@ export type {
   BotCommandRegistration,
   BotHostLogging,
   BotHostServices,
-  BotModuleHost,
+  BotFeatureHost,
 } from "./bot.js";
 export type {
   PipelineDeliveryResult,
   PipelineHostServices,
   PipelineLlmServices,
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelinePhaseWriteOptions,
   PipelineReportWriter,
   PipelineShouldRunResult,
@@ -20,13 +20,13 @@ export type {
   ReplyTrigger,
 } from "./pipeline.js";
 export {
-  configureModuleLiveHooks,
-  getModuleLiveHooks,
-  type ModuleLiveHooks,
+  configureFeatureLiveHooks,
+  getFeatureLiveHooks,
+  type FeatureLiveHooks,
 } from "./hooks.js";
 export type {
-  ModuleDbExports,
-  ModuleDbHost,
+  FeatureDbExports,
+  FeatureDbHost,
   SqlDatabase,
   SqlQueryResult,
 } from "./db-contract.js";

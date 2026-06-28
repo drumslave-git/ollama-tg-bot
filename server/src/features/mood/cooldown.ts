@@ -1,6 +1,6 @@
-import { tickMoodCooldown } from "../db/mood/index.js";
-import { logEvent, logEventError } from "../logging/event-log.js";
-import { logInfo } from "../logging/index.js";
+import { tickMoodCooldown } from "./db/index.js";
+import { logEvent, logEventError } from "../../logging/event-log.js";
+import { logInfo } from "../../logging/index.js";
 
 const MOOD_COOLDOWN_TICK_MS = 60_000;
 

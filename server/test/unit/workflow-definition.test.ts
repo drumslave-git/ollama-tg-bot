@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import type { PipelineModuleHost } from "../../src/contracts/index.js";
+import type { PipelineFeatureHost } from "../../src/contracts/index.js";
 import { buildWorkflowDefinitionFromHosts } from "../../src/pipeline/workflow-definition.js";
 
 const manifests = new Map([
-  ["history", { name: "History", description: "Chat history module" }],
+  ["history", { name: "History", description: "Chat history feature" }],
   ["completions", { name: "Completions", description: "Main reply" }],
   ["sticker-selection", { name: "Stickers", description: "Sticker pick" }],
 ]);
 
-const fixtureIntakeHosts: PipelineModuleHost[] = [
+const fixtureIntakeHosts: PipelineFeatureHost[] = [
   {
     id: "history",
     stepId: "intake",
@@ -33,7 +33,7 @@ const fixtureIntakeHosts: PipelineModuleHost[] = [
   },
 ];
 
-const fixtureQueueHosts: PipelineModuleHost[] = [
+const fixtureQueueHosts: PipelineFeatureHost[] = [
   {
     id: "sticker-selection",
     stepId: "sticker",
@@ -80,7 +80,7 @@ describe("buildWorkflowDefinitionFromHosts", () => {
     );
   });
 
-  it("marks optional queue modules by enabled state", () => {
+  it("marks optional queue features by enabled state", () => {
     const enabled = buildWorkflowDefinitionFromHosts(
       fixtureIntakeHosts,
       fixtureQueueHosts,

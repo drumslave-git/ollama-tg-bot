@@ -1,7 +1,7 @@
 import type {
-  ModuleDefinition,
-  ModuleEventFields,
-  ModuleLogging,
+  FeatureDefinition,
+  FeatureEventFields,
+  FeatureLogging,
 } from "../../shared/index.js";
 import {
   VISION_DESCRIBE_NUM_PREDICT,
@@ -14,7 +14,7 @@ export interface VisionDescribeInput {
   images: ImagePayload[];
   visionHint?: string;
   traceTurnId?: number;
-  logContext?: ModuleEventFields;
+  logContext?: FeatureEventFields;
 }
 
 export interface VisionDescribeConfig {
@@ -30,7 +30,7 @@ export interface VisionDescribeConfig {
       traceLabel?: string;
     },
   ) => Promise<string>;
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 export interface VisionDescribeOutput {
@@ -80,7 +80,7 @@ export async function describeVisionImages(
   }
 }
 
-export const visionDescribeModule: ModuleDefinition<
+export const visionDescribeFeature: FeatureDefinition<
   VisionDescribeInput,
   VisionDescribeConfig,
   VisionDescribeOutput

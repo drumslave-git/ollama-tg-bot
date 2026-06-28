@@ -1,5 +1,5 @@
 export {
-  linkFetchModule,
+  linkFetchFeature,
   runLinkFetch,
   type LinkFetchConfig,
 } from "./fetch.js";

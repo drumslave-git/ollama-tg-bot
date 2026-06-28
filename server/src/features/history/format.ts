@@ -223,17 +223,6 @@ export function isBase64MediaHistoryContent(content: string): boolean {
   return parseBase64MediaHistoryContent(content) != null;
 }
 
-/** Rows with pending base64 vision data are stored but not injected or compressed. */
-export function isInjectableHistoryMessage(message: StoredMessage): boolean {
-  return !isBase64MediaHistoryContent(message.content);
-}
-
-export function filterInjectableHistory(
-  history: StoredMessage[],
-): StoredMessage[] {
-  return history.filter(isInjectableHistoryMessage);
-}
-
 /**
  * Locate the pending base64 media block inside a stored row. One message is one
  * row, so the media line may be preceded by the user's text; `surroundingLines`

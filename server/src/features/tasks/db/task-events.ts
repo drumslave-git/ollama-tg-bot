@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 
 /** Most recent task events kept for the debug page. */
 export const MAX_TASK_EVENTS = 50;
@@ -100,7 +100,7 @@ export async function recordTaskEvent(event: TaskEventInput): Promise<void> {
      WHERE id NOT IN (SELECT id FROM task_events ORDER BY id DESC LIMIT $1)`,
     [MAX_TASK_EVENTS],
   );
-  getModuleLiveHooks().emitDataUpdated?.(["task_events"]);
+  getFeatureLiveHooks().emitDataUpdated?.(["task_events"]);
 }
 
 export async function listTaskEvents(
@@ -115,5 +115,5 @@ export async function listTaskEvents(
 
 export async function clearTaskEvents(): Promise<void> {
   await db.query(`DELETE FROM task_events`);
-  getModuleLiveHooks().emitDataUpdated?.(["task_events"]);
+  getFeatureLiveHooks().emitDataUpdated?.(["task_events"]);
 }

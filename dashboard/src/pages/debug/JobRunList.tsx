@@ -24,10 +24,10 @@ const itemClass = (live: boolean) =>
 
 /** Shared list of background-job runs (memory/vision) backed by job_processings. */
 export function JobRunList({
-  moduleId,
+  featureId,
   runPath,
 }: {
-  moduleId: string;
+  featureId: string;
   runPath: (id: number) => string;
 }) {
   const { apiOnline } = useDashboard();
@@ -41,14 +41,14 @@ export function JobRunList({
       if (!silent) setLoading(true);
       setError(null);
       try {
-        setRuns((await api.getDebugJobRuns(moduleId)).runs);
+        setRuns((await api.getDebugJobRuns(featureId)).runs);
       } catch (err) {
         setError(err);
       } finally {
         if (!silent) setLoading(false);
       }
     },
-    [apiOnline, moduleId],
+    [apiOnline, featureId],
   );
 
   useEffect(() => {

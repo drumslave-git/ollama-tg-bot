@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { ModuleDbHost } from "../../../contracts/index.js";
+import type { FeatureDbHost } from "../../../contracts/index.js";
 import { normalizeMoodValues } from "../values.js";
 import {
   listPersonalities,
@@ -19,15 +19,15 @@ import {
   tickMoodCooldown,
 } from "./mood.js";
 
-let host: ModuleDbHost | null = null;
+let host: FeatureDbHost | null = null;
 
-export function configureMoodRoutes(nextHost: ModuleDbHost): void {
+export function configureMoodRoutes(nextHost: FeatureDbHost): void {
   host = nextHost;
 }
 
-function requireHost(): ModuleDbHost {
+function requireHost(): FeatureDbHost {
   if (!host?.buildMoodPayload || !host.getSettings || !host.updateSettings) {
-    throw new Error("Mood module routes not configured");
+    throw new Error("Mood feature routes not configured");
   }
   return host;
 }

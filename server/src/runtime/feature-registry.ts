@@ -1,28 +1,28 @@
-import type { ModuleDbExports } from "../contracts/index.js";
+import type { FeatureDbExports } from "../contracts/index.js";
 import type { McpToolRegistrar } from "../shared/index.js";
-import { moodEvaluationDbModule } from "../features/mood/db/index.js";
-import { historyDbModule } from "../features/history/db/index.js";
-import { visionDbModule } from "../features/vision/db/index.js";
-import { memoryDbModule } from "../features/memory/db/index.js";
+import { moodEvaluationDbFeature } from "../features/mood/db/index.js";
+import { historyDbFeature } from "../features/history/db/index.js";
+import { visionDbFeature } from "../features/vision/db/index.js";
+import { memoryDbFeature } from "../features/memory/db/index.js";
 import { registerMcpTools as registerLinkFetchTools } from "../features/link-fetch/register-mcp-tools.js";
 import { registerMcpTools as registerWebSearchTools } from "../features/web-search/register-mcp-tools.js";
 import { registerMcpTools as registerHistoryTools } from "../features/history/register-mcp-tools.js";
 import { HISTORY_TOOL_NAMES } from "../features/history/mcp-tools.js";
 import { registerMcpTools as registerMemoryTools } from "../features/memory/register-mcp-tools.js";
 import { MEMORY_TOOL_NAMES } from "../features/memory/mcp-tools.js";
-import { tasksDbModule } from "../features/tasks/db/index.js";
+import { tasksDbFeature } from "../features/tasks/db/index.js";
 import { registerMcpTools as registerTasksTools } from "../features/tasks/register-mcp-tools.js";
 import { TASKS_TOOL_NAMES } from "../features/tasks/mcp-tools.js";
-import { summariesDbModule } from "../features/summaries/db/index.js";
+import { summariesDbFeature } from "../features/summaries/db/index.js";
 import { registerMcpTools as registerSummariesTools } from "../features/summaries/register-mcp-tools.js";
 import { SUMMARIES_TOOL_NAMES } from "../features/summaries/mcp-tools.js";
 
 /**
- * Static registry of feature modules. Replaces the former manifest.json
- * discovery + dynamic `await import(packageName)` wiring: every module now
+ * Static registry of features. Replaces the former manifest.json
+ * discovery + dynamic `await import(packageName)` wiring: every feature now
  * lives under `server/src/features/<name>` and is referenced directly.
  */
-export interface ModuleEntry {
+export interface FeatureEntry {
   id: string;
   name: string;
   description: string;
@@ -30,7 +30,7 @@ export interface ModuleEntry {
   settingsKeys?: string[];
   dataTables?: string[];
   /** SQLite tables + REST routes (former `<name>/db` package). */
-  db?: ModuleDbExports;
+  db?: FeatureDbExports;
   /** In-process MCP tool registration (former `mcpTools` manifest block). */
   mcpTools?: {
     workflowStepId: string;
@@ -41,7 +41,7 @@ export interface ModuleEntry {
   };
 }
 
-export const MODULE_REGISTRY: ModuleEntry[] = [
+export const FEATURE_REGISTRY: FeatureEntry[] = [
   {
     id: "addressing-detection",
     name: "Address detection",
@@ -59,7 +59,7 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
     description:
       "Per-chat verbatim message storage exposed to the model through always-on history MCP tools.",
     dataTables: ["chat_messages"],
-    db: historyDbModule,
+    db: historyDbFeature,
     mcpTools: {
       // Always on — not gated by a workflow step. workflowStepId is unused
       // for always-on tools but kept for the registry shape.
@@ -75,7 +75,7 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
     description:
       "Daily LLM summaries of chat history, embedded for semantic recall via the always-on history_summaries_search MCP tool.",
     dataTables: ["chat_summaries"],
-    db: summariesDbModule,
+    db: summariesDbFeature,
     mcpTools: {
       workflowStepId: "summaries",
       toolNames: SUMMARIES_TOOL_NAMES,
@@ -101,7 +101,7 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
       "Per-user, per-group, and general fact extraction, storage, and prompt injection.",
     apiBasePath: "/memories",
     dataTables: ["user_memories", "group_memories", "general_facts"],
-    db: memoryDbModule,
+    db: memoryDbFeature,
     mcpTools: {
       // Always on — the model reads and writes long-term memory on demand.
       workflowStepId: "memory",
@@ -118,7 +118,7 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
     apiBasePath: "/mood",
     settingsKeys: ["moodCooldownMinutes", "activePersonalityId"],
     dataTables: ["personalities"],
-    db: moodEvaluationDbModule,
+    db: moodEvaluationDbFeature,
   },
   {
     id: "tasks",
@@ -127,7 +127,7 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
       "Owner-managed scheduled jobs that post an in-character message into a chat at a wall-clock time (once, daily, or on weekdays).",
     apiBasePath: "/tasks",
     dataTables: ["tasks", "task_messages", "task_events"],
-    db: tasksDbModule,
+    db: tasksDbFeature,
     mcpTools: {
       // Always on — owner-gated at call time via per-turn context.
       workflowStepId: "tasks",
@@ -150,7 +150,7 @@ export const MODULE_REGISTRY: ModuleEntry[] = [
       "Recognize photos, image documents, and stickers via a vision model for chat history and context.",
     apiBasePath: "/vision",
     dataTables: [],
-    db: visionDbModule,
+    db: visionDbFeature,
   },
   {
     id: "web-search",

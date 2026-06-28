@@ -1,15 +1,15 @@
 import type {
-  ModuleDbExports,
+  FeatureDbExports,
   SqlDatabase,
 } from "../../../contracts/index.js";
 import { bindGeneralMemoryDatabase } from "./general-memory.js";
 import { bindGroupMemoryDatabase } from "./group-memory.js";
 import { bindUserMemoryDatabase } from "./user-memory.js";
-import { bindMemoryConfigDatabase } from "./module-config.js";
+import { bindMemoryConfigDatabase } from "./config.js";
 import { bindMemoryJobStateDatabase } from "./job-state.js";
 import { createMemoriesRouter } from "./routes.js";
 
-export * from "./module-config.js";
+export * from "./config.js";
 
 export * from "./memory-facts.js";
 export * from "./user-memory.js";
@@ -20,7 +20,7 @@ export {
   setMemoryChatFingerprint,
 } from "./job-state.js";
 
-export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
+export async function bindFeatureDatabase(database: SqlDatabase): Promise<void> {
   await bindUserMemoryDatabase(database);
   await bindGroupMemoryDatabase(database);
   await bindGeneralMemoryDatabase(database);
@@ -28,11 +28,11 @@ export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
   await bindMemoryJobStateDatabase(database);
 }
 
-export function createModuleRouter() {
+export function createFeatureRouter() {
   return createMemoriesRouter();
 }
 
-export const memoryDbModule: ModuleDbExports = {
-  bindModuleDatabase,
-  createModuleRouter,
+export const memoryDbFeature: FeatureDbExports = {
+  bindFeatureDatabase,
+  createFeatureRouter,
 };

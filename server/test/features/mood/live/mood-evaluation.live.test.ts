@@ -11,7 +11,7 @@ function isValidMood(mood: MoodValues): boolean {
   });
 }
 
-describe.skipIf(!cfg || liveReasoningMode())("live: mood-evaluation module", () => {
+describe.skipIf(!cfg || liveReasoningMode())("live: mood-evaluation feature", () => {
   it("returns all nine traits as integers within 0-5", async () => {
     const result = await runLiveMoodEvaluation(
       cfg!,

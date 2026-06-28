@@ -1,8 +1,10 @@
 import { getMainReplyResponseFormat } from "../../features/completions/index.js";
 import { getBot } from "../index.js";
-import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
-import { appendAssistantMessage } from "../../db/history/index.js";
-import { getEffectiveMood } from "../../db/mood/index.js";
+import {
+  getActivePersonalityPrompt,
+  getEffectiveMood,
+} from "../../features/mood/db/index.js";
+import { appendAssistantMessage } from "../../features/history/db/index.js";
 import { getSettings, recordReply } from "../../db/index.js";
 import { chatCompleteDetailed } from "../../llm/client.js";
 import { buildSystemPrompt } from "../../pipeline/adapters/system-prompt.js";

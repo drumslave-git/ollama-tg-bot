@@ -1,5 +1,5 @@
 import { addCalendarDays, zonedDate } from "../tasks/schedule.js";
-import type { SummariesModuleConfig } from "./module-config.js";
+import type { SummariesConfig } from "./config.js";
 
 /** Cap days summarized per chat per tick so a long downtime can't stall the loop. */
 const MAX_DAYS_PER_CHAT = 7;
@@ -8,7 +8,7 @@ export interface SummariesSchedulerDeps {
   /** Polling interval in ms (default 15 min). */
   tickMs?: number;
   timezone: string;
-  getConfig: () => Promise<SummariesModuleConfig>;
+  getConfig: () => Promise<SummariesConfig>;
   /** Skip while the message queue is busy. */
   getQueueSize: () => number;
   listChatIds: () => Promise<string[]>;

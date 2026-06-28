@@ -1,7 +1,7 @@
 import {
   auxiliaryChatComplete,
   type ChatMessage,
-  type ModuleDefinition,
+  type FeatureDefinition,
 } from "../../shared/index.js";
 import {
   buildAddressAnalyzerMessages,
@@ -82,7 +82,7 @@ export async function detectAddressing(
   }
 }
 
-export const addressingDetectionModule: ModuleDefinition<
+export const addressingDetectionFeature: FeatureDefinition<
   AddressingDetectionInput,
   AddressingDetectionConfig,
   AddressingDetectionOutput

@@ -19,7 +19,7 @@ export function VisionBackfillSection() {
     setLoading(true);
     setError(null);
     try {
-      const config = await api.getVisionModuleConfig();
+      const config = await api.getVisionConfig();
       setBackfillDebounceSec(config.backfillDebounceSec);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load config");
@@ -37,7 +37,7 @@ export function VisionBackfillSection() {
     setError(null);
     setSaved(false);
     try {
-      const updated = await api.updateVisionModuleConfig({ backfillDebounceSec });
+      const updated = await api.updateVisionConfig({ backfillDebounceSec });
       setBackfillDebounceSec(updated.backfillDebounceSec);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);

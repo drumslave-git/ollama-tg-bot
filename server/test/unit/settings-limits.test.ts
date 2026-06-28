@@ -218,7 +218,7 @@ describe("validateSettingsFields", () => {
   it("accepts custom workflow step ids", () => {
     expect(() =>
       validateSettingsFields(
-        makeSettings({ workflowSteps: ["custom-step", "any-module-id"] }),
+        makeSettings({ workflowSteps: ["custom-step", "any-feature-id"] }),
       ),
     ).not.toThrow();
   });

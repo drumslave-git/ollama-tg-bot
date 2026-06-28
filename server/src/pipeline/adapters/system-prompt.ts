@@ -30,7 +30,7 @@ import {
 } from "../../db/users/known-users.js";
 import { getReplyLengthGuidance } from "../../settings/limits.js";
 import { userRoleTagFromKnown } from "../../features/history/index.js";
-import { formatMoodForPrompt, type MoodValues } from "../../mood/index.js";
+import { formatMoodForPrompt, type MoodValues } from "../../features/mood/index.js";
 
 export const BASE_SYSTEM_PROMPT_CORE = `You are a character in a Telegram chat.
 
@@ -199,23 +199,6 @@ export function buildToolRoundSystemPrompt(
     `- If no tool is needed, respond with empty assistant content and no tool_calls.\n` +
     `- Prefer tools over guessing page content, library versions, live web facts, or chat history you have not retrieved.`
   );
-}
-
-const REPLY_FORMAT_MARKER = "\n\nRespond with JSON only";
-
-/** Split the main-reply system prompt into shared context vs final JSON reply spec. */
-export function splitReplyFormatSpec(systemContent: string): {
-  withoutReplyFormat: string;
-  replyFormatSpec: string;
-} {
-  const idx = systemContent.indexOf(REPLY_FORMAT_MARKER);
-  if (idx === -1) {
-    return { withoutReplyFormat: systemContent, replyFormatSpec: "" };
-  }
-  return {
-    withoutReplyFormat: systemContent.slice(0, idx),
-    replyFormatSpec: systemContent.slice(idx + 2),
-  };
 }
 
 export interface SystemPromptOptions {

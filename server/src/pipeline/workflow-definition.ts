@@ -1,4 +1,4 @@
-import type { PipelineModuleHost } from "../contracts/index.js";
+import type { PipelineFeatureHost } from "../contracts/index.js";
 
 export type WorkflowNodeKind =
   | "input"
@@ -13,7 +13,7 @@ export type WorkflowStage = "intake" | "queue" | "background";
 
 export interface WorkflowNodeSpec {
   stepId: string;
-  moduleId?: string;
+  featureId?: string;
   label: string;
   sublabel?: string;
   kind: WorkflowNodeKind;
@@ -104,7 +104,7 @@ const BUILTIN_NODES: Omit<
   },
   {
     stepId: "memory-job",
-    moduleId: "memory",
+    featureId: "memory",
     label: "Memory Maintenance",
     sublabel: "Debounced background cleanup pass",
     kind: "side",
@@ -112,7 +112,7 @@ const BUILTIN_NODES: Omit<
   },
   {
     stepId: "vision-backfill",
-    moduleId: "vision",
+    featureId: "vision",
     label: "Vision Backfill",
     sublabel: "Replace pending base64 media rows",
     kind: "side",
@@ -121,7 +121,7 @@ const BUILTIN_NODES: Omit<
 ];
 
 function isHostEnabled(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   enabledSteps: string[],
 ): boolean {
   if (host.alwaysOn) return true;
@@ -129,7 +129,7 @@ function isHostEnabled(
 }
 
 function hostKind(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   enabled: boolean,
   stage: WorkflowStage,
 ): WorkflowNodeKind {
@@ -143,7 +143,7 @@ function hostKind(
 }
 
 function hostLabel(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   manifests: Map<string, { name: string; description: string }>,
 ): string {
   if (host.debugTitle) return host.debugTitle;
@@ -153,7 +153,7 @@ function hostLabel(
 }
 
 function hostSublabel(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   manifests: Map<string, { name: string; description: string }>,
 ): string {
   return (
@@ -164,7 +164,7 @@ function hostSublabel(
 }
 
 function hostNode(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   stage: WorkflowStage,
   enabledSteps: string[],
   manifests: Map<string, { name: string; description: string }>,
@@ -172,7 +172,7 @@ function hostNode(
   const enabled = isHostEnabled(host, enabledSteps);
   return {
     stepId: host.stepId,
-    moduleId: host.id,
+    featureId: host.id,
     label: hostLabel(host, manifests),
     sublabel: hostSublabel(host, manifests),
     kind: hostKind(host, enabled, stage),
@@ -201,8 +201,8 @@ function chainEdges(
 }
 
 export function buildWorkflowDefinitionFromHosts(
-  intakeHosts: PipelineModuleHost[],
-  queueHosts: PipelineModuleHost[],
+  intakeHosts: PipelineFeatureHost[],
+  queueHosts: PipelineFeatureHost[],
   manifests: Map<string, { name: string; description: string }>,
   enabledSteps: string[],
 ): WorkflowDefinition {

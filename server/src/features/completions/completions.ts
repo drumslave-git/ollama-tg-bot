@@ -1,5 +1,5 @@
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineStepResult,
 } from "../../contracts/index.js";
 import {
@@ -8,7 +8,7 @@ import {
 } from "./response-format.js";
 import { buildChatContextForTurn } from "../../pipeline/turn-services.js";
 
-export const completionsHost: PipelineModuleHost = {
+export const completionsHost: PipelineFeatureHost = {
   id: "completions",
   stepId: "completions",
   alwaysOn: true,

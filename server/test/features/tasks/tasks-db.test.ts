@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  bindModuleDatabase,
+  bindFeatureDatabase,
   createTask,
   deleteTask,
   getTaskById,
@@ -44,7 +44,7 @@ const TABLES = ["tasks", "task_messages", "task_events"];
 describe.skipIf(!hasTestDb)("tasks db (Postgres)", () => {
   beforeAll(async () => {
     await dropTables(...TABLES);
-    await bindModuleDatabase(testDb);
+    await bindFeatureDatabase(testDb);
   });
   afterAll(closeTestPool);
   beforeEach(() => truncateTables(...TABLES));

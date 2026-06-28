@@ -1,21 +1,21 @@
-import type { ModuleDbExports, SqlDatabase } from "../../../contracts/index.js";
-import { bindVisionConfigDatabase } from "./module-config.js";
+import type { FeatureDbExports, SqlDatabase } from "../../../contracts/index.js";
+import { bindVisionConfigDatabase } from "./config.js";
 import { createVisionRouter } from "./routes.js";
 
 export {
-  getVisionModuleConfig,
-  updateVisionModuleConfig,
-} from "./module-config.js";
+  getVisionConfig,
+  updateVisionConfig,
+} from "./config.js";
 
-export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
+export async function bindFeatureDatabase(database: SqlDatabase): Promise<void> {
   await bindVisionConfigDatabase(database);
 }
 
-export function createModuleRouter() {
+export function createFeatureRouter() {
   return createVisionRouter();
 }
 
-export const visionDbModule: ModuleDbExports = {
-  bindModuleDatabase,
-  createModuleRouter,
+export const visionDbFeature: FeatureDbExports = {
+  bindFeatureDatabase,
+  createFeatureRouter,
 };

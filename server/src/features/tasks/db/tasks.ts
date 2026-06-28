@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import type { ScheduleKind } from "../schedule.js";
 import { normalizeWeekdays } from "../schedule.js";
 
@@ -122,7 +122,7 @@ function serializeWeekdays(weekdays: number[] | null | undefined): string | null
 }
 
 function notifyTasksChanged(): void {
-  getModuleLiveHooks().emitDataUpdated?.(["tasks"]);
+  getFeatureLiveHooks().emitDataUpdated?.(["tasks"]);
 }
 
 export async function createTask(input: TaskInput): Promise<TaskRecord> {

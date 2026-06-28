@@ -58,9 +58,9 @@ When an addressed message contains `http(s)` links, the bot detects them, opens 
 - Opens links in addressed messages via Playwright (auto-detected URLs)
 - **Maintenance mode** — dashboard toggle; when on, only the configured owner can trigger LLM-backed behavior (others are ignored silently)
 - Dashboard: model, owner, prompts, stats (LLM URL from `LLM_BASE_URL` in `.env`)
-- **Feature folders** — LLM side passes organized under `server/src/features/<name>` (see [Feature modules](#feature-modules))
+- **Feature folders** — LLM side passes organized under `server/src/features/<name>` (see [Feature architecture](#feature-architecture))
 
-## Feature modules
+## Feature architecture
 
 Bot capabilities are organized as plain folders under `server/src/features/<name>/` — one Node process, no separate packages. Each feature contributes one or more **pipeline hosts** (with typed `run`/`shouldRun`), and may add Postgres tables (`features/<name>/db/`), an MCP tool (`register-mcp-tools.ts`), and a dashboard page (`dashboard/src/features/<name>/`).
 
@@ -76,7 +76,7 @@ Bot capabilities are organized as plain folders under `server/src/features/<name
 | `memory` | Per-user/group/general fact extraction (background job) |
 | `completions` | System prompt assembly + main LLM reply; `/explain` command |
 
-Pipeline order is declared in `server/src/runtime/module-hosts.ts`; feature metadata/db/MCP wiring lives in `server/src/runtime/module-registry.ts`. Shared helpers are in `server/src/shared/`. In dev, `tsx` runs the server directly from `src/` (no build step for features).
+Pipeline order is declared in `server/src/runtime/feature-hosts.ts`; feature metadata/db/MCP wiring lives in `server/src/runtime/feature-registry.ts`. Shared helpers are in `server/src/shared/`. In dev, `tsx` runs the server directly from `src/` (no build step for features).
 
 ## Stack
 

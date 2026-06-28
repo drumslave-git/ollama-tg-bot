@@ -1,5 +1,5 @@
 import type { Context } from "grammy";
-import type { BotModuleHost, BotHostServices } from "../../contracts/index.js";
+import type { BotFeatureHost, BotHostServices } from "../../contracts/index.js";
 import { buildMoodCommandReply } from "./mood-command.js";
 import {
   MOOD_EXTENSION_ID,
@@ -13,7 +13,7 @@ function readMoodExtension(
   return extension ? (extension as MoodCommandExtension) : null;
 }
 
-export const botHost: BotModuleHost = {
+export const botHost: BotFeatureHost = {
   id: "mood-evaluation",
 
   commands: [

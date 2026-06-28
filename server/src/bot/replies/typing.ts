@@ -52,14 +52,6 @@ export function startChatActionIndicator(
   return () => clearInterval(timer);
 }
 
-export function startTypingIndicator(
-  api: Api,
-  chatId: number,
-  threadParams: TypingThreadParams = {},
-): () => void {
-  return startChatActionIndicator(api, chatId, "typing", threadParams);
-}
-
 export function startChatActionForMessage(
   ctx: Context,
   action: ChatActionKind,

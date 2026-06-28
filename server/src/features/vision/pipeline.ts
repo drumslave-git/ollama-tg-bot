@@ -1,6 +1,6 @@
 import type { Message } from "@grammyjs/types";
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineStepResult,
 } from "../../contracts/index.js";
 import { mediaKindForMessage } from "../history/index.js";
@@ -12,7 +12,7 @@ import {
 } from "../../pipeline/turn-services.js";
 import { normalizeImageForChat } from "./normalize.js";
 
-export const visionReplyHost: PipelineModuleHost = {
+export const visionReplyHost: PipelineFeatureHost = {
   id: "vision",
   stepId: "vision",
   alwaysOn: true,

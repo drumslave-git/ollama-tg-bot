@@ -11,8 +11,8 @@ import {
 
 let db: SqlDatabase;
 
-/** Keep at most this many run records per job module; older ones (and entries) are trimmed. */
-export const MAX_RUNS_PER_MODULE = 25;
+/** Keep at most this many run records per job feature; older ones (and entries) are trimmed. */
+export const MAX_RUNS_PER_FEATURE = 25;
 
 const ENTRIES: EntriesTableConfig = {
   entriesTable: "job_processing_entries",
@@ -20,15 +20,9 @@ const ENTRIES: EntriesTableConfig = {
   fkColumn: "job_processing_id",
 };
 
-export interface JobModuleSummary {
-  moduleId: string;
-  runCount: number;
-  latestAt: string | null;
-}
-
 export interface JobProcessingListItem {
   id: number;
-  moduleId: string;
+  featureId: string;
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
@@ -38,7 +32,7 @@ export interface JobProcessingListItem {
 
 export interface JobProcessingDetail {
   id: number;
-  moduleId: string;
+  featureId: string;
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
@@ -53,7 +47,7 @@ export async function bindJobProcessingDatabase(
   await db.query(`
     CREATE TABLE IF NOT EXISTS job_processings (
       id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-      module_id TEXT NOT NULL,
+      feature_id TEXT NOT NULL,
       summary TEXT NOT NULL DEFAULT '',
       status TEXT NOT NULL DEFAULT 'processing',
       total_time_spent BIGINT,
@@ -61,8 +55,8 @@ export async function bindJobProcessingDatabase(
     );
   `);
   await db.query(
-    `CREATE INDEX IF NOT EXISTS idx_job_processings_module
-       ON job_processings (module_id, id DESC);`,
+    `CREATE INDEX IF NOT EXISTS idx_job_processings_feature
+       ON job_processings (feature_id, id DESC);`,
   );
   await createEntriesTable(db, ENTRIES);
 }
@@ -73,29 +67,29 @@ function emit(): void {
   });
 }
 
-async function trimRunsForModule(moduleId: string): Promise<void> {
+async function trimRunsForFeature(featureId: string): Promise<void> {
   await db.query(
     `DELETE FROM job_processings
-      WHERE module_id = $1
+      WHERE feature_id = $1
         AND id NOT IN (
           SELECT id FROM job_processings
-           WHERE module_id = $1 ORDER BY id DESC LIMIT $2
+           WHERE feature_id = $1 ORDER BY id DESC LIMIT $2
         )`,
-    [moduleId, MAX_RUNS_PER_MODULE],
+    [featureId, MAX_RUNS_PER_FEATURE],
   );
 }
 
 /** Open a processing for one job run and return its id. */
 export async function createJobProcessing(
-  moduleId: string,
+  featureId: string,
 ): Promise<number | null> {
   const { rows } = await db.query<{ id: number }>(
-    `INSERT INTO job_processings (module_id) VALUES ($1) RETURNING id`,
-    [moduleId],
+    `INSERT INTO job_processings (feature_id) VALUES ($1) RETURNING id`,
+    [featureId],
   );
   const id = rows[0]?.id ?? null;
   if (id != null) {
-    await trimRunsForModule(moduleId);
+    await trimRunsForFeature(featureId);
     emit();
   }
   return id;
@@ -129,30 +123,9 @@ export async function setJobProcessingStatus(
   emit();
 }
 
-export async function listJobModules(): Promise<JobModuleSummary[]> {
-  const { rows } = await db.query<{
-    module_id: string;
-    run_count: number;
-    latest_at: number | null;
-  }>(
-    `SELECT module_id, COUNT(*)::int AS run_count, MAX(created_at) AS latest_at
-       FROM job_processings
-      GROUP BY module_id
-      ORDER BY latest_at DESC`,
-  );
-  return rows.map((row) => ({
-    moduleId: row.module_id,
-    runCount: row.run_count,
-    latestAt:
-      row.latest_at != null
-        ? new Date(row.latest_at * 1000).toISOString()
-        : null,
-  }));
-}
-
 type ListRow = {
   id: number;
-  module_id: string;
+  feature_id: string;
   summary: string;
   status: ProcessingStatus;
   total_time_spent: number | null;
@@ -163,7 +136,7 @@ type ListRow = {
 function toListItem(row: ListRow): JobProcessingListItem {
   return {
     id: row.id,
-    moduleId: row.module_id,
+    featureId: row.feature_id,
     summary: row.summary,
     status: row.status,
     totalTimeSpent: row.total_time_spent,
@@ -172,19 +145,19 @@ function toListItem(row: ListRow): JobProcessingListItem {
   };
 }
 
-export async function listProcessingsForModule(
-  moduleId: string,
+export async function listProcessingsForFeature(
+  featureId: string,
 ): Promise<JobProcessingListItem[]> {
   const { rows } = await db.query<ListRow>(
-    `SELECT jp.id, jp.module_id, jp.summary, jp.status, jp.total_time_spent,
+    `SELECT jp.id, jp.feature_id, jp.summary, jp.status, jp.total_time_spent,
             jp.created_at,
             (SELECT COUNT(*)::int FROM job_processing_entries e
                WHERE e.job_processing_id = jp.id) AS entry_count
        FROM job_processings jp
-      WHERE jp.module_id = $1
+      WHERE jp.feature_id = $1
       ORDER BY jp.id DESC
-      LIMIT ${MAX_RUNS_PER_MODULE}`,
-    [moduleId],
+      LIMIT ${MAX_RUNS_PER_FEATURE}`,
+    [featureId],
   );
   return rows.map(toListItem);
 }
@@ -193,7 +166,7 @@ export async function getJobProcessingDetail(
   processingId: number,
 ): Promise<JobProcessingDetail | null> {
   const { rows } = await db.query<ListRow>(
-    `SELECT id, module_id, summary, status, total_time_spent, created_at,
+    `SELECT id, feature_id, summary, status, total_time_spent, created_at,
             0 AS entry_count
        FROM job_processings
       WHERE id = $1`,
@@ -204,7 +177,7 @@ export async function getJobProcessingDetail(
   const item = toListItem(row);
   return {
     id: item.id,
-    moduleId: item.moduleId,
+    featureId: item.featureId,
     summary: item.summary,
     status: item.status,
     totalTimeSpent: item.totalTimeSpent,

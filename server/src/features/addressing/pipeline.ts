@@ -1,10 +1,10 @@
 import type { Message } from "@grammyjs/types";
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineHostServices,
   PipelineStepResult,
 } from "../../contracts/index.js";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import { checkMessageAddressed } from "./check-addressed.js";
 import { getAddressResponseFormat } from "./prompt.js";
 import {
@@ -29,7 +29,7 @@ function senderLabel(from: unknown): string {
   );
 }
 
-function hostLogging(services: PipelineHostServices): ModuleLogging {
+function hostLogging(services: PipelineHostServices): FeatureLogging {
   return {
     logEvent: (event, fields) =>
       services.logging.logEvent(event, fields as Record<string, unknown>),
@@ -42,7 +42,7 @@ function hostLogging(services: PipelineHostServices): ModuleLogging {
   };
 }
 
-export const addressingHost: PipelineModuleHost = {
+export const addressingHost: PipelineFeatureHost = {
   id: "addressing-detection",
   stepId: "address",
   alwaysOn: true,

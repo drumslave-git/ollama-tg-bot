@@ -1,5 +1,5 @@
 export {
-  moodEvaluationModule,
+  moodEvaluationFeature,
   evaluateMood,
   MOOD_EVAL_NUM_PREDICT,
   type MoodEvaluateConfig,

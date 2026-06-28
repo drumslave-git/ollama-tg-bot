@@ -1,9 +1,9 @@
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineHostServices,
   PipelineStepResult,
 } from "../../contracts/index.js";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import type { StickerCatalog } from "./types.js";
 import {
   analyzeStickerForReply,
@@ -17,7 +17,7 @@ import {
   getStickerCatalog,
 } from "../../pipeline/turn-services.js";
 
-function hostLogging(services: PipelineHostServices): ModuleLogging {
+function hostLogging(services: PipelineHostServices): FeatureLogging {
   return {
     logEvent: (event, fields) =>
       services.logging.logEvent(event, fields as Record<string, unknown>),
@@ -30,7 +30,7 @@ function hostLogging(services: PipelineHostServices): ModuleLogging {
   };
 }
 
-export const stickerPipelineHost: PipelineModuleHost = {
+export const stickerPipelineHost: PipelineFeatureHost = {
   id: "sticker-selection",
   stepId: "sticker",
 

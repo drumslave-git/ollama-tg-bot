@@ -33,9 +33,9 @@ function normalizeMemoryContent(value: unknown): string | null {
 }
 
 import {
-  getMemoryModuleConfig,
-  updateMemoryModuleConfig,
-} from "./module-config.js";
+  getMemoryConfig,
+  updateMemoryConfig,
+} from "./config.js";
 
 export const memoriesRouter = Router();
 memoriesRouter.get("/user", async (_req, res) => {
@@ -151,13 +151,13 @@ memoriesRouter.delete("/general", async (_req, res) => {
 });
 
 memoriesRouter.get("/config", async (_req, res) => {
-  res.json(await getMemoryModuleConfig());
+  res.json(await getMemoryConfig());
 });
 
 memoriesRouter.patch("/config", async (req, res) => {
   try {
     const body = req.body as Partial<{ maintenanceDebounceSec: number }>;
-    const updated = await updateMemoryModuleConfig({
+    const updated = await updateMemoryConfig({
       maintenanceDebounceSec: body.maintenanceDebounceSec,
     });
     res.json(updated);

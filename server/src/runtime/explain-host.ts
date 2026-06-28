@@ -8,7 +8,7 @@ import {
 import {
   getPersonalityById,
   resolveActivePersonalityId,
-} from "../db/personalities/index.js";
+} from "../features/mood/db/index.js";
 import { chatCompleteDetailed } from "../llm/client.js";
 import {
   extractTelegramReply,

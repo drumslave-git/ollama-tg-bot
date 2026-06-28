@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import { config } from "../../config/index.js";
 import { zonedDate, zonedWallClockToUtc } from "../tasks/schedule.js";
 import {
@@ -43,7 +43,7 @@ const historyOutputSchema = z.object({
 });
 
 export interface HistoryMcpConfig {
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 /** Epoch seconds for the start of the current day in the server timezone. */

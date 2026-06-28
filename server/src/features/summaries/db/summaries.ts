@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import { EMBEDDING_DIM, toVectorLiteral } from "../../../llm/embeddings.js";
 
 let db: SqlDatabase;
@@ -88,7 +88,7 @@ export async function replaceSummariesForDate(
       ],
     );
   }
-  getModuleLiveHooks().emitDataUpdated?.(["chat_summaries"]);
+  getFeatureLiveHooks().emitDataUpdated?.(["chat_summaries"]);
 }
 
 interface SummaryRow {

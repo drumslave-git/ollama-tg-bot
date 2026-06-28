@@ -1,12 +1,12 @@
 export {
-  addressingDetectionModule,
+  addressingDetectionFeature,
   detectAddressing,
   type AddressingDetectionConfig,
   type AddressingDetectionInput,
   type AddressingDetectionOutput,
 } from "./detect.js";
 export {
-  addressCheckModule,
+  addressCheckFeature,
   checkMessageAddressed,
   type AddressCheckConfig,
   type AddressCheckInput,

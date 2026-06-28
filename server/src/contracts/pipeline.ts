@@ -32,7 +32,7 @@ export interface PipelineStepResult {
   replace?: boolean;
 }
 
-/** Result of {@link PipelineModuleHost.shouldRun}. */
+/** Result of {@link PipelineFeatureHost.shouldRun}. */
 export type PipelineShouldRunResult =
   | boolean
   | {
@@ -90,14 +90,14 @@ export interface PipelineTurnState {
   messageThreadId?: number;
   isForum?: boolean;
 
-  /** When true, gate modules such as address check are skipped. */
+  /** When true, gate features such as address check are skipped. */
   skipAddressCheck?: boolean;
 
   /** Whether the bot should produce a reply for this message. */
   shouldReply?: boolean;
   replyTrigger?: ReplyTrigger;
 
-  /** Populated by the address gate module. */
+  /** Populated by the address gate feature. */
   addressed?: boolean;
   addressSource?: string;
 
@@ -226,7 +226,7 @@ export interface PipelineHostServices {
   getReport: (turnId: number) => PipelineReportWriter | null;
 }
 
-export interface PipelineModuleHost {
+export interface PipelineFeatureHost {
   readonly id: string;
   readonly stepId: string;
   readonly alwaysOn?: boolean;

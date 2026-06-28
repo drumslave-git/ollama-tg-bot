@@ -1,6 +1,6 @@
 import type {
   PipelineHostServices,
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelinePhaseWriteOptions,
   PipelineShouldRunResult,
   PipelineStepResult,
@@ -8,7 +8,7 @@ import type {
 } from "../contracts/index.js";
 
 export function isPipelineStepEnabled(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   enabledSteps: string[],
 ): boolean {
   if (host.alwaysOn) return true;
@@ -38,7 +38,7 @@ function evaluateShouldRun(result: PipelineShouldRunResult): {
   };
 }
 
-function hostDebugTitle(host: PipelineModuleHost): string {
+function hostDebugTitle(host: PipelineFeatureHost): string {
   return host.debugTitle ?? host.stepId;
 }
 
@@ -84,7 +84,7 @@ function recordStepResult(
 }
 
 export async function runPipelineHost(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   state: PipelineTurnState,
   services: PipelineHostServices,
   options?: {

@@ -13,7 +13,7 @@ Telegram bot backed by **OpenAI-compatible API**, with a **React dashboard** for
 | `server/` | Bot, LLM client, Postgres/pgvector, REST API, and **all feature logic** under `src/features/*` |
 | `dashboard/` | Vite + React admin UI (per-feature pages under `src/features/*`) |
 
-There are only **two workspaces** (`server`, `dashboard`). Features are plain folders inside `server/src/features/<name>` — not separate npm packages. (`modules/yt-dlp` is an unwired placeholder for a planned MCP tool.)
+There are only **two workspaces** (`server`, `dashboard`). Features are plain folders inside `server/src/features/<name>` — not separate npm packages.
 
 ## Commands
 
@@ -38,14 +38,14 @@ npm run test -w server
 
 Docker: `docker compose up -d --build` (see `README.md`).
 
-### Feature modules
+### Features
 
 LLM-backed bot features live as **plain folders** in `server/src/features/<name>/`. A feature may contain:
 
 | Path | Role |
 |------|------|
 | `server/src/features/<name>/*.ts` | Runtime logic — pipeline hosts (`run`, `shouldRun`), prompts, parsers |
-| `server/src/features/<name>/db/*.ts` | Postgres tables (async, via the `SqlDatabase` handle) + REST routes (optional; exports a `ModuleDbExports` object) |
+| `server/src/features/<name>/db/*.ts` | Postgres tables (async, via the `SqlDatabase` handle) + REST routes (optional; exports a `FeatureDbExports` object) |
 | `server/src/features/<name>/register-mcp-tools.ts` | MCP tool registrar (optional) |
 | `dashboard/src/features/<name>/*.tsx` | Dashboard React page(s) (optional; routed directly in `dashboard/src/App.tsx`) |
 
@@ -64,20 +64,20 @@ Shared infrastructure: `server/src/shared/` (structured-output helpers, auxiliar
 | `features/memory` | Per-user/group/general memory via always-on MCP tools (get/search/save) + debounced background cleanup job |
 | `features/tasks` | Owner-managed scheduled jobs (once/daily/weekly) that fire an in-character message into a chat at a wall-clock time; always-on `tasks_*` MCP tools + an independent wall-clock scheduler |
 
-The static module registry (`server/src/runtime/module-registry.ts`) lists each feature's metadata, db exports, and MCP registrar. Pipeline order is declared explicitly in `server/src/runtime/module-hosts.ts`.
+The static feature registry (`server/src/runtime/feature-registry.ts`) lists each feature's metadata, db exports, and MCP registrar. Pipeline order is declared explicitly in `server/src/runtime/feature-hosts.ts`.
 
 Rules:
 
-- **Pipeline host shape** — a host is a `PipelineModuleHost` (`id`, `stepId`, optional `shouldRun`, `run(state, services)`) returning a `PipelineStepResult`. Hosts read/write the shared `PipelineTurnState` and call server functions directly (imported, e.g. from `server/src/pipeline/turn-services.ts`).
+- **Pipeline host shape** — a host is a `PipelineFeatureHost` (`id`, `stepId`, optional `shouldRun`, `run(state, services)`) returning a `PipelineStepResult`. Hosts read/write the shared `PipelineTurnState` and call server functions directly (imported, e.g. from `server/src/pipeline/turn-services.ts`).
 - **Tests** — co-located under `server/test/features/<name>/`; optional live LLM tests in `server/test/features/<name>/live/`.
 - **Shared code** — cross-feature helpers live in `server/src/shared/`.
-- **No dead code** — when a feature is removed, delete its `features/<name>` folder, `module-registry.ts` entry, `module-hosts.ts` host(s), dashboard page, tests, and docs in the same task.
+- **No dead code** — when a feature is removed, delete its `features/<name>` folder, `feature-registry.ts` entry, `feature-hosts.ts` host(s), dashboard page, tests, and docs in the same task.
 - **MCP tools are LLM-only** — MCP tools (`fetch_link`, `search_web`, etc.) are invoked **only** when the main-reply model calls them in the tool loop. The host registers tools, exposes them to the LLM with `tool_choice: auto`, and executes `callTool` when the model requests it. **Never** prefetch URLs, auto-run MCP tools, force a specific tool based on message content, or inject tool results into prompts/history without an LLM `tool_calls` round.
 - **Prompt-first output** — features define strict `ANALYZER_SYSTEM` / `build*Messages()` specs; parsers stay strict (see **Structured LLM output**).
 
-**MCP tools:** Features expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod. Shared registry: `BotMcpRegistry` in `server/src/shared/`. A feature with tools exports `registerMcpTools(server, context)` and is listed in `module-registry.ts` with `mcpTools: { workflowStepId, toolNames, registrar }`. Host loads them in `server/src/runtime/mcp-tools.ts`; the main reply runs them through `server/src/llm/tool-loop.ts` (generic tool rounds with `tool_choice: auto` and `buildToolRoundSystemPrompt()` — no personality/mood/reply-format on tool passes; thinking off + auxiliary temperature; then always a structured JSON final pass). Tools: **link-fetch** → `fetch_link(url)`; **web-search** → `search_web(query)` (explicit user request only). System prompt adds usage guidance via `buildMcpToolsPromptSection` in `server/src/pipeline/adapters/system-prompt.ts`.
+**MCP tools:** Features expose OpenAI-compatible tools via `@modelcontextprotocol/sdk` + Zod. Shared registry: `BotMcpRegistry` in `server/src/shared/`. A feature with tools exports `registerMcpTools(server, context)` and is listed in `feature-registry.ts` with `mcpTools: { workflowStepId, toolNames, registrar }`. Host loads them in `server/src/runtime/mcp-tools.ts`; the main reply runs them through `server/src/llm/tool-loop.ts` (generic tool rounds with `tool_choice: auto` and `buildToolRoundSystemPrompt()` — no personality/mood/reply-format on tool passes; thinking off + auxiliary temperature; then always a structured JSON final pass). Tools: **link-fetch** → `fetch_link(url)`; **web-search** → `search_web(query)` (explicit user request only). System prompt adds usage guidance via `buildMcpToolsPromptSection` in `server/src/pipeline/adapters/system-prompt.ts`.
 
-To add a feature: create `server/src/features/<name>/`, implement the pipeline host(s), add them to the order in `server/src/runtime/module-hosts.ts`, register metadata/db/MCP in `server/src/runtime/module-registry.ts`, add any new external deps to `server/package.json`, add a dashboard page under `dashboard/src/features/<name>/` and route it in `dashboard/src/App.tsx` if needed, and cover with tests in `server/test/features/<name>/`.
+To add a feature: create `server/src/features/<name>/`, implement the pipeline host(s), add them to the order in `server/src/runtime/feature-hosts.ts`, register metadata/db/MCP in `server/src/runtime/feature-registry.ts`, add any new external deps to `server/package.json`, add a dashboard page under `dashboard/src/features/<name>/` and route it in `dashboard/src/App.tsx` if needed, and cover with tests in `server/test/features/<name>/`.
 
 
 **Node:** `>=22.13.0` (see `.nvmrc`).
@@ -101,7 +101,7 @@ Model, prompts, owner, maintenance mode, and performance limits live in **dashbo
 ## Architecture
 
 ```
-Telegram → Grammy handlers → message pipeline (module hosts) → delivery
+Telegram → Grammy handlers → message pipeline (feature hosts) → delivery
                 ↓
    Postgres + pgvector (settings, history, summaries, memories, stats)
                 ↑
@@ -109,20 +109,20 @@ Telegram → Grammy handlers → message pipeline (module hosts) → delivery
 ```
 
 **Storage is Postgres** (with the `pgvector` extension), accessed through an async
-`SqlDatabase` handle (`server/src/db/pool.ts`) bound into each module's `db/*.ts`.
+`SqlDatabase` handle (`server/src/db/pool.ts`) bound into each feature's `db/*.ts`.
 Raw `chat_messages` carry a `tsvector` for full-text search; `chat_summaries`
 (daily LLM topic summaries) carry a `vector(1024)` embedding for hybrid
 vector + FTS recall. All db access is `async`/awaited end-to-end.
 
 ### Message flow
 
-1. **`server/src/bot/handlers/index.ts`** — Register **commands before** the catch-all `bot.on("message")`. Module commands via `registerModuleCommands()` from `server/src/runtime/module-hosts.ts`.
+1. **`server/src/bot/handlers/index.ts`** — Register **commands before** the catch-all `bot.on("message")`. Feature commands via `registerFeatureCommands()` from `server/src/runtime/feature-hosts.ts`.
 2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then **intake pipeline** (`runIntakePipeline` in `server/src/pipeline/queue-runner.ts`). Addressed messages are **enqueued** (`server/src/runtime/message-queue.ts`) and processed **one at a time**.
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
 4. **Queue processing (addressed only)** — synchronous order: vision (media) → system + personality → history inject → mood → main reply (optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). The vision step downloads + normalizes the turn's images and stashes the base64 on `state.images`; the main reply attaches them to the latest user message so a vision-capable model reads text + images in one pass (no separate describe request per turn). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
-5. **Debounced background jobs** — each module owns its scheduler and config (`memory_module_config`, `vision_module_config`; dashboard under Modules → Memory / Vision). When the queue has been idle for the module debounce (default 60s): memory maintenance cleans each stored memory document via an LLM pass (skips records whose content fingerprint is unchanged since the last run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
-6. **`server/src/runtime/module-hosts.ts`** — Explicitly imports the feature pipeline and bot command hosts from `server/src/features/*`. Intake and queue host arrays define the processing order directly. Static feature metadata/db/MCP wiring is in `server/src/runtime/module-registry.ts`. Background schedulers are wired in `server/src/runtime/queue-schedulers.ts` via `initQueueSchedulers()` (called at startup — the module has no import-time side effects).
-7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from the static `module-registry.ts` (`mcpTools.registrar`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
+5. **Debounced background jobs** — each feature owns its scheduler and config (`memory_config`, `vision_config`; dashboard Memory / Vision pages). When the queue has been idle for the feature debounce (default 60s): memory maintenance cleans each stored memory document via an LLM pass (skips records whose content fingerprint is unchanged since the last run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
+6. **`server/src/runtime/feature-hosts.ts`** — Explicitly imports the feature pipeline and bot command hosts from `server/src/features/*`. Intake and queue host arrays define the processing order directly. Static feature metadata/db/MCP wiring is in `server/src/runtime/feature-registry.ts`. Background schedulers are wired in `server/src/runtime/queue-schedulers.ts` via `initQueueSchedulers()` (called at startup — the file has no import-time side effects).
+7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from the static `feature-registry.ts` (`mcpTools.registrar`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `fetch_link`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — optional tool-call rounds (no `response_format`), then **always** a structured JSON final pass. The host executes tools when the model calls them; it never runs them proactively.
 8. **`server/src/pipeline/turn-services.ts`** — Concrete, typed functions (Postgres, Telegram helpers, vision, LLM adapters) that pipeline hosts import directly. Replaces the former `PipelineHostCallbacks` indirection.
 9. **`server/src/bot/maintenance/maintenance.ts`** — When `maintenanceModeEnabled` is on, only the owner can proceed; in groups the owner must also include a direct @mention of the bot.
 
@@ -133,7 +133,7 @@ vector + FTS recall. All db access is `async`/awaited end-to-end.
 - Debug (shared processing recorder): one append-only entries model used by every domain — a unit of work has a `<domain>_processings` row + `<domain>_processing_entries` (`{title, type: 'text'|'json', content}`, FK `ON DELETE CASCADE`, ordered by id). Shared core: `server/src/debug/processing-recorder.ts` (`ProcessingRecorder` — buffers entries until the owner row exists, serializes writes so they persist in emission order, and exposes the shared LLM vocabulary: `beginLlmWait`/`recordLlmCall` → **LLM request** json → **Waiting** → **LLM response** json → **LLM result**) and `server/src/db/debug/processing-entries.ts` (entries table DDL + CRUD). A process-wide recorder registry keyed by `traceId` lets the LLM client (`getRecorder(traceId)`) capture request/response for ANY domain. Terminal status `processing`→`processed`/`ignored`/`error` + `total_time_spent` via `complete(status)`.
   - **Messages** (`debug/message-report.ts`, `db/debug/message-processing.ts`): `message_processings` 1:1 with `chat_messages` (`chat_message_id`, FK CASCADE), 50/chat. `MessageProcessingReport` keyed by ephemeral `turnId` (== its trace id), linked via `linkProcessingMessage`. Public primitive `reportMessageProcessing(id=chat_messages.id, …)`. Dashboard nav chats → processings → entries. `/explain` resolves by bot reply id (`reply_message_ids`).
   - **Tasks** (`debug/task-report.ts`, `db/debug/task-processing.ts`): one processing per fire; `task_processings.task_id` FK→`tasks` `ON DELETE SET NULL` (survives one-shot deletion), 20/task. `beginTaskProcessing(taskId)` wraps a fire in `fire.ts`. Dashboard: Task debug page → tasks → fires → entries.
-  - **Scheduled jobs** (`debug/job-report.ts`, `db/debug/job-processing.ts`): one processing per backfill run; `job_processings.module_id` ('memory'/'vision'), no owner FK, 25/module. `beginJobProcessing(module)` in the memory/vision queue-schedulers (which keep their in-memory idle/scheduled/running status for the sidebar). Dashboard memory/vision run list/detail render entries via shared `JobRunList`/`JobRunEntries`.
+  - **Scheduled jobs** (`debug/job-report.ts`, `db/debug/job-processing.ts`): one processing per backfill run; `job_processings.feature_id` ('memory'/'vision'), no owner FK, 25/feature. `beginJobProcessing(feature)` in the memory/vision queue-schedulers (which keep their in-memory idle/scheduled/running status for the sidebar). Dashboard memory/vision run list/detail render entries via shared `JobRunList`/`JobRunEntries`.
   - Shared dashboard renderer: `dashboard/src/pages/debug/DebugProcessingEntries.tsx` (`EntryRow`; json entries collapsed by default). Live refresh via `dashboard:data` table ids (`message_processings`/`task_processings`/`job_processings`). Sidebar job status/countdown still flows via `dashboard:stats` (`memoryJobRunAt`/`visionJobRunAt`).
 - Chat options: `server/src/settings/limits.ts` (`temperature`, `topP`, `topK`, `repeatPenalty`, `numCtx` via `getProviderExtensions()`)
 - **Chat history limits are derived** from `numCtx` and `numPredict` via `getHistoryLimits()` — not separate settings. Dashboard preview: `dashboard/src/derivedHistoryLimits.ts` (keep in sync with server).
@@ -157,7 +157,7 @@ A **debounced background maintenance job** (`server/src/features/memory/queue-sc
 
 Owner-managed scheduled jobs that post an in-character message into a chat at a wall-clock time — `once` (date + time), `daily` (time), or `weekly` (weekday mask + time), like calendar events. Created/changed/cancelled **fully verbally** by the owner through always-on MCP tools (the LLM decides — no commands), and via the dashboard Tasks page.
 
-- **MCP tools** (`server/src/features/tasks/mcp-tools.ts`, always-on like memory): `tasks_create`, `tasks_update`, `tasks_delete`, `tasks_get`, `tasks_list`, `tasks_search`. **Owner-gated and chat-bound** via per-turn context (`turn-context.ts`): `systemPromptHost` calls `captureTaskTurnContext(state)` before the main-reply tool loop, so the tools read the current chat/owner/replied-task from a module-level variable (safe — the queue processes one addressed turn at a time). Non-owner calls are rejected in the tool; chat id and creator are taken from context, never from model-passed args.
+- **MCP tools** (`server/src/features/tasks/mcp-tools.ts`, always-on like memory): `tasks_create`, `tasks_update`, `tasks_delete`, `tasks_get`, `tasks_list`, `tasks_search`. **Owner-gated and chat-bound** via per-turn context (`turn-context.ts`): `systemPromptHost` calls `captureTaskTurnContext(state)` before the main-reply tool loop, so the tools read the current chat/owner/replied-task from a file-level variable (safe — the queue processes one addressed turn at a time). Non-owner calls are rejected in the tool; chat id and creator are taken from context, never from model-passed args.
 - **Schedule math** (`schedule.ts`): dependency-free via `Intl`. `computeNextRun(schedule, from, timezone)` returns the next UTC instant (or `null` for a spent `once` task). Timezone comes from the `TZ` env (`config.timezone`) — a single global zone. Each task stores the `timezone` it was created under; on startup `startTaskScheduler` reconciles any enabled task whose stored timezone differs from the current `TZ` (recompute `next_run_at`, re-pin `timezone`), so changing `TZ` re-homes existing tasks without recreating them.
 - **Wall-clock scheduler** (`scheduler.ts`, wired in `server/src/runtime/task-scheduler.ts`, started from `server/src/index.ts`): polls every ~30s (independent of the message queue — unlike the debounced memory/vision jobs), fires due tasks, then advances `next_run_at`. When `computeNextRun` returns `null` (a spent `once` task), the task is **deleted**, not disabled. Paused while maintenance mode is on.
 - **Removal vs disable**: stopping/cancelling a task **deletes** it (`tasks_delete` / spent one-shots / dashboard Delete). `enabled:false` is only a manual pause for recurring tasks (dashboard toggle / `tasks_update`). The prompt and tool descriptions steer the model to `tasks_delete` for "stop/cancel". Startup reconciliation also clears any leftover disabled/`null`-next `once` rows.
@@ -171,12 +171,12 @@ Owner-managed scheduled jobs that post an in-character message into a chat at a 
 - Bot responds when @mentioned, replied to, display name is spoken (regex or LLM for other languages), or on random/image toggles.
 - Per-member history in groups (`conversationKey` includes `userId`).
 - The `[SESSION]` block surfaces the current speaker's id **plus** their `[user:name:id]` tag and friendly label in **all** chats (DMs included), so the model can mention them properly instead of falling back to a bare id (`buildSessionBlock` in `server/src/pipeline/adapters/system-prompt.ts`). The group-only `[CURRENT SPEAKER]` turn block is separate from this.
-- Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain` (completions module), `/remember`.
+- Owner account: `ownerUsername` in settings; id resolved via Telegram API + `known_users` table. Owner-only commands: `/mood`, `/explain` (completions feature), `/remember`.
 - **Maintenance mode** (`maintenanceModeEnabled`): only the owner can reach the pipeline; in groups the owner must also include a direct @mention of the bot — gate in `handlers/message.ts`. Toggling maintenance mode from the dashboard triggers an LLM-generated in-character announcement broadcast to every distinct `chat_history` chat key.
 
 ### Structured LLM output (JSON schema)
 
-Side passes and the main reply use **strict JSON schemas** enforced via OpenAI-compatible `response_format`. Each module exports a `*_RESPONSE_FORMAT` constant describing only the actual output fields (`reply`, `addressed`, mood traits, etc.). Chain-of-thought is **never** a JSON field — reasoning models return it on the separate API channel (`reasoning` / `reasoning_content`), so the schema and prompts stay reasoning-free regardless of `thinkingEnabled`. Prompts describe the same fields in prose. Parsers validate decision/reply fields only — they must not be loosened to accept model mistakes.
+Side passes and the main reply use **strict JSON schemas** enforced via OpenAI-compatible `response_format`. Each feature exports a `*_RESPONSE_FORMAT` constant describing only the actual output fields (`reply`, `addressed`, mood traits, etc.). Chain-of-thought is **never** a JSON field — reasoning models return it on the separate API channel (`reasoning` / `reasoning_content`), so the schema and prompts stay reasoning-free regardless of `thinkingEnabled`. Prompts describe the same fields in prose. Parsers validate decision/reply fields only — they must not be loosened to accept model mistakes.
 
 **When the model misbehaves, fix the prompt or schema — not the parser.**
 
@@ -232,7 +232,7 @@ The main reply is **plain text** — no `response_format` is sent (grammar-const
 
 State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/api.ts`.
 
-**Styling** — Tailwind CSS v4 (`@tailwindcss/vite`). Theme tokens in `dashboard/src/index.css` (`@theme`: `bg-bg`, `bg-surface`, `text-muted`, `text-accent`, etc.). Shared primitives in `dashboard/src/components/ui/` (`Badge`, `Button`, `ButtonLink`, `Card`, `Page`, `PageHeader`, …) and `cn()` in `dashboard/src/lib/cn.ts`. Module UI packages use the same Tailwind tokens via the dashboard Vite build (no separate CSS files). Layout: sidebar is `sticky` on mobile and `fixed` (`md:w-60`) on desktop; main content uses `md:ml-60`.
+**Styling** — Tailwind CSS v4 (`@tailwindcss/vite`). Theme tokens in `dashboard/src/index.css` (`@theme`: `bg-bg`, `bg-surface`, `text-muted`, `text-accent`, etc.). Shared primitives in `dashboard/src/components/ui/` (`Badge`, `Button`, `ButtonLink`, `Card`, `Page`, `PageHeader`, …) and `cn()` in `dashboard/src/lib/cn.ts`. Feature UI uses the same Tailwind tokens via the dashboard Vite build (no separate CSS files). Layout: sidebar is `sticky` on mobile and `fixed` (`md:w-60`) on desktop; main content uses `md:ml-60`.
 
 ## Telegram specifics
 
@@ -245,7 +245,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Area | Files |
 |------|-------|
 | Bot entry | `server/src/bot/index.ts`, `handlers/index.ts`, `handlers/message.ts` |
-| Pipeline | `server/src/pipeline/queue-runner.ts`, `deliver.ts`, `context.ts`, `turn-services.ts`; `runtime/message-queue.ts`, `runtime/background-jobs.ts`, `runtime/module-hosts.ts`, `runtime/module-registry.ts` |
+| Pipeline | `server/src/pipeline/queue-runner.ts`, `deliver.ts`, `context.ts`, `turn-services.ts`; `runtime/message-queue.ts`, `runtime/background-jobs.ts`, `runtime/feature-hosts.ts`, `runtime/feature-registry.ts` |
 | Shared / contracts | `server/src/shared/` (LLM helpers, MCP registry), `server/src/contracts/` (pipeline + db + bot types) |
 | Address detection | `server/src/features/addressing/` (pipeline hosts + `bot-identity.ts`) |
 | Maintenance | `server/src/bot/maintenance/maintenance.ts`, `server/src/bot/maintenance/announce.ts`, `owner/owner.ts` |

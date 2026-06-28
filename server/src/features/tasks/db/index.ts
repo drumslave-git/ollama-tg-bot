@@ -1,5 +1,5 @@
 import type {
-  ModuleDbExports,
+  FeatureDbExports,
   SqlDatabase,
 } from "../../../contracts/index.js";
 import { bindTasksDatabase } from "./tasks.js";
@@ -12,7 +12,7 @@ export * from "./tasks.js";
 export * from "./task-messages.js";
 export * from "./task-events.js";
 
-export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
+export async function bindFeatureDatabase(database: SqlDatabase): Promise<void> {
   await bindTasksDatabase(database);
   await bindTaskMessagesDatabase(database);
   await bindTaskEventsDatabase(database);
@@ -20,11 +20,11 @@ export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
   await bindTaskProcessingDatabase(database);
 }
 
-export function createModuleRouter() {
+export function createFeatureRouter() {
   return createTasksRouter();
 }
 
-export const tasksDbModule: ModuleDbExports = {
-  bindModuleDatabase,
-  createModuleRouter,
+export const tasksDbFeature: FeatureDbExports = {
+  bindFeatureDatabase,
+  createFeatureRouter,
 };

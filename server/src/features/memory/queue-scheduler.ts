@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { cleanMemoryDocument, type MemoryLlmConfig } from "./maintain.js";
-import type { MemoryModuleConfig } from "./module-config.js";
+import type { MemoryConfig } from "./config.js";
 import { memoryJobDebug } from "./job-debug.js";
 import { beginJobProcessing } from "../../debug/job-report.js";
 
@@ -30,7 +30,7 @@ interface MemoryRecord {
 
 export interface MemoryQueueSchedulerDeps {
   getQueueSize: () => number;
-  getConfig: () => Promise<MemoryModuleConfig>;
+  getConfig: () => Promise<MemoryConfig>;
   listUserMemories: () => Promise<{ id: string; content: string }[]>;
   listGroupMemories: () => Promise<{ id: string; content: string }[]>;
   getGeneralContent: () => Promise<string>;

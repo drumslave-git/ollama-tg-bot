@@ -6,7 +6,7 @@ import {
   getKnownUserById,
   type KnownUserRecord,
 } from "../../db/users/known-users.js";
-import { getUserFacts } from "../../db/memory/user.js";
+import { getUserFacts } from "../../features/memory/db/index.js";
 import { userRoleTagFromKnown } from "../../features/history/index.js";
 import { formatSpeakerLabel } from "./speaker.js";
 import { sliceEntity } from "../../features/addressing/index.js";

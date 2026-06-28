@@ -1,5 +1,5 @@
 import type { Context } from "grammy";
-import { conversationKey } from "../../db/history/index.js";
+import { conversationKey } from "../../features/history/db/index.js";
 
 export function resolveConversationKey(ctx: Context): string | null {
   const chatId = ctx.chat?.id;

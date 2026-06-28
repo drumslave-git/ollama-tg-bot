@@ -38,7 +38,7 @@ async function decide(text: string): Promise<boolean> {
   return result.result;
 }
 
-describe.skipIf(!cfg)("live: addressing-detection module", () => {
+describe.skipIf(!cfg)("live: addressing-detection feature", () => {
   it("says yes for an unambiguous @username mention", async () => {
     expect(await decide("@arguella_bot ping, you there?")).toBe(true);
   });

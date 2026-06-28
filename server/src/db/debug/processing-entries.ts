@@ -4,7 +4,7 @@ import type { SqlDatabase } from "../../contracts/index.js";
  * Shared "<domain>_processing_entries" store. Every debug domain (messages,
  * tasks, scheduled jobs) records an append-only, ordered stream of entries with
  * the same shape; only the owning `<domain>_processings` table differs. This
- * module owns the entries table DDL + CRUD so each domain reuses it.
+ * feature owns the entries table DDL + CRUD so each domain reuses it.
  */
 
 export type EntryType = "text" | "json";
@@ -90,16 +90,4 @@ export async function listEntries(
     content: row.content,
     createdAt: new Date(row.created_at * 1000).toISOString(),
   }));
-}
-
-export async function countEntries(
-  db: SqlDatabase,
-  cfg: EntriesTableConfig,
-  processingId: number,
-): Promise<number> {
-  const { rows } = await db.query<{ n: number }>(
-    `SELECT COUNT(*)::int AS n FROM ${cfg.entriesTable} WHERE ${cfg.fkColumn} = $1`,
-    [processingId],
-  );
-  return rows[0]?.n ?? 0;
 }

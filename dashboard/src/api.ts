@@ -49,7 +49,7 @@ export type WorkflowEdgeStyle = "primary" | "branch" | "side";
 
 export interface WorkflowNodeSpec {
   stepId: string;
-  moduleId?: string;
+  featureId?: string;
   label: string;
   sublabel?: string;
   kind: WorkflowNodeKind;
@@ -215,15 +215,9 @@ export interface TaskFireDetail {
   entries: ProcessingEntry[];
 }
 
-export interface JobModuleSummary {
-  moduleId: string;
-  runCount: number;
-  latestAt: string | null;
-}
-
 export interface JobRunListItem {
   id: number;
-  moduleId: string;
+  featureId: string;
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
@@ -233,7 +227,7 @@ export interface JobRunListItem {
 
 export interface JobRunDetail {
   id: number;
-  moduleId: string;
+  featureId: string;
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
@@ -629,16 +623,16 @@ export const api = {
     request<{ ok: boolean }>("/api/memories/general", {
       method: "DELETE",
     }),
-  getMemoryModuleConfig: () =>
+  getMemoryConfig: () =>
     request<{ maintenanceDebounceSec: number }>("/api/memories/config"),
-  updateMemoryModuleConfig: (patch: { maintenanceDebounceSec: number }) =>
+  updateMemoryConfig: (patch: { maintenanceDebounceSec: number }) =>
     request<{ maintenanceDebounceSec: number }>("/api/memories/config", {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
-  getVisionModuleConfig: () =>
+  getVisionConfig: () =>
     request<{ backfillDebounceSec: number }>("/api/vision/config"),
-  updateVisionModuleConfig: (patch: { backfillDebounceSec: number }) =>
+  updateVisionConfig: (patch: { backfillDebounceSec: number }) =>
     request<{ backfillDebounceSec: number }>("/api/vision/config", {
       method: "PATCH",
       body: JSON.stringify(patch),
@@ -710,9 +704,9 @@ export const api = {
     request<{ fires: TaskFireListItem[] }>(`/api/debug/task/${taskId}`),
   getDebugTaskFire: (id: number) =>
     request<{ fire: TaskFireDetail }>(`/api/debug/task-processing/${id}`),
-  getDebugJobRuns: (moduleId: string) =>
+  getDebugJobRuns: (featureId: string) =>
     request<{ runs: JobRunListItem[] }>(
-      `/api/debug/job/${encodeURIComponent(moduleId)}`,
+      `/api/debug/job/${encodeURIComponent(featureId)}`,
     ),
   getDebugJobRun: (id: number) =>
     request<{ run: JobRunDetail }>(`/api/debug/job-processing/${id}`),

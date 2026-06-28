@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import { runWebSearch, type WebSearchConfig } from "./search.js";
 import type { WebSearchSource } from "./types.js";
 
@@ -19,7 +19,7 @@ const searchWebOutputSchema = z.object({
 export interface WebSearchMcpConfig
   extends Pick<WebSearchConfig, "maxResults" | "fetch"> {
   apiKey: string;
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 export function registerWebSearchMcpTools(

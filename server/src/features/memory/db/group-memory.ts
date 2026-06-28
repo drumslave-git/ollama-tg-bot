@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import { normalizeFactText } from "./memory-facts.js";
 
 const MAX_MEMORY_CHARS = 12000;
@@ -37,11 +37,6 @@ interface GroupMemoryRow {
   group_id: string;
   content: string;
   updated_at: number;
-}
-
-export async function getGroupFacts(groupId: string): Promise<string[]> {
-  const content = await getGroupMemoryContent(groupId);
-  return content ? [content] : [];
 }
 
 export async function getGroupMemoryContent(groupId: string): Promise<string> {
@@ -119,7 +114,7 @@ async function getGroupMemoryRecord(
 }
 
 function notifyGroupMemoryChanged(): void {
-  const hooks = getModuleLiveHooks();
+  const hooks = getFeatureLiveHooks();
   hooks.emitMemoryUpdated?.("group");
   hooks.emitDataUpdated?.(["group_memories"]);
 }
@@ -201,10 +196,6 @@ export async function clearGroupMemory(groupId: string): Promise<void> {
 }
 
 export { formatGroupMemoryForPrompt } from "../inject.js";
-
-export function groupMemoryTotalChars(facts: string[]): number {
-  return facts.reduce((n, f) => n + f.length, 0);
-}
 
 export async function replaceGroupFacts(
   groupId: string,

@@ -5,7 +5,7 @@ import {
   normalizeMoodValues,
   type MoodValues,
 } from "../values.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import { getActivePersonalityMoodDefaults } from "./personalities.js";
 
 const MOOD_ANCHOR_KEY = "moodAnchor";
@@ -14,7 +14,7 @@ const MOOD_UPDATED_AT_KEY = "moodUpdatedAt";
 
 let db: SqlDatabase;
 let readSettings: () => Promise<{ moodCooldownMinutes: number }> = () => {
-  throw new Error("Mood module not initialized");
+  throw new Error("Mood feature not initialized");
 };
 
 export interface MoodState {
@@ -111,21 +111,8 @@ export async function tickMoodCooldown(): Promise<boolean> {
   if (current && moodValuesEqual(current, decayed)) return false;
 
   await writeMeta(MOOD_VALUES_KEY, JSON.stringify(decayed));
-  getModuleLiveHooks().emitMoodUpdated?.();
+  getFeatureLiveHooks().emitMoodUpdated?.();
   return true;
-}
-
-export async function getMoodState(): Promise<MoodState | null> {
-  const anchorState = await getMoodAnchorState();
-  if (!anchorState) return null;
-
-  const values = parseMoodJson(
-    await readMeta(MOOD_VALUES_KEY),
-    await moodDefaults(),
-  );
-  if (!values) return null;
-
-  return { values, updatedAt: anchorState.updatedAt };
 }
 
 /** Current mood kept up to date by the background cooldown worker. */
@@ -165,7 +152,7 @@ export async function saveMoodState(values: MoodValues): Promise<MoodState> {
   await writeMeta(MOOD_VALUES_KEY, encoded);
   await writeMeta(MOOD_UPDATED_AT_KEY, updatedAt);
 
-  getModuleLiveHooks().emitMoodUpdated?.();
+  getFeatureLiveHooks().emitMoodUpdated?.();
   return { values: normalized, updatedAt };
 }
 
@@ -175,7 +162,7 @@ export async function resetMoodState(): Promise<boolean> {
   await deleteMeta(MOOD_VALUES_KEY);
   await deleteMeta(MOOD_UPDATED_AT_KEY);
   if (hadValues) {
-    getModuleLiveHooks().emitMoodUpdated?.();
+    getFeatureLiveHooks().emitMoodUpdated?.();
   }
   return hadValues;
 }

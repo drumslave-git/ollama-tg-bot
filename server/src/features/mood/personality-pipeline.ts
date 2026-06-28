@@ -1,10 +1,10 @@
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineStepResult,
 } from "../../contracts/index.js";
 import { getActivePersonalityPrompt } from "../../pipeline/turn-services.js";
 
-export const personalityHost: PipelineModuleHost = {
+export const personalityHost: PipelineFeatureHost = {
   id: "mood-evaluation",
   stepId: "personality",
   alwaysOn: true,

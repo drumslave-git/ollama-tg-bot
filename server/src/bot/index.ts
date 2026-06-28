@@ -5,9 +5,9 @@ import { setBotIdentity } from "../features/addressing/index.js";
 import { PUBLIC_BOT_COMMANDS } from "./commands/commands-help.js";
 import { registerHandlers } from "./handlers/index.js";
 import {
-  collectModuleBotCommands,
+  collectFeatureBotCommands,
   runBotHostStartupHooks,
-} from "../runtime/module-hosts.js";
+} from "../runtime/feature-hosts.js";
 
 let botInstance: Bot | null = null;
 let botUsername = "";
@@ -32,13 +32,13 @@ export async function startBot(): Promise<Bot> {
 
   registerHandlers(bot, botUsername);
 
-  const allCommands = [...PUBLIC_BOT_COMMANDS, ...collectModuleBotCommands()];
+  const allCommands = [...PUBLIC_BOT_COMMANDS, ...collectFeatureBotCommands()];
   void bot.api.setMyCommands(allCommands).catch((err) => {
     console.error("Failed to register bot commands:", err);
   });
 
   void runBotHostStartupHooks(bot.api, botUsername, token).catch((err) => {
-    console.error("Bot module startup hooks failed:", err);
+    console.error("Bot feature startup hooks failed:", err);
   });
 
   bot.catch((err) => {

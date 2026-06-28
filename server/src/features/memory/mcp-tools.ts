@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import {
   addGeneralFacts,
   addGroupFacts,
@@ -52,7 +52,7 @@ const saveOutputSchema = z.object({
 });
 
 export interface MemoryMcpConfig {
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 /** Read the stored memory document for a scope. */

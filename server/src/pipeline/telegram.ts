@@ -6,7 +6,7 @@ import {
   formatMentionedUsersContext,
   resolveMentionedKnownUsers,
 } from "../bot/messages/mentions.js";
-import { conversationKey } from "../db/history/index.js";
+import { conversationKey } from "../features/history/db/index.js";
 
 export function buildTelegramContext(
   ctx: Context,

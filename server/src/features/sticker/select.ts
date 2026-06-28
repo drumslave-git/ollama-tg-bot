@@ -1,7 +1,7 @@
 import {
   auxiliaryChatComplete,
   type ChatMessage,
-  type ModuleDefinition,
+  type FeatureDefinition,
 } from "../../shared/index.js";
 import {
   buildStickerAnalyzerMessages,
@@ -116,7 +116,7 @@ export async function pickSticker(
   }
 }
 
-export const stickerSelectionModule: ModuleDefinition<
+export const stickerSelectionFeature: FeatureDefinition<
   StickerSelectionInput,
   StickerSelectionConfig,
   StickerSelectionOutput

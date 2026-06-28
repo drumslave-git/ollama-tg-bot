@@ -55,7 +55,7 @@ function pickAssistantContent(
 }
 
 /**
- * Stateless auxiliary chat completion for side-pass modules.
+ * Stateless auxiliary chat completion for side-pass features.
  * Uses low temperature; when `providerSettings.thinkingEnabled`, sends low reasoning effort.
  */
 export async function auxiliaryChatComplete(

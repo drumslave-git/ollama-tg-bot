@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BotMcpRegistry } from "../../../src/shared/index.js";
-import { bindModuleDatabase } from "../../../src/features/tasks/db/index.js";
+import { bindFeatureDatabase } from "../../../src/features/tasks/db/index.js";
 import {
   closeTestPool,
   dropTables,
@@ -59,7 +59,7 @@ const TABLES = ["tasks", "task_messages", "task_events"];
 beforeAll(async () => {
   if (!hasTestDb) return;
   await dropTables(...TABLES);
-  await bindModuleDatabase(testDb);
+  await bindFeatureDatabase(testDb);
 });
 afterAll(async () => {
   if (hasTestDb) await closeTestPool();

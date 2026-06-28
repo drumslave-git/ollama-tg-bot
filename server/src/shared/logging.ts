@@ -1,14 +1,14 @@
-export type ModuleEventFields = Record<
+export type FeatureEventFields = Record<
   string,
   string | number | boolean | null | undefined
 >;
 
-export interface ModuleLogging {
-  logEvent?: (event: string, fields?: ModuleEventFields) => void;
-  logEventError?: (event: string, err: unknown, fields?: ModuleEventFields) => void;
+export interface FeatureLogging {
+  logEvent?: (event: string, fields?: FeatureEventFields) => void;
+  logEventError?: (event: string, err: unknown, fields?: FeatureEventFields) => void;
 }
 
-export const noopModuleLogging: ModuleLogging = {
+export const noopFeatureLogging: FeatureLogging = {
   logEvent: () => {},
   logEventError: () => {},
 };

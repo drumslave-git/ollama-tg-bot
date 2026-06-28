@@ -24,10 +24,10 @@ const jobSink: ProcessingSink = {
  * `complete(status, { summary })` finalizes the run.
  */
 export async function beginJobProcessing(
-  moduleId: string,
+  featureId: string,
 ): Promise<ProcessingRecorder | null> {
   try {
-    const processingId = await createJobProcessing(moduleId);
+    const processingId = await createJobProcessing(featureId);
     if (processingId == null) return null;
     const recorder = new ProcessingRecorder(jobSink);
     recorder.link(processingId);

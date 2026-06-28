@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import {
   getTaskById,
   listTasks,
@@ -35,7 +35,7 @@ export const TASKS_TOOL_NAMES = [
 const scheduleKind = z.enum(["once", "daily", "weekly"]);
 
 export interface TasksMcpConfig {
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 function textResult(text: string, structured?: Record<string, unknown>) {

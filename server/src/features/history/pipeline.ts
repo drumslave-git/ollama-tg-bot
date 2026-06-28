@@ -1,6 +1,6 @@
 import type { Message } from "@grammyjs/types";
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineStepResult,
 } from "../../contracts/index.js";
 import { stripCurrentBotAddressing } from "../addressing/index.js";
@@ -31,7 +31,7 @@ import {
   userRoleTag,
 } from "../../pipeline/turn-services.js";
 
-export const turnSetupHost: PipelineModuleHost = {
+export const turnSetupHost: PipelineFeatureHost = {
   id: "history",
   stepId: "intake",
   alwaysOn: true,
@@ -72,7 +72,7 @@ export const turnSetupHost: PipelineModuleHost = {
   },
 };
 
-export const intakeHistoryHost: PipelineModuleHost = {
+export const intakeHistoryHost: PipelineFeatureHost = {
   id: "history",
   stepId: "history-intake",
   alwaysOn: true,
@@ -189,7 +189,7 @@ export const intakeHistoryHost: PipelineModuleHost = {
   },
 };
 
-export const historyRecordHost: PipelineModuleHost = {
+export const historyRecordHost: PipelineFeatureHost = {
   id: "history",
   stepId: "history-record",
   alwaysOn: true,

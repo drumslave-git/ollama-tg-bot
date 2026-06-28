@@ -6,7 +6,7 @@ import {
   normalizeMoodValues,
   type MoodValues,
 } from "../values.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 
 export const MAX_PERSONALITIES = 32;
 export const MAX_PERSONALITY_NAME_LENGTH = 64;
@@ -198,7 +198,7 @@ export async function createPersonality(
     [name, prompt, JSON.stringify(normalizedMood)],
   );
 
-  getModuleLiveHooks().emitPersonalitiesUpdated?.();
+  getFeatureLiveHooks().emitPersonalitiesUpdated?.();
   return rows[0] ? getPersonalityById(rows[0].id) : null;
 }
 
@@ -232,7 +232,7 @@ export async function updatePersonalityById(
     [nextName, nextPrompt, JSON.stringify(nextMood), id],
   );
 
-  getModuleLiveHooks().emitPersonalitiesUpdated?.();
+  getFeatureLiveHooks().emitPersonalitiesUpdated?.();
   return getPersonalityById(id);
 }
 
@@ -240,7 +240,7 @@ export async function deletePersonalityById(id: number): Promise<boolean> {
   const result = await db.query("DELETE FROM personalities WHERE id = $1", [id]);
   const deleted = (result.rowCount ?? 0) > 0;
   if (deleted) {
-    getModuleLiveHooks().emitPersonalitiesUpdated?.();
+    getFeatureLiveHooks().emitPersonalitiesUpdated?.();
   }
   return deleted;
 }

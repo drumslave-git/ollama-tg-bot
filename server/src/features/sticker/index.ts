@@ -1,12 +1,12 @@
 export {
-  stickerSelectionModule,
+  stickerSelectionFeature,
   pickSticker,
   STICKER_CHECK_NUM_PREDICT,
   type StickerSelectionConfig,
 } from "./select.js";
 export {
   analyzeStickerForReply,
-  stickerAnalyzeModule,
+  stickerAnalyzeFeature,
   type StickerAnalyzeConfig,
   type StickerAnalyzeInput,
 } from "./analyze.js";

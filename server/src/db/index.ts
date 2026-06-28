@@ -9,7 +9,7 @@ import { bindMessageProcessingDatabase } from "./debug/message-processing.js";
 import { bindJobProcessingDatabase } from "./debug/job-processing.js";
 import { bindKnownUsersDatabase } from "./users/known-users.js";
 import { bindDataBrowserDatabase } from "./data/browser.js";
-import { getPersonalityById } from "./personalities/index.js";
+import { getPersonalityById } from "../features/mood/db/index.js";
 import {
   invalidateModelContextCache,
   refreshModelContextCache,
@@ -20,10 +20,10 @@ import {
   validateSettingsFields,
 } from "../settings/limits.js";
 import {
-  configureModuleDatabases,
-  initModuleDatabases,
-} from "../runtime/modules.js";
-import { buildModuleDbHost } from "../runtime/module-db-host.js";
+  configureFeatureDatabases,
+  initFeatureDatabases,
+} from "../runtime/features.js";
+import { buildFeatureDbHost } from "../runtime/feature-db-host.js";
 
 export interface Settings {
   model: string;
@@ -62,7 +62,7 @@ export interface Settings {
   reasoningEffort: "none" | "low" | "medium" | "high";
   /** When on, only the owner can trigger LLM-backed bot behavior. */
   maintenanceModeEnabled: boolean;
-  /** Enabled modular workflow steps. */
+  /** Enabled workflow steps. */
   workflowSteps: string[];
   workflowNodes: { id: string; x: number; y: number }[];
   workflowEdges: { id: string; source: string; target: string }[];
@@ -142,15 +142,15 @@ export async function initDatabase(): Promise<void> {
     );
   }
 
-  await initModuleDatabases(db);
-  configureModuleDatabases(buildModuleDbHost());
+  await initFeatureDatabases(db);
+  configureFeatureDatabases(buildFeatureDbHost());
 
   await bindErrorLogDatabase(db);
   await bindKnownUsersDatabase(db);
-  // After chat_messages (module dbs) and known_users — message_processings has a
+  // After chat_messages (feature dbs) and known_users — message_processings has a
   // FK to chat_messages and its labels read known_users.
   await bindMessageProcessingDatabase(db);
-  // Background-job run history (memory/vision backfill); no owner FK, capped per module.
+  // Background-job run history (memory/vision backfill); no owner FK, capped per feature.
   await bindJobProcessingDatabase(db);
   bindDataBrowserDatabase(db);
 }

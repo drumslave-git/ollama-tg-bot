@@ -11,20 +11,23 @@ import {
   getVisionJobScheduledRunAt,
 } from "../features/vision/index.js";
 import {
+  getGeneralFacts,
   getMemoryChatFingerprint,
-  getMemoryModuleConfig,
+  getMemoryConfig,
+  listAllGroupFacts,
+  listAllUserFacts,
+  replaceGeneralFacts,
+  replaceGroupFacts,
+  replaceUserFacts,
   setMemoryChatFingerprint,
 } from "../features/memory/db/index.js";
-import { getVisionModuleConfig } from "../features/vision/db/index.js";
+import { getVisionConfig } from "../features/vision/db/index.js";
 import {
   getHistory,
   listHistoryChatKeys,
   mapHistoryBase64Media,
-} from "../db/history/index.js";
+} from "../features/history/db/index.js";
 import { getSettings } from "../db/index.js";
-import { getGeneralFacts, replaceGeneralFacts } from "../db/memory/general.js";
-import { listAllGroupFacts, replaceGroupFacts } from "../db/memory/group.js";
-import { listAllUserFacts, replaceUserFacts } from "../db/memory/user.js";
 import { chatComplete } from "../llm/client.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
@@ -52,7 +55,7 @@ let visionScheduler: QueueScheduler | null = null;
 
 /**
  * Wire the debounced background-job schedulers. Called once at startup.
- * Kept out of module top-level so importing this file has no side effects
+ * Kept out of the file top-level so importing this file has no side effects
  * (avoids import-order traps in the feature/runtime dependency graph).
  */
 export function initQueueSchedulers(): void {
@@ -74,7 +77,7 @@ export function initQueueSchedulers(): void {
 
   memoryScheduler = createMemoryQueueScheduler({
   getQueueSize: getMessageQueueSize,
-  getConfig: getMemoryModuleConfig,
+  getConfig: getMemoryConfig,
   listUserMemories: async () =>
     (await listAllUserFacts()).map((r) => ({ id: r.userId, content: r.fact })),
   listGroupMemories: async () =>
@@ -114,7 +117,7 @@ export function initQueueSchedulers(): void {
 
   visionScheduler = createVisionQueueScheduler({
   getQueueSize: getMessageQueueSize,
-  getConfig: getVisionModuleConfig,
+  getConfig: getVisionConfig,
   listHistoryChatKeys,
   getHistory,
   mapHistoryBase64Media,

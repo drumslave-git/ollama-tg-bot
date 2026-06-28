@@ -12,12 +12,12 @@ import { closePlaywrightBrowser } from "./features/link-fetch/index.js";
 import {
   startMoodCooldownWorker,
   stopMoodCooldownWorker,
-} from "./mood/cooldown.js";
+} from "./features/mood/cooldown.js";
 import { initLiveSocket } from "./dashboard/socket.js";
 import {
-  createModuleRouters,
-  wireModuleLiveHooks,
-} from "./runtime/modules.js";
+  createFeatureRouters,
+  wireFeatureLiveHooks,
+} from "./runtime/features.js";
 import { loadMcpTools } from "./runtime/mcp-tools.js";
 import { initQueueSchedulers } from "./runtime/background-jobs.js";
 import {
@@ -38,7 +38,7 @@ import {
 async function main(): Promise<void> {
   requireStartupEnv();
 
-  wireModuleLiveHooks({
+  wireFeatureLiveHooks({
     emitMemoryUpdated,
     emitDataUpdated,
     emitMoodUpdated,
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   await initDatabase();
   initQueueSchedulers();
   await loadMcpTools();
-  const moduleRouters = await createModuleRouters();
+  const featureRouters = await createFeatureRouters();
   const bootSettings = await getSettings();
   void refreshModelContextCache(bootSettings.model, config.llmBaseUrl);
   startMoodCooldownWorker();
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   const app = express();
   app.use(cors());
   app.use(express.json());
-  app.use("/api", createApiRouter(moduleRouters));
+  app.use("/api", createApiRouter(featureRouters));
 
   app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
     if (res.headersSent) return next(err);

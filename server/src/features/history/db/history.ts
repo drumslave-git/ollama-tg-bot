@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import { ASSISTANT_ROLE, type StoredMessage } from "../types.js";
 
 let db: SqlDatabase;
@@ -232,7 +232,7 @@ export async function appendMessage(
      RETURNING id`,
     [entityId, role, trimmed, options?.messageId ?? null],
   );
-  getModuleLiveHooks().emitDataUpdated?.(["chat_messages"]);
+  getFeatureLiveHooks().emitDataUpdated?.(["chat_messages"]);
   return rows[0]?.id ?? null;
 }
 
@@ -248,7 +248,7 @@ export async function appendAssistantMessage(
 
 export async function clearHistory(entityId: string): Promise<void> {
   await db.query(`DELETE FROM chat_messages WHERE entity_id = $1`, [entityId]);
-  getModuleLiveHooks().emitDataUpdated?.(["chat_messages"]);
+  getFeatureLiveHooks().emitDataUpdated?.(["chat_messages"]);
 }
 
 /** Scan an entity's rows and replace base64 media content using the mapper (vision backfill). */
@@ -275,7 +275,7 @@ export async function mapHistoryBase64Media(
   }
 
   if (updated > 0) {
-    getModuleLiveHooks().emitDataUpdated?.(["chat_messages"]);
+    getFeatureLiveHooks().emitDataUpdated?.(["chat_messages"]);
   }
   return updated;
 }

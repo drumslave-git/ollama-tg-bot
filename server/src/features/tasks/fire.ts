@@ -4,9 +4,11 @@ import {
 } from "../completions/index.js";
 import { getBot } from "../../bot/index.js";
 import { splitTelegramMessage } from "../../bot/replies/delivery.js";
-import { getActivePersonalityPrompt } from "../../db/personalities/index.js";
-import { appendAssistantMessage } from "../../db/history/index.js";
-import { getEffectiveMood } from "../../db/mood/index.js";
+import {
+  getActivePersonalityPrompt,
+  getEffectiveMood,
+} from "../mood/db/index.js";
+import { appendAssistantMessage } from "../history/db/index.js";
 import { getSettings, recordReply } from "../../db/index.js";
 import { chatCompleteDetailed } from "../../llm/client.js";
 import { buildSystemPrompt } from "../../pipeline/adapters/system-prompt.js";

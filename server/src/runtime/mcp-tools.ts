@@ -1,21 +1,21 @@
-import type { ModuleLogging } from "../shared/index.js";
+import type { FeatureLogging } from "../shared/index.js";
 import { BotMcpRegistry } from "../shared/index.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
-import { MODULE_REGISTRY } from "./module-registry.js";
+import { FEATURE_REGISTRY } from "./feature-registry.js";
 
-interface RegisteredMcpModule {
+interface RegisteredMcpFeature {
   workflowStepId: string;
   toolNames: string[];
   alwaysOn: boolean;
 }
 
 let registry: BotMcpRegistry | null = null;
-const registeredModules: RegisteredMcpModule[] = [];
+const registeredFeatures: RegisteredMcpFeature[] = [];
 
 function mcpHostContext(): {
   getSecret: (name: "tavily" | "openai") => string;
-  logging: ModuleLogging;
+  logging: FeatureLogging;
 } {
   return {
     getSecret: (name) => {
@@ -37,10 +37,10 @@ export async function loadMcpTools(): Promise<BotMcpRegistry> {
   registry = new BotMcpRegistry();
   const context = mcpHostContext();
 
-  for (const entry of MODULE_REGISTRY) {
+  for (const entry of FEATURE_REGISTRY) {
     if (!entry.mcpTools) continue;
     registry.registerTools(entry.mcpTools.registrar, context);
-    registeredModules.push({
+    registeredFeatures.push({
       workflowStepId: entry.mcpTools.workflowStepId,
       toolNames: [...entry.mcpTools.toolNames],
       alwaysOn: entry.mcpTools.alwaysOn ?? false,
@@ -60,11 +60,11 @@ export function getMcpRegistry(): BotMcpRegistry {
 
 export function resolveEnabledMcpToolNames(workflowSteps: string[]): string[] {
   const enabled = new Set<string>();
-  for (const module of registeredModules) {
-    if (!module.alwaysOn && !workflowSteps.includes(module.workflowStepId)) {
+  for (const feature of registeredFeatures) {
+    if (!feature.alwaysOn && !workflowSteps.includes(feature.workflowStepId)) {
       continue;
     }
-    for (const toolName of module.toolNames) {
+    for (const toolName of feature.toolNames) {
       enabled.add(toolName);
     }
   }

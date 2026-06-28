@@ -1,6 +1,6 @@
 import { extractTelegramReply } from "../../features/completions/index.js";
 import { asObject, parseJsonContent } from "../../shared/index.js";
-import { listDistinctHistoryChatIds } from "../../db/history/index.js";
+import { listDistinctHistoryChatIds } from "../../features/history/db/index.js";
 import { MAINTENANCE_MODE_ON_BEHAVIOR } from "./maintenance-mode.js";
 
 export function collectMaintenanceAnnouncementChatIds(): Promise<number[]> {

@@ -1,12 +1,12 @@
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineTurnState,
 } from "../contracts/index.js";
 import {
   getIntakePipelineHosts,
   getReplyPipelineHosts,
   getPostReplyPipelineHosts,
-} from "../runtime/module-hosts.js";
+} from "../runtime/feature-hosts.js";
 import {
   isPipelineStepEnabled,
   runPipelineHost,
@@ -31,12 +31,12 @@ import {
 import { ReplyStream } from "../bot/replies/reply-stream.js";
 import type { QueuedMessage } from "../runtime/message-queue.js";
 
-function hostDebugTitle(host: PipelineModuleHost): string {
+function hostDebugTitle(host: PipelineFeatureHost): string {
   return host.debugTitle ?? host.stepId;
 }
 
 function shouldRunEnabledHost(
-  host: PipelineModuleHost,
+  host: PipelineFeatureHost,
   enabledSteps: string[],
   turnId: number,
   services: PipelineHostServices,

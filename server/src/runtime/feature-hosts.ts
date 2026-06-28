@@ -3,8 +3,8 @@ import type { BotCommand } from "grammy/types";
 import type { Context } from "grammy";
 import {
   type BotHostServices,
-  type BotModuleHost,
-  type PipelineModuleHost,
+  type BotFeatureHost,
+  type PipelineFeatureHost,
 } from "../contracts/index.js";
 import { addressingHost } from "../features/addressing/index.js";
 import {
@@ -31,12 +31,12 @@ import { replyToUser } from "../bot/replies/replies-helpers.js";
 import { createExplainExtensions } from "./explain-host.js";
 import { createMoodExtensions } from "./mood-host.js";
 
-// Built lazily inside getters (not as module-level consts) so the host
-// imports are read at call time, after all feature modules have finished
+// Built lazily inside getters (not as file-level consts) so the host
+// imports are read at call time, after all features have finished
 // initializing. A top-level array would hit a temporal-dead-zone error on
 // the import cycle between hosts and their shared turn-services.
 
-export function getIntakePipelineHosts(): PipelineModuleHost[] {
+export function getIntakePipelineHosts(): PipelineFeatureHost[] {
   return [turnSetupHost, intakeHistoryHost, addressingHost];
 }
 
@@ -46,7 +46,7 @@ export function getIntakePipelineHosts(): PipelineModuleHost[] {
  * delivery (see {@link getPostReplyPipelineHosts}) so their LLM calls don't
  * block the reply.
  */
-export function getReplyPipelineHosts(): PipelineModuleHost[] {
+export function getReplyPipelineHosts(): PipelineFeatureHost[] {
   return [visionReplyHost, systemPromptHost, personalityHost, completionsHost];
 }
 
@@ -55,12 +55,12 @@ export function getReplyPipelineHosts(): PipelineModuleHost[] {
  * pick, history record, mood update for the next turn) is off the critical
  * path, so failures here never block or replace the reply already sent.
  */
-export function getPostReplyPipelineHosts(): PipelineModuleHost[] {
+export function getPostReplyPipelineHosts(): PipelineFeatureHost[] {
   return [stickerPipelineHost, historyRecordHost, moodPipelineHost];
 }
 
 /** Full queue host list in workflow/dashboard display order. */
-export function getQueuePipelineHosts(): PipelineModuleHost[] {
+export function getQueuePipelineHosts(): PipelineFeatureHost[] {
   return [
     visionReplyHost,
     systemPromptHost,
@@ -72,11 +72,7 @@ export function getQueuePipelineHosts(): PipelineModuleHost[] {
   ];
 }
 
-export function getPipelineHosts(): PipelineModuleHost[] {
-  return [...getIntakePipelineHosts(), ...getQueuePipelineHosts()];
-}
-
-export function getBotHosts(): BotModuleHost[] {
+export function getBotHosts(): BotFeatureHost[] {
   return [completionsBotHost, moodBotHost, stickerBotHost];
 }
 
@@ -104,7 +100,7 @@ export function createBotHostServices(
   };
 }
 
-export function registerModuleCommands(
+export function registerFeatureCommands(
   bot: Bot,
   services: BotHostServices,
 ): void {
@@ -117,7 +113,7 @@ export function registerModuleCommands(
   }
 }
 
-export function collectModuleBotCommands(): BotCommand[] {
+export function collectFeatureBotCommands(): BotCommand[] {
   return getBotHosts().flatMap(
     (host) =>
       host.commands?.map((command) => ({

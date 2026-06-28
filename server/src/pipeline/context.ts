@@ -3,9 +3,11 @@ import type {
   PipelineTurnState,
 } from "../contracts/index.js";
 import type { WebSearchSource } from "../features/web-search/index.js";
-import type { MoodValues } from "../mood/index.js";
-import { getActivePersonalityPrompt } from "../db/personalities/index.js";
-import { getEffectiveMood } from "../db/mood/index.js";
+import type { MoodValues } from "../features/mood/index.js";
+import {
+  getActivePersonalityPrompt,
+  getEffectiveMood,
+} from "../features/mood/db/index.js";
 import { getSettings } from "../db/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";

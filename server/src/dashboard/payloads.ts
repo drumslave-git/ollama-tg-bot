@@ -3,14 +3,14 @@ import { config, getVramAvailableGb } from "../config/index.js";
 import { getStats, getSettings } from "../db/index.js";
 import { getPipelineRuntimeStatus } from "../runtime/pipeline-status.js";
 import { listRecentErrors } from "../db/debug/error-log.js";
-import { getMoodStateView } from "../db/mood/index.js";
 import {
   getActivePersonalityMoodDefaults,
+  getMoodStateView,
   getPersonalityById,
   resolveActivePersonalityId,
-} from "../db/personalities/index.js";
+} from "../features/mood/db/index.js";
 import { ensureModelContextCache } from "../llm/model-context-cache.js";
-import { MOOD_TRAIT_HINTS } from "../mood/index.js";
+import { MOOD_TRAIT_HINTS } from "../features/mood/index.js";
 import { buildBaseSystemPrompt } from "../pipeline/adapters/system-prompt.js";
 import { processStartedAt } from "../config/process-info.js";
 import {

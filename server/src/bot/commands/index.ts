@@ -6,12 +6,17 @@ import { groupSetupMessage } from "../handlers/group-setup.js";
 import { isOwner, getOwnerUserId, getOwnerUsername } from "../owner/owner.js";
 import { escapeHtml } from "../../telegram/html.js";
 import { buildPublicCommandsHelp } from "./commands-help.js";
-import { collectModuleBotCommands } from "../../runtime/module-hosts.js";
-import { clearHistory } from "../../db/history/index.js";
-import { clearUserMemory, createUserFact } from "../../db/memory/user.js";
-import { clearGroupMemory, createGroupFact } from "../../db/memory/group.js";
-import { createGeneralFact } from "../../db/memory/general.js";
-import { MAX_FACT_LENGTH, MIN_FACT_LENGTH } from "../../db/memory/facts.js";
+import { collectFeatureBotCommands } from "../../runtime/feature-hosts.js";
+import { clearHistory } from "../../features/history/db/index.js";
+import {
+  clearGroupMemory,
+  clearUserMemory,
+  createGeneralFact,
+  createGroupFact,
+  createUserFact,
+  MAX_FACT_LENGTH,
+  MIN_FACT_LENGTH,
+} from "../../features/memory/db/index.js";
 import { logEvent } from "../../logging/event-log.js";
 import { replyToUser } from "../replies/replies-helpers.js";
 import { resolveCallerRememberTarget, resolveCommandInlineOrReplyText, resolveRememberTarget } from "./command-utils.js";
@@ -61,7 +66,7 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
       buildPublicCommandsHelp(
         botUsername,
         isGroupChat(ctx),
-        collectModuleBotCommands(),
+        collectFeatureBotCommands(),
       ),
     );
   });

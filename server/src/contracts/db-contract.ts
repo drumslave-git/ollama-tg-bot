@@ -17,7 +17,7 @@ export interface SqlDatabase {
   ): Promise<SqlQueryResult<R>>;
 }
 
-export interface ModuleDbHost {
+export interface FeatureDbHost {
   getSettings: () => Promise<Record<string, unknown>>;
   updateSettings: (
     partial: Record<string, unknown>,
@@ -25,8 +25,8 @@ export interface ModuleDbHost {
   buildMoodPayload?: () => Promise<unknown>;
 }
 
-export interface ModuleDbExports {
-  bindModuleDatabase: (database: SqlDatabase) => void | Promise<void>;
-  configureModuleAccess?: (host: ModuleDbHost) => void;
-  createModuleRouter?: () => Router;
+export interface FeatureDbExports {
+  bindFeatureDatabase: (database: SqlDatabase) => void | Promise<void>;
+  configureFeatureAccess?: (host: FeatureDbHost) => void;
+  createFeatureRouter?: () => Router;
 }

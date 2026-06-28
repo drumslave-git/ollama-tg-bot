@@ -1,4 +1,4 @@
-import type { ModuleDefinition, ModuleLogging } from "../../shared/index.js";
+import type { FeatureDefinition, FeatureLogging } from "../../shared/index.js";
 import { STICKER_RESPONSE_FORMAT } from "./prompt.js";
 import {
   pickSticker,
@@ -12,7 +12,7 @@ export interface StickerAnalyzeInput extends StickerSelectionInput {
 }
 
 export interface StickerAnalyzeConfig extends StickerSelectionConfig {
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 /**
@@ -35,7 +35,7 @@ export async function analyzeStickerForReply(
 
 export { STICKER_CHECK_NUM_PREDICT, STICKER_RESPONSE_FORMAT };
 
-export const stickerAnalyzeModule: ModuleDefinition<
+export const stickerAnalyzeFeature: FeatureDefinition<
   StickerAnalyzeInput,
   StickerAnalyzeConfig,
   string | null

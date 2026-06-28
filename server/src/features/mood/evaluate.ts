@@ -1,8 +1,8 @@
 import {
   auxiliaryChatComplete,
   type ChatMessage,
-  type ModuleDefinition,
-  type ModuleLogging,
+  type FeatureDefinition,
+  type FeatureLogging,
 } from "../../shared/index.js";
 import {
   buildMoodEvaluateMessages,
@@ -19,7 +19,7 @@ export interface MoodEvaluateConfig {
   model: string;
   apiKey?: string;
   numPredict?: number;
-  log?: ModuleLogging;
+  log?: FeatureLogging;
   /**
    * Optional host-provided completion (e.g. debug tracing).
    * When set, `baseUrl` / `model` / `apiKey` are ignored for the LLM call.
@@ -72,7 +72,7 @@ export async function evaluateMood(
   }
 }
 
-export const moodEvaluationModule: ModuleDefinition<
+export const moodEvaluationFeature: FeatureDefinition<
   MoodEvaluateInput,
   MoodEvaluateConfig,
   MoodEvaluateOutput

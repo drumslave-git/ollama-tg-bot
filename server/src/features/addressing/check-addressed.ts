@@ -1,5 +1,5 @@
 import type { Message } from "@grammyjs/types";
-import type { ModuleDefinition, ModuleLogging } from "../../shared/index.js";
+import type { FeatureDefinition, FeatureLogging } from "../../shared/index.js";
 import {
   detectAddressing,
   type AddressingDetectionConfig,
@@ -40,7 +40,7 @@ export interface AddressCheckInput {
 }
 
 export interface AddressCheckConfig extends AddressingDetectionConfig {
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 function baseLogFields(input: AddressCheckInput): Record<string, string | number | undefined> {
@@ -168,7 +168,7 @@ async function analyzeGroupMessageForBot(
   }
 }
 
-export const addressCheckModule: ModuleDefinition<
+export const addressCheckFeature: FeatureDefinition<
   AddressCheckInput,
   AddressCheckConfig,
   AddressCheckResult

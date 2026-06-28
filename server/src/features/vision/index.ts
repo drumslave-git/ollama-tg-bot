@@ -29,17 +29,17 @@ export {
 } from "./describe-prompt.js";
 export {
   describeVisionImages,
-  visionDescribeModule,
+  visionDescribeFeature,
   type VisionDescribeConfig,
   type VisionDescribeInput,
   type VisionDescribeOutput,
 } from "./describe.js";
 export { visionReplyHost } from "./pipeline.js";
 export {
-  DEFAULT_VISION_MODULE_CONFIG,
-  validateVisionModuleConfig,
-  type VisionModuleConfig,
-} from "./module-config.js";
+  DEFAULT_VISION_CONFIG,
+  validateVisionConfig,
+  type VisionConfig,
+} from "./config.js";
 export {
   createVisionQueueScheduler,
   type VisionJobStatus,

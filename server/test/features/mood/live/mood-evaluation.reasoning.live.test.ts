@@ -17,7 +17,7 @@ function isValidMood(mood: MoodValues): boolean {
 }
 
 describe.skipIf(!cfg || !liveReasoningMode())(
-  "live: mood-evaluation module (reasoning)",
+  "live: mood-evaluation feature (reasoning)",
   () => {
     it("uses json_schema without a reasoning field while thinking is on", () => {
       const format = getMoodResponseFormat();

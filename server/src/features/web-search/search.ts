@@ -1,4 +1,4 @@
-import type { ModuleDefinition, ModuleLogging } from "../../shared/index.js";
+import type { FeatureDefinition, FeatureLogging } from "../../shared/index.js";
 import {
   extractWebSearchSources,
   formatWebSearchContext,
@@ -12,7 +12,7 @@ export interface WebSearchInput {
 }
 
 export interface WebSearchConfig extends TavilyFetchConfig {
-  log?: ModuleLogging;
+  log?: FeatureLogging;
 }
 
 export interface WebSearchOutput {
@@ -71,7 +71,7 @@ export async function runWebSearch(
   }
 }
 
-export const webSearchModule: ModuleDefinition<
+export const webSearchFeature: FeatureDefinition<
   WebSearchInput,
   WebSearchConfig,
   WebSearchOutput

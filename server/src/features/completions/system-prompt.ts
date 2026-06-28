@@ -1,11 +1,11 @@
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineStepResult,
 } from "../../contracts/index.js";
 import { buildSystemPromptForTurn } from "../../pipeline/turn-services.js";
 import { captureTaskTurnContext } from "../tasks/index.js";
 
-export const systemPromptHost: PipelineModuleHost = {
+export const systemPromptHost: PipelineFeatureHost = {
   id: "completions",
   stepId: "system",
   alwaysOn: true,

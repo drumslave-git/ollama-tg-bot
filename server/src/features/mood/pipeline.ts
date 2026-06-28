@@ -1,9 +1,9 @@
 import type {
-  PipelineModuleHost,
+  PipelineFeatureHost,
   PipelineHostServices,
   PipelineStepResult,
 } from "../../contracts/index.js";
-import type { ModuleLogging } from "../../shared/index.js";
+import type { FeatureLogging } from "../../shared/index.js";
 import { evaluateMood, MOOD_EVAL_NUM_PREDICT } from "./evaluate.js";
 import { getMoodResponseFormat } from "./prompt.js";
 import { normalizeMoodValues, type MoodValues } from "./values.js";
@@ -12,7 +12,7 @@ import {
   saveMoodState,
 } from "../../pipeline/turn-services.js";
 
-function hostLogging(services: PipelineHostServices): ModuleLogging {
+function hostLogging(services: PipelineHostServices): FeatureLogging {
   return {
     logEvent: (event, fields) =>
       services.logging.logEvent(event, fields as Record<string, unknown>),
@@ -25,7 +25,7 @@ function hostLogging(services: PipelineHostServices): ModuleLogging {
   };
 }
 
-export const moodPipelineHost: PipelineModuleHost = {
+export const moodPipelineHost: PipelineFeatureHost = {
   id: "mood-evaluation",
   stepId: "mood",
   alwaysOn: true,

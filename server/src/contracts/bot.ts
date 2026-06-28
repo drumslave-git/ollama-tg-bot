@@ -1,5 +1,5 @@
 /**
- * Bot integration contract for dynamically loaded feature modules.
+ * Bot integration contract for loaded bot features.
  *
  * Commands and startup hooks only — message handling uses the pipeline.
  */
@@ -29,7 +29,7 @@ export interface BotCommandRegistration {
   handler: (ctx: unknown, services: BotHostServices) => Promise<void>;
 }
 
-export interface BotModuleHost {
+export interface BotFeatureHost {
   readonly id: string;
   readonly commands?: BotCommandRegistration[];
   onStart?(services: BotHostServices): Promise<void>;

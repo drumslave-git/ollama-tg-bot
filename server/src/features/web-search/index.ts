@@ -1,5 +1,5 @@
 export {
-  webSearchModule,
+  webSearchFeature,
   runWebSearch,
   type WebSearchConfig,
   type WebSearchInput,

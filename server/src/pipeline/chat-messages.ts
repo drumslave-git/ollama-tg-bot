@@ -3,16 +3,12 @@ import {
   appendAssistantMessage,
   appendMessage,
   getHistory,
-} from "../db/history/index.js";
-import {
-  formatKnownUserLabel,
-  getKnownUserById,
-  getKnownUsersByIds,
-} from "../db/users/known-users.js";
+} from "../features/history/db/index.js";
+import { getKnownUsersByIds } from "../db/users/known-users.js";
 import { logEvent } from "../logging/event-log.js";
 import type { Settings } from "../db/index.js";
 import { buildSystemPrompt } from "./adapters/system-prompt.js";
-import type { MoodValues } from "../mood/index.js";
+import type { MoodValues } from "../features/mood/index.js";
 import { extractParticipantUserIds } from "../features/history/index.js";
 import { isReplyThreadContext } from "../bot/replies/replies.js";
 import type { CurrentSpeaker } from "../bot/messages/speaker.js";
@@ -81,36 +77,6 @@ async function loadKnownChatUsers(
     currentUserId ? [currentUserId] : [],
   );
   return getKnownUsersByIds(participantIds);
-}
-
-export async function loadChatParticipants(
-  chatKey: string,
-  currentUserId: string | null,
-): Promise<{ userId: string; label: string }[]> {
-  const history = await getHistory(chatKey);
-  const roles = history.map((m) => m.role);
-  const participantIds = extractParticipantUserIds(
-    roles,
-    currentUserId ? [currentUserId] : [],
-  );
-
-  return Promise.all(
-    participantIds.map(async (userId) => {
-      const known = await getKnownUserById(userId);
-      if (known) {
-        return { userId, label: formatKnownUserLabel(known) };
-      }
-      const fromHistory = history.find((m) => m.role.endsWith(`:${userId}`));
-      if (fromHistory) {
-        const tag = fromHistory.role;
-        return {
-          userId,
-          label: tag.startsWith("user:") ? tag : `User ${userId}`,
-        };
-      }
-      return { userId, label: `User ${userId}` };
-    }),
-  );
 }
 
 export interface BuiltChatPayload {

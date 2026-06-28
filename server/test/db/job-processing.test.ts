@@ -1,12 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
-  MAX_RUNS_PER_MODULE,
+  MAX_RUNS_PER_FEATURE,
   appendJobEntry,
   bindJobProcessingDatabase,
   createJobProcessing,
   getJobProcessingDetail,
-  listJobModules,
-  listProcessingsForModule,
+  listProcessingsForFeature,
   setJobProcessingStatus,
 } from "../../src/db/debug/job-processing.js";
 import {
@@ -37,10 +36,10 @@ describe.skipIf(!hasTestDb)("job processing store (Postgres)", () => {
       summary: "2 backfilled",
     });
 
-    const list = await listProcessingsForModule("vision");
+    const list = await listProcessingsForFeature("vision");
     expect(list).toHaveLength(1);
     expect(list[0]).toMatchObject({
-      moduleId: "vision",
+      featureId: "vision",
       status: "processed",
       totalTimeSpent: 4200,
       summary: "2 backfilled",
@@ -54,21 +53,18 @@ describe.skipIf(!hasTestDb)("job processing store (Postgres)", () => {
     ]);
   });
 
-  it("groups runs by module and caps per module", async () => {
+  it("keeps runs per feature separate and caps each feature", async () => {
     await createJobProcessing("memory");
-    const overflow = MAX_RUNS_PER_MODULE + 4;
+    const overflow = MAX_RUNS_PER_FEATURE + 4;
     for (let i = 0; i < overflow; i++) {
       const pid = await createJobProcessing("vision");
       await appendJobEntry(pid!, "Scan", "text", `run ${i}`);
     }
 
-    const vision = await listProcessingsForModule("vision");
-    expect(vision).toHaveLength(MAX_RUNS_PER_MODULE);
+    const vision = await listProcessingsForFeature("vision");
+    expect(vision).toHaveLength(MAX_RUNS_PER_FEATURE);
 
-    const modules = await listJobModules();
-    expect(modules.find((m) => m.moduleId === "vision")?.runCount).toBe(
-      MAX_RUNS_PER_MODULE,
-    );
-    expect(modules.find((m) => m.moduleId === "memory")?.runCount).toBe(1);
+    const memory = await listProcessingsForFeature("memory");
+    expect(memory).toHaveLength(1);
   });
 });

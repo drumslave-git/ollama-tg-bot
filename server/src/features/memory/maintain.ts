@@ -1,7 +1,7 @@
 import {
   auxiliaryChatComplete,
   type ChatMessage,
-  type ModuleLogging,
+  type FeatureLogging,
 } from "../../shared/index.js";
 import {
   buildMemoryMergeMessages,
@@ -18,7 +18,7 @@ export interface MemoryLlmConfig {
   model: string;
   apiKey?: string;
   numPredict?: number;
-  log?: ModuleLogging;
+  log?: FeatureLogging;
   /**
    * Optional host-provided completion (e.g. debug tracing, thinking mode).
    * When set, `baseUrl` / `model` / `apiKey` are ignored for the LLM call.

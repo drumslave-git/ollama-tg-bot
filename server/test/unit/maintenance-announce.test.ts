@@ -6,11 +6,14 @@ import {
 } from "../../src/bot/maintenance/announce-support.js";
 import { MAINTENANCE_MODE_ON_BEHAVIOR } from "../../src/bot/maintenance/maintenance-mode.js";
 
-vi.mock("../../src/db/history/index.js", () => ({
+vi.mock("../../src/features/history/db/index.js", async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import("../../src/features/history/db/index.js")
+  >()),
   listDistinctHistoryChatIds: vi.fn(),
 }));
 
-import { listDistinctHistoryChatIds } from "../../src/db/history/index.js";
+import { listDistinctHistoryChatIds } from "../../src/features/history/db/index.js";
 
 const mockedListDistinctHistoryChatIds = vi.mocked(listDistinctHistoryChatIds);
 

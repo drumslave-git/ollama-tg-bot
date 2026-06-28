@@ -7,7 +7,7 @@ import { getTaskIdByMessage } from "./db/task-messages.js";
  * MCP tools are global and receive no per-turn data, but task management must be
  * bound to the current chat and gated to the owner. The message queue processes
  * one addressed turn at a time and `systemPromptHost` sets this context before
- * the main-reply tool loop runs, so a module-level variable is safe: every
+ * the main-reply tool loop runs, so a file-level variable is safe: every
  * addressed turn overwrites it before any tool call can read it.
  */
 export interface TaskTurnContext {

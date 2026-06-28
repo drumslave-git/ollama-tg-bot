@@ -30,10 +30,10 @@ export {
   type MemoryMcpConfig,
 } from "./mcp-tools.js";
 export {
-  DEFAULT_MEMORY_MODULE_CONFIG,
-  validateMemoryModuleConfig,
-  type MemoryModuleConfig,
-} from "./module-config.js";
+  DEFAULT_MEMORY_CONFIG,
+  validateMemoryConfig,
+  type MemoryConfig,
+} from "./config.js";
 export {
   createMemoryQueueScheduler,
   type MemoryJobStatus,

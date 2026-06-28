@@ -1,8 +1,8 @@
-import type { ModuleDbHost } from "../contracts/index.js";
+import type { FeatureDbHost } from "../contracts/index.js";
 import { buildMoodPayload } from "../dashboard/payloads.js";
 import { getSettings, updateSettings, type Settings } from "../db/index.js";
 
-export function buildModuleDbHost(): ModuleDbHost {
+export function buildFeatureDbHost(): FeatureDbHost {
   return {
     getSettings: async () =>
       (await getSettings()) as unknown as Record<string, unknown>,

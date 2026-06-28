@@ -2,13 +2,13 @@ import { getSettings } from "../db/index.js";
 import {
   getIntakePipelineHosts,
   getQueuePipelineHosts,
-} from "../runtime/module-hosts.js";
-import { getModuleEntries } from "../runtime/modules.js";
+} from "../runtime/feature-hosts.js";
+import { getFeatureEntries } from "../runtime/features.js";
 import { buildWorkflowDefinitionFromHosts } from "./workflow-definition.js";
 
-function manifestByModuleId(): Map<string, { name: string; description: string }> {
+function manifestByFeatureId(): Map<string, { name: string; description: string }> {
   const map = new Map<string, { name: string; description: string }>();
-  for (const entry of getModuleEntries()) {
+  for (const entry of getFeatureEntries()) {
     map.set(entry.id, {
       name: entry.name,
       description: entry.description,
@@ -21,7 +21,7 @@ export function buildWorkflowDefinition(enabledSteps: string[]) {
   return buildWorkflowDefinitionFromHosts(
     getIntakePipelineHosts(),
     getQueuePipelineHosts(),
-    manifestByModuleId(),
+    manifestByFeatureId(),
     enabledSteps,
   );
 }

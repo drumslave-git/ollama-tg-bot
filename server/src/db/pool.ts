@@ -23,7 +23,7 @@ export function getPool(): pg.Pool {
 }
 
 /**
- * Shared async SQL handle bound into every db module. Thin wrapper over the
+ * Shared async SQL handle bound into every feature db. Thin wrapper over the
  * pool that conforms to {@link SqlDatabase} so unit tests can inject a fake.
  */
 export const db: SqlDatabase = {
@@ -44,10 +44,4 @@ export async function initPool(): Promise<void> {
   }
   pool = new Pool({ connectionString: config.databaseUrl });
   await pool.query("CREATE EXTENSION IF NOT EXISTS vector");
-}
-
-export async function closePool(): Promise<void> {
-  if (!pool) return;
-  await pool.end();
-  pool = undefined;
 }

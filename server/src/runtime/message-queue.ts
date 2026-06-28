@@ -78,10 +78,6 @@ export function getMessageQueueSize(): number {
   return totalQueued();
 }
 
-export function getMessageQueuePosition(turnId: number): number | null {
-  return queuePosition(turnId);
-}
-
 async function pump(): Promise<void> {
   if (pumping) return;
   pumping = true;

@@ -1,5 +1,5 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
-import { getModuleLiveHooks } from "../../../contracts/index.js";
+import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import { normalizeFactText } from "./memory-facts.js";
 
 const MAX_GENERAL_FACTS = 128;
@@ -82,7 +82,7 @@ export async function getGeneralFactById(
 }
 
 function notifyGeneralMemoryChanged(): void {
-  const hooks = getModuleLiveHooks();
+  const hooks = getFeatureLiveHooks();
   hooks.emitMemoryUpdated?.("general");
   hooks.emitDataUpdated?.(["general_facts"]);
 }

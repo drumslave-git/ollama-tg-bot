@@ -6,11 +6,11 @@ import {
   type SummariesScheduler,
 } from "../features/summaries/index.js";
 import {
-  getSummariesModuleConfig,
+  getSummariesConfig,
   getLastSummarizedDate,
   setLastSummarizedDate,
 } from "../features/summaries/db/index.js";
-import { listDistinctHistoryChatIds } from "../db/history/index.js";
+import { listDistinctHistoryChatIds } from "../features/history/db/index.js";
 import { getMessageQueueSize } from "./message-queue.js";
 
 let scheduler: SummariesScheduler | null = null;
@@ -20,7 +20,7 @@ export function startSummariesScheduler(): void {
   if (scheduler) return;
   scheduler = createSummariesScheduler({
     timezone: config.timezone,
-    getConfig: getSummariesModuleConfig,
+    getConfig: getSummariesConfig,
     getQueueSize: getMessageQueueSize,
     listChatIds: async () =>
       (await listDistinctHistoryChatIds()).map((id) => String(id)),

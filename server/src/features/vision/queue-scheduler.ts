@@ -5,7 +5,7 @@ import {
   type StoredMessage,
 } from "../history/index.js";
 import { describeVisionImages, type VisionDescribeConfig } from "./describe.js";
-import type { VisionModuleConfig } from "./module-config.js";
+import type { VisionConfig } from "./config.js";
 import { visionJobDebug } from "./job-debug.js";
 import { beginJobProcessing } from "../../debug/job-report.js";
 
@@ -24,7 +24,7 @@ export type VisionJobStatus = "idle" | "scheduled" | "running";
 
 export interface VisionQueueSchedulerDeps {
   getQueueSize: () => number;
-  getConfig: () => Promise<VisionModuleConfig>;
+  getConfig: () => Promise<VisionConfig>;
   listHistoryChatKeys: (limit: number) => Promise<string[]>;
   getHistory: (chatKey: string) => Promise<StoredMessage[]>;
   mapHistoryBase64Media: (

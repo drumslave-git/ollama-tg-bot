@@ -4,11 +4,11 @@ import { statsRouter } from "./routes/stats.js";
 import { debugRouter } from "./routes/debug.js";
 import { dataRouter } from "./routes/data.js";
 import { workflowRouter } from "./routes/workflow.js";
-import type { ModuleEntry } from "../runtime/module-registry.js";
+import type { FeatureEntry } from "../runtime/feature-registry.js";
 import type { Router as ExpressRouter } from "express";
 
 export function createApiRouter(
-  moduleRouters: Array<{ entry: ModuleEntry; router: ExpressRouter }> = [],
+  featureRouters: Array<{ entry: FeatureEntry; router: ExpressRouter }> = [],
 ): Router {
   const router = Router();
 
@@ -22,9 +22,9 @@ export function createApiRouter(
   router.use("/debug", debugRouter);
   router.use("/data", dataRouter);
 
-  for (const { entry, router: moduleRouter } of moduleRouters) {
+  for (const { entry, router: featureRouter } of featureRouters) {
     if (!entry.apiBasePath) continue;
-    router.use(entry.apiBasePath, moduleRouter);
+    router.use(entry.apiBasePath, featureRouter);
   }
 
   router.use((_req, res) => {

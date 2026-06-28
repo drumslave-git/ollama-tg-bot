@@ -1,7 +1,7 @@
-import type { BotModuleHost } from "../../contracts/index.js";
+import type { BotFeatureHost } from "../../contracts/index.js";
 import { handleExplainCommand } from "./explain-command.js";
 
-export const botHost: BotModuleHost = {
+export const botHost: BotFeatureHost = {
   id: "completions",
 
   commands: [

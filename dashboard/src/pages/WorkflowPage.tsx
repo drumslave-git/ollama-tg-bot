@@ -79,7 +79,7 @@ const legendItems: {
 }[] = [
   { kind: "input", label: "Input / Output", colorClass: "bg-emerald-400" },
   { kind: "decision", label: "Decision", colorClass: "bg-warning" },
-  { kind: "optional", label: "Optional module", colorClass: "bg-slate-500" },
+  { kind: "optional", label: "Optional feature", colorClass: "bg-slate-500" },
   { kind: "process", label: "Process", colorClass: "bg-blue-400" },
   { kind: "llm", label: "LLM", colorClass: "bg-violet-400" },
   { kind: "side", label: "Side effect", colorClass: "bg-pink-400" },
@@ -360,7 +360,7 @@ export function WorkflowPage() {
           {aboutItems.map((item) => (
             <li key={item.stepId} className="mb-1">
               <strong className="text-text">{item.label}</strong>
-              {item.optional ? " — optional module" : null}
+              {item.optional ? " — optional feature" : null}
               {!item.enabled ? " — disabled in settings" : null}
               {item.sublabel ? <> — {item.sublabel}</> : null}
             </li>

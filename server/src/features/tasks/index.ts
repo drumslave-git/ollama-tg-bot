@@ -18,7 +18,7 @@ export {
   TaskValidationError,
   updateTaskValidated,
 } from "./service.js";
-export { tasksDbModule } from "./db/index.js";
+export { tasksDbFeature } from "./db/index.js";
 export {
   TASKS_TOOL_NAMES,
   registerTasksMcpTools,

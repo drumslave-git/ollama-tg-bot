@@ -9,7 +9,7 @@ import {
   getActivePersonalityMoodDefaults,
   getPersonalityById,
   resolveActivePersonalityId,
-} from "../db/mood/index.js";
+} from "../features/mood/db/index.js";
 
 export function createMoodExtension(): MoodCommandExtension {
   return {

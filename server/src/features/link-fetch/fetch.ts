@@ -1,4 +1,4 @@
-import type { ModuleDefinition, ModuleLogging } from "../../shared/index.js";
+import type { FeatureDefinition, FeatureLogging } from "../../shared/index.js";
 import { extractUrls } from "./extract.js";
 import {
   formatLinkFetchContext,
@@ -16,7 +16,7 @@ import type {
 
 export interface LinkFetchConfig {
   maxUrls?: number;
-  log?: ModuleLogging;
+  log?: FeatureLogging;
   /**
    * Optional host-provided page fetcher (e.g. tests).
    * When omitted, Playwright is used.
@@ -77,7 +77,7 @@ export async function runLinkFetch(
   }
 }
 
-export const linkFetchModule: ModuleDefinition<
+export const linkFetchFeature: FeatureDefinition<
   LinkFetchInput,
   LinkFetchConfig,
   LinkFetchOutput

@@ -21,7 +21,7 @@ export function MemoryJobConfigSection({
     setLoading(true);
     setError(null);
     try {
-      const config = await api.getMemoryModuleConfig();
+      const config = await api.getMemoryConfig();
       setMaintenanceDebounceSec(config.maintenanceDebounceSec);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load config");
@@ -39,7 +39,7 @@ export function MemoryJobConfigSection({
     setError(null);
     setSaved(false);
     try {
-      const updated = await api.updateMemoryModuleConfig({
+      const updated = await api.updateMemoryConfig({
         maintenanceDebounceSec,
       });
       setMaintenanceDebounceSec(updated.maintenanceDebounceSec);
@@ -82,7 +82,7 @@ export function MemoryJobConfigSection({
               onClick={() => void save()}
               disabled={!apiOnline || saving}
             >
-              {saving ? "Saving…" : "Save module settings"}
+              {saving ? "Saving…" : "Save settings"}
             </button>
             {saved ? <span className="text-muted">Saved</span> : null}
           </div>

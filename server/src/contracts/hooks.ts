@@ -1,16 +1,16 @@
-export interface ModuleLiveHooks {
+export interface FeatureLiveHooks {
   emitMemoryUpdated?: (scope: "user" | "group" | "general") => void;
   emitDataUpdated?: (tableIds: string[]) => void;
   emitMoodUpdated?: () => void;
   emitPersonalitiesUpdated?: () => void;
 }
 
-let liveHooks: ModuleLiveHooks = {};
+let liveHooks: FeatureLiveHooks = {};
 
-export function configureModuleLiveHooks(hooks: ModuleLiveHooks): void {
+export function configureFeatureLiveHooks(hooks: FeatureLiveHooks): void {
   liveHooks = hooks;
 }
 
-export function getModuleLiveHooks(): ModuleLiveHooks {
+export function getFeatureLiveHooks(): FeatureLiveHooks {
   return liveHooks;
 }

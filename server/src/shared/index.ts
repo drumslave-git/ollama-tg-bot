@@ -1,8 +1,8 @@
-export type { ModuleDefinition, ModuleRun } from "./contract.js";
+export type { FeatureDefinition, FeatureRun } from "./contract.js";
 export {
-  noopModuleLogging,
-  type ModuleEventFields,
-  type ModuleLogging,
+  noopFeatureLogging,
+  type FeatureEventFields,
+  type FeatureLogging,
 } from "./logging.js";
 export { extractLastClosedBlock } from "./structured-output.js";
 export {

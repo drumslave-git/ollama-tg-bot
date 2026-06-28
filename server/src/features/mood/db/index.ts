@@ -1,6 +1,6 @@
 import type {
-  ModuleDbExports,
-  ModuleDbHost,
+  FeatureDbExports,
+  FeatureDbHost,
   SqlDatabase,
 } from "../../../contracts/index.js";
 import { bindMoodDatabase, configureMoodAccess } from "./mood.js";
@@ -13,12 +13,12 @@ import { configureMoodRoutes, createMoodRouter } from "./routes.js";
 export * from "./mood.js";
 export * from "./personalities.js";
 
-export async function bindModuleDatabase(database: SqlDatabase): Promise<void> {
+export async function bindFeatureDatabase(database: SqlDatabase): Promise<void> {
   await bindPersonalitiesDatabase(database);
   bindMoodDatabase(database);
 }
 
-export function configureModuleAccess(host: ModuleDbHost): void {
+export function configureFeatureAccess(host: FeatureDbHost): void {
   configurePersonalityAccess(async () => ({
     activePersonalityId: Number(
       (await host.getSettings()).activePersonalityId ?? 0,
@@ -32,12 +32,12 @@ export function configureModuleAccess(host: ModuleDbHost): void {
   configureMoodRoutes(host);
 }
 
-export function createModuleRouter() {
+export function createFeatureRouter() {
   return createMoodRouter();
 }
 
-export const moodEvaluationDbModule: ModuleDbExports = {
-  bindModuleDatabase,
-  configureModuleAccess,
-  createModuleRouter,
+export const moodEvaluationDbFeature: FeatureDbExports = {
+  bindFeatureDatabase,
+  configureFeatureAccess,
+  createFeatureRouter,
 };

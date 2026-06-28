@@ -1,4 +1,4 @@
-export * from "./module-config.js";
+export * from "./config.js";
 export {
   createSummariesScheduler,
   type SummariesScheduler,
