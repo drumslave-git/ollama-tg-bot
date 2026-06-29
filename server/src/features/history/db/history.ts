@@ -107,6 +107,24 @@ export async function getLatestMessages(
 }
 
 /**
+ * Latest N messages stored strictly before row `beforeId`, oldest first. Used
+ * to build the live recent-conversation window for a turn without re-including
+ * the current message (which intake already persisted).
+ */
+export async function getLatestMessagesBefore(
+  entityId: string,
+  beforeId: number,
+  count: number,
+): Promise<StoredMessage[]> {
+  const { rows } = await db.query<MessageRow>(
+    `SELECT ${SELECT_COLUMNS} FROM chat_messages
+       WHERE entity_id = $1 AND id < $2 ORDER BY id DESC LIMIT $3`,
+    [entityId, beforeId, clampCount(count, MAX_QUERY_ROWS)],
+  );
+  return rows.reverse().map(rowToStored);
+}
+
+/**
  * Full-text search over message content for an entity, oldest first. Uses
  * Postgres FTS (`websearch_to_tsquery`); when that matches nothing, falls back
  * to a case-insensitive substring scan so single-word/name lookups still work.

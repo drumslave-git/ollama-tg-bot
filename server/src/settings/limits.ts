@@ -164,6 +164,20 @@ export function getHistoryLimits(settings: Settings): HistoryLimits {
   };
 }
 
+/**
+ * Approximate character budget for the whole input prompt: the context window
+ * minus the generation reservation (numPredict) and prompt headroom, converted
+ * from tokens to characters. Used to size the auto-injected recent-conversation
+ * window so it fills only the room left after the system prompt and current
+ * turn — no fixed message count.
+ */
+export function getInputCharBudget(settings: Settings): number {
+  const normalized = normalizeTokenBudget(settings);
+  const inputTokens =
+    settings.numCtx - normalized.numPredict - NUM_CTX_GENERATION_HEADROOM;
+  return Math.max(0, Math.floor(inputTokens * APPROX_CHARS_PER_TOKEN));
+}
+
 /** Low temperature for structured side passes (mood, memory, search, etc.). */
 export const AUXILIARY_TEMPERATURE = 0.2;
 

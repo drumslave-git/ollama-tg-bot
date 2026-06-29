@@ -118,6 +118,7 @@ export async function buildChatContextForTurn(state: PipelineTurnState) {
       mood: (state.mood ?? (await getEffectiveMood())) as MoodValues | null,
       currentUserIsOwner: state.currentSpeakerIsOwner === true,
       repliedTask: await resolveRepliedTask(),
+      currentMessageId: state.chatMessageId ?? null,
     },
   );
 }
