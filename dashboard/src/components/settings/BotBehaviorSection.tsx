@@ -51,7 +51,6 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
               )
             }
           >
-            <option value="none">None</option>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
