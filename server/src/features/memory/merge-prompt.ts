@@ -48,7 +48,7 @@ Output rules (mandatory):
 - Do not prefix facts with scope/type headers — write the facts directly (e.g. "Prefers short replies." not "Bot feedback: prefers short replies.").`;
 
 export interface MemoryMergeInput {
-  kind: "user" | "group" | "general";
+  kind: "user" | "general";
   existing: string[];
   incoming: string[];
 }
@@ -59,11 +59,6 @@ function mergeScopeHint(kind: MemoryMergeInput["kind"]): string {
       return (
         "Document subject: one Telegram user. Capture who they are, how they communicate, " +
         "what they like and dislike, and how the bot should interact with them."
-      );
-    case "group":
-      return (
-        "Document subject: the group/chat itself (not individual users). Capture culture, norms, " +
-        "dynamics, and how the bot should behave in this group."
       );
     case "general":
       return (

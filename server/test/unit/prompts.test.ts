@@ -30,7 +30,9 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("You are a pirate.");
   });
 
-  it("exposes the group id in the session block for group chats", () => {
+  it("does not expose a group memory id in the session block", () => {
+    // Group memory was removed — only user and general scopes remain, so the
+    // session block no longer carries a group id for the memory tools.
     const group = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
@@ -38,8 +40,7 @@ describe("buildSystemPrompt", () => {
       entityId: "chat-1",
       groupChatId: "555",
     });
-    expect(group).toContain("group id: 555");
-    // Memory is tool-driven now — no injected group section.
+    expect(group).not.toContain("group id:");
     expect(group).not.toContain("This group's culture and how to behave here");
 
     const dm = buildSystemPrompt({

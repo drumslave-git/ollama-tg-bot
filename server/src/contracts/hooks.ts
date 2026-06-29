@@ -1,5 +1,5 @@
 export interface FeatureLiveHooks {
-  emitMemoryUpdated?: (scope: "user" | "group" | "general") => void;
+  emitMemoryUpdated?: (scope: "user" | "general") => void;
   emitDataUpdated?: (tableIds: string[]) => void;
   emitMoodUpdated?: () => void;
   emitPersonalitiesUpdated?: () => void;

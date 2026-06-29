@@ -174,10 +174,6 @@ export function clearUserMemory(userId: string): Promise<void> {
   return clearMemoryFor("user", userId);
 }
 
-export function clearGroupMemory(groupId: string): Promise<void> {
-  return clearMemoryFor("group", groupId);
-}
-
 interface MemorySearchRow {
   type: string;
   entity_id: string | null;

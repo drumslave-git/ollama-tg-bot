@@ -128,7 +128,7 @@ export interface MoodPayload {
   current: MoodState | null;
 }
 
-export type MemoryScope = "user" | "group" | "general";
+export type MemoryScope = "user" | "general";
 
 export interface DashboardDebugEvent {
   entityId: string;
@@ -582,6 +582,20 @@ export const api = {
     request<{ ok: boolean }>(`/api/memories/memory/${id}`, { method: "DELETE" }),
   getMemoryEntries: () =>
     request<{ entries: MemoryEntry[] }>("/api/memories/entries"),
+  createMemoryEntry: (
+    type: MemoryScope,
+    entityId: string | null,
+    content: string,
+  ) =>
+    request<{ entry: MemoryEntry }>("/api/memories/entries", {
+      method: "POST",
+      body: JSON.stringify({ type, entityId, content }),
+    }),
+  updateMemoryEntry: (id: number, content: string) =>
+    request<{ entry: MemoryEntry }>(`/api/memories/entries/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ content }),
+    }),
   deleteMemoryEntry: (id: number) =>
     request<{ ok: boolean }>(`/api/memories/entries/${id}`, { method: "DELETE" }),
   getMemoryConfig: () => request<MemoryConfig>("/api/memories/config"),

@@ -1,5 +1,5 @@
 import type { Bot } from "grammy";
-import { isGroupChat, resolveConversationKey, resolveGroupChatId, resolveUserId } from "../telegram/keys.js";
+import { isGroupChat, resolveConversationKey, resolveUserId } from "../telegram/keys.js";
 import { getSettings } from "../../db/index.js";
 import { config } from "../../config/index.js";
 import { groupSetupMessage } from "../handlers/group-setup.js";
@@ -9,7 +9,6 @@ import { buildPublicCommandsHelp } from "./commands-help.js";
 import { collectFeatureBotCommands } from "../../runtime/feature-hosts.js";
 import { clearHistory } from "../../features/history/db/index.js";
 import {
-  clearGroupMemory,
   clearUserMemory,
   addMemoryEntry,
   MAX_FACT_LENGTH,
@@ -41,14 +40,12 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
           ? `• I can search the web via Tavily when needed\n`
           : "") +
         `• I learn facts about you (stored per user)` +
-        (inGroup ? `\n• I learn facts about this group (stored per chat)` : "") +
         `\n\n` +
         `Current model: <code>${escapeHtml(settings.model)}</code>\n` +
         `Commands: /help@${botUsername}\n` +
         `Clear your memory: /forget@${botUsername}` +
         (callerIsOwner
           ? `\nOwner tools: /reset@${botUsername}` +
-            (inGroup ? ` · /forgetgroup@${botUsername}` : "") +
             ` · /explain@${botUsername} (or reply with either)`
           : "") +
         (callerIsOwner ? `\n\nYou are the configured bot owner.` : "") +
@@ -117,20 +114,6 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
     await replyToUser(ctx, "Your stored memory has been cleared.");
   });
 
-  bot.command("forgetgroup", async (ctx) => {
-    if (!isOwner(ctx)) {
-      await replyToUser(ctx, "Only the bot owner can use /forgetgroup.");
-      return;
-    }
-    const groupChatId = resolveGroupChatId(ctx);
-    if (!groupChatId) {
-      await replyToUser(ctx, "Group memory is only available in group chats.");
-      return;
-    }
-    await clearGroupMemory(groupChatId);
-    await replyToUser(ctx, "This group's stored memory has been cleared.");
-  });
-
   bot.command("remember", async (ctx) => {
     const owner = await isOwner(ctx);
     const inline = ctx.match as string;
@@ -160,10 +143,6 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
       const record = await addMemoryEntry("user", target.userId, fact);
       saved = record != null;
       targetLabel = `user memory for ${target.label}`;
-    } else if (target.kind === "group") {
-      const record = await addMemoryEntry("group", target.groupId, fact);
-      saved = record != null;
-      targetLabel = "group memory";
     } else {
       const record = await addMemoryEntry("general", null, fact);
       saved = record != null;
@@ -183,7 +162,6 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
       userId: resolveUserId(ctx),
       target: target.kind,
       targetUserId: target.kind === "user" ? target.userId : undefined,
-      targetGroupId: target.kind === "group" ? target.groupId : undefined,
       factChars: fact.length,
     });
 

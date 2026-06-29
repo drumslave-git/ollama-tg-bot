@@ -4,7 +4,7 @@ import {
   buildSettingsPayload,
   buildStatsPayload,
 } from "./payloads.js";
-export type MemoryScope = "user" | "group" | "general";
+export type MemoryScope = "user" | "general";
 
 export interface DashboardDebugEvent {
   entityId: string;

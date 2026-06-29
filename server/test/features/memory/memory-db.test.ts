@@ -7,6 +7,8 @@ import {
   getEntriesFor,
   deleteEntries,
   deleteEntriesFor,
+  searchEntries,
+  updateEntryContent,
 } from "../../../src/features/memory/db/entries.js";
 import {
   bindMemoryDatabase,
@@ -45,14 +47,14 @@ describe.skipIf(!hasTestDb)("memory db (Postgres + pgvector)", () => {
   it("tracks pending entries per entity", async () => {
     await addMemoryEntry("user", "1", "Likes tea.");
     await addMemoryEntry("user", "1", "Lives in Lisbon.");
-    await addMemoryEntry("group", "g1", "Quiet on weekends.");
+    await addMemoryEntry("user", "2", "Night owl.");
     await addMemoryEntry("general", null, "MTTR = mean time to recovery.");
 
     const pending = await listPendingEntities();
     expect(pending).toEqual(
       expect.arrayContaining([
         { type: "user", entityId: "1" },
-        { type: "group", entityId: "g1" },
+        { type: "user", entityId: "2" },
         { type: "general", entityId: null },
       ]),
     );
@@ -171,8 +173,26 @@ describe.skipIf(!hasTestDb)("memory db (Postgres + pgvector)", () => {
   });
 
   it("deleteEntriesFor clears one entity's queue", async () => {
-    await addMemoryEntry("group", "g1", "Quiet on weekends.");
-    await deleteEntriesFor("group", "g1");
-    expect(await getEntriesFor("group", "g1")).toHaveLength(0);
+    await addMemoryEntry("user", "7", "Quiet on weekends.");
+    await deleteEntriesFor("user", "7");
+    expect(await getEntriesFor("user", "7")).toHaveLength(0);
+  });
+
+  it("searchEntries finds pending notes by keyword", async () => {
+    await addMemoryEntry("user", "1", "Loves chess puzzles.");
+    await addMemoryEntry("general", null, "Office closed on Mondays.");
+    const hits = await searchEntries("chess");
+    expect(hits).toHaveLength(1);
+    expect(hits[0]!.type).toBe("user");
+    expect(hits[0]!.entityId).toBe("1");
+  });
+
+  it("updateEntryContent edits a pending note", async () => {
+    const e = await addMemoryEntry("user", "1", "Likes tea.");
+    const updated = await updateEntryContent(e!.id, "Likes green tea.");
+    expect(updated?.content).toBe("Likes green tea.");
+    expect((await getEntriesFor("user", "1"))[0]!.content).toBe(
+      "Likes green tea.",
+    );
   });
 });

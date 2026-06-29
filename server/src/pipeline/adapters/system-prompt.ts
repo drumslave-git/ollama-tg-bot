@@ -16,6 +16,8 @@ import {
   MEMORY_GET_TOOL_NAME,
   MEMORY_SEARCH_TOOL_NAME,
   MEMORY_SAVE_TOOL_NAME,
+  MEMORY_ENTRIES_SEARCH_TOOL_NAME,
+  MEMORY_ENTRIES_GET_TOOL_NAME,
 } from "../../features/memory/mcp-tools.js";
 import {
   TASKS_CREATE_TOOL_NAME,
@@ -80,17 +82,27 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
   }
   if (enabledToolNames.includes(MEMORY_GET_TOOL_NAME)) {
     lines.push(
-      `- ${MEMORY_GET_TOOL_NAME}(type, id): Read the consolidated long-term memory record. type 'user' (id = a user id from [SESSION] or [user:name:id] tags), 'group' (id = the group id in [SESSION]), or 'general' (id ignored). Use before claiming you forgot something durable about a person or this chat.`,
+      `- ${MEMORY_GET_TOOL_NAME}(type, id): Read the consolidated long-term memory record. type 'user' (id = a user id from [SESSION] or [user:name:id] tags) or 'general' (id ignored). Use before claiming you forgot something durable about a person.`,
     );
   }
   if (enabledToolNames.includes(MEMORY_SEARCH_TOOL_NAME)) {
     lines.push(
-      `- ${MEMORY_SEARCH_TOOL_NAME}(query): Semantic (vector + keyword) search across all consolidated memory (user, group, general). Use to recall a durable fact when you do not know which person or scope it belongs to — results are tagged with type and id.`,
+      `- ${MEMORY_SEARCH_TOOL_NAME}(query): Semantic (vector + keyword) search across all consolidated memory (user, general). Use to recall a durable fact when you do not know whose it is — results are tagged with type and id. If it finds nothing, try ${MEMORY_ENTRIES_SEARCH_TOOL_NAME} (the fact may be saved but not yet consolidated).`,
+    );
+  }
+  if (enabledToolNames.includes(MEMORY_ENTRIES_SEARCH_TOOL_NAME)) {
+    lines.push(
+      `- ${MEMORY_ENTRIES_SEARCH_TOOL_NAME}(query): Keyword search over raw, not-yet-consolidated notes. Fallback when ${MEMORY_SEARCH_TOOL_NAME} finds nothing — catches facts saved earlier this conversation.`,
+    );
+  }
+  if (enabledToolNames.includes(MEMORY_ENTRIES_GET_TOOL_NAME)) {
+    lines.push(
+      `- ${MEMORY_ENTRIES_GET_TOOL_NAME}(type, id): List raw, not-yet-consolidated notes for a scope. Fallback to ${MEMORY_GET_TOOL_NAME} for facts saved recently.`,
     );
   }
   if (enabledToolNames.includes(MEMORY_SAVE_TOOL_NAME)) {
     lines.push(
-      `- ${MEMORY_SAVE_TOOL_NAME}(type, id, content): Record ONE durable fact — stable preferences, identity, boundaries, group norms, or lasting behavior lessons. Do not save passing chit-chat. Notes are merged into the consolidated record by a daily job (duplicates resolved then).`,
+      `- ${MEMORY_SAVE_TOOL_NAME}(type, id, content): Record ONE durable fact — stable preferences, identity, boundaries, or lasting behavior lessons. type 'user' (id) or 'general' (id ignored). Do not save passing chit-chat. Notes are merged into the consolidated record by a daily job (duplicates resolved then).`,
     );
   }
   if (enabledToolNames.includes(TASKS_CREATE_TOOL_NAME)) {
@@ -145,11 +157,6 @@ export function buildSessionBlock(session: SessionContext): string {
     `[SESSION]`,
     `entity_id: ${session.entityId} (pass this as the entity_id argument to history tools)`,
   ];
-  if (session.groupChatId) {
-    lines.push(
-      `group id: ${session.groupChatId} (pass as id to memory tools for type 'group')`,
-    );
-  }
   if (session.currentUserId) {
     const tag = session.currentUserTag ? `, tag [${session.currentUserTag}]` : "";
     const label = session.currentUserLabel ? ` — ${session.currentUserLabel}` : "";

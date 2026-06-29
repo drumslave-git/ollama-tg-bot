@@ -6,7 +6,7 @@ let db: SqlDatabase;
 export const MIN_FACT_LENGTH = 2;
 export const MAX_FACT_LENGTH = 500;
 
-export type MemoryType = "user" | "group" | "general";
+export type MemoryType = "user" | "general";
 
 export interface MemoryEntryRecord {
   id: number;
@@ -116,6 +116,40 @@ export async function listAllEntries(): Promise<MemoryEntryRecord[]> {
        ORDER BY id DESC`,
   );
   return rows.map(rowToEntry);
+}
+
+/** Case-insensitive substring search over pending entries (not yet embedded). */
+export async function searchEntries(
+  query: string,
+  limit = 20,
+): Promise<MemoryEntryRecord[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const { rows } = await db.query<MemoryEntryRow>(
+    `SELECT id, type, entity_id, content, created_at FROM memory_entry
+       WHERE content ILIKE '%' || $1 || '%'
+       ORDER BY id DESC LIMIT $2`,
+    [q, limit],
+  );
+  return rows.map(rowToEntry);
+}
+
+/** Replace the text of one pending entry (dashboard edit). */
+export async function updateEntryContent(
+  id: number,
+  content: string,
+): Promise<MemoryEntryRecord | null> {
+  const text = content.trim();
+  if (text.length < MIN_FACT_LENGTH || text.length > MAX_FACT_LENGTH) {
+    return null;
+  }
+  const { rows } = await db.query<MemoryEntryRow>(
+    `UPDATE memory_entry SET content = $2 WHERE id = $1
+       RETURNING id, type, entity_id, content, created_at`,
+    [id, text],
+  );
+  if (rows[0]) notifyEntriesChanged();
+  return rows[0] ? rowToEntry(rows[0]) : null;
 }
 
 /** Remove processed entries by id. */

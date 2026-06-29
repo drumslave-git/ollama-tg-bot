@@ -19,6 +19,8 @@ import {
 import {
   MEMORY_GET_TOOL_NAME,
   MEMORY_SAVE_TOOL_NAME,
+  MEMORY_ENTRIES_GET_TOOL_NAME,
+  MEMORY_ENTRIES_SEARCH_TOOL_NAME,
   MEMORY_TOOL_NAMES,
   registerMemoryMcpTools,
 } from "../../../src/features/memory/mcp-tools.js";
@@ -123,5 +125,50 @@ describe.skipIf(!hasTestDb)("memory MCP tools (Postgres)", () => {
       id: "",
     });
     expect(result.text.toLowerCase()).toContain("requires an id");
+  });
+
+  it("memory_entries_get lists pending notes for an entity", async () => {
+    const registry = await buildRegistry();
+    await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
+      type: "user",
+      id: "42",
+      content: "Prefers short answers.",
+    });
+
+    const result = await registry.callTool(MEMORY_ENTRIES_GET_TOOL_NAME, {
+      type: "user",
+      id: "42",
+    });
+    const structured = result.structuredContent as {
+      count: number;
+      results: { type: string; id: string | null; content: string }[];
+    };
+    expect(structured.count).toBe(1);
+    expect(structured.results[0]!.content).toContain("Prefers short answers.");
+    expect(structured.results[0]!.id).toBe("42");
+  });
+
+  it("memory_entries_search finds pending notes by keyword", async () => {
+    const registry = await buildRegistry();
+    await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
+      type: "user",
+      id: "1",
+      content: "Loves chess puzzles.",
+    });
+    await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
+      type: "general",
+      content: "Office closed on Mondays.",
+    });
+
+    const result = await registry.callTool(MEMORY_ENTRIES_SEARCH_TOOL_NAME, {
+      query: "chess",
+    });
+    const structured = result.structuredContent as {
+      count: number;
+      results: { type: string; id: string | null; content: string }[];
+    };
+    expect(structured.count).toBe(1);
+    expect(structured.results[0]!.type).toBe("user");
+    expect(structured.results[0]!.content).toContain("chess");
   });
 });

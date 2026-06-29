@@ -1,10 +1,8 @@
 import type { Context } from "grammy";
 import { summarizeMessageContent } from "../replies/replies.js";
-import { resolveGroupChatId } from "../telegram/keys.js";
 
 export type RememberTarget =
   | { kind: "user"; userId: string; label: string }
-  | { kind: "group"; groupId: string }
   | { kind: "general" };
 
 export function resolveCallerRememberTarget(ctx: Context): RememberTarget | null {
@@ -39,16 +37,9 @@ export function resolveRememberTarget(ctx: Context): RememberTarget | null {
     return { kind: "user", userId, label };
   }
 
-  if (ctx.chat?.type === "private") {
-    return { kind: "general" };
-  }
-
-  const groupId = resolveGroupChatId(ctx);
-  if (groupId) {
-    return { kind: "group", groupId };
-  }
-
-  return null;
+  // Private chat, or a group message that is not a reply to a specific user:
+  // there is no per-user target, so store it as cross-chat general knowledge.
+  return { kind: "general" };
 }
 
 export interface CommandTextResolution {

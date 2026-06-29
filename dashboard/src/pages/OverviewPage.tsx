@@ -190,8 +190,7 @@ export function OverviewPage() {
               <code className="font-mono text-[0.85em]">/forget</code> clears your
               stored memories. Owner only:{" "}
               <code className="font-mono text-[0.85em]">/reset</code> clears chat
-              history, <code className="font-mono text-[0.85em]">/forgetgroup</code>{" "}
-              clears group memories (groups only)
+              history
             </li>
           </ul>
         </div>

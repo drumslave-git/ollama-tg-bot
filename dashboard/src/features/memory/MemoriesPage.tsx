@@ -3,6 +3,7 @@ import {
   api,
   type MemoryEntry,
   type MemoryRecord,
+  type MemoryScope,
 } from "@llm-tg-bot/dashboard/api";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { useLiveMemory } from "@llm-tg-bot/dashboard/liveSocket";
@@ -34,6 +35,14 @@ export function MemoriesPage() {
   const [savingId, setSavingId] = useState<number | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
+  // Pending-entry editing + creation state.
+  const [entryEditingId, setEntryEditingId] = useState<number | null>(null);
+  const [entryEditText, setEntryEditText] = useState("");
+  const [newType, setNewType] = useState<MemoryScope>("user");
+  const [newEntityId, setNewEntityId] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [creating, setCreating] = useState(false);
+
   const load = useCallback(
     async (silent = false) => {
       if (!online) return;
@@ -60,9 +69,8 @@ export function MemoriesPage() {
   }, [load]);
 
   const reload = useCallback(() => void load(true), [load]);
-  // The server emits one scope per change; subscribe to all three.
+  // The server emits one scope per change; subscribe to both.
   useLiveMemory("user", reload, online);
-  useLiveMemory("group", reload, online);
   useLiveMemory("general", reload, online);
 
   const startEdit = (r: MemoryRecord) => {
@@ -113,6 +121,47 @@ export function MemoriesPage() {
       setBusyId(null);
     }
   };
+  const startEditEntry = (e: MemoryEntry) => {
+    setEntryEditingId(e.id);
+    setEntryEditText(e.content);
+  };
+  const cancelEditEntry = () => {
+    setEntryEditingId(null);
+    setEntryEditText("");
+  };
+  const saveEntry = async (id: number) => {
+    const trimmed = entryEditText.trim();
+    if (trimmed.length < 2) return;
+    setSavingId(id);
+    try {
+      const { entry } = await api.updateMemoryEntry(id, trimmed);
+      setEntries((prev) => prev.map((e) => (e.id === id ? entry : e)));
+      cancelEditEntry();
+      setError(null);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setSavingId(null);
+    }
+  };
+  const createEntry = async () => {
+    const content = newContent.trim();
+    const entityId = newType === "general" ? null : newEntityId.trim() || null;
+    if (content.length < 2) return;
+    if (newType === "user" && !entityId) return;
+    setCreating(true);
+    try {
+      const { entry } = await api.createMemoryEntry(newType, entityId, content);
+      setEntries((prev) => [entry, ...prev]);
+      setNewContent("");
+      setNewEntityId("");
+      setError(null);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -120,8 +169,8 @@ export function MemoriesPage() {
         <div>
           <h2 className="mb-1.5 text-2xl font-bold tracking-tight">Memory</h2>
           <p className="m-0 max-w-xl text-[0.92rem] text-muted">
-            Consolidated long-term memory records (one per user/group/general),
-            plus raw notes awaiting the daily consolidation job. Scheduling is
+            Consolidated long-term memory records (one per user, plus general),
+            and raw notes awaiting the daily consolidation job. Scheduling is
             configured under Settings.
           </p>
         </div>
@@ -230,7 +279,7 @@ export function MemoriesPage() {
         </ul>
       </section>
 
-      {/* Pending raw entries */}
+      {/* Pending raw entries — full CRUD */}
       <section className="flex flex-col gap-3">
         <h3 className="text-[1.1rem] font-semibold">
           Pending notes{" "}
@@ -239,33 +288,141 @@ export function MemoriesPage() {
           </span>
         </h3>
         <p className="m-0 text-xs text-muted">
-          Raw notes the bot recorded, awaiting the next daily consolidation.
+          Raw notes awaiting the next daily consolidation. Add one here to feed
+          memory directly.
         </p>
+
+        <form
+          className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-bg p-3"
+          onSubmit={(ev) => {
+            ev.preventDefault();
+            void createEntry();
+          }}
+        >
+          <label className="flex flex-col gap-1 text-xs text-muted">
+            <span>Scope</span>
+            <select
+              className="rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+              value={newType}
+              onChange={(ev) => setNewType(ev.target.value as MemoryScope)}
+              disabled={!online || creating}
+            >
+              <option value="user">user</option>
+              <option value="general">general</option>
+            </select>
+          </label>
+          {newType === "user" ? (
+            <label className="flex flex-col gap-1 text-xs text-muted">
+              <span>User ID</span>
+              <input
+                type="text"
+                className="w-36 rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+                value={newEntityId}
+                onChange={(ev) => setNewEntityId(ev.target.value)}
+                placeholder="Telegram user ID"
+                disabled={!online || creating}
+              />
+            </label>
+          ) : null}
+          <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-muted">
+            <span>Note</span>
+            <input
+              type="text"
+              className="w-full rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+              value={newContent}
+              onChange={(ev) => setNewContent(ev.target.value)}
+              placeholder="A durable fact to remember…"
+              disabled={!online || creating}
+            />
+          </label>
+          <button
+            type="submit"
+            className={primaryBtn}
+            disabled={
+              !online ||
+              creating ||
+              newContent.trim().length < 2 ||
+              (newType === "user" && !newEntityId.trim())
+            }
+          >
+            {creating ? "…" : "Add note"}
+          </button>
+        </form>
+
         {entries.length === 0 && !loading ? (
           <p className="text-xs text-muted">No pending notes.</p>
         ) : null}
         <ul className="m-0 list-none overflow-hidden rounded-lg border border-border p-0">
-          {entries.map((e) => (
-            <li
-              key={e.id}
-              className="flex items-start justify-between gap-3 border-b border-border px-3.5 py-3 last:border-b-0"
-            >
-              <div className="min-w-0 flex-1">
-                <code className="font-mono text-[0.82em] text-muted">
-                  {scopeLabel(e)}
-                </code>
-                <p className="mb-0 mt-1 break-words leading-snug">{e.content}</p>
-              </div>
-              <button
-                type="button"
-                className={dangerBtn}
-                disabled={busyId === e.id}
-                onClick={() => void removeEntry(e.id)}
+          {entries.map((e) => {
+            const isEditing = entryEditingId === e.id;
+            return (
+              <li
+                key={e.id}
+                className="flex items-start justify-between gap-3 border-b border-border px-3.5 py-3 last:border-b-0"
               >
-                {busyId === e.id ? "…" : "Remove"}
-              </button>
-            </li>
-          ))}
+                <div className="min-w-0 flex-1">
+                  <code className="font-mono text-[0.82em] text-muted">
+                    {scopeLabel(e)}
+                  </code>
+                  {isEditing ? (
+                    <textarea
+                      className="mt-1 min-h-10 w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+                      rows={3}
+                      value={entryEditText}
+                      onChange={(ev) => setEntryEditText(ev.target.value)}
+                    />
+                  ) : (
+                    <p className="mb-0 mt-1 break-words leading-snug">
+                      {e.content}
+                    </p>
+                  )}
+                </div>
+                <div className="flex shrink-0 flex-wrap gap-1.5">
+                  {isEditing ? (
+                    <>
+                      <button
+                        type="button"
+                        className={primaryBtn}
+                        disabled={
+                          savingId === e.id || entryEditText.trim().length < 2
+                        }
+                        onClick={() => void saveEntry(e.id)}
+                      >
+                        {savingId === e.id ? "…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        className={secondaryBtn}
+                        disabled={savingId === e.id}
+                        onClick={cancelEditEntry}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className={secondaryBtn}
+                        disabled={busyId === e.id}
+                        onClick={() => startEditEntry(e)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className={dangerBtn}
+                        disabled={busyId === e.id}
+                        onClick={() => void removeEntry(e.id)}
+                      >
+                        {busyId === e.id ? "…" : "Remove"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>
