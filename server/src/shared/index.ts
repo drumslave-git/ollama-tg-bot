@@ -49,13 +49,9 @@ export {
 } from "./openai-compat.js";
 export {
   calculateContextBudget,
-  estimateModelWeightGb,
   extractModelMaxCtx,
   minRequiredCtxForPredict,
   modelContextInputFromTags,
-  parseParameterSizeFromName,
-  parseParameterSizeGb,
-  vramTierContextTokens,
   type ContextBudget,
   type ContextBudgetLimiter,
   type ModelCatalogEntry,

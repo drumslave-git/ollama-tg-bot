@@ -13,9 +13,9 @@ import { logEvent, logEventError, type EventFields } from "../../logging/event-l
 import type { BotHostLogging } from "../../contracts/index.js";
 import { getResolvedSettings, getResolvedHistoryLimits, getContextBudgetForSettings } from "../../settings/runtime.js";
 import { buildBaseSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
-import { getVramAvailableGb, config } from "../../config/index.js";
+import { config } from "../../config/index.js";
 import { listModels, checkHealth } from "../../llm/client.js";
-import { snapNumPredict, minNumCtxForPredict, getHistoryLimits } from "../../settings/limits.js";
+import { snapNumPredict, getHistoryLimits } from "../../settings/limits.js";
 import { calculateContextBudget } from "../../settings/context-budget.js";
 import { runWebSearch } from "../../features/web-search/index.js";
 
@@ -79,6 +79,7 @@ settingsRouter.patch("/", async (req, res) => {
       "embeddingModel",
       "activePersonalityId",
       "numPredict",
+      "numCtx",
       "temperature",
       "topP",
       "topK",
@@ -131,12 +132,13 @@ settingsRouter.patch("/", async (req, res) => {
     const resolved = getResolvedSettings(updated);
     res.json({
       ...resolved,
+      // Show the manually-set numCtx, not the model-capped runtime value.
+      numCtx: updated.numCtx,
       llmBaseUrl: config.llmBaseUrl,
       llmApiKeyConfigured: config.llmApiKey.length > 0,
       baseSystemPrompt: buildBaseSystemPrompt(resolved),
       derivedHistoryLimits: getResolvedHistoryLimits(updated),
       contextBudget: getContextBudgetForSettings(updated),
-      vramAvailableGb: getVramAvailableGb(),
     });
   } catch (err) {
     res.status(400).json({
@@ -168,13 +170,13 @@ settingsRouter.get("/budget", async (req, res) => {
         ? parseInt(req.query.numPredict, 10)
         : settings.numPredict;
     const numPredict = snapNumPredict(numPredictRaw);
+    const numCtxRaw =
+      typeof req.query.numCtx === "string"
+        ? parseInt(req.query.numCtx, 10)
+        : settings.numCtx;
 
     const modelInput = await ensureModelContextCache(model, config.llmBaseUrl);
-    const budget = await calculateContextBudget(
-      getVramAvailableGb(),
-      modelInput,
-      minNumCtxForPredict(numPredict),
-    );
+    const budget = calculateContextBudget(numCtxRaw, numPredict, modelInput);
 
     const historyLimits = getHistoryLimits({
       numPredict,

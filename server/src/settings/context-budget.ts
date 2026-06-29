@@ -1,14 +1,9 @@
 import type { Settings } from "../db/index.js";
-import { getVramAvailableGb } from "../config/index.js";
 import {
   calculateContextBudget,
-  estimateModelWeightGb,
   extractModelMaxCtx,
   minRequiredCtxForPredict,
   modelContextInputFromTags,
-  parseParameterSizeFromName,
-  parseParameterSizeGb,
-  vramTierContextTokens,
   type ContextBudget,
   type ContextBudgetLimiter,
   type ModelContextInput,
@@ -16,24 +11,20 @@ import {
 
 export {
   calculateContextBudget,
-  estimateModelWeightGb,
   extractModelMaxCtx,
   minRequiredCtxForPredict,
   modelContextInputFromTags,
-  parseParameterSizeFromName,
-  parseParameterSizeGb,
-  vramTierContextTokens,
   type ContextBudget,
   type ContextBudgetLimiter,
   type ModelContextInput,
 };
 
+/** Effective context window: the manually-set numCtx, capped to the model max. */
 export function getEffectiveNumCtx(
   settings: Settings,
   model: ModelContextInput,
 ): number {
-  const minCtx = minRequiredCtxForPredict(settings.numPredict);
-  return calculateContextBudget(getVramAvailableGb(), model, minCtx)
+  return calculateContextBudget(settings.numCtx, settings.numPredict, model)
     .effectiveNumCtx;
 }
 
@@ -41,6 +32,5 @@ export function buildContextBudget(
   settings: Settings,
   model: ModelContextInput,
 ): ContextBudget {
-  const minCtx = minRequiredCtxForPredict(settings.numPredict);
-  return calculateContextBudget(getVramAvailableGb(), model, minCtx);
+  return calculateContextBudget(settings.numCtx, settings.numPredict, model);
 }

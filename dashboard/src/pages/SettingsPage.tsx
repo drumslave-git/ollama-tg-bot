@@ -30,7 +30,6 @@ export function SettingsPage() {
     draft,
     setDraft,
     models,
-    vramAvailableGb,
     contextBudget,
     derivedHistoryLimits,
     sectionErrors,
@@ -52,8 +51,7 @@ export function SettingsPage() {
     if (!draft || !contextBudget) return [];
     return analyzeModelConfig(draft, contextBudget, derivedHistoryLimits ?? undefined).issues;
   }, [draft, contextBudget, derivedHistoryLimits]);
-  const modelConfigInvalid =
-    vramAvailableGb == null || hasModelConfigErrors(modelConfigIssues);
+  const modelConfigInvalid = hasModelConfigErrors(modelConfigIssues);
 
   if (!draft) {
     return (
@@ -150,11 +148,7 @@ export function SettingsPage() {
           ) : null}
 
           {modelConfigInvalid ? (
-            <FieldError>
-              {vramAvailableGb == null
-                ? "VRAM_AVAILABLE must be set on the server before saving model settings."
-                : "Fix model parameter errors before saving."}
-            </FieldError>
+            <FieldError>Fix model parameter errors before saving.</FieldError>
           ) : null}
 
           <Actions>

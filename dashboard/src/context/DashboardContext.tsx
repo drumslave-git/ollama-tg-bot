@@ -36,7 +36,6 @@ interface DashboardContextValue {
   setDraft: React.Dispatch<React.SetStateAction<Settings | null>>;
   stats: Stats | null;
   models: LlmModel[];
-  vramAvailableGb: number | undefined;
   llmOk: boolean | null;
   tavilyConfigured: boolean | null;
   apiOnline: boolean | null;
@@ -69,9 +68,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [draft, setDraft] = useState<Settings | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [models, setModels] = useState<LlmModel[]>([]);
-  const [vramAvailableGb, setVramAvailableGb] = useState<number | undefined>(
-    undefined,
-  );
   const [llmOk, setLlmOk] = useState<boolean | null>(null);
   const [tavilyConfigured, setTavilyConfigured] = useState<boolean | null>(
     null,
@@ -103,11 +99,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshBudget = useCallback(
-    async (model: string, numPredict: number) => {
-      if (!model || numPredict == null) return null;
+    async (model: string, numPredict: number, numCtx: number) => {
+      if (!model || numPredict == null || numCtx == null) return null;
       setBudgetLoading(true);
       try {
-        const result = await api.getBudget(model, numPredict);
+        const result = await api.getBudget(model, numPredict, numCtx);
         setContextBudget(result.contextBudget);
         setDerivedHistoryLimits(result.derivedHistoryLimits);
         setSectionError("models", null);
@@ -152,7 +148,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     if (settingsRes.status === "fulfilled") {
       setSettings(settingsRes.value);
       setDraft(settingsRes.value);
-      setVramAvailableGb(settingsRes.value.vramAvailableGb);
     } else {
       nextErrors.settings = settingsRes.reason;
     }
@@ -207,19 +202,19 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   }, [load]);
 
   useEffect(() => {
-    if (!draft?.model || draft.numPredict == null || vramAvailableGb == null) {
+    if (!draft?.model || draft.numPredict == null || draft.numCtx == null) {
       setContextBudget(null);
       setDerivedHistoryLimits(null);
       return;
     }
     if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
     budgetTimerRef.current = setTimeout(() => {
-      void refreshBudget(draft.model, draft.numPredict);
+      void refreshBudget(draft.model, draft.numPredict, draft.numCtx);
     }, 300);
     return () => {
       if (budgetTimerRef.current) clearTimeout(budgetTimerRef.current);
     };
-  }, [draft?.model, draft?.numPredict, vramAvailableGb, refreshBudget]);
+  }, [draft?.model, draft?.numPredict, draft?.numCtx, refreshBudget]);
 
   const handleSocketConnected = useCallback((connected: boolean) => {
     setApiOnline(connected);
@@ -249,7 +244,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     useCallback(
       (updated) => {
         setSettings(updated);
-        setVramAvailableGb(updated.vramAvailableGb);
         setDraft((current) => {
           if (saving || !current || !settingsRef.current) return current;
           const draftMatchesSaved =
@@ -334,16 +328,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const save = async () => {
     if (!draft) return;
-    if (vramAvailableGb == null) {
-      setSectionError(
-        "save",
-        new Error(
-          "VRAM_AVAILABLE is not configured on the server. Set it in .env and restart.",
-        ),
-      );
-      return;
-    }
-    const budgetResult = await refreshBudget(draft.model, draft.numPredict);
+    const budgetResult = await refreshBudget(
+      draft.model,
+      draft.numPredict,
+      draft.numCtx,
+    );
     if (!budgetResult) {
       setSectionError(
         "save",
@@ -375,7 +364,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       const updated = await api.updateSettings(analysis.settings);
       setSettings(updated);
       setDraft(updated);
-      setVramAvailableGb(updated.vramAvailableGb);
       setSaveOk(true);
       setTimeout(() => setSaveOk(false), 2500);
     } catch (err) {
@@ -401,7 +389,6 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setDraft,
     stats,
     models,
-    vramAvailableGb,
     llmOk,
     tavilyConfigured,
     apiOnline,

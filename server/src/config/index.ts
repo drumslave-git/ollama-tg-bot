@@ -46,7 +46,6 @@ function resolveLoggingLevel(): LoggingLevel {
 
 interface StartupEnv {
   botToken: string;
-  vramAvailableGb: number;
 }
 
 let startupEnv: StartupEnv | undefined;
@@ -57,20 +56,6 @@ function collectRequiredEnvErrors(): string[] {
   const botToken = (process.env.BOT_TOKEN ?? "").trim();
   if (!botToken) {
     errors.push("BOT_TOKEN environment variable is required");
-  }
-
-  const vramRaw = (process.env.VRAM_AVAILABLE ?? "").trim();
-  if (!vramRaw) {
-    errors.push(
-      "VRAM_AVAILABLE environment variable is required (GPU VRAM in gigabytes, e.g. 24)",
-    );
-  } else {
-    const value = Number(vramRaw);
-    if (!Number.isFinite(value) || value <= 0) {
-      errors.push(
-        "VRAM_AVAILABLE must be a positive number of gigabytes (e.g. 24)",
-      );
-    }
   }
 
   const llmBaseUrl = resolveLlmBaseUrl();
@@ -95,11 +80,10 @@ function resolveStartupEnv(): StartupEnv {
 
   return {
     botToken: (process.env.BOT_TOKEN ?? "").trim(),
-    vramAvailableGb: Number((process.env.VRAM_AVAILABLE ?? "").trim()),
   };
 }
 
-/** Validates BOT_TOKEN and VRAM_AVAILABLE. Call once before the server listens. */
+/** Validates required startup env (BOT_TOKEN). Call once before the server listens. */
 export function requireStartupEnv(): StartupEnv {
   if (!startupEnv) {
     startupEnv = resolveStartupEnv();
@@ -109,11 +93,6 @@ export function requireStartupEnv(): StartupEnv {
 
 export function requireBotToken(): string {
   return requireStartupEnv().botToken;
-}
-
-/** GPU VRAM from VRAM_AVAILABLE - used to derive context window from the selected model. */
-export function getVramAvailableGb(): number {
-  return requireStartupEnv().vramAvailableGb;
 }
 
 export const config = {

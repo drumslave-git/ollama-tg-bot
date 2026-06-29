@@ -14,7 +14,6 @@ import {
   invalidateModelContextCache,
   refreshModelContextCache,
 } from "../llm/model-context-cache.js";
-import { getResolvedSettings } from "../settings/runtime.js";
 import {
   normalizeTokenBudget,
   validateSettingsFields,
@@ -206,8 +205,7 @@ export async function updateSettings(
   partial: Partial<Settings>,
 ): Promise<Settings> {
   const current = await getSettings();
-  const { numCtx: _ignoredCtx, ...rest } = partial;
-  const next = { ...current, ...rest };
+  const next = { ...current, ...partial };
   if (partial.ownerUsername !== undefined) {
     const raw = partial.ownerUsername.trim();
     next.ownerUsername =
@@ -226,22 +224,24 @@ export async function updateSettings(
     invalidateModelContextCache();
   }
 
+  // Store the manually-configured numCtx as-is (clamped to absolute bounds).
+  // The model-max cap is applied at request time by getResolvedSettings, not
+  // baked into the stored value — so switching to a larger model restores it.
   const normalized = normalizeTokenBudget(next);
-  const resolved = getResolvedSettings(normalized);
-  validateSettingsFields(resolved);
+  validateSettingsFields(normalized);
 
   if (
-    resolved.activePersonalityId > 0 &&
-    !(await getPersonalityById(resolved.activePersonalityId))
+    normalized.activePersonalityId > 0 &&
+    !(await getPersonalityById(normalized.activePersonalityId))
   ) {
     throw new Error("activePersonalityId does not match a saved personality");
   }
 
-  for (const key of Object.keys(resolved) as (keyof Settings)[]) {
-    await setSetting(key, resolved[key]);
+  for (const key of Object.keys(normalized) as (keyof Settings)[]) {
+    await setSetting(key, normalized[key]);
   }
 
-  void refreshModelContextCache(resolved.model, config.llmBaseUrl);
+  void refreshModelContextCache(normalized.model, config.llmBaseUrl);
   void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitMoodUpdated, emitSettingsUpdated }) => {
     void emitSettingsUpdated();
     emitMoodUpdated();
@@ -254,12 +254,12 @@ export async function updateSettings(
   if (maintenanceToggled) {
     void import("../bot/maintenance/announce.js").then(
       ({ broadcastMaintenanceAnnouncement }) => {
-        void broadcastMaintenanceAnnouncement(resolved.maintenanceModeEnabled);
+        void broadcastMaintenanceAnnouncement(normalized.maintenanceModeEnabled);
       },
     );
   }
 
-  return resolved;
+  return normalized;
 }
 
 async function incrementStat(key: keyof Stats): Promise<void> {

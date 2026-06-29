@@ -63,9 +63,9 @@ export function OfflinePage({ primaryLoadError, onRetry }: OfflinePageProps) {
                 <code className="font-mono text-sm text-text">.env</code>
               </li>
               <li className="mb-2">
-                Set <code className="font-mono text-sm text-text">BOT_TOKEN</code> and{" "}
-                <code className="font-mono text-sm text-text">VRAM_AVAILABLE</code> (GPU
-                VRAM in GB, e.g. <code className="font-mono text-sm text-text">24</code>)
+                Set <code className="font-mono text-sm text-text">BOT_TOKEN</code>,{" "}
+                <code className="font-mono text-sm text-text">LLM_BASE_URL</code>, and{" "}
+                <code className="font-mono text-sm text-text">DATABASE_URL</code>
               </li>
               <li className="mb-2">
                 Run <code className="font-mono text-sm text-text">npm run dev</code> (or{" "}

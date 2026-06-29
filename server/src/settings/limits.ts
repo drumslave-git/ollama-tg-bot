@@ -123,7 +123,10 @@ export function getMaintenanceAnnounceNumPredict(settings: Settings): number {
 /** Normalize token budget fields after settings changes. */
 export function normalizeTokenBudget(settings: Settings): Settings {
   const numPredict = snapNumPredict(settings.numPredict);
-  return { ...settings, numPredict };
+  // numCtx is set manually; snap and clamp it to absolute bounds here (the model
+  // cap is applied separately at request time by getResolvedSettings).
+  const numCtx = snapNumCtx(settings.numCtx);
+  return { ...settings, numPredict, numCtx };
 }
 
 export interface ReplyLengthGuidance {
@@ -255,7 +258,7 @@ export function validateSettingsFields(settings: Settings): void {
         normalized.numPredict <= maxNumPredictForContext(settings.numCtx),
     ],
     [
-      `numCtx must be ${MIN_NUM_CTX}–${MAX_NUM_CTX} (derived from VRAM and model)`,
+      `numCtx must be ${MIN_NUM_CTX}–${MAX_NUM_CTX}`,
       isFiniteNumber(settings.numCtx) &&
         settings.numCtx >= MIN_NUM_CTX &&
         settings.numCtx <= MAX_NUM_CTX,

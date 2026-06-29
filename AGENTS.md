@@ -88,7 +88,6 @@ To add a feature: create `server/src/features/<name>/`, implement the pipeline h
 |----------|---------|
 | `BOT_TOKEN` | Telegram bot token (required) |
 | `LLM_BASE_URL` | OpenAI-compatible API base URL (required) |
-| `VRAM_AVAILABLE` | GPU VRAM in GB (required); derives context window budget |
 | `LLM_API_KEY` | Optional API key for authenticated OpenAI-compatible endpoints |
 | `LOGGING_LEVEL` | `ERROR` (default), `DEBUG` (lifecycle events to console) |
 | `TAVILY_API_KEY` | Optional web search via Tavily |

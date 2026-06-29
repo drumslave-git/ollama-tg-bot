@@ -1,14 +1,18 @@
 import type { ContextBudget, DerivedHistoryLimits } from "./api";
 import type { Settings } from "./api";
 import {
+  MAX_NUM_CTX,
+  MIN_NUM_CTX,
   NUM_CTX_GENERATION_HEADROOM,
   deriveHistoryLimits,
   maxNumPredictForContext,
   minNumCtxForPredict,
+  snapNumCtx,
   snapNumPredict,
 } from "./tokenBudget";
 
 export type ModelConfigField =
+  | "numCtx"
   | "numPredict"
   | "thinkingEnabled"
   | "temperature"
@@ -27,6 +31,7 @@ export type ModelConfigIssue = {
 export type ModelConfigPatch = Partial<
   Pick<
     Settings,
+    | "numCtx"
     | "numPredict"
     | "thinkingEnabled"
     | "temperature"
@@ -52,16 +57,20 @@ export type ModelConfigUpdateResult =
   | { ok: true; settings: Settings }
   | { ok: false; settings: Settings; issue: ModelConfigIssue };
 
+/** Clamp the manually-set numCtx to bounds and keep numPredict within it. */
 function normalizeModelFields(
   settings: Settings,
   effectiveNumCtx: number,
 ): Settings {
+  const numCtx = snapNumCtx(
+    Math.max(MIN_NUM_CTX, Math.min(settings.numCtx, MAX_NUM_CTX)),
+  );
   const maxPredict = maxNumPredictForContext(effectiveNumCtx);
   const numPredict = snapNumPredict(Math.min(settings.numPredict, maxPredict));
 
   return {
     ...settings,
-    numCtx: effectiveNumCtx,
+    numCtx,
     numPredict,
   };
 }
@@ -88,7 +97,7 @@ export function analyzeModelConfig(
       message:
         `Generation budget (${normalized.numPredict} tokens) needs at least ` +
         `${minNumCtx} context (${NUM_CTX_GENERATION_HEADROOM} headroom). ` +
-        `Lower generation tokens or increase VRAM_AVAILABLE / use a smaller model.`,
+        `Raise the context window or lower generation tokens.`,
     });
   }
 
@@ -97,8 +106,8 @@ export function analyzeModelConfig(
       field: "numPredict",
       severity: "error",
       message:
-        `Generation budget cannot exceed ${maxNumPredict} with derived context ` +
-        `${effectiveNumCtx}. Lower generation tokens.`,
+        `Generation budget cannot exceed ${maxNumPredict} with context ` +
+        `${effectiveNumCtx}. Lower generation tokens or raise the context window.`,
     });
   }
 
@@ -132,6 +141,12 @@ export function applyModelConfigUpdate(
   const effectiveNumCtx = contextBudget.effectiveNumCtx;
   let next: Settings = { ...settings, ...patch };
 
+  if (patch.numCtx != null) {
+    next.numCtx = snapNumCtx(
+      Math.max(MIN_NUM_CTX, Math.min(patch.numCtx, MAX_NUM_CTX)),
+    );
+  }
+
   if (patch.numPredict != null) {
     const maxPredict = maxNumPredictForContext(effectiveNumCtx);
     const requested = snapNumPredict(patch.numPredict ?? next.numPredict);
@@ -144,7 +159,7 @@ export function applyModelConfigUpdate(
           severity: "error",
           message:
             `Cannot set generation to ${requested}: max is ${maxPredict} ` +
-            `with derived context ${effectiveNumCtx}. Lower generation tokens.`,
+            `with context ${effectiveNumCtx}. Lower generation tokens or raise the context window.`,
         },
       };
     }
@@ -158,9 +173,9 @@ export function applyModelConfigUpdate(
 export const MODEL_CONFIG_GROUPS = [
   {
     id: "context",
-    title: "1. Context window (auto)",
+    title: "1. Context window",
     description:
-      "context window is derived from VRAM_AVAILABLE, the selected model size, and your generation budget.",
+      "Total tokens the model holds (prompt + reply). Set it manually; it is capped to the model's native maximum at request time.",
   },
   {
     id: "generation",
@@ -184,6 +199,6 @@ export const MODEL_CONFIG_GROUPS = [
 export function numPredictHint(maxNumPredict: number, effectiveNumCtx: number): string {
   return (
     `Hard cap on generated tokens per reply. Maximum ${maxNumPredict} with ` +
-    `derived context ${effectiveNumCtx.toLocaleString()}.`
+    `context ${effectiveNumCtx.toLocaleString()}.`
   );
 }

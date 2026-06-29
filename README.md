@@ -15,7 +15,7 @@ Open `http://localhost:3000` (or your `PORT`). Set `LLM_BASE_URL` in `.env` befo
 
 ```bash
 npm install
-cp .env.example .env   # BOT_TOKEN, LLM_BASE_URL, VRAM_AVAILABLE, DATABASE_URL
+cp .env.example .env   # BOT_TOKEN, LLM_BASE_URL, DATABASE_URL
 docker compose up -d db # start Postgres + pgvector (or point DATABASE_URL at your own)
 npm run dev
 ```
@@ -32,7 +32,6 @@ service provides it). Set `DATABASE_URL` accordingly.
 |----------|-------|---------|
 | `BOT_TOKEN` | everywhere | required |
 | `LLM_BASE_URL` | everywhere | required (OpenAI-compatible API base URL) |
-| `VRAM_AVAILABLE` | everywhere | required (GPU GB, e.g. `24`) |
 | `DATABASE_URL` | everywhere | required (Postgres + pgvector connection string) |
 | `LLM_API_KEY` | optional | empty (local servers usually skip this) |
 | `TAVILY_API_KEY` | optional | empty (web search off) |

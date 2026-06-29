@@ -3,7 +3,7 @@ import {
   modelContextInputFromTags,
   type ModelContextInput,
 } from "../settings/context-budget.js";
-import { fetchOptionalModelCatalogEntry, showModel } from "./client.js";
+import { showModel } from "./client.js";
 
 const CACHE_TTL_MS = 5 * 60_000;
 
@@ -29,20 +29,12 @@ async function fetchModelContext(
   model: string,
   _host: string,
 ): Promise<ModelContextInput> {
-  const [show, catalogEntry] = await Promise.all([
-    showModel(model).catch(() => null),
-    fetchOptionalModelCatalogEntry(model).catch(() => null),
-  ]);
-
-  const input = modelContextInputFromTags(model, {
-    name: model,
-    size: catalogEntry?.size ?? show?.sizeBytes,
-    details: catalogEntry?.details,
-    parameterSize: (catalogEntry as any)?.parameterSize ?? show?.parameterSize,
-    modelMaxCtx: show?.modelMaxCtx,
-  } as any);
-
-  return input;
+  // Only the model's native context length matters now — numCtx is set
+  // manually and merely capped to this maximum.
+  const show = await showModel(model).catch(() => null);
+  return modelContextInputFromTags(model, {
+    modelMaxCtx: show?.modelMaxCtx ?? undefined,
+  });
 }
 
 export async function refreshModelContextCache(

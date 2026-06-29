@@ -10,7 +10,8 @@ import {
   numPredictHint,
   type ModelConfigIssue,
 } from "../modelConfig";
-import { FieldError, Hint, SectionTitle } from "./ui/Layout";
+import { MAX_NUM_CTX, MIN_NUM_CTX, NUM_CTX_STEP } from "../tokenBudget";
+import { Hint, SectionTitle } from "./ui/Layout";
 
 interface ModelConfigPanelProps {
   draft: Settings;
@@ -20,14 +21,12 @@ interface ModelConfigPanelProps {
 
 function limiterLabel(limitedBy: ContextBudget["limitedBy"]): string {
   switch (limitedBy) {
-    case "vram_tier":
-      return "VRAM tier baseline";
-    case "kv_headroom":
-      return "KV cache headroom after model weights";
+    case "manual":
+      return "Your configured value";
     case "model_max":
-      return "Model native maximum";
+      return "Capped to model maximum";
     case "generation_floor":
-      return "Generation budget floor";
+      return "Raised to fit generation budget";
     case "min_floor":
       return "Minimum context floor";
   }
@@ -41,7 +40,7 @@ export function ModelConfigPanel({
   disabled,
   onChange,
 }: ModelConfigPanelProps) {
-  const { contextBudget, derivedHistoryLimits, budgetLoading, vramAvailableGb } = useDashboard();
+  const { contextBudget, derivedHistoryLimits, budgetLoading } = useDashboard();
 
   const analysis = useMemo(
     () =>
@@ -61,20 +60,6 @@ export function ModelConfigPanel({
     }
     setRejectFlash(null);
     onChange(result.settings);
-  }
-
-  if (vramAvailableGb == null) {
-    return (
-      <div className="flex flex-col gap-1">
-        <SectionTitle className="mt-6">Model parameters</SectionTitle>
-        <FieldError>
-          VRAM_AVAILABLE is required on the server. Add it to{" "}
-          <code className="font-mono text-[0.85em]">.env</code> (e.g.{" "}
-          <code className="font-mono text-[0.85em]">VRAM_AVAILABLE=24</code>) and
-          restart the bot.
-        </FieldError>
-      </div>
-    );
   }
 
   if (!contextBudget || !analysis) {
@@ -103,8 +88,9 @@ export function ModelConfigPanel({
       <header className="mb-2">
         <SectionTitle className="mt-6">Model parameters</SectionTitle>
         <Hint className="mb-3">
-          Context is computed automatically from VRAM and the selected model.
-          Adjust generation budget, thinking, and sampling below.
+          Set the context window manually. It is capped to the model&apos;s
+          native maximum at request time. Adjust generation budget, thinking, and
+          sampling below.
         </Hint>
       </header>
 
@@ -116,22 +102,31 @@ export function ModelConfigPanel({
           {MODEL_CONFIG_GROUPS[0].title}
         </h4>
         <Hint className="mb-3">{MODEL_CONFIG_GROUPS[0].description}</Hint>
-        <div className="rounded-lg border border-border bg-surface-2 px-4 py-3.5">
-          <div className="mb-3 flex items-baseline gap-2">
-            <span className="text-xs uppercase tracking-wide text-muted">
-              Context window
-            </span>
-            <strong className="text-2xl leading-none">
-              {contextBudget.effectiveNumCtx.toLocaleString()}
-            </strong>
-            <span className="text-sm text-muted">tokens</span>
-          </div>
+        <SettingsNumberField
+          id="numCtx"
+          label="Context window (tokens)"
+          value={draft.numCtx}
+          min={MIN_NUM_CTX}
+          max={
+            contextBudget.modelMaxCtx != null
+              ? Math.min(MAX_NUM_CTX, contextBudget.modelMaxCtx)
+              : MAX_NUM_CTX
+          }
+          step={NUM_CTX_STEP}
+          variant="slider"
+          disabled={disabled}
+          hint="Total tokens the model holds per request (prompt + reply)."
+          onChange={(numCtx) => update({ numCtx })}
+        />
+        <div className="mt-3 rounded-lg border border-border bg-surface-2 px-4 py-3.5">
           <dl className={metaGridClass}>
             <div className="flex flex-col gap-0.5">
               <dt className="m-0 text-xs uppercase tracking-wide text-muted">
-                VRAM
+                Effective
               </dt>
-              <dd className="m-0 text-sm">{contextBudget.vramGb} GB</dd>
+              <dd className="m-0 text-sm">
+                {contextBudget.effectiveNumCtx.toLocaleString()} tokens
+              </dd>
             </div>
             <div className="flex flex-col gap-0.5">
               <dt className="m-0 text-xs uppercase tracking-wide text-muted">
@@ -139,19 +134,19 @@ export function ModelConfigPanel({
               </dt>
               <dd className="m-0 text-sm">{contextBudget.modelName || "—"}</dd>
             </div>
-            {contextBudget.modelWeightGb != null ? (
-              <div className="flex flex-col gap-0.5">
-                <dt className="m-0 text-xs uppercase tracking-wide text-muted">
-                  Weights
-                </dt>
-                <dd className="m-0 text-sm">
-                  ~{contextBudget.modelWeightGb.toFixed(1)} GB
-                </dd>
-              </div>
-            ) : null}
             <div className="flex flex-col gap-0.5">
               <dt className="m-0 text-xs uppercase tracking-wide text-muted">
-                Limited by
+                Model max
+              </dt>
+              <dd className="m-0 text-sm">
+                {contextBudget.modelMaxCtx != null
+                  ? `${contextBudget.modelMaxCtx.toLocaleString()} tokens`
+                  : "unknown"}
+              </dd>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <dt className="m-0 text-xs uppercase tracking-wide text-muted">
+                Effective set by
               </dt>
               <dd className="m-0 text-sm">{limiterLabel(contextBudget.limitedBy)}</dd>
             </div>
@@ -164,11 +159,13 @@ export function ModelConfigPanel({
               </dd>
             </div>
           </dl>
-          <ul className="m-0 mt-2 list-disc pl-4 text-sm leading-relaxed text-muted">
-            {contextBudget.notes.map((note) => (
-              <li key={note}>{note}</li>
-            ))}
-          </ul>
+          {contextBudget.notes.length > 0 ? (
+            <ul className="m-0 mt-2 list-disc pl-4 text-sm leading-relaxed text-muted">
+              {contextBudget.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          ) : null}
         </div>
       </section>
 

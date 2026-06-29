@@ -1,5 +1,5 @@
 import { getBot, getBotUsername } from "../bot/index.js";
-import { config, getVramAvailableGb } from "../config/index.js";
+import { config } from "../config/index.js";
 import { getStats, getSettings } from "../db/index.js";
 import { getPipelineRuntimeStatus } from "../runtime/pipeline-status.js";
 import { listRecentErrors } from "../db/debug/error-log.js";
@@ -67,11 +67,12 @@ export async function buildSettingsPayload() {
   const resolved = getResolvedSettings(settings);
   return {
     ...resolved,
+    // Show the manually-set numCtx, not the model-capped runtime value.
+    numCtx: settings.numCtx,
     llmBaseUrl: config.llmBaseUrl,
     llmApiKeyConfigured: config.llmApiKey.length > 0,
     baseSystemPrompt: buildBaseSystemPrompt(resolved),
     derivedHistoryLimits: getResolvedHistoryLimits(settings),
     contextBudget: getContextBudgetForSettings(settings),
-    vramAvailableGb: getVramAvailableGb(),
   };
 }

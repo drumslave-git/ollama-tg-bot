@@ -31,7 +31,6 @@ export interface Settings {
   workflowNodes: { id: string; x: number; y: number }[];
   workflowEdges: { id: string; source: string; target: string }[];
   contextBudget?: ContextBudget;
-  vramAvailableGb: number;
 }
 
 export type WorkflowNodeKind =
@@ -72,17 +71,10 @@ export interface WorkflowDefinition {
 
 export interface ContextBudget {
   effectiveNumCtx: number;
-  vramGb: number;
+  requestedNumCtx: number;
   modelName: string;
-  modelWeightGb: number | null;
   modelMaxCtx: number | null;
-  vramTierCtx: number;
-  limitedBy:
-    | "vram_tier"
-    | "kv_headroom"
-    | "model_max"
-    | "generation_floor"
-    | "min_floor";
+  limitedBy: "manual" | "model_max" | "generation_floor" | "min_floor";
   notes: string[];
 }
 
@@ -466,7 +458,7 @@ export function describeApiError(err: unknown): {
 function hintForPath(path: string, status: number): string | undefined {
   if (path === "/api/health" || path.startsWith("/api/settings") || path === "/api/stats") {
     if (status >= 500) {
-      return "Check the server terminal and .env — common causes are missing BOT_TOKEN, LLM_BASE_URL, or VRAM_AVAILABLE. In dev: npm run dev -w server (port 3000).";
+      return "Check the server terminal and .env — common causes are missing BOT_TOKEN, LLM_BASE_URL, or DATABASE_URL. In dev: npm run dev -w server (port 3000).";
     }
     if (status === 404) {
       return "API route not found — is the server running on :3000? Vite proxies /api in dev.";
@@ -509,7 +501,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       path,
       message: "Could not connect to the API",
       hint:
-        "The server may not be running, or it exited on startup — check the server terminal for errors (often missing BOT_TOKEN, LLM_BASE_URL, or VRAM_AVAILABLE in .env). In dev: npm run dev or npm run dev -w server (listens on :3000; Vite proxies /api).",
+        "The server may not be running, or it exited on startup — check the server terminal for errors (often missing BOT_TOKEN, LLM_BASE_URL, or DATABASE_URL in .env). In dev: npm run dev or npm run dev -w server (listens on :3000; Vite proxies /api).",
     });
   }
 
@@ -558,12 +550,12 @@ export const api = {
     request<{ models: LlmModel[] }>("/api/settings/models").then(
       (r) => r.models,
     ),
-  getBudget: (model: string, numPredict: number) =>
+  getBudget: (model: string, numPredict: number, numCtx: number) =>
     request<{
       contextBudget: ContextBudget;
       derivedHistoryLimits: DerivedHistoryLimits;
     }>(
-      `/api/settings/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}`,
+      `/api/settings/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}&numCtx=${numCtx}`,
     ),
   getStats: () => request<Stats>("/api/stats"),
   getWorkflow: () => request<WorkflowDefinition>("/api/workflow"),
