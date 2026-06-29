@@ -121,6 +121,15 @@ describe("buildToolRoundSystemPrompt", () => {
     expect(prompt).not.toContain("Respond with JSON only");
     expect(prompt).not.toContain(BASE_SYSTEM_PROMPT_CORE);
   });
+
+  it("nudges memory_save (explicit requests + proactive) only when that tool is enabled", () => {
+    const withMemory = buildToolRoundSystemPrompt(["memory_save"]);
+    expect(withMemory).toMatch(/explicitly asks you to remember/i);
+    expect(withMemory).toMatch(/introduc|name/i);
+
+    const withoutMemory = buildToolRoundSystemPrompt([FETCH_LINK_TOOL_NAME]);
+    expect(withoutMemory).not.toMatch(/explicitly asks you to remember/i);
+  });
 });
 
 describe("buildExplainSystemPrompt", () => {

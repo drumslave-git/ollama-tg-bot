@@ -273,13 +273,16 @@ export function registerMemoryMcpTools(
     {
       title: "Save memory",
       description:
-        "Record a durable fact for long-term memory. " +
-        "Save ONLY information that stays useful across future conversations — a person's stable " +
-        "preferences, identity, boundaries, or a lasting lesson about how to behave. " +
-        "Do NOT save passing chit-chat or one-off requests. The note is queued and merged into " +
-        "the consolidated record by a daily job (duplicates are resolved then, so just write the fact). " +
-        "type 'user' (id = the user's numeric id) or 'general' (cross-chat knowledge, id ignored). " +
-        "Write one concise fact per call.",
+        "Record a durable fact for long-term memory. ALWAYS call this when the user explicitly asks you to " +
+        "remember or save something (e.g. 'remember that …', 'save this', 'don't forget …') — store exactly " +
+        "what they asked. Also call it PROACTIVELY whenever the user reveals " +
+        "something that stays useful across future conversations — most importantly their name when they " +
+        "introduce themselves (e.g. 'my name is …'), plus where they live, their work, " +
+        "stable preferences, identity, boundaries, or a lasting lesson about how to behave. A self-introduction " +
+        "is NOT chit-chat — save it even while you answer casually. Only skip truly transient one-off remarks. " +
+        "The note is queued and merged into the consolidated record by a daily job (duplicates are resolved then, " +
+        "so just write the fact). type 'user' (id = the user's numeric id) or 'general' (cross-chat knowledge, " +
+        "id ignored). Write one concise fact per call.",
       inputSchema: z.object({
         type: memoryScope.describe("Which memory scope to record under"),
         id: z

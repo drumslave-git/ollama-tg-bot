@@ -102,7 +102,7 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
   }
   if (enabledToolNames.includes(MEMORY_SAVE_TOOL_NAME)) {
     lines.push(
-      `- ${MEMORY_SAVE_TOOL_NAME}(type, id, content): Record ONE durable fact — stable preferences, identity, boundaries, or lasting behavior lessons. type 'user' (id) or 'general' (id ignored). Do not save passing chit-chat. Notes are merged into the consolidated record by a daily job (duplicates resolved then).`,
+      `- ${MEMORY_SAVE_TOOL_NAME}(type, id, content): Record ONE durable fact. ALWAYS call it when the user explicitly asks you to remember/save something. Also call it proactively for a person's name when they introduce themselves, where they live, their work, stable preferences, identity, boundaries, or lasting behavior lessons — even mid-greeting. type 'user' (id) or 'general' (id ignored). Only skip truly transient chit-chat. Notes are merged into the consolidated record by a daily job (duplicates resolved then).`,
     );
   }
   if (enabledToolNames.includes(TASKS_CREATE_TOOL_NAME)) {
@@ -204,6 +204,10 @@ export function buildToolRoundSystemPrompt(
     `- Respond with tool_calls when a registered tool is needed.\n` +
     `- Do not write the user-facing reply or JSON output.\n` +
     `- If no tool is needed, respond with empty assistant content and no tool_calls.\n` +
+    (enabledToolNames.includes(MEMORY_SAVE_TOOL_NAME)
+      ? `- Always call ${MEMORY_SAVE_TOOL_NAME} when the user explicitly asks you to remember or save something (e.g. "remember that …", "save this", "don't forget …") — store exactly what they asked, using type 'user' for facts about a person or 'general' for shared knowledge. This overrides any "skip chit-chat" judgement.\n` +
+        `- Also call ${MEMORY_SAVE_TOOL_NAME} PROACTIVELY when the user reveals a durable fact about themselves — their name (when they introduce themselves), where they live, their work, stable preferences, or boundaries — even while you answer casually and no other tool is needed. A self-introduction is not chit-chat.\n`
+      : "") +
     `- Prefer tools over guessing page content, library versions, live web facts, or chat history you have not retrieved.`
   );
 }

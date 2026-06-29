@@ -210,7 +210,7 @@ The main reply is **plain text** — no `response_format` is sent (grammar-const
 - **No drive-by refactors** or unrelated changes.
 - **Do not commit** unless the user asks. Do not put secrets in git (`.env`, tokens).
 - **NEVER use real or user-provided data in committed code** — do not copy Telegram user IDs, usernames, chat IDs, display names, message text, conversation excerpts, `.env` values, API keys, or any other personal or environment-specific data from bug reports, traces, dashboards, ACP context, or chat into source, tests, fixtures, prompts, or comments. Always invent clearly fictional placeholders (e.g. `user:alice:424242`, `testuser`, `-100999001`).
-- **English-only source** — tests, prompts, comments, and code must be written in proper English. No Cyrillic and no transliteration of foreign words.
+- **English-only source — never use Cyrillic anywhere in code.** All source — including prompt strings, system-prompt/tool descriptions, in-prompt examples, tests, comments, and identifiers — must be proper English. No Cyrillic characters and no transliteration of foreign words, even inside example snippets shown to the model (write "my name is …", not a Ukrainian/Russian phrase). The bot still *replies* in the user's language at runtime via the language policy in the prompt — that is data, not source.
 - **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.
 - **Settings** (stored in Postgres) — add new keys to `DEFAULT_SETTINGS` in `server/src/db/index.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
 
@@ -305,3 +305,4 @@ Reasoning backends spend tokens on hidden chain-of-thought before emitting the s
 7. Naming LLM integration after a single vendor — the codebase and docs must stay provider-neutral; chat goes through OpenAI-compatible endpoints (see **Code conventions**).
 8. **Loosening JSON parsers** when a model returns the wrong shape or puts the answer in `reasoning` — improve the prompt/schema instead (see **Structured LLM output (JSON schema)**).
 9. **Copying user-provided data into code** — bug reports and live traces are not test fixtures; never commit real IDs, usernames, names, or message content (see **Code conventions**).
+10. **Cyrillic in source** — easy to slip into prompt strings or in-prompt examples when debugging a non-English chat. Source is English-only; use English example phrases (see **Code conventions**). Grep before finishing: `grep -rnP "[\x{0400}-\x{04FF}]" server/src dashboard/src`.
