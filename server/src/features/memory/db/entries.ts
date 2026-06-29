@@ -4,7 +4,12 @@ import { getFeatureLiveHooks } from "../../../contracts/index.js";
 let db: SqlDatabase;
 
 export const MIN_FACT_LENGTH = 2;
-export const MAX_FACT_LENGTH = 500;
+/**
+ * Upper bound for a single raw note. Generous on purpose — a note may be a
+ * pasted profile or multi-sentence fact that the daily job later folds into the
+ * consolidated record. The `content` column itself is unbounded TEXT.
+ */
+export const MAX_FACT_LENGTH = 4000;
 
 export type MemoryType = "user" | "general";
 

@@ -9,6 +9,8 @@ import {
   addMemoryEntry,
   updateEntryContent,
   deleteEntryById,
+  MIN_FACT_LENGTH,
+  MAX_FACT_LENGTH,
   type MemoryType,
 } from "./entries.js";
 import { getMemoryConfig, updateMemoryConfig } from "./config.js";
@@ -17,12 +19,29 @@ function normalizeType(value: unknown): MemoryType | null {
   return value === "user" || value === "general" ? value : null;
 }
 
-const MIN_CONTENT_LENGTH = 2;
+type ContentResult =
+  | { ok: true; value: string }
+  | { ok: false; error: string };
 
-function normalizeContent(value: unknown): string | null {
-  if (typeof value !== "string") return null;
+/** Validate a memory note/content with a precise, user-facing error message. */
+function validateContent(value: unknown): ContentResult {
+  if (typeof value !== "string") {
+    return { ok: false, error: "Content is required." };
+  }
   const trimmed = value.trim();
-  return trimmed.length >= MIN_CONTENT_LENGTH ? trimmed : null;
+  if (trimmed.length < MIN_FACT_LENGTH) {
+    return {
+      ok: false,
+      error: `Content must be at least ${MIN_FACT_LENGTH} characters.`,
+    };
+  }
+  if (trimmed.length > MAX_FACT_LENGTH) {
+    return {
+      ok: false,
+      error: `Content is too long: ${trimmed.length} characters (max ${MAX_FACT_LENGTH}).`,
+    };
+  }
+  return { ok: true, value: trimmed };
 }
 
 export const memoriesRouter = Router();
@@ -33,10 +52,10 @@ memoriesRouter.get("/memory", async (_req, res) => {
 });
 
 memoriesRouter.patch("/memory/:id", async (req, res) => {
-  const text = normalizeContent(req.body.content);
-  if (text == null) return res.status(400).json({ error: "Invalid content" });
-  const record = await replaceMemoryContent(Number(req.params.id), text);
-  if (!record) return res.status(404).json({ error: "Not found" });
+  const content = validateContent(req.body.content);
+  if (!content.ok) return res.status(400).json({ error: content.error });
+  const record = await replaceMemoryContent(Number(req.params.id), content.value);
+  if (!record) return res.status(404).json({ error: "Memory record not found." });
   res.json({ record });
 });
 
@@ -52,10 +71,11 @@ memoriesRouter.get("/entries", async (_req, res) => {
 
 memoriesRouter.post("/entries", async (req, res) => {
   const type = normalizeType(req.body.type);
-  const content = normalizeContent(req.body.content);
-  if (!type || !content) {
-    return res.status(400).json({ error: "Invalid type or content" });
+  if (!type) {
+    return res.status(400).json({ error: "type must be 'user' or 'general'." });
   }
+  const content = validateContent(req.body.content);
+  if (!content.ok) return res.status(400).json({ error: content.error });
   const entityId =
     type === "general"
       ? null
@@ -63,18 +83,18 @@ memoriesRouter.post("/entries", async (req, res) => {
         ? req.body.entityId.trim()
         : null;
   if (type === "user" && !entityId) {
-    return res.status(400).json({ error: "entityId is required for type 'user'" });
+    return res.status(400).json({ error: "entityId is required for type 'user'." });
   }
-  const entry = await addMemoryEntry(type, entityId, content);
-  if (!entry) return res.status(400).json({ error: "Could not save entry" });
+  const entry = await addMemoryEntry(type, entityId, content.value);
+  if (!entry) return res.status(400).json({ error: "Could not save entry." });
   res.json({ entry });
 });
 
 memoriesRouter.patch("/entries/:id", async (req, res) => {
-  const content = normalizeContent(req.body.content);
-  if (content == null) return res.status(400).json({ error: "Invalid content" });
-  const entry = await updateEntryContent(Number(req.params.id), content);
-  if (!entry) return res.status(404).json({ error: "Not found" });
+  const content = validateContent(req.body.content);
+  if (!content.ok) return res.status(400).json({ error: content.error });
+  const entry = await updateEntryContent(Number(req.params.id), content.value);
+  if (!entry) return res.status(404).json({ error: "Memory note not found." });
   res.json({ entry });
 });
 

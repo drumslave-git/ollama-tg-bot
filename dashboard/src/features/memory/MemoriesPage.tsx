@@ -326,9 +326,9 @@ export function MemoriesPage() {
           ) : null}
           <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs text-muted">
             <span>Note</span>
-            <input
-              type="text"
-              className="w-full rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+            <textarea
+              className="min-h-10 w-full resize-y rounded-md border border-border bg-surface px-2 py-1.5 font-inherit text-text"
+              rows={2}
               value={newContent}
               onChange={(ev) => setNewContent(ev.target.value)}
               placeholder="A durable fact to remember…"

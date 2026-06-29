@@ -68,7 +68,9 @@ describe.skipIf(!hasTestDb)("memory db (Postgres + pgvector)", () => {
 
   it("rejects too-short and too-long notes", async () => {
     expect(await addMemoryEntry("user", "1", "x")).toBeNull();
-    expect(await addMemoryEntry("user", "1", "a".repeat(501))).toBeNull();
+    expect(await addMemoryEntry("user", "1", "a".repeat(4001))).toBeNull();
+    // A long-but-allowed note is accepted (limit is 4000, not 500).
+    expect(await addMemoryEntry("user", "1", "a".repeat(800))).not.toBeNull();
   });
 
   it("deletes processed entries by id", async () => {
