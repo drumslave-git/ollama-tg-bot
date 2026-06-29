@@ -33,9 +33,8 @@ export interface LatestTurnOptions {
   recentWindow?: string | null;
 }
 
-function buildLatestTurnMessage(options: LatestTurnOptions): string {
+export function buildLatestTurnMessage(options: LatestTurnOptions): string {
   const parts: string[] = [];
-  const hasReplyThread = isReplyThreadContext(options.replyContext);
 
   if (options.recentWindow?.trim()) {
     parts.push(RECENT_CHAT_HEADER + options.recentWindow.trim());
@@ -45,22 +44,12 @@ function buildLatestTurnMessage(options: LatestTurnOptions): string {
     const ownerLine = options.currentSpeakerIsOwner
       ? "They are the bot owner — prioritize their intent.\n"
       : "";
-
-    if (hasReplyThread) {
-      parts.push(
-        `[CURRENT SPEAKER — reply to this person]\n` +
-          `Name: ${options.currentSpeaker.label}\n` +
-          `Tag/ID: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
-          ownerLine,
-      );
-    } else {
-      parts.push(
-        `[CURRENT SPEAKER — reply to this person only]\n` +
-          `Name: ${options.currentSpeaker.label}\n` +
-          `Tag/ID: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
-          ownerLine,
-      );
-    }
+    parts.push(
+      `[CURRENT SPEAKER — the person whose message you must answer]\n` +
+        `Name: ${options.currentSpeaker.label}\n` +
+        `Tag/ID: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
+        ownerLine,
+    );
   }
 
   if (options.mentionedUsersContext?.trim()) {
@@ -71,15 +60,52 @@ function buildLatestTurnMessage(options: LatestTurnOptions): string {
     parts.push(`[REPLY CONTEXT]\n${options.replyContext.trim()}`);
   }
 
-  if (!hasReplyThread) {
-    parts.push(options.body.trim());
-  }
+  // Always close with the literal current message as a single, clearly-labelled
+  // anchor. When the turn carries surrounding context — a [RECENT CHAT] window
+  // or a reply thread — this explicit block is what stops the model from
+  // answering the tail of the window instead of the message that was actually
+  // sent (the failure mode when a reply jumps back to an earlier topic the
+  // running conversation has already moved past). A bare turn with no window
+  // and no reply is unambiguous on its own, so the raw body is enough there.
+  const hasBackground =
+    Boolean(options.recentWindow?.trim()) ||
+    Boolean(options.replyContext?.trim());
+  parts.push(
+    hasBackground ? buildCurrentMessageBlock(options) : options.body.trim(),
+  );
 
   return parts.filter(Boolean).join("\n\n");
 }
 
+/**
+ * The literal message to reply to, as its own strict block so it can never be
+ * confused with the last line of the [RECENT CHAT] window (which is older
+ * background and may be on a different topic). When the turn is an explicit
+ * reply, a pointer steers the model to follow the reply link rather than the
+ * window's running topic.
+ */
+function buildCurrentMessageBlock(options: LatestTurnOptions): string {
+  const body = options.body.trim();
+  const speaker =
+    options.isGroupChat && options.currentSpeaker
+      ? `${options.currentSpeaker.label} [${
+          options.speakerTag ?? options.currentSpeaker.userId
+        }]`
+      : null;
+  const line = speaker ? `${speaker}: ${body}` : body;
+  const replyNote = isReplyThreadContext(options.replyContext)
+    ? `\n(This is a reply — answer the message it replies to in [REPLY CONTEXT] above, ` +
+      `which may be an earlier topic, not the latest line in [RECENT CHAT].)`
+    : "";
+  return (
+    `[CURRENT MESSAGE — the only message to reply to; everything above is background]\n` +
+    line +
+    replyNote
+  );
+}
+
 const RECENT_CHAT_HEADER =
-  `[RECENT CHAT — the latest messages in this chat, oldest first, each prefixed with the time it was stored. Background to resolve who and what the current message refers to (pronouns, "this", an unnamed person, a running topic). Reply only to the current message at the end; for anything older than this window, use the history tools.]\n`;
+  `[RECENT CHAT — the latest messages in this chat BEFORE the current one, oldest first, each prefixed with the time it was stored. Background only: use it to resolve who and what the current message refers to (pronouns, "this", an unnamed person, a running topic). The message you must answer is NOT in this window — it is shown separately below under [CURRENT MESSAGE]. Conversation here is not linear: people jump between topics, so do NOT assume the current message continues the last line of this window — when it replies to something (see [REPLY CONTEXT]) it may be picking up an earlier topic. For anything older than this window, use the history tools.]\n`;
 
 /** Hard ceiling on rows scanned for the window, regardless of character budget. */
 const RECENT_WINDOW_MAX_ROWS = 200;

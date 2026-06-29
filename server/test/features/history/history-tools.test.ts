@@ -79,6 +79,37 @@ describe.skipIf(!hasTestDb)("history MCP tools (Postgres)", () => {
     expect(structured.messages[0]!.content).toContain("Finals");
   });
 
+  it("history_search accepts an array of queries and merges de-duplicated matches", async () => {
+    await appendMessage(ENTITY, "user:alice:1", "The Finals is a shooter");
+    await appendMessage(ENTITY, "user:alice:1", "we played volleyball");
+    await appendMessage(ENTITY, "user:alice:1", "unrelated chatter");
+    const registry = await buildRegistry();
+
+    const result = await registry.callTool(HISTORY_SEARCH_TOOL_NAME, {
+      entity_id: ENTITY,
+      query: ["finals", "volleyball"],
+    });
+
+    const structured = result.structuredContent as HistoryToolStructured;
+    expect(structured.count).toBe(2);
+    const contents = structured.messages.map((m) => m.content).join("\n");
+    expect(contents).toContain("Finals");
+    expect(contents).toContain("volleyball");
+  });
+
+  it("history_search de-duplicates a message matched by multiple queries", async () => {
+    await appendMessage(ENTITY, "user:alice:1", "The Finals shooter game");
+    const registry = await buildRegistry();
+
+    const result = await registry.callTool(HISTORY_SEARCH_TOOL_NAME, {
+      entity_id: ENTITY,
+      query: ["finals", "shooter"],
+    });
+
+    const structured = result.structuredContent as HistoryToolStructured;
+    expect(structured.count).toBe(1);
+  });
+
   it("replaces pending base64 media with a placeholder", async () => {
     await appendMessage(
       ENTITY,

@@ -15,8 +15,7 @@ import {
   buildToolRoundSystemPrompt,
   extractSessionBlock,
 } from "../pipeline/adapters/system-prompt.js";
-
-const MAX_TOOL_ROUNDS = 6;
+import type { ChatCompletionMessageToolCall } from "openai/resources/chat/completions";
 
 export interface ToolLoopOptions extends ChatCompleteOptions {
   tools: ChatCompletionTool[];
@@ -78,6 +77,12 @@ function toolRoundTraceLabel(round: number): string {
   return `main reply tools ${round + 1}`;
 }
 
+/** Stable identity for a tool call, used to detect a model that stops making progress. */
+function toolCallSignature(toolCall: ChatCompletionMessageToolCall): string {
+  if (toolCall.type !== "function" || !toolCall.function?.name) return "";
+  return `${toolCall.function.name}:${toolCall.function.arguments ?? ""}`;
+}
+
 function parseToolArguments(raw: string): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw) as unknown;
@@ -104,8 +109,13 @@ export async function chatCompleteWithTools(
 
   let conversation = seedMessages;
   let accumulatedThinking = "";
+  // No fixed round cap: the model keeps calling tools until it has what it needs.
+  // Termination is driven by progress instead — a round that produces no tool
+  // call, or only repeats of calls already run this turn, ends the loop and lets
+  // the model answer. That bounds a stuck/looping model without an arbitrary limit.
+  const executedSignatures = new Set<string>();
 
-  for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
+  for (let round = 0; ; round += 1) {
     conversation = applyToolRoundSystem(
       conversation,
       enabledToolNames,
@@ -132,6 +142,15 @@ export async function chatCompleteWithTools(
       break;
     }
 
+    // Stall guard: if every call this round just repeats one already executed,
+    // the model has stopped making progress — stop looping and let it answer.
+    const hasNewCall = toolCalls.some(
+      (call) => !executedSignatures.has(toolCallSignature(call)),
+    );
+    if (!hasNewCall) {
+      break;
+    }
+
     if (toolRound.conversationMessages) {
       conversation = toolRound.conversationMessages;
     }
@@ -139,6 +158,7 @@ export async function chatCompleteWithTools(
     for (const toolCall of toolCalls) {
       const fn = toolCall.type === "function" ? toolCall.function : null;
       if (!fn?.name) continue;
+      executedSignatures.add(toolCallSignature(toolCall));
 
       const args = parseToolArguments(fn.arguments ?? "{}");
       let toolResult: McpToolCallResult;

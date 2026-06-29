@@ -127,6 +127,72 @@ describe("chatCompleteWithTools", () => {
     expect(result.raw).toBe('{"reply":"based on page content"}');
   });
 
+  function toolRoundResponse(name: string, args: string) {
+    const call = {
+      id: `call_${name}_${args}`,
+      type: "function" as const,
+      function: { name, arguments: args },
+    };
+    return {
+      raw: "",
+      thinking: "",
+      toolCalls: [call],
+      conversationMessages: [
+        { role: "user" as const, content: "q" },
+        { role: "assistant" as const, content: "", tool_calls: [call] },
+      ],
+    };
+  }
+
+  it("keeps calling tools past the old 6-round cap until the model is done", async () => {
+    const callTool = vi.fn().mockResolvedValue({ text: "result" });
+    // 8 distinct tool rounds (more than the former cap of 6).
+    for (let i = 0; i < 8; i += 1) {
+      mockedChatCompleteDetailed.mockResolvedValueOnce(
+        toolRoundResponse("search", `{"q":"${i}"}`),
+      );
+    }
+    // The model then stops requesting tools, which ends the loop...
+    mockedChatCompleteDetailed.mockResolvedValueOnce({ raw: "", thinking: "" });
+    // ...and the final JSON reply pass runs.
+    mockedChatCompleteDetailed.mockResolvedValueOnce({
+      raw: '{"reply":"done"}',
+      thinking: "",
+    });
+
+    const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
+      tools: [{ type: "function", function: { name: "search", parameters: {} } }],
+      callTool,
+      responseFormat: replyFormat,
+    });
+
+    expect(callTool).toHaveBeenCalledTimes(8);
+    // 8 tool rounds + 1 closing round + 1 final reply.
+    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(10);
+    expect(result.raw).toBe('{"reply":"done"}');
+  });
+
+  it("stops looping when a round only repeats an already-executed tool call", async () => {
+    const callTool = vi.fn().mockResolvedValue({ text: "result" });
+    mockedChatCompleteDetailed
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
+      // Same call again — no progress, so the loop must break to the final reply.
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
+      .mockResolvedValueOnce({ raw: '{"reply":"answer"}', thinking: "" });
+
+    const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
+      tools: [{ type: "function", function: { name: "search", parameters: {} } }],
+      callTool,
+      responseFormat: replyFormat,
+    });
+
+    // The duplicate round was detected before executing, so the tool ran once.
+    expect(callTool).toHaveBeenCalledTimes(1);
+    // round 1 + duplicate round (detected) + final reply.
+    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(3);
+    expect(result.raw).toBe('{"reply":"answer"}');
+  });
+
   it("uses tool-round system instructions without the JSON reply spec", async () => {
     mockedChatCompleteDetailed
       .mockResolvedValueOnce({

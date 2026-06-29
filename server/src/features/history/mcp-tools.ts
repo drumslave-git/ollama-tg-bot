@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { FeatureLogging } from "../../shared/index.js";
+import { normalizeQueries, queryField } from "../../shared/index.js";
 import { config } from "../../config/index.js";
 import { zonedDate, zonedWallClockToUtc } from "../tasks/schedule.js";
 import {
@@ -71,6 +72,32 @@ function isoFromStored(message: StoredMessage): string {
   return new Date(message.createdAt * 1000).toISOString();
 }
 
+/** De-dup key for a stored message, so overlapping multi-query results merge cleanly. */
+function storedMessageKey(message: StoredMessage): string {
+  return `${message.messageId ?? ""}|${message.createdAt ?? ""}|${message.role}|${message.content}`;
+}
+
+/**
+ * Run a search for each query and merge the results into one chronologically
+ * ordered, de-duplicated list — so the model can pass several phrasings/terms in
+ * a single tool call instead of looping one query per round.
+ */
+async function searchAcrossQueries(
+  queries: string[],
+  run: (query: string) => Promise<StoredMessage[]>,
+): Promise<StoredMessage[]> {
+  const collected = new Map<string, StoredMessage>();
+  for (const query of queries) {
+    for (const message of await run(query)) {
+      const key = storedMessageKey(message);
+      if (!collected.has(key)) collected.set(key, message);
+    }
+  }
+  return [...collected.values()].sort(
+    (a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0),
+  );
+}
+
 function buildResult(messages: StoredMessage[]) {
   const sanitized = messages.map(sanitizeForTool);
   const structuredMessages = sanitized.map((m) => ({
@@ -125,11 +152,14 @@ export function registerHistoryMcpTools(
       description:
         "Full-text search over THIS chat's messages from today only. " +
         "Start here for recall — most questions are about something said today. " +
+        "Pass an array of queries to search several terms/phrasings in one call. " +
         "If you find nothing relevant, escalate to history_summaries_search for older days.",
       inputSchema: z.object({
         entity_id: entityIdField,
-        query: z.string().min(1).describe("Words/phrase to look for in today's messages"),
-        limit: z.number().int().min(1).max(200).default(50).describe("Max matches (max 200)"),
+        query: queryField(
+          "Words/phrase to look for in today's messages — a single string, or an array of strings to search several at once",
+        ),
+        limit: z.number().int().min(1).max(200).default(50).describe("Max matches per query (max 200)"),
       }),
       outputSchema: historyOutputSchema,
       annotations: {
@@ -140,15 +170,15 @@ export function registerHistoryMcpTools(
       },
     },
     async ({ entity_id, query, limit }) => {
-      const messages = await searchMessagesSince(
-        entity_id,
-        query,
-        startOfTodayEpoch(),
-        limit ?? 50,
+      const queries = normalizeQueries(query);
+      const since = startOfTodayEpoch();
+      const messages = await searchAcrossQueries(queries, (q) =>
+        searchMessagesSince(entity_id, q, since, limit ?? 50),
       );
       config.log?.logEvent?.("history_tool_today_search", {
         entityId: entity_id,
-        query,
+        query: queries.join(" | "),
+        queryCount: queries.length,
         returned: messages.length,
       });
       const result = buildResult(messages);
@@ -249,11 +279,14 @@ export function registerHistoryMcpTools(
       description:
         "Full-text search over ALL of THIS chat's stored messages (every day). " +
         "Use as a fallback when history_summaries_search found no relevant topic, or for a direct " +
-        "keyword/name lookup across the whole history. entity_id is the chat id from the [SESSION] block.",
+        "keyword/name lookup across the whole history. Pass an array of queries to search several " +
+        "terms/phrasings in one call. entity_id is the chat id from the [SESSION] block.",
       inputSchema: z.object({
         entity_id: entityIdField,
-        query: z.string().min(1).describe("Words/phrase to look for in message content"),
-        limit: z.number().int().min(1).max(200).default(50).describe("Max matches (max 200)"),
+        query: queryField(
+          "Words/phrase to look for in message content — a single string, or an array of strings to search several at once",
+        ),
+        limit: z.number().int().min(1).max(200).default(50).describe("Max matches per query (max 200)"),
       }),
       outputSchema: historyOutputSchema,
       annotations: {
@@ -264,10 +297,14 @@ export function registerHistoryMcpTools(
       },
     },
     async ({ entity_id, query, limit }) => {
-      const messages = await searchMessages(entity_id, query, limit ?? 50);
+      const queries = normalizeQueries(query);
+      const messages = await searchAcrossQueries(queries, (q) =>
+        searchMessages(entity_id, q, limit ?? 50),
+      );
       config.log?.logEvent?.("history_tool_search", {
         entityId: entity_id,
-        query,
+        query: queries.join(" | "),
+        queryCount: queries.length,
         returned: messages.length,
       });
       const result = buildResult(messages);

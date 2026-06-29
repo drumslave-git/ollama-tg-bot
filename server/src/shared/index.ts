@@ -28,6 +28,7 @@ export {
   type LlmConfig,
 } from "./llm.js";
 export { sanitizeModelOutput } from "./sanitize.js";
+export { normalizeQueries, queryField } from "./tool-query.js";
 export {
   escapeHtml,
   hasVisibleTelegramReply,

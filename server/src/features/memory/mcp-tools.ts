@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { FeatureLogging } from "../../shared/index.js";
+import { normalizeQueries, queryField } from "../../shared/index.js";
 import { embedOne } from "../../llm/embeddings.js";
 import {
   addMemoryEntry,
@@ -125,20 +126,20 @@ export function registerMemoryMcpTools(
       description:
         "Semantic (vector + keyword) search across all consolidated long-term memory " +
         "(user and general). Use to recall a durable fact when you do not know which person " +
-        "or scope it belongs to — each result is tagged with its type and id. If this finds " +
+        "or scope it belongs to — each result is tagged with its type and id. Pass an array of " +
+        "queries to search several phrasings in one call. If this finds " +
         "nothing, the fact may be newly saved and not yet consolidated — fall back to memory_entries_search.",
       inputSchema: z.object({
-        query: z
-          .string()
-          .min(1)
-          .describe("What to look for — a topic, preference, name, or fact"),
+        query: queryField(
+          "What to look for — a topic, preference, name, or fact; a single string, or an array of strings to search several at once",
+        ),
         limit: z
           .number()
           .int()
           .min(1)
           .max(20)
           .default(8)
-          .describe("Maximum matches to return (max 20)"),
+          .describe("Maximum matches to return per query (max 20)"),
       }),
       outputSchema: searchOutputSchema,
       annotations: {
@@ -149,9 +150,18 @@ export function registerMemoryMcpTools(
       },
     },
     async ({ query, limit }) => {
-      let vector: number[];
+      const queries = normalizeQueries(query);
+      const collected = new Map<string, { type: string; id: string | null; content: string }>();
       try {
-        vector = await embedOne(query);
+        for (const q of queries) {
+          const vector = await embedOne(q);
+          for (const m of await searchMemory(vector, q, limit ?? 8)) {
+            const key = `${m.type}|${m.entityId ?? ""}|${m.content}`;
+            if (!collected.has(key)) {
+              collected.set(key, { type: m.type, id: m.entityId, content: m.content });
+            }
+          }
+        }
       } catch (err) {
         config.log?.logEventError?.("memory_tool_embed_failed", err, {});
         return {
@@ -165,18 +175,13 @@ export function registerMemoryMcpTools(
         };
       }
 
-      const matches = await searchMemory(vector, query, limit ?? 8);
       config.log?.logEvent?.("memory_tool_search", {
-        query,
-        returned: matches.length,
+        query: queries.join(" | "),
+        queryCount: queries.length,
+        returned: collected.size,
       });
 
-      const results = matches.map((m) => ({
-        type: m.type,
-        id: m.entityId,
-        content: m.content,
-      }));
-      return toSearchResult(results);
+      return toSearchResult([...collected.values()]);
     },
   );
 
@@ -188,16 +193,19 @@ export function registerMemoryMcpTools(
         "Keyword search over raw, not-yet-consolidated memory notes (the queue memory_save writes to). " +
         "Use as a fallback when memory_search finds nothing, since a fact saved earlier this " +
         "conversation may not be in the consolidated record until the next daily job. " +
+        "Pass an array of queries to search several phrasings in one call. " +
         "Each result is tagged with its type and id.",
       inputSchema: z.object({
-        query: z.string().min(1).describe("Keyword(s) to look for in pending notes"),
+        query: queryField(
+          "Keyword(s) to look for in pending notes — a single string, or an array of strings to search several at once",
+        ),
         limit: z
           .number()
           .int()
           .min(1)
           .max(20)
           .default(8)
-          .describe("Maximum matches to return (max 20)"),
+          .describe("Maximum matches to return per query (max 20)"),
       }),
       outputSchema: searchOutputSchema,
       annotations: {
@@ -208,14 +216,22 @@ export function registerMemoryMcpTools(
       },
     },
     async ({ query, limit }) => {
-      const entries = await searchEntries(query, limit ?? 8);
+      const queries = normalizeQueries(query);
+      const collected = new Map<string, { type: string; id: string | null; content: string }>();
+      for (const q of queries) {
+        for (const e of await searchEntries(q, limit ?? 8)) {
+          const key = `${e.type}|${e.entityId ?? ""}|${e.content}`;
+          if (!collected.has(key)) {
+            collected.set(key, { type: e.type, id: e.entityId, content: e.content });
+          }
+        }
+      }
       config.log?.logEvent?.("memory_tool_entries_search", {
-        query,
-        returned: entries.length,
+        query: queries.join(" | "),
+        queryCount: queries.length,
+        returned: collected.size,
       });
-      return toSearchResult(
-        entries.map((e) => ({ type: e.type, id: e.entityId, content: e.content })),
-      );
+      return toSearchResult([...collected.values()]);
     },
   );
 

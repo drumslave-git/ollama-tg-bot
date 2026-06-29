@@ -1,8 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { FeatureLogging } from "../../shared/index.js";
+import { normalizeQueries, queryField } from "../../shared/index.js";
 import { embedOne } from "../../llm/embeddings.js";
-import { searchSummaries } from "./db/summaries.js";
+import { searchSummaries, type SummaryMatch } from "./db/summaries.js";
 
 export const HISTORY_SUMMARIES_SEARCH_TOOL_NAME = "history_summaries_search";
 
@@ -37,23 +38,23 @@ export function registerSummariesMcpTools(
         "Use this for older recall AFTER checking today's messages with history_today_search: it finds " +
         "the topic/day a subject was discussed. Each result has a date and the message_ids that belong " +
         "to that topic — pass those ids to history_get_messages to read the exact original messages. " +
+        "Pass an array of queries to search several topics/phrasings in one call. " +
         "entity_id is the chat id from the [SESSION] block.",
       inputSchema: z.object({
         entity_id: z
           .string()
           .min(1)
           .describe("The chat id from the [SESSION] block"),
-        query: z
-          .string()
-          .min(1)
-          .describe("What to look for — a topic, question, name, or fact"),
+        query: queryField(
+          "What to look for — a topic, question, name, or fact; a single string, or an array of strings to search several at once",
+        ),
         limit: z
           .number()
           .int()
           .min(1)
           .max(20)
           .default(8)
-          .describe("Maximum topics to return (max 20)"),
+          .describe("Maximum topics to return per query (max 20)"),
       }),
       outputSchema: summariesOutputSchema,
       annotations: {
@@ -64,9 +65,18 @@ export function registerSummariesMcpTools(
       },
     },
     async ({ entity_id, query, limit }) => {
-      let vector: number[];
+      const queries = normalizeQueries(query);
+      let matches: SummaryMatch[];
       try {
-        vector = await embedOne(query);
+        const collected = new Map<string, SummaryMatch>();
+        for (const q of queries) {
+          const vector = await embedOne(q);
+          for (const match of await searchSummaries(entity_id, vector, q, limit ?? 8)) {
+            const key = `${match.summaryDate}|${match.content}`;
+            if (!collected.has(key)) collected.set(key, match);
+          }
+        }
+        matches = [...collected.values()];
       } catch (err) {
         config.log?.logEventError?.("summaries_tool_embed_failed", err, {
           entityId: entity_id,
@@ -82,10 +92,10 @@ export function registerSummariesMcpTools(
         };
       }
 
-      const matches = await searchSummaries(entity_id, vector, query, limit ?? 8);
       config.log?.logEvent?.("summaries_tool_search", {
         entityId: entity_id,
-        query,
+        query: queries.join(" | "),
+        queryCount: queries.length,
         returned: matches.length,
       });
 
