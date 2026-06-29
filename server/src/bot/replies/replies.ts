@@ -55,15 +55,18 @@ export function summarizeMessageContent(message: Message): string {
 
   if (message.photo?.length) return "[photo]";
   if (message.sticker) return stickerHistoryLabel(message.sticker);
+  if (message.animation) return "[animation]";
+  if (message.video) return "[video]";
   if (message.document) {
+    const mime = message.document.mime_type ?? "";
+    if (mime.startsWith("video/")) return "[video]";
+    if (mime === "image/gif") return "[animation]";
     return message.document.file_name
       ? `[file: ${message.document.file_name}]`
       : "[file]";
   }
-  if (message.video) return "[video]";
   if (message.voice) return "[voice message]";
   if (message.audio) return "[audio]";
-  if (message.animation) return "[animation]";
   return "[message]";
 }
 

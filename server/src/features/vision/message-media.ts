@@ -1,12 +1,43 @@
-import type { Message } from "@grammyjs/types";
+import type { Animation, Document, Message, PhotoSize, Video } from "@grammyjs/types";
 import { downloadTelegramFile } from "./telegram-files.js";
 import {
   loadStickerForVision,
   stickerUnavailableText,
 } from "./stickers.js";
-import type { LoadedVisionMedia } from "./types.js";
+import type { ImagePayload, LoadedVisionMedia } from "./types.js";
 
-/** Download photo, image document, or sticker from a Telegram message for LLM vision. */
+/**
+ * Static image for animated/video media that the vision model can actually read.
+ * Telegram "GIFs" are mp4 animations and videos are mp4 — the file itself is not
+ * an image, but Telegram ships a JPEG thumbnail (a single frame) that answers
+ * "what's in this?". A true image/gif we decode directly from the file.
+ */
+async function loadAnimatedFrame(
+  token: string,
+  media: Animation | Video,
+): Promise<ImagePayload | null> {
+  if (media.mime_type === "image/gif") {
+    const img = await downloadTelegramFile(token, media.file_id);
+    if (img) return img;
+  }
+  if (media.thumbnail) {
+    return downloadTelegramFile(token, media.thumbnail.file_id);
+  }
+  return null;
+}
+
+/**
+ * Thumbnail of a non-image document that is really a video/gif (an mp4 "GIF" or a
+ * clip sent as a file). application/* documents (PDFs, archives) are excluded.
+ */
+function videoLikeDocumentThumb(document: Document): PhotoSize | undefined {
+  if (!document.thumbnail) return undefined;
+  const mime = document.mime_type ?? "";
+  if (mime.startsWith("video/") || mime === "image/gif") return document.thumbnail;
+  return undefined;
+}
+
+/** Download photo, image/animation/video, document, or sticker from a Telegram message for LLM vision. */
 export async function loadVisionFromMessage(
   token: string,
   message: Message,
@@ -37,6 +68,20 @@ export async function loadVisionFromMessage(
     return { images: img ? [img] : [] };
   }
 
+  const animated = message.animation ?? message.video;
+  if (animated) {
+    const img = await loadAnimatedFrame(token, animated);
+    return { images: img ? [img] : [] };
+  }
+
+  const docThumb = message.document
+    ? videoLikeDocumentThumb(message.document)
+    : undefined;
+  if (docThumb) {
+    const img = await downloadTelegramFile(token, docThumb.file_id);
+    return { images: img ? [img] : [] };
+  }
+
   return { images: [] };
 }
 
@@ -61,6 +106,11 @@ export function messageHasVisionMedia(message: Message): boolean {
   if (message.photo?.length) return true;
   if (message.sticker) return true;
   if (message.document?.mime_type?.startsWith("image/")) return true;
+  const animated = message.animation ?? message.video;
+  if (animated && (animated.mime_type === "image/gif" || animated.thumbnail)) {
+    return true;
+  }
+  if (message.document && videoLikeDocumentThumb(message.document)) return true;
   return false;
 }
 
