@@ -99,9 +99,9 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
     id: "memory",
     name: "Memory",
     description:
-      "Per-user, per-group, and general fact extraction, storage, and prompt injection.",
+      "Durable user/group/general facts the model records as raw notes, consolidated daily into embedded records recalled via semantic memory_search.",
     apiBasePath: "/memories",
-    dataTables: ["user_memories", "group_memories", "general_facts"],
+    dataTables: ["memory", "memory_entry"],
     db: memoryDbFeature,
     mcpTools: {
       // Always on — the model reads and writes long-term memory on demand.

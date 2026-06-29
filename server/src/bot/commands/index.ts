@@ -11,9 +11,7 @@ import { clearHistory } from "../../features/history/db/index.js";
 import {
   clearGroupMemory,
   clearUserMemory,
-  createGeneralFact,
-  createGroupFact,
-  createUserFact,
+  addMemoryEntry,
   MAX_FACT_LENGTH,
   MIN_FACT_LENGTH,
 } from "../../features/memory/db/index.js";
@@ -115,7 +113,7 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
   bot.command("forget", async (ctx) => {
     const userId = resolveUserId(ctx);
     if (!userId) return;
-    clearUserMemory(userId);
+    await clearUserMemory(userId);
     await replyToUser(ctx, "Your stored memory has been cleared.");
   });
 
@@ -129,7 +127,7 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
       await replyToUser(ctx, "Group memory is only available in group chats.");
       return;
     }
-    clearGroupMemory(groupChatId);
+    await clearGroupMemory(groupChatId);
     await replyToUser(ctx, "This group's stored memory has been cleared.");
   });
 
@@ -159,15 +157,15 @@ export function registerBotCommands(bot: Bot, botUsername: string): void {
     let targetLabel = "";
 
     if (target.kind === "user") {
-      const record = createUserFact(target.userId, fact);
+      const record = await addMemoryEntry("user", target.userId, fact);
       saved = record != null;
       targetLabel = `user memory for ${target.label}`;
     } else if (target.kind === "group") {
-      const record = createGroupFact(target.groupId, fact);
+      const record = await addMemoryEntry("group", target.groupId, fact);
       saved = record != null;
       targetLabel = "group memory";
     } else {
-      const record = createGeneralFact(fact);
+      const record = await addMemoryEntry("general", null, fact);
       saved = record != null;
       targetLabel = "general memory";
     }

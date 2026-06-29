@@ -80,17 +80,17 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
   }
   if (enabledToolNames.includes(MEMORY_GET_TOOL_NAME)) {
     lines.push(
-      `- ${MEMORY_GET_TOOL_NAME}(type, id): Read stored long-term memory. type 'user' (id = a user id from [SESSION] or [user:name:id] tags), 'group' (id = the group id in [SESSION]), or 'general' (id ignored). Use before claiming you forgot something durable about a person or this chat.`,
+      `- ${MEMORY_GET_TOOL_NAME}(type, id): Read the consolidated long-term memory record. type 'user' (id = a user id from [SESSION] or [user:name:id] tags), 'group' (id = the group id in [SESSION]), or 'general' (id ignored). Use before claiming you forgot something durable about a person or this chat.`,
     );
   }
   if (enabledToolNames.includes(MEMORY_SEARCH_TOOL_NAME)) {
     lines.push(
-      `- ${MEMORY_SEARCH_TOOL_NAME}(query): Substring search across all stored memory (user, group, general). Use to find which person or scope a remembered fact belongs to.`,
+      `- ${MEMORY_SEARCH_TOOL_NAME}(query): Semantic (vector + keyword) search across all consolidated memory (user, group, general). Use to recall a durable fact when you do not know which person or scope it belongs to — results are tagged with type and id.`,
     );
   }
   if (enabledToolNames.includes(MEMORY_SAVE_TOOL_NAME)) {
     lines.push(
-      `- ${MEMORY_SAVE_TOOL_NAME}(type, id, content): Append ONE durable fact to memory — stable preferences, identity, boundaries, group norms, or lasting behavior lessons. Do not save passing chit-chat or anything already stored.`,
+      `- ${MEMORY_SAVE_TOOL_NAME}(type, id, content): Record ONE durable fact — stable preferences, identity, boundaries, group norms, or lasting behavior lessons. Do not save passing chit-chat. Notes are merged into the consolidated record by a daily job (duplicates resolved then).`,
     );
   }
   if (enabledToolNames.includes(TASKS_CREATE_TOOL_NAME)) {

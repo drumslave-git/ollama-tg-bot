@@ -105,8 +105,8 @@ const BUILTIN_NODES: Omit<
   {
     stepId: "memory-job",
     featureId: "memory",
-    label: "Memory Maintenance",
-    sublabel: "Debounced background cleanup pass",
+    label: "Memory Consolidation",
+    sublabel: "Daily merge of notes into embedded records",
     kind: "side",
     stage: "background",
   },

@@ -262,18 +262,25 @@ export interface Stats {
   recentErrors: BotErrorRecord[];
 }
 
-export interface UserMemoryFact {
+export interface MemoryRecord {
   id: number;
-  userId: string;
-  fact: string;
-  createdAt: string;
+  type: MemoryScope;
+  entityId: string | null;
+  content: string;
+  updatedAt: number;
 }
 
-export interface GroupMemoryFact {
+export interface MemoryEntry {
   id: number;
-  groupId: string;
-  fact: string;
-  createdAt: string;
+  type: MemoryScope;
+  entityId: string | null;
+  content: string;
+  createdAt: number;
+}
+
+export interface MemoryConfig {
+  enabled: boolean;
+  runHour: number;
 }
 
 export interface Personality {
@@ -288,12 +295,6 @@ export interface Personality {
 export interface PersonalitiesPayload {
   personalities: Personality[];
   activePersonalityId: number;
-}
-
-export interface GeneralMemoryFact {
-  id: number;
-  fact: string;
-  createdAt: string;
 }
 
 export type TaskScheduleKind = "once" | "daily" | "weekly";
@@ -570,70 +571,22 @@ export const api = {
     request<{ ok: boolean }>("/api/stats/errors/clear", {
       method: "POST",
     }),
-  getMemories: () =>
-    request<{ facts: UserMemoryFact[]; total: number }>("/api/memories/user"),
-  createMemory: (userId: string, fact: string) =>
-    request<{ fact: UserMemoryFact }>("/api/memories/user", {
-      method: "POST",
-      body: JSON.stringify({ userId, fact }),
-    }),
-  updateMemory: (id: number, fact: string) =>
-    request<{ fact: UserMemoryFact }>(`/api/memories/user/${id}`, {
+  getMemoryRecords: () =>
+    request<{ records: MemoryRecord[] }>("/api/memories/memory"),
+  updateMemoryRecord: (id: number, content: string) =>
+    request<{ record: MemoryRecord }>(`/api/memories/memory/${id}`, {
       method: "PATCH",
-      body: JSON.stringify({ fact }),
+      body: JSON.stringify({ content }),
     }),
-  deleteMemory: (id: number) =>
-    request<{ ok: boolean }>(`/api/memories/user/${id}`, { method: "DELETE" }),
-  clearUserMemories: (userId: string) =>
-    request<{ ok: boolean }>(
-      `/api/memories/user/all/${encodeURIComponent(userId)}`,
-      { method: "DELETE" },
-    ),
-  getGroupMemories: () =>
-    request<{ facts: GroupMemoryFact[]; total: number }>("/api/memories/group"),
-  createGroupMemory: (groupId: string, fact: string) =>
-    request<{ fact: GroupMemoryFact }>("/api/memories/group", {
-      method: "POST",
-      body: JSON.stringify({ groupId, fact }),
-    }),
-  updateGroupMemory: (id: number, fact: string) =>
-    request<{ fact: GroupMemoryFact }>(`/api/memories/group/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ fact }),
-    }),
-  deleteGroupMemory: (id: number) =>
-    request<{ ok: boolean }>(`/api/memories/group/${id}`, { method: "DELETE" }),
-  clearGroupMemories: (groupId: string) =>
-    request<{ ok: boolean }>(
-      `/api/memories/group/all/${encodeURIComponent(groupId)}`,
-      { method: "DELETE" },
-    ),
-  getGeneralMemories: () =>
-    request<{ facts: GeneralMemoryFact[]; total: number }>(
-      "/api/memories/general",
-    ),
-  createGeneralMemory: (fact: string) =>
-    request<{ fact: GeneralMemoryFact }>("/api/memories/general", {
-      method: "POST",
-      body: JSON.stringify({ text: fact }),
-    }),
-  updateGeneralMemory: (id: number, fact: string) =>
-    request<{ fact: GeneralMemoryFact }>(`/api/memories/general/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ text: fact }),
-    }),
-  deleteGeneralMemory: (id: number) =>
-    request<{ ok: boolean }>(`/api/memories/general/${id}`, {
-      method: "DELETE",
-    }),
-  clearGeneralMemories: () =>
-    request<{ ok: boolean }>("/api/memories/general", {
-      method: "DELETE",
-    }),
-  getMemoryConfig: () =>
-    request<{ maintenanceDebounceSec: number }>("/api/memories/config"),
-  updateMemoryConfig: (patch: { maintenanceDebounceSec: number }) =>
-    request<{ maintenanceDebounceSec: number }>("/api/memories/config", {
+  deleteMemoryRecord: (id: number) =>
+    request<{ ok: boolean }>(`/api/memories/memory/${id}`, { method: "DELETE" }),
+  getMemoryEntries: () =>
+    request<{ entries: MemoryEntry[] }>("/api/memories/entries"),
+  deleteMemoryEntry: (id: number) =>
+    request<{ ok: boolean }>(`/api/memories/entries/${id}`, { method: "DELETE" }),
+  getMemoryConfig: () => request<MemoryConfig>("/api/memories/config"),
+  updateMemoryConfig: (patch: Partial<MemoryConfig>) =>
+    request<MemoryConfig>("/api/memories/config", {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),

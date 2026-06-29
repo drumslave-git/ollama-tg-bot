@@ -1,30 +1,30 @@
 export interface MemoryConfig {
-  /** Seconds after the message queue is idle before memory maintenance runs. */
-  maintenanceDebounceSec: number;
+  /** Whether the daily memory-consolidation job runs. */
+  enabled: boolean;
+  /** Local hour (0–23, in the server TZ) the daily consolidation job fires. */
+  runHour: number;
 }
 
 export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
-  maintenanceDebounceSec: 60,
+  enabled: true,
+  runHour: 4,
 };
-
-const MIN_DEBOUNCE_SEC = 5;
-const MAX_DEBOUNCE_SEC = 600;
 
 export function validateMemoryConfig(
   partial: Partial<MemoryConfig>,
 ): MemoryConfig {
-  const maintenanceDebounceSec =
-    partial.maintenanceDebounceSec ??
-    DEFAULT_MEMORY_CONFIG.maintenanceDebounceSec;
-  if (
-    typeof maintenanceDebounceSec !== "number" ||
-    !Number.isFinite(maintenanceDebounceSec) ||
-    maintenanceDebounceSec < MIN_DEBOUNCE_SEC ||
-    maintenanceDebounceSec > MAX_DEBOUNCE_SEC
-  ) {
-    throw new Error(
-      `maintenanceDebounceSec must be ${MIN_DEBOUNCE_SEC}–${MAX_DEBOUNCE_SEC}`,
-    );
+  const enabled = partial.enabled ?? DEFAULT_MEMORY_CONFIG.enabled;
+  const runHour = partial.runHour ?? DEFAULT_MEMORY_CONFIG.runHour;
+  if (typeof enabled !== "boolean") {
+    throw new Error("enabled must be a boolean");
   }
-  return { maintenanceDebounceSec };
+  if (
+    typeof runHour !== "number" ||
+    !Number.isInteger(runHour) ||
+    runHour < 0 ||
+    runHour > 23
+  ) {
+    throw new Error("runHour must be an integer 0–23");
+  }
+  return { enabled, runHour };
 }

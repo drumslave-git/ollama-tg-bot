@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MEMORY_MERGE_SYSTEM,
-  buildExplainGeneralMemorySection,
   buildMemoryMergeMessages,
-  formatGeneralMemoryForPrompt,
   parseMemoryBlock,
   splitMergedMemoryFacts,
 } from "../../../src/features/memory/index.js";
@@ -59,19 +57,6 @@ describe("splitMergedMemoryFacts", () => {
     expect(
       splitMergedMemoryFacts("Lives in Lisbon.\n- Prefers tea.\n"),
     ).toEqual(["Lives in Lisbon.", "Prefers tea."]);
-  });
-});
-
-describe("memory formatting", () => {
-  it("formats general facts as a bullet list", () => {
-    expect(formatGeneralMemoryForPrompt(["Fact one."])).toBe("- Fact one.");
-    expect(formatGeneralMemoryForPrompt([])).toContain("No general facts");
-  });
-
-  it("builds the explain general memory section", () => {
-    expect(buildExplainGeneralMemorySection(["Fact one."])).toContain(
-      "### General memories",
-    );
   });
 });
 

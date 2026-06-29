@@ -1,17 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { FeatureLogging } from "../../shared/index.js";
-import {
-  addGeneralFacts,
-  addGroupFacts,
-  addUserFacts,
-  getGeneralFacts,
-  getGroupMemoryContent,
-  getUserMemoryContent,
-  searchGeneralFacts,
-  searchGroupMemories,
-  searchUserMemories,
-} from "./db/index.js";
+import { embedOne } from "../../llm/embeddings.js";
+import { addMemoryEntry, type MemoryType } from "./db/entries.js";
+import { getMemoryRecord, searchMemory } from "./db/memory.js";
 
 export const MEMORY_GET_TOOL_NAME = "memory_get";
 export const MEMORY_SEARCH_TOOL_NAME = "memory_search";
@@ -55,37 +47,6 @@ export interface MemoryMcpConfig {
   log?: FeatureLogging;
 }
 
-/** Read the stored memory document for a scope. */
-async function readMemory(
-  type: "user" | "group" | "general",
-  id: string,
-): Promise<string> {
-  switch (type) {
-    case "user":
-      return getUserMemoryContent(id);
-    case "group":
-      return getGroupMemoryContent(id);
-    case "general":
-      return (await getGeneralFacts()).join("\n");
-  }
-}
-
-/** Append content to a scope; returns whether anything new was stored. */
-async function saveMemory(
-  type: "user" | "group" | "general",
-  id: string,
-  content: string,
-): Promise<boolean> {
-  switch (type) {
-    case "user":
-      return (await addUserFacts(id, [content])) > 0;
-    case "group":
-      return (await addGroupFacts(id, [content])) > 0;
-    case "general":
-      return (await addGeneralFacts([content])) > 0;
-  }
-}
-
 export function registerMemoryMcpTools(
   server: McpServer,
   config: MemoryMcpConfig = {},
@@ -95,12 +56,14 @@ export function registerMemoryMcpTools(
     {
       title: "Get memory",
       description:
-        "Read stored long-term memory for a scope. " +
+        "Read the consolidated long-term memory for a scope. " +
         "type 'user' returns durable facts about one person (id = that user's numeric id, " +
         "from the [SESSION] block or [user:name:id] history tags); " +
         "type 'group' returns this chat's norms (id = the group id from the [SESSION] block); " +
         "type 'general' returns cross-chat knowledge (id is ignored). " +
-        "Use before claiming you do not know something durable about a person or this chat.",
+        "Note: facts you just saved with memory_save are folded in by a daily job — " +
+        "they may not appear here until then. Use before claiming you do not know " +
+        "something durable about a person or this chat.",
       inputSchema: z.object({
         type: memoryScope.describe("Which memory scope to read"),
         id: z
@@ -119,7 +82,7 @@ export function registerMemoryMcpTools(
       },
     },
     async ({ type, id }) => {
-      const scopeId = type === "general" ? null : (id?.trim() || "");
+      const scopeId = type === "general" ? null : id?.trim() || "";
       if (type !== "general" && !scopeId) {
         return {
           content: [
@@ -131,7 +94,8 @@ export function registerMemoryMcpTools(
           isError: true,
         };
       }
-      const content = await readMemory(type, scopeId ?? "");
+      const record = await getMemoryRecord(type as MemoryType, scopeId);
+      const content = record?.content ?? "";
       config.log?.logEvent?.("memory_tool_get", {
         type,
         id: scopeId ?? undefined,
@@ -144,12 +108,7 @@ export function registerMemoryMcpTools(
             text: content || `(no ${type} memory stored)`,
           },
         ],
-        structuredContent: {
-          ok: true,
-          type,
-          id: scopeId,
-          content,
-        },
+        structuredContent: { ok: true, type, id: scopeId, content },
       };
     },
   );
@@ -159,17 +118,21 @@ export function registerMemoryMcpTools(
     {
       title: "Search memory",
       description:
-        "Case-insensitive substring search across all stored memory (user, group, and general). " +
-        "Use to find which person or scope a remembered fact belongs to when you do not know the id.",
+        "Semantic (vector + keyword) search across all consolidated long-term memory " +
+        "(user, group, and general). Use to recall a durable fact when you do not know " +
+        "which person or scope it belongs to — each result is tagged with its type and id.",
       inputSchema: z.object({
-        query: z.string().min(1).describe("Substring to look for in stored memory"),
+        query: z
+          .string()
+          .min(1)
+          .describe("What to look for — a topic, preference, name, or fact"),
         limit: z
           .number()
           .int()
           .min(1)
-          .max(100)
-          .default(50)
-          .describe("Maximum matches to return across all scopes (max 100)"),
+          .max(20)
+          .default(8)
+          .describe("Maximum matches to return (max 20)"),
       }),
       outputSchema: searchOutputSchema,
       annotations: {
@@ -180,35 +143,33 @@ export function registerMemoryMcpTools(
       },
     },
     async ({ query, limit }) => {
-      const cap = limit ?? 50;
-      const [userMatches, groupMatches, generalMatches] = await Promise.all([
-        searchUserMemories(query, cap),
-        searchGroupMemories(query, cap),
-        searchGeneralFacts(query, cap),
-      ]);
-      const results: Array<{ type: string; id: string | null; content: string }> = [
-        ...userMatches.map((m) => ({
-          type: "user",
-          id: m.userId,
-          content: m.content,
-        })),
-        ...groupMatches.map((m) => ({
-          type: "group",
-          id: m.groupId,
-          content: m.content,
-        })),
-        ...generalMatches.map((m) => ({
-          type: "general",
-          id: null,
-          content: m.fact,
-        })),
-      ].slice(0, cap);
+      let vector: number[];
+      try {
+        vector = await embedOne(query);
+      } catch (err) {
+        config.log?.logEventError?.("memory_tool_embed_failed", err, {});
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: "Memory search is unavailable (embedding model not reachable).",
+            },
+          ],
+          isError: true,
+        };
+      }
 
+      const matches = await searchMemory(vector, query, limit ?? 8);
       config.log?.logEvent?.("memory_tool_search", {
         query,
-        returned: results.length,
+        returned: matches.length,
       });
 
+      const results = matches.map((m) => ({
+        type: m.type,
+        id: m.entityId,
+        content: m.content,
+      }));
       const text =
         results.length === 0
           ? "(no matching memory)"
@@ -228,14 +189,15 @@ export function registerMemoryMcpTools(
     {
       title: "Save memory",
       description:
-        "Append a durable fact to long-term memory. " +
+        "Record a durable fact for long-term memory. " +
         "Save ONLY information that stays useful across future conversations — a person's stable " +
         "preferences, identity, boundaries, group norms, or a lasting lesson about how to behave. " +
-        "Do NOT save passing chit-chat, one-off requests, or anything already stored. " +
+        "Do NOT save passing chit-chat or one-off requests. The note is queued and merged into " +
+        "the consolidated record by a daily job (duplicates are resolved then, so just write the fact). " +
         "type 'user' (id = the user's numeric id), 'group' (id = the group id from [SESSION]), " +
         "or 'general' (cross-chat knowledge, id ignored). Write one concise fact per call.",
       inputSchema: z.object({
-        type: memoryScope.describe("Which memory scope to append to"),
+        type: memoryScope.describe("Which memory scope to record under"),
         id: z
           .string()
           .default("")
@@ -256,7 +218,7 @@ export function registerMemoryMcpTools(
       },
     },
     async ({ type, id, content }) => {
-      const scopeId = type === "general" ? null : (id?.trim() || "");
+      const scopeId = type === "general" ? null : id?.trim() || "";
       if (type !== "general" && !scopeId) {
         return {
           content: [
@@ -268,7 +230,8 @@ export function registerMemoryMcpTools(
           isError: true,
         };
       }
-      const saved = await saveMemory(type, scopeId ?? "", content);
+      const entry = await addMemoryEntry(type as MemoryType, scopeId, content);
+      const saved = entry != null;
       config.log?.logEvent?.("memory_tool_save", {
         type,
         id: scopeId ?? undefined,
@@ -279,8 +242,8 @@ export function registerMemoryMcpTools(
           {
             type: "text" as const,
             text: saved
-              ? `Saved to ${type} memory${scopeId ? ` (${scopeId})` : ""}.`
-              : `Already stored — nothing added to ${type} memory.`,
+              ? `Noted for ${type} memory${scopeId ? ` (${scopeId})` : ""} — will be merged on the next daily consolidation.`
+              : `Nothing saved to ${type} memory.`,
           },
         ],
         structuredContent: { ok: true, type, id: scopeId, saved },

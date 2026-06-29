@@ -10,7 +10,8 @@ export function MemoryJobConfigSection({
 }: {
   apiOnline: boolean;
 }) {
-  const [maintenanceDebounceSec, setMaintenanceDebounceSec] = useState(60);
+  const [enabled, setEnabled] = useState(true);
+  const [runHour, setRunHour] = useState(4);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +23,8 @@ export function MemoryJobConfigSection({
     setError(null);
     try {
       const config = await api.getMemoryConfig();
-      setMaintenanceDebounceSec(config.maintenanceDebounceSec);
+      setEnabled(config.enabled);
+      setRunHour(config.runHour);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load config");
     } finally {
@@ -39,10 +41,9 @@ export function MemoryJobConfigSection({
     setError(null);
     setSaved(false);
     try {
-      const updated = await api.updateMemoryConfig({
-        maintenanceDebounceSec,
-      });
-      setMaintenanceDebounceSec(updated.maintenanceDebounceSec);
+      const updated = await api.updateMemoryConfig({ enabled, runHour });
+      setEnabled(updated.enabled);
+      setRunHour(updated.runHour);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
     } catch (err) {
@@ -54,10 +55,11 @@ export function MemoryJobConfigSection({
 
   return (
     <section className="rounded-lg border border-border bg-surface p-6">
-      <h3 className="mb-5 text-[1.1rem] font-semibold">Background maintenance</h3>
+      <h3 className="mb-5 text-[1.1rem] font-semibold">Memory consolidation</h3>
       <p className="mt-1.5 text-xs text-muted">
-        After the message queue is idle, wait this long before cleaning up
-        stored memory (dedupe, drop stale lines, compact).
+        Once per day (after the chosen local hour, while the queue is idle), the
+        bot folds each entity's pending notes into its consolidated, embedded
+        memory record and removes the processed notes.
       </p>
       {loading ? <p className="text-muted">Loading…</p> : null}
       {error ? (
@@ -65,16 +67,27 @@ export function MemoryJobConfigSection({
       ) : null}
       {!loading ? (
         <>
-          <SettingsNumberField
-            id="memoryMaintenanceDebounceSec"
-            label="Maintenance delay (seconds)"
-            value={maintenanceDebounceSec}
-            min={5}
-            max={600}
-            step={5}
-            disabled={!apiOnline || saving}
-            onChange={setMaintenanceDebounceSec}
-          />
+          <label className="mt-2 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={enabled}
+              disabled={!apiOnline || saving}
+              onChange={(e) => setEnabled(e.target.checked)}
+            />
+            <span>Enable daily consolidation</span>
+          </label>
+          <div className="mt-3">
+            <SettingsNumberField
+              id="memoryRunHour"
+              label="Run hour (0–23, local time)"
+              value={runHour}
+              min={0}
+              max={23}
+              step={1}
+              disabled={!apiOnline || saving || !enabled}
+              onChange={setRunHour}
+            />
+          </div>
           <div className="mt-2 flex gap-3">
             <button
               type="button"

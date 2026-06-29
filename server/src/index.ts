@@ -29,6 +29,10 @@ import {
   stopSummariesScheduler,
 } from "./runtime/summaries-scheduler.js";
 import {
+  startMemoryScheduler,
+  stopMemoryScheduler,
+} from "./runtime/memory-scheduler.js";
+import {
   emitDataUpdated,
   emitMemoryUpdated,
   emitMoodUpdated,
@@ -87,12 +91,14 @@ async function main(): Promise<void> {
   await startBot();
   void startTaskScheduler();
   startSummariesScheduler();
+  startMemoryScheduler();
 
   const shutdown = async () => {
     logInfo("Shutting down...");
     stopMoodCooldownWorker();
     stopTaskScheduler();
     stopSummariesScheduler();
+    stopMemoryScheduler();
     await stopBot();
     await closePlaywrightBrowser();
     liveSocket.close();

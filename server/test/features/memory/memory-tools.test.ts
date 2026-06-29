@@ -1,14 +1,17 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { BotMcpRegistry } from "../../../src/shared/index.js";
+import { EMBEDDING_DIM } from "../../../src/llm/embeddings.js";
 import {
-  bindGeneralMemoryDatabase,
-  bindGroupMemoryDatabase,
-  bindUserMemoryDatabase,
+  bindMemoryEntriesDatabase,
+  bindMemoryDatabase,
+  getEntriesFor,
+  upsertMemory,
 } from "../../../src/features/memory/db/index.js";
 import {
   closeTestPool,
   dropTables,
+  ensureVectorExtension,
   hasTestDb,
   testDb,
   truncateTables,
@@ -16,10 +19,20 @@ import {
 import {
   MEMORY_GET_TOOL_NAME,
   MEMORY_SAVE_TOOL_NAME,
-  MEMORY_SEARCH_TOOL_NAME,
   MEMORY_TOOL_NAMES,
   registerMemoryMcpTools,
 } from "../../../src/features/memory/mcp-tools.js";
+
+// NOTE: memory_search is covered at the DB layer in memory-db.test.ts
+// (searchMemory). The tool itself embeds the query via the live model, which
+// isn't available in tests — mirroring how the summaries feature tests only its
+// DB search, not the embed-dependent tool path.
+
+function basisVector(index: number): number[] {
+  const v = new Array<number>(EMBEDDING_DIM).fill(0);
+  v[index] = 1;
+  return v;
+}
 
 async function buildRegistry(): Promise<BotMcpRegistry> {
   const registry = new BotMcpRegistry();
@@ -46,25 +59,17 @@ interface SaveStructured {
   saved: boolean;
 }
 
-interface SearchStructured {
-  ok: boolean;
-  count: number;
-  results: { type: string; id: string | null; content: string }[];
-}
-
 describe.skipIf(!hasTestDb)("memory MCP tools (Postgres)", () => {
   beforeAll(async () => {
-    await dropTables("user_memories", "group_memories", "general_facts");
-    await bindUserMemoryDatabase(testDb);
-    await bindGroupMemoryDatabase(testDb);
-    await bindGeneralMemoryDatabase(testDb);
+    await ensureVectorExtension();
+    await dropTables("memory", "memory_entry");
+    await bindMemoryEntriesDatabase(testDb);
+    await bindMemoryDatabase(testDb);
   });
   afterAll(closeTestPool);
-  beforeEach(() =>
-    truncateTables("user_memories", "group_memories", "general_facts"),
-  );
+  beforeEach(() => truncateTables("memory", "memory_entry"));
 
-  it("memory_save appends a user fact and memory_get reads it back", async () => {
+  it("memory_save records a raw entry awaiting consolidation", async () => {
     const registry = await buildRegistry();
 
     const save = await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
@@ -73,6 +78,19 @@ describe.skipIf(!hasTestDb)("memory MCP tools (Postgres)", () => {
       content: "Prefers short answers.",
     });
     expect((save.structuredContent as SaveStructured).saved).toBe(true);
+
+    const entries = await getEntriesFor("user", "42");
+    expect(entries.map((e) => e.content)).toEqual(["Prefers short answers."]);
+  });
+
+  it("memory_get reads the consolidated record", async () => {
+    const registry = await buildRegistry();
+    await upsertMemory({
+      type: "user",
+      entityId: "42",
+      content: "Prefers short answers.",
+      embedding: basisVector(0),
+    });
 
     const get = await registry.callTool(MEMORY_GET_TOOL_NAME, {
       type: "user",
@@ -83,56 +101,16 @@ describe.skipIf(!hasTestDb)("memory MCP tools (Postgres)", () => {
     expect(structured.id).toBe("42");
   });
 
-  it("memory_save deduplicates identical lines", async () => {
-    const registry = await buildRegistry();
-    const args = { type: "user", id: "42", content: "Lives in Lisbon." };
-
-    const first = await registry.callTool(MEMORY_SAVE_TOOL_NAME, args);
-    const second = await registry.callTool(MEMORY_SAVE_TOOL_NAME, args);
-
-    expect((first.structuredContent as SaveStructured).saved).toBe(true);
-    expect((second.structuredContent as SaveStructured).saved).toBe(false);
-  });
-
-  it("memory_search finds matches across all scopes", async () => {
-    const registry = await buildRegistry();
-    await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
-      type: "user",
-      id: "1",
-      content: "Loves chess puzzles.",
-    });
-    await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
-      type: "group",
-      id: "g9",
-      content: "The group plays chess on Fridays.",
-    });
-    await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
-      type: "general",
-      content: "Chess is a board game.",
-    });
-
-    const result = await registry.callTool(MEMORY_SEARCH_TOOL_NAME, {
-      query: "chess",
-    });
-    const structured = result.structuredContent as SearchStructured;
-    expect(structured.count).toBe(3);
-    expect(structured.results.map((r) => r.type).sort()).toEqual([
-      "general",
-      "group",
-      "user",
-    ]);
-  });
-
   it("memory_get for general ignores id", async () => {
     const registry = await buildRegistry();
-    await registry.callTool(MEMORY_SAVE_TOOL_NAME, {
+    await upsertMemory({
       type: "general",
+      entityId: null,
       content: "MTTR means mean time to recovery.",
+      embedding: basisVector(0),
     });
 
-    const get = await registry.callTool(MEMORY_GET_TOOL_NAME, {
-      type: "general",
-    });
+    const get = await registry.callTool(MEMORY_GET_TOOL_NAME, { type: "general" });
     const structured = get.structuredContent as GetStructured;
     expect(structured.id).toBeNull();
     expect(structured.content).toContain("MTTR");

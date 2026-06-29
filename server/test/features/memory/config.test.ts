@@ -6,14 +6,18 @@ import {
 
 describe("validateMemoryConfig", () => {
   it("returns defaults for an empty patch", () => {
-    expect(validateMemoryConfig({})).toEqual(
-      DEFAULT_MEMORY_CONFIG,
-    );
+    expect(validateMemoryConfig({})).toEqual(DEFAULT_MEMORY_CONFIG);
   });
 
-  it("rejects out-of-range debounce values", () => {
-    expect(() =>
-      validateMemoryConfig({ maintenanceDebounceSec: 2 }),
-    ).toThrow(/maintenanceDebounceSec/);
+  it("rejects an out-of-range run hour", () => {
+    expect(() => validateMemoryConfig({ runHour: 24 })).toThrow(/runHour/);
+    expect(() => validateMemoryConfig({ runHour: -1 })).toThrow(/runHour/);
+  });
+
+  it("accepts enabled + runHour overrides", () => {
+    expect(validateMemoryConfig({ enabled: false, runHour: 9 })).toEqual({
+      enabled: false,
+      runHour: 9,
+    });
   });
 });
