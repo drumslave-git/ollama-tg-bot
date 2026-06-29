@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   buildReplyFormatSpec,
-  extractLiveReply,
-  extractPartialReply,
   extractTelegramReply,
   getMainReplyResponseFormat,
   MAIN_REPLY_RESPONSE_FORMAT,
@@ -50,43 +48,6 @@ describe("extractTelegramReply", () => {
   });
 });
 
-describe("extractPartialReply", () => {
-  it("returns empty before the reply field has started", () => {
-    expect(extractPartialReply('{"re')).toBe("");
-    expect(extractPartialReply('{"reply"')).toBe("");
-    expect(extractPartialReply('{"reply":')).toBe("");
-    expect(extractPartialReply('{"reply": ')).toBe("");
-  });
-
-  it("extracts an in-progress unterminated reply string", () => {
-    expect(extractPartialReply('{"reply":"hel')).toBe("hel");
-  });
-
-  it("extracts a completed reply string", () => {
-    expect(extractPartialReply('{"reply":"hello"}')).toBe("hello");
-  });
-
-  it("decodes escape sequences as they stream", () => {
-    expect(extractPartialReply('{"reply":"line one\\nline')).toBe(
-      "line one\nline",
-    );
-    expect(extractPartialReply('{"reply":"a \\"quote\\""')).toBe('a "quote"');
-  });
-
-  it("ignores an unterminated trailing escape", () => {
-    expect(extractPartialReply('{"reply":"done\\')).toBe("done");
-  });
-
-  it("handles unicode escapes and partial ones", () => {
-    expect(extractPartialReply('{"reply":"\\u0041B')).toBe("AB");
-    expect(extractPartialReply('{"reply":"X\\u00')).toBe("X");
-  });
-
-  it("tolerates whitespace before the value", () => {
-    expect(extractPartialReply('{ "reply" :  "hi')).toBe("hi");
-  });
-});
-
 describe("stripStructuredMarkup", () => {
   it("removes closed blocks", () => {
     expect(stripStructuredMarkup("a [FOO]b[/FOO] c")).toBe("a  c");
@@ -113,18 +74,6 @@ describe("buildReplyFormatSpec", () => {
   it("never asks for a reasoning field", () => {
     const spec = buildReplyFormatSpec("HINT-TEXT");
     expect(spec).not.toContain("reasoning");
-  });
-});
-
-describe("extractLiveReply", () => {
-  it("returns plain text unchanged", () => {
-    expect(extractLiveReply("Hello there")).toBe("Hello there");
-    expect(extractLiveReply("Hello, {not json}")).toBe("Hello, {not json}");
-  });
-
-  it("extracts the reply field when the stream is JSON-wrapped", () => {
-    expect(extractLiveReply('{"reply":"hel')).toBe("hel");
-    expect(extractLiveReply('  {"reply":"hello"}')).toBe("hello");
   });
 });
 

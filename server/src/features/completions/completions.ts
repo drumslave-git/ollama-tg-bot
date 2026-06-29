@@ -2,10 +2,7 @@ import type {
   PipelineFeatureHost,
   PipelineStepResult,
 } from "../../contracts/index.js";
-import {
-  extractLiveReply,
-  extractTelegramReply,
-} from "./response-format.js";
+import { extractTelegramReply } from "./response-format.js";
 import { buildChatContextForTurn } from "../../pipeline/turn-services.js";
 
 export const completionsHost: PipelineFeatureHost = {
@@ -40,7 +37,6 @@ export const completionsHost: PipelineFeatureHost = {
       convKey: state.convKey,
     });
 
-    const replyStream = state.replyStream;
     const complete = createMain({
       think: true,
       // Plain-text main reply: no JSON schema. Grammar-constrained decoding can
@@ -53,12 +49,6 @@ export const completionsHost: PipelineFeatureHost = {
         system: built.systemContent,
         latest: built.latestContent,
       },
-      ...(replyStream
-        ? {
-            onContentDelta: (accumulated: string) =>
-              replyStream.push(extractLiveReply(accumulated)),
-          }
-        : {}),
     });
 
     const { raw: modelOutput, thinking, webSearchSources } =

@@ -67,28 +67,6 @@ describe("chatCompleteWithTools", () => {
     expect(result.thinking).toContain("final thinking");
   });
 
-  it("streams only the final answer, not the tool-selection rounds", async () => {
-    const onContentDelta = vi.fn();
-    mockedChatCompleteDetailed
-      .mockResolvedValueOnce({ raw: "tool-round text", thinking: "" })
-      .mockResolvedValueOnce({ raw: "final reply", thinking: "" });
-
-    await chatCompleteWithTools([{ role: "user", content: "hi" }], {
-      tools: [{ type: "function", function: { name: "fetch_link", parameters: {} } }],
-      callTool: vi.fn(),
-      responseFormat: undefined,
-      onContentDelta,
-    });
-
-    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(2);
-    // Tool-selection round must NOT receive the streaming callback.
-    expect(mockedChatCompleteDetailed.mock.calls[0]?.[1]?.onContentDelta).toBeUndefined();
-    // Final user-facing answer must stream.
-    expect(mockedChatCompleteDetailed.mock.calls[1]?.[1]?.onContentDelta).toBe(
-      onContentDelta,
-    );
-  });
-
   it("runs tools then finishes with the JSON pass", async () => {
     const callTool = vi.fn().mockResolvedValue({ text: "page content" });
 

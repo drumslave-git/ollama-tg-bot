@@ -9,7 +9,6 @@ import OpenAI, {
 import type {
   ChatCompletion,
   ChatCompletionCreateParamsNonStreaming,
-  ChatCompletionCreateParamsStreaming,
   ChatCompletionMessageParam,
   ChatCompletionMessageToolCall,
   ChatCompletionTool,
@@ -305,11 +304,6 @@ export interface ChatCompleteOptions {
   tools?: ChatCompletionTool[];
   /** When true, return tool_calls instead of failing on empty content. */
   allowToolCalls?: boolean;
-  /**
-   * When set, stream the completion and invoke this with the cumulative raw
-   * content after each chunk. Ignored for auxiliary side passes.
-   */
-  onContentDelta?: (accumulated: string) => void;
 }
 
 async function requestChat(
@@ -413,148 +407,6 @@ async function requestChat(
     }
   }
   return { data, choice };
-}
-
-/**
- * Streaming variant of {@link requestChat} for the main reply (no tools). Emits
- * cumulative content via `onContentDelta`, then records the same debug trace and
- * returns the assembled {@link ChatResponse}.
- */
-async function requestChatStreaming(
-  model: string,
-  prepared: ChatMessage[] | ChatCompletionMessageParam[],
-  numPredict: number,
-  traceTurnId: number | undefined,
-  traceLayout: VerbosePromptLayout | undefined,
-  traceLabel: string | undefined,
-  responseFormat: JsonSchemaResponseFormat | undefined,
-  think: boolean | undefined,
-  settings: Settings,
-  onContentDelta: (accumulated: string) => void,
-): Promise<ChatResponse> {
-  const providerSettings =
-    think === false ? { ...settings, thinkingEnabled: false } : settings;
-  const baseBody = chatCompletionBody(
-    model,
-    prepared,
-    numPredict,
-    false,
-    settings,
-    responseFormat,
-    undefined,
-    think,
-  );
-  // Token usage (eval_count) is best-effort: some backends include it on the
-  // final chunk, others only with stream_options. It feeds the debug trace
-  // only, so we don't request stream_options — that keeps streaming compatible
-  // with OpenAI-compatible servers that reject the field.
-  const requestBody = {
-    ...baseBody,
-    stream: true,
-  } as ChatCompletionCreateParamsStreaming;
-
-  const traceLabelText = traceLabel ?? "llm";
-  const traceSampling = formatTraceSamplingLine(
-    providerSettings,
-    false,
-    responseFormat,
-    undefined,
-  );
-  const llmStarted = performance.now();
-  if (traceTurnId != null) {
-    getRecorder(traceTurnId)?.beginLlmWait(
-      traceLabelText,
-      model,
-      settings.chatTimeoutSec,
-      sanitizeLlmPayloadForDebug(requestBody),
-      traceSampling,
-    );
-  }
-
-  let content = "";
-  let reasoning = "";
-  let role: string | undefined;
-  let finishReason: string | undefined;
-  let evalCount: number | undefined;
-
-  try {
-    const stream = await openAiClient().chat.completions.create(requestBody, {
-      timeout: getChatTimeoutMs(settings),
-    });
-    for await (const chunk of stream) {
-      if (chunk.usage) {
-        evalCount =
-          chunk.usage.completion_tokens ?? chunk.usage.total_tokens ?? evalCount;
-      }
-      const choice = chunk.choices?.[0];
-      if (!choice) continue;
-      const delta = choice.delta as
-        | (Record<string, unknown> & { content?: string | null; role?: string })
-        | undefined;
-      if (delta) {
-        if (typeof delta.role === "string") role = delta.role;
-        if (typeof delta.content === "string" && delta.content) {
-          content += delta.content;
-          onContentDelta(content);
-        }
-        const reasoningDelta =
-          typeof delta.reasoning_content === "string"
-            ? delta.reasoning_content
-            : typeof delta.reasoning === "string"
-              ? delta.reasoning
-              : "";
-        if (reasoningDelta) reasoning += reasoningDelta;
-      }
-      if (choice.finish_reason) finishReason = choice.finish_reason;
-    }
-  } catch (err) {
-    if (traceTurnId != null) {
-      const report = getRecorder(traceTurnId);
-      if (report) {
-        const message = errorMessage(err);
-        report.failLlmWait(
-          traceLabelText,
-          message,
-          performance.now() - llmStarted,
-        );
-      }
-    }
-    throw err;
-  }
-
-  const data: ChatResponse = {
-    message: {
-      role: role ?? "assistant",
-      content: content.trim(),
-      reasoning: reasoning.trim(),
-    },
-    done_reason: finishReason,
-    eval_count: evalCount,
-  };
-
-  const llmDurationMs = performance.now() - llmStarted;
-  if (traceTurnId != null) {
-    getRecorder(traceTurnId)?.recordLlmCall(
-      traceLabelText,
-      model,
-      numPredict,
-      prepared as ChatMessage[],
-      data,
-      traceLayout,
-      traceSampling,
-      sanitizeLlmPayloadForDebug(requestBody),
-      sanitizeLlmPayloadForDebug({
-        streamed: true,
-        content,
-        reasoning,
-        finish_reason: finishReason ?? null,
-        eval_count: evalCount ?? null,
-      }),
-      llmDurationMs,
-    );
-  }
-
-  return data;
 }
 
 function formatTraceSamplingLine(
@@ -705,27 +557,6 @@ export async function chatCompleteDetailed(
       : getEffectiveNumPredict(settings, {
           baseNumPredict: options?.numPredict,
         });
-
-    if (options?.onContentDelta && !auxiliary) {
-      const data = await requestChatStreaming(
-        model,
-        prepared,
-        numPredict,
-        traceTurnId,
-        traceLayout,
-        traceLabel,
-        options.responseFormat,
-        options.think,
-        settings,
-        options.onContentDelta,
-      );
-      const streamedContent = pickAssistantContent(data);
-      const streamedThinking = pickReasoning(data);
-      if (streamedContent) {
-        return { raw: streamedContent, thinking: streamedThinking };
-      }
-      throw emptyResponseError(model, data, numPredict);
-    }
 
     const { data, choice } = await requestChat(
       model,

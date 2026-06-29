@@ -29,7 +29,6 @@ import {
   startChatActionForMessage,
   startTypingForMessage,
 } from "../bot/replies/typing.js";
-import { ReplyStream } from "../bot/replies/reply-stream.js";
 import type { QueuedMessage } from "../runtime/message-queue.js";
 
 function hostDebugTitle(host: PipelineFeatureHost): string {
@@ -118,16 +117,6 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       return;
     }
 
-    // Stream the reply live (the completion path falls back to a single message
-    // automatically when it can't stream, e.g. nothing was produced).
-    const replyStream = new ReplyStream(ctx, {
-      chatId: deliveryChatId,
-      messageThreadId: state.messageThreadId,
-      inGroup: Boolean(state.inGroup),
-      isForum: state.isForum,
-    });
-    state.replyStream = replyStream;
-
     // Critical path: run only the hosts needed to produce the text reply.
     for (const host of getReplyPipelineHosts()) {
       if (!shouldRunEnabledHost(host, enabledSteps, turnId, services)) {
@@ -157,22 +146,14 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
     });
 
     // Deliver the text reply now — before the sticker and mood passes run.
-    // When the live stream already opened a message, finalize it in place;
-    // otherwise (tools path, or no content streamed) send it normally.
     const delivery = prepareDelivery(state);
-    let delivered: Awaited<ReturnType<typeof deliverReplyText>>;
-    if (replyStream?.started) {
-      if (delivery.error) throw new Error(delivery.error);
-      delivered = await replyStream.finalize(delivery.replyHtml ?? "");
-    } else {
-      delivered = await deliverReplyText(ctx, delivery, {
-        turnId,
-        chatId: deliveryChatId,
-        inGroup: Boolean(state.inGroup),
-        isForum: state.isForum,
-        messageThreadId: state.messageThreadId,
-      });
-    }
+    const delivered = await deliverReplyText(ctx, delivery, {
+      turnId,
+      chatId: deliveryChatId,
+      inGroup: Boolean(state.inGroup),
+      isForum: state.isForum,
+      messageThreadId: state.messageThreadId,
+    });
 
     // Text reply is on screen — stop "typing". Post-reply hosts (e.g. sticker)
     // show their own chat action only while they do visible work.

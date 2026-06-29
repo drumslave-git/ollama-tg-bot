@@ -16,7 +16,6 @@ export type {
   PipelineStepStatus,
   PipelineTelegramContext,
   PipelineTurnState,
-  ReplyStreamSink,
   ReplyTrigger,
 } from "./pipeline.js";
 export {

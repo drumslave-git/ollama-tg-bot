@@ -6,18 +6,6 @@
 
 export type PipelineStepStatus = "ok" | "skipped" | "failed";
 
-/**
- * Sink for streaming the main reply to the user as tokens arrive. The server
- * binds a concrete implementation to the Telegram context for the turn; the
- * completions host feeds it the partial reply text extracted from the stream.
- */
-export interface ReplyStreamSink {
-  /** True once a message has been opened for live editing. */
-  readonly started: boolean;
-  /** Update the live preview with the cumulative reply text so far. */
-  push(replyText: string): void;
-}
-
 export type ReplyTrigger = "addressed" | null;
 
 export interface PipelineStepResult {
@@ -136,9 +124,6 @@ export interface PipelineTurnState {
   haltReason?: string;
   earlyReply?: string;
 
-  /** Live-reply sink for streaming the main completion to Telegram (transient). */
-  replyStream?: ReplyStreamSink;
-
   /**
    * Show a Telegram chat action (e.g. "choose_sticker") for the turn's chat
    * during slow visible work; returns a stop fn. Server-bound, transient.
@@ -200,11 +185,6 @@ export interface PipelineLlmServices {
       system: string;
       latest: string;
     };
-    /**
-     * When set (and no MCP tools are active), stream the completion and report
-     * the cumulative raw model content as it arrives.
-     */
-    onContentDelta?: (accumulated: string) => void;
   }): (messages: unknown[]) => Promise<{
     raw: string;
     thinking?: string;
