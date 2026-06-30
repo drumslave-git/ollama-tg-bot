@@ -1,4 +1,8 @@
-import type { MessageProcessingDetail, ProcessingEntry } from "../../api";
+import type {
+  JobRunDetail,
+  MessageProcessingDetail,
+  ProcessingEntry,
+} from "../../api";
 import { DebugJsonView } from "../../components/DebugJsonView";
 import { formatTime } from "./debugUtils";
 
@@ -55,12 +59,39 @@ export function buildLogFileContent(detail: MessageProcessingDetail): string {
 
 export function downloadProcessingLog(detail: MessageProcessingDetail): void {
   const text = buildLogFileContent(detail);
+  downloadLog(`processing-${detail.id}`, detail.createdAt, text);
+}
+
+export function buildJobRunLogContent(detail: JobRunDetail): string {
+  const header = [
+    `Job run #${detail.id} · ${detail.featureId}`,
+    `Exported: ${new Date().toISOString()}`,
+    `Created: ${detail.createdAt}`,
+    `Status: ${detail.status}`,
+    detail.totalTimeSpent != null
+      ? `Total time: ${detail.totalTimeSpent}ms`
+      : null,
+    `Summary: ${detail.summary}`,
+    "",
+    "--- entries ---",
+    JSON.stringify(detail.entries, null, 2),
+  ].filter((line) => line != null);
+
+  return `${header.join("\n")}\n`;
+}
+
+export function downloadJobRunLog(detail: JobRunDetail): void {
+  const text = buildJobRunLogContent(detail);
+  downloadLog(`${detail.featureId}-run-${detail.id}`, detail.createdAt, text);
+}
+
+function downloadLog(prefix: string, createdAt: string, text: string): void {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
-  const stamp = detail.createdAt.slice(0, 19).replace(/[:T]/g, "-");
+  const stamp = createdAt.slice(0, 19).replace(/[:T]/g, "-");
   anchor.href = url;
-  anchor.download = `processing-${detail.id}-${stamp}.txt`;
+  anchor.download = `${prefix}-${stamp}.txt`;
   anchor.click();
   URL.revokeObjectURL(url);
 }

@@ -4,6 +4,7 @@ import { ErrorBanner } from "../../components/ErrorBanner";
 import { useDashboard } from "../../context/DashboardContext";
 import { useLiveData } from "../../liveSocket";
 import { Badge } from "../../components/ui/Badge";
+import { Button } from "../../components/ui/Button";
 import {
   formatDuration,
   formatTime,
@@ -11,7 +12,7 @@ import {
   statusClass,
   useLiveClock,
 } from "./debugUtils";
-import { EntryRow } from "./DebugProcessingEntries";
+import { downloadJobRunLog, EntryRow } from "./DebugProcessingEntries";
 
 /** Shared detail view for one background-job run: header + ordered entries. */
 export function JobRunEntries({ runId }: { runId: number | null }) {
@@ -70,6 +71,15 @@ export function JobRunEntries({ runId }: { runId: number | null }) {
 
       {!loading && detail ? (
         <>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => downloadJobRunLog(detail)}
+            >
+              Download log
+            </Button>
+          </div>
+
           <section className="rounded-lg border border-border bg-surface p-6">
             <div className="mb-2 flex flex-wrap items-center gap-2.5">
               <Badge variant={statusClass(detail.status)}>{detail.status}</Badge>
