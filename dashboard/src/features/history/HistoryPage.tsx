@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { ErrorBanner } from "@llm-tg-bot/dashboard/components/ErrorBanner";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
 import {
@@ -47,8 +48,9 @@ function formatTime(value: unknown): string {
 }
 
 function toMessageRow(row: Record<string, unknown>): MessageRow | null {
+  // The generic data browser returns raw snake_case column names.
   const id = Number(row.id);
-  const entityId = String(row.entityId ?? "");
+  const entityId = String(row.entity_id ?? "");
   const role = typeof row.role === "string" ? row.role : "";
   const content = typeof row.content === "string" ? row.content : "";
   if (!Number.isFinite(id) || !entityId || !role) return null;
@@ -57,7 +59,7 @@ function toMessageRow(row: Record<string, unknown>): MessageRow | null {
     entityId,
     role,
     content,
-    createdAt: typeof row.createdAt === "string" ? row.createdAt : "",
+    createdAt: typeof row.created_at === "string" ? row.created_at : "",
   };
 }
 
@@ -178,6 +180,9 @@ export function HistoryPage() {
             compressed.
           </p>
         </div>
+        <Link to="/history/debug" className={secondaryBtn}>
+          Summary job runs
+        </Link>
       </header>
 
       {error ? <ErrorBanner error={error} /> : null}

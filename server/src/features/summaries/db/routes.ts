@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { config } from "../../../config/index.js";
 import { logEvent, logEventError } from "../../../logging/event-log.js";
+import { errorMessage } from "../../../logging/index.js";
+import { beginJobProcessing } from "../../../debug/job-report.js";
 import { summarizeChatDay } from "../summarize.js";
 import { addCalendarDays, zonedDate } from "../../tasks/schedule.js";
 import { listDistinctHistoryChatIds } from "../../history/db/index.js";
@@ -54,16 +56,27 @@ summariesRouter.post("/run", async (req, res) => {
     error?: string;
   }> = [];
 
+  // One debug job run per manual trigger, so the LLM request/response for each
+  // chat shows up on the Summaries debug page just like the scheduled job.
+  const report = await beginJobProcessing("summaries");
+  report?.note("Manual run", `date ${date} · ${chatIds.length} chat(s)`);
+  let failed = 0;
+
   for (const chatId of chatIds) {
     try {
-      const { topicCount, messageCount } = await summarizeChatDay(
-        chatId,
-        date,
-        tz,
+      const { topicCount, messageCount, transcriptChars } =
+        await summarizeChatDay(chatId, date, tz, {
+          traceTurnId: report?.traceId,
+        });
+      report?.note(
+        `Summarized ${chatId} · ${date}`,
+        `${messageCount} message(s) · ${transcriptChars} transcript chars → ${topicCount} topic(s)`,
       );
       logEvent("history_summary_manual_run", { chatId, date, topicCount, messageCount });
       results.push({ chatId, topicCount, messageCount });
     } catch (err) {
+      failed += 1;
+      report?.note(`Failed ${chatId} · ${date}`, errorMessage(err));
       logEventError("history_summary_manual_failed", err, { chatId, date });
       results.push({
         chatId,
@@ -73,6 +86,10 @@ summariesRouter.post("/run", async (req, res) => {
       });
     }
   }
+
+  report?.complete(failed > 0 ? "error" : "processed", {
+    summary: `${results.length - failed} summarized${failed > 0 ? `, ${failed} failed` : ""}`,
+  });
 
   res.json({ date, results });
 });

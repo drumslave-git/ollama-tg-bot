@@ -117,6 +117,13 @@ function parseTopics(raw: string): ParsedTopic[] {
 export interface SummarizeResult {
   topicCount: number;
   messageCount: number;
+  /** Transcript size sent to the LLM — a large value points at context overflow. */
+  transcriptChars: number;
+}
+
+export interface SummarizeOptions {
+  /** Route the summary LLM request/response onto an active debug job run. */
+  traceTurnId?: number;
 }
 
 /**
@@ -127,12 +134,13 @@ export async function summarizeChatDay(
   chatId: string,
   dateStr: string,
   timezone: string,
+  options?: SummarizeOptions,
 ): Promise<SummarizeResult> {
   const { startTs, endTs } = dayBoundsEpochSeconds(dateStr, timezone);
   const messages = await getMessagesInRange(chatId, startTs, endTs);
   if (messages.length === 0) {
     await replaceSummariesForDate(chatId, dateStr, []);
-    return { topicCount: 0, messageCount: 0 };
+    return { topicCount: 0, messageCount: 0, transcriptChars: 0 };
   }
 
   const settings = await getSettings();
@@ -153,12 +161,17 @@ export async function summarizeChatDay(
     numPredict: SUMMARY_NUM_PREDICT,
     responseFormat: SUMMARY_RESPONSE_FORMAT,
     traceLabel: "history summary",
+    traceTurnId: options?.traceTurnId,
   });
 
   const topics = parseTopics(raw);
   if (topics.length === 0) {
     await replaceSummariesForDate(chatId, dateStr, []);
-    return { topicCount: 0, messageCount: messages.length };
+    return {
+      topicCount: 0,
+      messageCount: messages.length,
+      transcriptChars: transcript.length,
+    };
   }
 
   const vectors = await embed(topics.map((t) => t.content));
@@ -173,5 +186,9 @@ export async function summarizeChatDay(
   const valid = rows.filter((r) => r.embedding.length > 0);
   await replaceSummariesForDate(chatId, dateStr, valid);
 
-  return { topicCount: valid.length, messageCount: messages.length };
+  return {
+    topicCount: valid.length,
+    messageCount: messages.length,
+    transcriptChars: transcript.length,
+  };
 }

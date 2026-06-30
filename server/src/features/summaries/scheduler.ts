@@ -1,4 +1,7 @@
 import { addCalendarDays, zonedDate } from "../tasks/schedule.js";
+import { errorMessage } from "../../logging/index.js";
+import { beginJobProcessing } from "../../debug/job-report.js";
+import type { ProcessingRecorder } from "../../debug/processing-recorder.js";
 import type { SummariesConfig } from "./config.js";
 
 /** Cap days summarized per chat per tick so a long downtime can't stall the loop. */
@@ -18,7 +21,12 @@ export interface SummariesSchedulerDeps {
     chatId: string,
     dateStr: string,
     timezone: string,
-  ) => Promise<{ topicCount: number; messageCount: number }>;
+    options?: { traceTurnId?: number },
+  ) => Promise<{
+    topicCount: number;
+    messageCount: number;
+    transcriptChars: number;
+  }>;
   logEvent?: (event: string, fields?: Record<string, unknown>) => void;
   logEventError?: (
     event: string,
@@ -75,6 +83,11 @@ export function createSummariesScheduler(deps: SummariesSchedulerDeps) {
   async function tick(): Promise<void> {
     if (running) return;
     running = true;
+    // Created lazily on the first chat/day actually summarized, so idle ticks
+    // (wrong hour, nothing pending) don't litter the run history with empty runs.
+    let report: ProcessingRecorder | null = null;
+    let summarized = 0;
+    let failed = 0;
     try {
       const config = await deps.getConfig();
       if (!config.enabled) return;
@@ -92,9 +105,17 @@ export function createSummariesScheduler(deps: SummariesSchedulerDeps) {
         const dates = pendingDates(last, yesterday);
         for (const date of dates) {
           if (deps.getQueueSize() > 0) break;
+          if (!report) report = await beginJobProcessing("summaries");
           try {
-            const result = await deps.summarizeChatDay(chatId, date, deps.timezone);
+            const result = await deps.summarizeChatDay(chatId, date, deps.timezone, {
+              traceTurnId: report?.traceId,
+            });
             await deps.setLastSummarizedDate(chatId, date);
+            summarized += 1;
+            report?.note(
+              `Summarized ${chatId} · ${date}`,
+              `${result.messageCount} message(s) · ${result.transcriptChars} transcript chars → ${result.topicCount} topic(s)`,
+            );
             deps.logEvent?.("history_summary_done", {
               chatId,
               date,
@@ -102,13 +123,19 @@ export function createSummariesScheduler(deps: SummariesSchedulerDeps) {
               messages: result.messageCount,
             });
           } catch (err) {
+            failed += 1;
+            report?.note(`Failed ${chatId} · ${date}`, errorMessage(err));
             deps.logEventError?.("history_summary_failed", err, { chatId, date });
             // Stop advancing this chat on failure so we retry the same day later.
             break;
           }
         }
       }
+      report?.complete(failed > 0 ? "error" : "processed", {
+        summary: `${summarized} day(s) summarized${failed > 0 ? `, ${failed} failed` : ""}`,
+      });
     } catch (err) {
+      report?.complete("error", { summary: errorMessage(err) });
       deps.logEventError?.("history_summary_tick_failed", err);
     } finally {
       running = false;

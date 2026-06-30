@@ -11,6 +11,7 @@ import { DataPage } from "./pages/DataPage";
 import { DebugPage } from "./pages/DebugPage";
 import { WorkflowPage } from "./pages/WorkflowPage";
 import { HistoryPage } from "./features/history/HistoryPage";
+import { SummariesDebugPage } from "./features/summaries/SummariesDebugPage";
 import { MemoriesPage } from "./features/memory/MemoriesPage";
 import { MemoryDebugPage } from "./features/memory/MemoryDebugPage";
 import { MoodPage } from "./features/mood-evaluation/MoodPage";
@@ -59,6 +60,7 @@ function DashboardRoutes() {
         <Route index element={<OverviewPage />} />
         <Route path="character" element={<CharacterPage />} />
         <Route path="history" element={<HistoryPage />} />
+        <Route path="history/debug/*" element={<SummariesDebugPage />} />
         <Route path="memory" element={<MemoriesPage />} />
         <Route path="memory/debug/*" element={<MemoryDebugPage />} />
         <Route path="mood" element={<MoodPage />} />
