@@ -9,6 +9,7 @@ import { buildSystemPrompt } from "./adapters/system-prompt.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getMaintenanceAnnounceNumPredict } from "../settings/limits.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
+import { getRecorder } from "../debug/processing-recorder.js";
 
 export interface OutOfBandReplyOptions {
   /** User-role instruction describing the in-character message to produce. */
@@ -30,16 +31,28 @@ export async function generateOutOfBandReplyRaw(
   opts: OutOfBandReplyOptions,
 ): Promise<string> {
   const settings = getResolvedSettings(await getSettings());
+  const customPrompt = await getActivePersonalityPrompt();
+  const mood = await getEffectiveMood();
   const systemPrompt = buildSystemPrompt({
     settings,
-    customPrompt: await getActivePersonalityPrompt(),
+    customPrompt,
     knownChatUsers: [],
     isGroupChat: opts.isGroupChat ?? false,
     ownerUserId: await getOwnerUserId(),
     ownerUsername: await getOwnerUsername(),
-    mood: await getEffectiveMood(),
+    mood,
     ...(opts.entityId != null ? { entityId: opts.entityId } : {}),
   });
+
+  const report =
+    opts.traceTurnId != null ? getRecorder(opts.traceTurnId) : undefined;
+  report?.okPhase(
+    "prompt-assembly",
+    "Prompt assembly",
+    `${customPrompt ? "custom" : "default"} personality · mood applied · ${systemPrompt.length} chars`,
+    undefined,
+    { customPersonality: customPrompt != null, mood, systemPromptChars: systemPrompt.length },
+  );
 
   const { raw } = await chatCompleteDetailed(
     [

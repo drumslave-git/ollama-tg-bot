@@ -35,6 +35,7 @@ const LLM_TITLES: Record<string, string> = {
   "vision describe": "Vision description",
   "sticker pick": "Sticker selection",
   "memory consolidation": "Memory consolidation",
+  "task fire": "Task fire",
 };
 
 export function llmTitle(label: string): string {

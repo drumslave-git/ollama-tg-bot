@@ -36,7 +36,7 @@ function hasVisibleContent(text: string): boolean {
 async function generateTaskMessage(
   task: TaskRecord,
   traceTurnId?: number,
-): Promise<string> {
+): Promise<{ raw: string; reply: string }> {
   const raw = await generateOutOfBandReplyRaw({
     userMessage: buildTaskUserMessage(task),
     isGroupChat: task.entityId !== String(task.chatId),
@@ -44,7 +44,7 @@ async function generateTaskMessage(
     traceLabel: "task fire",
     traceTurnId,
   });
-  return extractTelegramReply(raw);
+  return { raw, reply: extractTelegramReply(raw) };
 }
 
 function replySummary(text: string): string {
@@ -56,9 +56,10 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   const report: ProcessingRecorder | null = await beginTaskProcessing(task.id);
   report?.note("Fired", task.instruction);
 
+  let raw: string;
   let reply: string;
   try {
-    reply = await generateTaskMessage(task, report?.traceId);
+    ({ raw, reply } = await generateTaskMessage(task, report?.traceId));
   } catch (err) {
     const message = errorMessage(err);
     logEventError("task_fire_generate_failed", err, { taskId: task.id });
@@ -69,7 +70,7 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       summary: `Generation failed: ${task.instruction}`,
       detail: { instruction: task.instruction, error: message },
     });
-    report?.note("Generation failed", message);
+    report?.failPhase("generate", "LLM generation", message);
     report?.complete("error", { summary: `Generation failed: ${message}` });
     return false;
   }
@@ -84,13 +85,23 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       summary: `Empty reply (no visible content): ${task.instruction}`,
       detail: { instruction: task.instruction, raw: reply.slice(0, 200) },
     });
-    report?.note("Empty reply", reply.slice(0, 200));
+    report?.failPhase(
+      "reply-parse",
+      "Reply parsed",
+      `Empty reply (no visible content) · ${raw.length} raw chars`,
+    );
     report?.complete("error", { summary: "Empty reply (no visible content)" });
     return false;
   }
+  report?.okPhase(
+    "reply-parse",
+    "Reply parsed",
+    `${raw.length} raw chars → ${reply.length} chars`,
+  );
 
   const html = prepareTelegramHtml(reply);
   const chunks = splitTelegramMessage(html);
+  report?.okPhase("format", "Formatted for Telegram", `${chunks.length} chunk(s)`);
   const bot = getBot();
   const extra: { parse_mode: "HTML"; message_thread_id?: number } = {
     parse_mode: "HTML",
@@ -116,16 +127,28 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       summary: `Send failed: ${task.instruction}`,
       detail: { instruction: task.instruction, error: message, reply },
     });
-    report?.note("Send failed", message);
+    report?.failPhase("deliver", "Delivery", message);
     report?.complete("error", { summary: `Send failed: ${message}` });
     return false;
   }
+  report?.okPhase(
+    "deliver",
+    "Delivered",
+    `${sentMessages.length} chunk(s) · ${reply.length} chars`,
+    undefined,
+    sentMessages,
+  );
 
   for (const sent of sentMessages) {
     await recordTaskMessage(task.id, String(task.chatId), sent.messageId);
   }
   await appendAssistantMessage(task.entityId, reply);
   await recordReply(false);
+  report?.okPhase(
+    "history",
+    "History recorded",
+    "Assistant message appended to chat history",
+  );
   logEvent("task_fired", {
     taskId: task.id,
     chatId: task.chatId,
@@ -142,10 +165,6 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
       sentMessages,
     },
   });
-  report?.note(
-    "Delivered",
-    `${sentMessages.length} chunk(s) · ${reply.length} chars`,
-  );
   report?.complete("processed", { summary: replySummary(reply) });
   return true;
 }

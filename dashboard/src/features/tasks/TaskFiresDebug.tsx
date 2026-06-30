@@ -169,8 +169,9 @@ export function TaskFiresDebug() {
       <div>
         <h3 className="m-0 text-base font-semibold">Task fire traces</h3>
         <p className="m-0 text-sm text-muted">
-          Per-fire processing entries (LLM request/response, delivery). Grouped by
-          task, last {20} fires each. Updates live.
+          Per-fire processing entries (prompt assembly, LLM request/response,
+          reply parsing, delivery). Grouped by task, last {20} fires each. Updates
+          live.
         </p>
       </div>
       {groups.length === 0 ? (
