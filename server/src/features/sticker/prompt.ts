@@ -13,21 +13,13 @@ export const STICKER_RESPONSE_FORMAT: JsonSchemaResponseFormat =
   strictObjectSchema(
     "sticker_choice",
     {
-      // `reasoning` is intentionally first so the constrained decode commits a
-      // written conclusion *before* sampling the choice — otherwise the single
-      // choice token can contradict the model's separate thinking channel.
-      reasoning: {
-        type: "string",
-        description:
-          "One sentence: which sticker fits the reply's mood, or why none does? End with your conclusion. Decide here before setting choice.",
-      },
       choice: {
         type: "string",
         description:
-          "Pack emoji exactly, sticker number from the list, or none to skip. Must follow from `reasoning`.",
+          "Pack emoji exactly, sticker number from the list, or none to skip.",
       },
     },
-    ["reasoning", "choice"],
+    ["choice"],
   );
 
 export function getStickerResponseFormat(): JsonSchemaResponseFormat {
@@ -48,9 +40,8 @@ export function buildStickerAnalyzerSystem(
   return (
     `You pick the best-matching Telegram sticker for a bot's text reply, based on emotional tone and context.\n\n` +
     `${catalogSection}\n\n` +
-    `Respond with JSON only, matching the provided schema. Two fields, in this order:\n` +
-    `- reasoning (string): think first — which sticker fits the reply's mood, or why none does? End with your conclusion.\n` +
-    `- choice (string): the pack emoji exactly, or the sticker number from the list, or "none" to skip. This MUST follow from your reasoning.` +
+    `Respond with JSON only, matching the provided schema:\n` +
+    `- choice (string): the pack emoji exactly, or the sticker number from the list, or "none" to skip` +
     `\n\nAlways pick the sticker that best fits the reply's mood, humor, or reaction — even if the fit is subtle.`
   );
 }
@@ -83,7 +74,7 @@ export function buildStickerAnalyzerMessages(params: {
     }
   }
 
-  content += "\n\n" + jsonReplyTail("reasoning first, then a choice field");
+  content += "\n\n" + jsonReplyTail("a choice field");
 
   return [
     { role: "system", content: system },
@@ -103,11 +94,8 @@ export function parseStickerChoice(raw: string): {
       reason: "Could not parse LLM sticker choice",
     };
   }
-  const modelReasoning = parsed ? readString(parsed, "reasoning") : null;
-  const withReasoning = (base: string): string =>
-    modelReasoning ? `${base} — ${modelReasoning}` : base;
   if (/^(none|no|skip|-)$/i.test(value)) {
-    return { choice: null, reason: withReasoning("LLM decision: skip") };
+    return { choice: null, reason: "LLM decision: skip" };
   }
   if (value.length > STICKER_VALUE_MAX_LEN || value.includes("\n")) {
     return {
@@ -115,5 +103,5 @@ export function parseStickerChoice(raw: string): {
       reason: "Invalid sticker choice value",
     };
   }
-  return { choice: value, reason: withReasoning("LLM sticker selected") };
+  return { choice: value, reason: "LLM sticker selected" };
 }

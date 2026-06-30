@@ -7,28 +7,21 @@ import {
 } from "../../../src/features/addressing/prompt.js";
 
 describe("parseAddressDecision", () => {
-  it("parses addressed=true", () => {
-    expect(parseAddressDecision('{"addressed":true}')).toEqual({
+  it("treats a present name_match as addressed", () => {
+    expect(parseAddressDecision('{"name_match":"inflected"}')).toEqual({
       result: true,
-      reason: "LLM decision: yes",
+      reason: "LLM decision: yes — name appears as inflected",
     });
+    expect(parseAddressDecision('{"name_match":"exact"}').result).toBe(true);
+    expect(parseAddressDecision('{"name_match":"other_alphabet"}').result).toBe(
+      true,
+    );
   });
 
-  it("parses addressed=false", () => {
-    expect(parseAddressDecision('{"addressed":false}')).toEqual({
+  it("treats absent as not addressed", () => {
+    expect(parseAddressDecision('{"name_match":"absent"}')).toEqual({
       result: false,
-      reason: "LLM decision: no",
-    });
-  });
-
-  it("captures the model reasoning in the decision reason", () => {
-    expect(
-      parseAddressDecision(
-        '{"reasoning":"Ігорю is the vocative of Igor","addressed":true}',
-      ),
-    ).toEqual({
-      result: true,
-      reason: "LLM decision: yes — Ігорю is the vocative of Igor",
+      reason: "LLM decision: no — name absent",
     });
   });
 
@@ -43,7 +36,11 @@ describe("parseAddressDecision", () => {
     });
   });
 
-  it("rejects missing addressed field", () => {
+  it("rejects an unknown or missing name_match value", () => {
+    expect(parseAddressDecision('{"name_match":"maybe"}')).toEqual({
+      result: false,
+      reason: "Could not parse LLM address decision",
+    });
     expect(parseAddressDecision('{"other":true}')).toEqual({
       result: false,
       reason: "Could not parse LLM address decision",
@@ -52,8 +49,8 @@ describe("parseAddressDecision", () => {
 });
 
 describe("ANALYZER_SYSTEM", () => {
-  it("requires JSON with addressed boolean", () => {
-    expect(ANALYZER_SYSTEM).toContain("addressed (boolean)");
+  it("requires JSON with the name_match field", () => {
+    expect(ANALYZER_SYSTEM).toContain("name_match (string)");
     expect(ANALYZER_SYSTEM).toContain("Respond with JSON only");
   });
 
@@ -95,7 +92,7 @@ describe("buildAddressAnalyzerMessages", () => {
       sender: "X",
       text: "hi",
     });
-    expect(messages[1].content).toContain("Return JSON with reasoning first");
+    expect(messages[1].content).toContain("Return JSON with the name_match field");
   });
 
   it("notes when automated name scan found no display name", () => {

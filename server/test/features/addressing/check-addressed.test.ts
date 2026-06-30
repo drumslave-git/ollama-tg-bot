@@ -18,7 +18,7 @@ function baseConfig() {
       logEvent: vi.fn(),
       logEventError: vi.fn(),
     },
-    chatComplete: vi.fn().mockResolvedValue('{"addressed":false}'),
+    chatComplete: vi.fn().mockResolvedValue('{"name_match":"absent"}'),
   };
 }
 
