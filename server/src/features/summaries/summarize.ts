@@ -6,13 +6,26 @@ import { getSettings } from "../../db/index.js";
 import { getMessagesInRange } from "../history/db/history.js";
 import type { StoredMessage } from "../history/index.js";
 import {
+  APPROX_CHARS_PER_TOKEN,
+  NUM_CTX_GENERATION_HEADROOM,
+} from "../../settings/limits.js";
+import {
   addCalendarDays,
   zonedWallClockToUtc,
 } from "../tasks/schedule.js";
 import { replaceSummariesForDate, type InsertSummaryInput } from "./db/summaries.js";
 
 /** Tokens for the summary side pass — topics can be lengthy for a busy day. */
-export const SUMMARY_NUM_PREDICT = 1024;
+export const SUMMARY_NUM_PREDICT = 2048;
+
+/**
+ * Transcript tokens one batch may carry per token of summary output. Each pass is
+ * capped at {@link SUMMARY_NUM_PREDICT} output tokens; chat compresses heavily, so
+ * a batch can hold several times that of input and still finish in one bounded
+ * output. Feeding a whole busy day at once overran the model into a repetition
+ * loop — this keeps each batch completable. Conservative; raise to chunk less.
+ */
+const SUMMARY_INPUT_TOKENS_PER_OUTPUT_TOKEN = 4;
 
 export const SUMMARY_RESPONSE_FORMAT: JsonSchemaResponseFormat = {
   name: "history_day_summary",
@@ -127,8 +140,86 @@ export interface SummarizeOptions {
 }
 
 /**
+ * Transcript chars one summary batch may carry — derived from the model's token
+ * budget, not fixed. Primary limit: a few times the {@link SUMMARY_NUM_PREDICT}
+ * output budget, so a pass always finishes within one bounded output. Hard
+ * ceiling: whatever still fits in context alongside the output and system prompt
+ * (matters for small-context models). Scales with numCtx / numPredict.
+ */
+function summaryBatchCharBudget(numCtx: number): number {
+  const ratioTokens = SUMMARY_NUM_PREDICT * SUMMARY_INPUT_TOKENS_PER_OUTPUT_TOKEN;
+  const systemTokens = Math.ceil(SUMMARY_SYSTEM.length / APPROX_CHARS_PER_TOKEN);
+  const contextTokens =
+    numCtx - SUMMARY_NUM_PREDICT - NUM_CTX_GENERATION_HEADROOM - systemTokens;
+  const tokens = Math.max(0, Math.min(ratioTokens, contextTokens));
+  return Math.floor(tokens * APPROX_CHARS_PER_TOKEN);
+}
+
+/**
+ * Split a day's messages into batches whose transcripts stay under `charBudget`,
+ * so each summary call produces a short output that finishes cleanly instead of
+ * looping. A single oversized message becomes its own batch rather than dropping.
+ */
+function batchByCharBudget(
+  messages: StoredMessage[],
+  charBudget: number,
+): StoredMessage[][] {
+  const batches: StoredMessage[][] = [];
+  let current: StoredMessage[] = [];
+  let used = 0;
+  for (const message of messages) {
+    // ~64 chars of per-line overhead (ISO timestamp, [id:N], role tag).
+    const cost = (message.content?.length ?? 0) + 64;
+    if (current.length > 0 && used + cost > charBudget) {
+      batches.push(current);
+      current = [];
+      used = 0;
+    }
+    current.push(message);
+    used += cost;
+  }
+  if (current.length > 0) batches.push(current);
+  return batches;
+}
+
+/** Run one summary LLM pass over a batch, returning its topics and transcript size. */
+async function summarizeBatch(
+  batch: StoredMessage[],
+  dateStr: string,
+  model: string,
+  traceTurnId: number | undefined,
+): Promise<{ topics: ParsedTopic[]; transcriptChars: number }> {
+  const transcript = buildTranscript(batch);
+  const conversation: ChatMessage[] = [
+    { role: "system", content: SUMMARY_SYSTEM },
+    {
+      role: "user",
+      content:
+        `Summarize the topics discussed in this chat on ${dateStr}.\n\n` +
+        `Messages:\n${transcript}`,
+    },
+  ];
+
+  const raw = await chatComplete(conversation, {
+    model,
+    auxiliary: true,
+    // Thinking made the model spend its budget reasoning, then loop on the JSON
+    // output. Emitting the structured answer directly avoids that.
+    think: false,
+    numPredict: SUMMARY_NUM_PREDICT,
+    responseFormat: SUMMARY_RESPONSE_FORMAT,
+    traceLabel: "history summary",
+    traceTurnId,
+  });
+
+  return { topics: parseTopics(raw), transcriptChars: transcript.length };
+}
+
+/**
  * Summarize one chat's messages for a single day and store the embedded topics.
- * Idempotent at the storage layer: existing rows for the date are replaced.
+ * Idempotent at the storage layer: existing rows for the date are replaced. A
+ * busy day is summarized in transcript-budget-sized batches and the topics are
+ * unioned, so a large group day can't overrun the model into a repetition loop.
  */
 export async function summarizeChatDay(
   chatId: string,
@@ -144,34 +235,27 @@ export async function summarizeChatDay(
   }
 
   const settings = await getSettings();
-  const transcript = buildTranscript(messages);
-  const conversation: ChatMessage[] = [
-    { role: "system", content: SUMMARY_SYSTEM },
-    {
-      role: "user",
-      content:
-        `Summarize the topics discussed in this chat on ${dateStr}.\n\n` +
-        `Messages:\n${transcript}`,
-    },
-  ];
+  const batches = batchByCharBudget(
+    messages,
+    summaryBatchCharBudget(settings.numCtx),
+  );
 
-  const raw = await chatComplete(conversation, {
-    model: settings.model,
-    auxiliary: true,
-    numPredict: SUMMARY_NUM_PREDICT,
-    responseFormat: SUMMARY_RESPONSE_FORMAT,
-    traceLabel: "history summary",
-    traceTurnId: options?.traceTurnId,
-  });
+  const topics: ParsedTopic[] = [];
+  let transcriptChars = 0;
+  for (const batch of batches) {
+    const result = await summarizeBatch(
+      batch,
+      dateStr,
+      settings.model,
+      options?.traceTurnId,
+    );
+    topics.push(...result.topics);
+    transcriptChars += result.transcriptChars;
+  }
 
-  const topics = parseTopics(raw);
   if (topics.length === 0) {
     await replaceSummariesForDate(chatId, dateStr, []);
-    return {
-      topicCount: 0,
-      messageCount: messages.length,
-      transcriptChars: transcript.length,
-    };
+    return { topicCount: 0, messageCount: messages.length, transcriptChars };
   }
 
   const vectors = await embed(topics.map((t) => t.content));
@@ -186,9 +270,5 @@ export async function summarizeChatDay(
   const valid = rows.filter((r) => r.embedding.length > 0);
   await replaceSummariesForDate(chatId, dateStr, valid);
 
-  return {
-    topicCount: valid.length,
-    messageCount: messages.length,
-    transcriptChars: transcript.length,
-  };
+  return { topicCount: valid.length, messageCount: messages.length, transcriptChars };
 }
