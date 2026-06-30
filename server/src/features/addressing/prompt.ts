@@ -4,6 +4,7 @@ import {
   jsonReplyTail,
   parseJsonContent,
   readBoolean,
+  readString,
   strictObjectSchema,
 } from "../../shared/index.js";
 
@@ -11,13 +12,21 @@ export const ADDRESS_RESPONSE_FORMAT: JsonSchemaResponseFormat =
   strictObjectSchema(
     "address_decision",
     {
+      // `reasoning` is intentionally first so the constrained decode commits a
+      // written conclusion *before* sampling the boolean — otherwise the single
+      // boolean token can contradict the model's separate thinking channel.
+      reasoning: {
+        type: "string",
+        description:
+          "One or two sentences: is the bot display name present (in any language, alphabet, or grammatical form)? End with your conclusion. Decide here before setting addressed.",
+      },
       addressed: {
         type: "boolean",
         description:
-          "True when the message names the bot display name and should receive a reply.",
+          "True when the message names the bot display name and should receive a reply. Must follow from `reasoning`.",
       },
     },
-    ["addressed"],
+    ["reasoning", "addressed"],
   );
 
 export function getAddressResponseFormat(): JsonSchemaResponseFormat {
@@ -28,12 +37,14 @@ export const ANALYZER_SYSTEM = `You decide whether a group-chat message names a 
 
 @username mentions and replies to the bot are handled elsewhere. Your job is only the spoken display name.
 
-Respond with JSON only, matching the provided schema. The object has one field:
-- addressed (boolean): true when the bot should reply, false otherwise.
+Respond with JSON only, matching the provided schema. The object has two fields, in this order:
+- reasoning (string): think first — is the display name present, including in another language, alphabet, or grammatical form? End with your conclusion.
+- addressed (boolean): true when the bot should reply, false otherwise. This MUST follow from your reasoning.
 
-Say addressed=true only when the message names the bot display name:
+Say addressed=true when the message names the bot display name:
 - Exact match or clear spelling/case variation of that name
-- The same name in another language or alphabet
+- The same name in another language or alphabet (e.g. a Cyrillic spelling of a Latin name)
+- A vocative or otherwise declined grammatical form of the name (many languages inflect names when addressing someone)
 
 Say addressed=false when:
 - The display name does not appear and is not clearly referenced
@@ -55,9 +66,11 @@ export function parseAddressDecision(raw: string): {
   if (addressed === null) {
     return { result: false, reason: "Could not parse LLM address decision" };
   }
+  const modelReasoning = readString(parsed, "reasoning");
+  const decision = addressed ? "LLM decision: yes" : "LLM decision: no";
   return {
     result: addressed,
-    reason: addressed ? "LLM decision: yes" : "LLM decision: no",
+    reason: modelReasoning ? `${decision} — ${modelReasoning}` : decision,
   };
 }
 
@@ -82,9 +95,10 @@ export function buildAddressAnalyzerMessages(
 ): ChatMessage[] {
   const nameScanNote =
     params.nameScanFound === false
-      ? "Automated name scan: no display name found in the message text. " +
-        "Say addressed=true only when the message clearly names the display name anyway " +
-        "(e.g. another alphabet or language). " +
+      ? "Automated name scan did not find a literal match, but it only catches exact " +
+        "spellings in the bot's own language — it misses transliterations, other " +
+        "alphabets, and inflected forms. Judge the message yourself: set addressed=true " +
+        "if it names the display name in any language, alphabet, or grammatical form. " +
         "Second-person pronouns alone are not enough.\n"
       : "";
 
@@ -102,7 +116,7 @@ export function buildAddressAnalyzerMessages(
         `Chat type: ${params.chatType}\n` +
         `Sender: ${params.sender}\n\n` +
         `Message:\n${params.text.trim() || "(empty or non-text)"}\n\n` +
-        jsonReplyTail("addressed true or false"),
+        jsonReplyTail("reasoning first, then addressed true or false"),
     },
   ];
 }

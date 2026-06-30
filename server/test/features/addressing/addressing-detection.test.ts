@@ -21,6 +21,17 @@ describe("parseAddressDecision", () => {
     });
   });
 
+  it("captures the model reasoning in the decision reason", () => {
+    expect(
+      parseAddressDecision(
+        '{"reasoning":"Ігорю is the vocative of Igor","addressed":true}',
+      ),
+    ).toEqual({
+      result: true,
+      reason: "LLM decision: yes — Ігорю is the vocative of Igor",
+    });
+  });
+
   it("defaults to false on garbage", () => {
     expect(parseAddressDecision("maybe?")).toEqual({
       result: false,
@@ -84,7 +95,7 @@ describe("buildAddressAnalyzerMessages", () => {
       sender: "X",
       text: "hi",
     });
-    expect(messages[1].content).toContain("Return JSON with addressed");
+    expect(messages[1].content).toContain("Return JSON with reasoning first");
   });
 
   it("notes when automated name scan found no display name", () => {
