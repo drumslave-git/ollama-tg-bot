@@ -1,8 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import {
+  appendAssistantMessage,
+  bindFeatureDatabase as bindHistoryDatabase,
+} from "../../../src/features/history/db/index.js";
+import {
   bindFeatureDatabase,
   createTask,
   deleteTask,
+  getRecentTaskMessageTexts,
   getTaskById,
   getTaskIdByMessage,
   listDueTasks,
@@ -45,6 +50,10 @@ describe.skipIf(!hasTestDb)("tasks db (Postgres)", () => {
   beforeAll(async () => {
     await dropTables(...TABLES);
     await bindFeatureDatabase(testDb);
+    // chat_messages is the history feature's table; bind so it exists (the
+    // recent-texts query joins it). We never drop/truncate it — that would wipe
+    // real history on the shared local DB; the test scopes itself by message id.
+    await bindHistoryDatabase(testDb);
   });
   afterAll(closeTestPool);
   beforeEach(() => truncateTables(...TABLES));
@@ -136,6 +145,37 @@ describe.skipIf(!hasTestDb)("tasks db (Postgres)", () => {
       expect(await getTaskIdByMessage("-100123", 555)).toBe(task.id);
       expect(await getTaskIdByMessage("-100123", 999)).toBeNull();
       expect(await getTaskIdByMessage("-100999", 555)).toBeNull();
+    });
+
+    it("recalls recent delivered texts newest-first by joining stored history", async () => {
+      const task = await createTask(sampleInput()); // entityId "-100123"
+      // chat_messages is shared and not truncated, so derive collision-proof
+      // Telegram ids from the (fresh) task id. Each fire stores the reply in
+      // chat_messages with its id and a task_messages link; getRecentTaskMessageTexts
+      // joins the two — no duplicated copy of the text.
+      const mid = (n: number) => task.id * 1000 + n;
+      for (const [n, text] of [
+        [1, "first delivery"],
+        [2, "second delivery"],
+        [3, "third delivery"],
+      ] as const) {
+        await appendAssistantMessage(task.entityId, text, mid(n));
+        await recordTaskMessage(task.id, task.entityId, mid(n));
+      }
+
+      expect(await getRecentTaskMessageTexts(task.id, task.entityId, 2)).toEqual([
+        "third delivery",
+        "second delivery",
+      ]);
+      expect(
+        await getRecentTaskMessageTexts(task.id, task.entityId, 10),
+      ).toEqual(["third delivery", "second delivery", "first delivery"]);
+
+      // Another task's history is not mixed in.
+      const other = await createTask(sampleInput());
+      expect(await getRecentTaskMessageTexts(other.id, other.entityId, 5)).toEqual(
+        [],
+      );
     });
   });
 

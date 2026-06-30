@@ -8,12 +8,24 @@ import { generateOutOfBandReplyRaw } from "../../pipeline/out-of-band-reply.js";
 import { logEvent, logEventError } from "../../logging/event-log.js";
 import { prepareTelegramHtml, visibleTelegramText } from "../../telegram/html.js";
 import type { TaskRecord } from "./db/tasks.js";
-import { recordTaskMessage } from "./db/task-messages.js";
+import {
+  getRecentTaskMessageTexts,
+  recordTaskMessage,
+} from "./db/task-messages.js";
 import { recordTaskEvent } from "./db/task-events.js";
 import { beginTaskProcessing } from "../../debug/task-report.js";
 import type { ProcessingRecorder } from "../../debug/processing-recorder.js";
 
-function buildTaskUserMessage(task: TaskRecord): string {
+function buildTaskUserMessage(
+  task: TaskRecord,
+  previousMessages: string[],
+): string {
+  const previousBlock =
+    previousMessages.length > 0
+      ? `\n\nYou have delivered this recurring task before. Your most recent messages for it (newest first):\n` +
+        previousMessages.map((text, i) => `${i + 1}. ${text}`).join("\n") +
+        `\nSay the same thing a DIFFERENT way this time — fresh wording, angle, or phrasing. Do not reuse any sentence from the list above.`
+      : "";
   return (
     `[SCHEDULED TASK] A standing task you set up for this chat is now due. Deliver it now.\n` +
     `Directive: ${task.instruction}\n\n` +
@@ -23,7 +35,7 @@ function buildTaskUserMessage(task: TaskRecord): string {
     `- Write the ENTIRE message in the same language as the directive. Do not mix languages.\n` +
     `- Address people by @username when you know it, otherwise by name. If it concerns the chat owner themselves, address them directly ("you").\n` +
     `- Plain spoken text only. NEVER output raw chat tags such as [user:name:id], [assistant said], or any metadata.\n` +
-    `- Vary the wording from previous times; do not mention that this is scheduled or automated.\n` +
+    `- Vary the wording from previous times; do not mention that this is scheduled or automated.${previousBlock}\n` +
     `Output only the message text.`
   );
 }
@@ -35,10 +47,11 @@ function hasVisibleContent(text: string): boolean {
 
 async function generateTaskMessage(
   task: TaskRecord,
+  previousMessages: string[],
   traceTurnId?: number,
 ): Promise<{ raw: string; reply: string }> {
   const raw = await generateOutOfBandReplyRaw({
-    userMessage: buildTaskUserMessage(task),
+    userMessage: buildTaskUserMessage(task, previousMessages),
     isGroupChat: task.entityId !== String(task.chatId),
     entityId: task.entityId,
     traceLabel: "task fire",
@@ -56,10 +69,27 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   const report: ProcessingRecorder | null = await beginTaskProcessing(task.id);
   report?.note("Fired", task.instruction);
 
+  // Recurring tasks get their recent deliveries fed back so the model varies its
+  // wording; a one-shot has no "previous times" to repeat.
+  const previousMessages =
+    task.scheduleKind === "once"
+      ? []
+      : await getRecentTaskMessageTexts(task.id, task.entityId, 5);
+  if (previousMessages.length > 0) {
+    report?.note(
+      "Variation context",
+      `${previousMessages.length} previous message(s) included`,
+    );
+  }
+
   let raw: string;
   let reply: string;
   try {
-    ({ raw, reply } = await generateTaskMessage(task, report?.traceId));
+    ({ raw, reply } = await generateTaskMessage(
+      task,
+      previousMessages,
+      report?.traceId,
+    ));
   } catch (err) {
     const message = errorMessage(err);
     logEventError("task_fire_generate_failed", err, { taskId: task.id });
@@ -142,7 +172,9 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   for (const sent of sentMessages) {
     await recordTaskMessage(task.id, String(task.chatId), sent.messageId);
   }
-  await appendAssistantMessage(task.entityId, reply);
+  // Store the first chunk's Telegram id on the assistant history row so future
+  // fires can join task_messages → chat_messages to recall this wording.
+  await appendAssistantMessage(task.entityId, reply, sentMessages[0]?.messageId);
   await recordReply(false);
   report?.okPhase(
     "history",

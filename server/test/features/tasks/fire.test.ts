@@ -23,10 +23,15 @@ const h = vi.hoisted(() => {
   return {
     phases,
     recorder,
-    generateOutOfBandReplyRaw: vi.fn(async () => '{"reply":"hello"}'),
+    generateOutOfBandReplyRaw: vi.fn(async (_opts: { userMessage: string }) =>
+      '{"reply":"hello"}',
+    ),
     extractTelegramReply: vi.fn((_raw: string) => "hello"),
     sendMessage: vi.fn(async () => ({ message_id: 123 })),
     beginTaskProcessing: vi.fn(async () => recorder),
+    getRecentTaskMessageTexts: vi.fn(
+      async (_id: number, _entityId: string, _n: number) => [] as string[],
+    ),
   };
 });
 
@@ -61,6 +66,7 @@ vi.mock("../../../src/logging/index.js", () => ({
 }));
 vi.mock("../../../src/features/tasks/db/task-messages.js", () => ({
   recordTaskMessage: vi.fn(async () => {}),
+  getRecentTaskMessageTexts: h.getRecentTaskMessageTexts,
 }));
 vi.mock("../../../src/features/tasks/db/task-events.js", () => ({
   recordTaskEvent: vi.fn(async () => {}),
@@ -102,6 +108,8 @@ describe("task fire trace", () => {
     h.extractTelegramReply.mockReturnValue("hello");
     h.sendMessage.mockReset();
     h.sendMessage.mockResolvedValue({ message_id: 123 });
+    h.getRecentTaskMessageTexts.mockReset();
+    h.getRecentTaskMessageTexts.mockResolvedValue([]);
   });
 
   it("records phase-by-phase entries for a successful fire", async () => {
@@ -122,6 +130,25 @@ describe("task fire trace", () => {
     const ok = await fireTask(makeTask());
     expect(ok).toBe(false);
     expect(h.phases).toEqual(["note:Fired", "fail:Reply parsed", "complete:error"]);
+  });
+
+  it("feeds recent deliveries into a recurring task's prompt to vary wording", async () => {
+    h.getRecentTaskMessageTexts.mockResolvedValue(["older one", "newer one"]);
+    const ok = await fireTask(makeTask({ scheduleKind: "daily" }));
+    expect(ok).toBe(true);
+    expect(h.getRecentTaskMessageTexts).toHaveBeenCalledWith(1, "42", 5);
+    const userMessage = h.generateOutOfBandReplyRaw.mock.calls[0][0].userMessage;
+    expect(userMessage).toContain("older one");
+    expect(userMessage).toContain("newer one");
+    expect(userMessage).toMatch(/DIFFERENT way/);
+    expect(h.phases).toContain("note:Variation context");
+  });
+
+  it("does not pull previous messages for a one-shot task", async () => {
+    const ok = await fireTask(makeTask({ scheduleKind: "once" }));
+    expect(ok).toBe(true);
+    expect(h.getRecentTaskMessageTexts).not.toHaveBeenCalled();
+    expect(h.phases).not.toContain("note:Variation context");
   });
 
   it("fails the generation phase when the model call throws", async () => {

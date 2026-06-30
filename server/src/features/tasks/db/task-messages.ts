@@ -41,6 +41,33 @@ export async function recordTaskMessage(
   );
 }
 
+/**
+ * Most recent delivered texts for a task, newest first — read by joining the
+ * existing `task_messages` link to the stored reply content in `chat_messages`
+ * (no duplicated copy of the text). Fed back into the fire prompt for recurring
+ * tasks so the model varies its wording instead of repeating itself. Requires
+ * the assistant row to carry the Telegram `message_id` (see appendAssistantMessage
+ * in the fire path); split replies join on the first chunk, so this yields one
+ * row per fire.
+ */
+export async function getRecentTaskMessageTexts(
+  taskId: number,
+  entityId: string,
+  limit: number,
+): Promise<string[]> {
+  const { rows } = await db.query<{ content: string }>(
+    `SELECT cm.content
+       FROM task_messages tm
+       JOIN chat_messages cm
+         ON cm.entity_id = $2 AND cm.message_id = tm.message_id
+       WHERE tm.task_id = $1 AND cm.role = 'assistant'
+       ORDER BY tm.id DESC
+       LIMIT $3`,
+    [taskId, entityId, limit],
+  );
+  return rows.map((r) => r.content);
+}
+
 /** Task id for a bot message the user replied to, or null when unrelated. */
 export async function getTaskIdByMessage(
   chatId: string,

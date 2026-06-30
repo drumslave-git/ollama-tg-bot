@@ -257,11 +257,16 @@ export async function appendMessage(
 export async function appendAssistantMessage(
   entityId: string,
   assistantText: string,
+  messageId?: number,
 ): Promise<void> {
   // The `assistant` role already identifies the speaker; the human-readable
   // `[assistant said]` tag is added at format time (see formatStoredMessageLine),
-  // so the stored content stays clean.
-  await appendMessage(entityId, ASSISTANT_ROLE, assistantText.trim());
+  // so the stored content stays clean. `messageId` (the delivered Telegram id) is
+  // stored when the caller knows it — e.g. task fires join task_messages back to
+  // this row to recall prior wording.
+  await appendMessage(entityId, ASSISTANT_ROLE, assistantText.trim(), {
+    ...(messageId != null ? { messageId } : {}),
+  });
 }
 
 export async function clearHistory(entityId: string): Promise<void> {
