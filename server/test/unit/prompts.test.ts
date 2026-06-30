@@ -5,10 +5,12 @@ import {
   buildExplainSystemPrompt,
   buildSystemPrompt,
   buildToolRoundSystemPrompt,
+  extractSessionBlock,
 } from "../../src/pipeline/adapters/system-prompt.js";
 import { FETCH_LINK_TOOL_NAME } from "../../src/features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../src/features/web-search/index.js";
 import { HISTORY_TODAY_GET_LATEST_TOOL_NAME } from "../../src/features/history/mcp-tools.js";
+import { config } from "../../src/config/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
 describe("buildBaseSystemPrompt", () => {
@@ -28,6 +30,45 @@ describe("buildSystemPrompt", () => {
     });
     expect(prompt).toContain("Additional instructions:");
     expect(prompt).toContain("You are a pirate.");
+  });
+
+  it("gives current time as a local wall clock for task scheduling, plus UTC ISO for history ranges", () => {
+    // The block must carry a NAMED local wall clock the model computes relative
+    // times from, not only a raw UTC ISO value (which previously made it
+    // miscompute "in 5 min"). Compute the expected local clock the same way the
+    // prompt does so the test holds under any machine TZ.
+    const now = new Date("2026-06-30T15:24:00.000Z");
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: config.timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(now);
+    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+    const localClock = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+
+    const prompt = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      entityId: "chat-1",
+      now,
+    });
+    // Local wall clock line is the `current time:` terminator, names the zone,
+    // and steers relative-time math to it.
+    expect(prompt).toContain(`current time: ${localClock}`);
+    expect(prompt).toContain(`${config.timezone}`);
+    expect(prompt).toMatch(/tasks_\*[^\n]*timezone/i);
+    // UTC ISO is still present for history tool ranges.
+    expect(prompt).toContain("utc now: 2026-06-30T15:24:00.000Z");
+
+    // The tool-loop reuse path must capture BOTH lines (the regex terminates on
+    // `current time:`, so the UTC line has to sit above it).
+    const block = extractSessionBlock(prompt);
+    expect(block).toContain("utc now: 2026-06-30T15:24:00.000Z");
+    expect(block).toContain(`current time: ${localClock}`);
   });
 
   it("does not expose a group memory id in the session block", () => {

@@ -31,6 +31,7 @@ import {
   type KnownUserRecord,
 } from "../../db/users/known-users.js";
 import { getReplyLengthGuidance } from "../../settings/limits.js";
+import { config } from "../../config/index.js";
 import { userRoleTagFromKnown } from "../../features/history/index.js";
 import { formatMoodForPrompt, type MoodValues } from "../../features/mood/index.js";
 
@@ -147,12 +148,31 @@ export interface SessionContext {
   repliedTask?: { id: number; instruction: string } | null;
 }
 
+/** Local wall-clock string in the bot timezone, e.g. `2026-06-30 18:24 (Tue)`. */
+function formatLocalNow(now: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute} (${p.weekday})`;
+}
+
 /**
  * `[SESSION]` block: the chat entity_id and current time for the history tools,
  * plus the ids the memory tools need (group id and current speaker id).
+ * Current time is given twice: UTC ISO for history-tool date ranges, and the
+ * local wall clock (bot timezone) that scheduled-task times are computed in.
  */
 export function buildSessionBlock(session: SessionContext): string {
   const iso = session.now.toISOString();
+  const local = formatLocalNow(session.now, config.timezone);
   const lines = [
     `[SESSION]`,
     `entity_id: ${session.entityId} (pass this as the entity_id argument to history tools)`,
@@ -175,7 +195,14 @@ export function buildSessionBlock(session: SessionContext): string {
       `this message replies to scheduled task #${session.repliedTask.id} ("${session.repliedTask.instruction}") — to reschedule it call tasks_update with id ${session.repliedTask.id}; to stop/cancel it call tasks_delete with id ${session.repliedTask.id} (delete, do not just disable).`,
     );
   }
-  lines.push(`current time: ${iso}`);
+  lines.push(
+    `utc now: ${iso} (ISO-8601 UTC — use this form for history tools' from/to date ranges)`,
+  );
+  lines.push(
+    `current time: ${local} ${config.timezone} — the real local wall clock. ` +
+      `Scheduled-task times (the tasks_* "time" field, HH:MM) are in THIS timezone; ` +
+      `compute "in N minutes" or "at HH:MM" relative to this local time, NOT the UTC value above.`,
+  );
   return lines.join("\n");
 }
 
