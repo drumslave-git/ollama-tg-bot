@@ -5,7 +5,15 @@ import { errorMessage } from "../../../logging/index.js";
 import { beginJobProcessing } from "../../../debug/job-report.js";
 import { summarizeChatDay } from "../summarize.js";
 import { addCalendarDays, zonedDate } from "../../tasks/schedule.js";
-import { listDistinctHistoryChatIds } from "../../history/db/index.js";
+import {
+  listDistinctHistoryChatIds,
+  getMessagesByMessageIds,
+} from "../../history/db/index.js";
+import {
+  listSummaryChats,
+  listSummaryDaysForChat,
+  getSummaryTopicById,
+} from "./summaries.js";
 
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
@@ -92,6 +100,49 @@ summariesRouter.post("/run", async (req, res) => {
   });
 
   res.json({ date, results });
+});
+
+/** Chats that have stored history, annotated with summary counts. */
+summariesRouter.get("/chats", async (_req, res) => {
+  try {
+    res.json({ chats: await listSummaryChats() });
+  } catch (err) {
+    res.status(500).json({ error: errorMessage(err) });
+  }
+});
+
+/** All summary topics for one chat, grouped by day (newest first). */
+summariesRouter.get("/chat/:chatId", async (req, res) => {
+  try {
+    res.json({
+      chatId: req.params.chatId,
+      days: await listSummaryDaysForChat(req.params.chatId),
+    });
+  } catch (err) {
+    res.status(500).json({ error: errorMessage(err) });
+  }
+});
+
+/** A single topic and the verbatim source messages it was distilled from. */
+summariesRouter.get("/topic/:topicId/messages", async (req, res) => {
+  const topicId = Number(req.params.topicId);
+  if (!Number.isInteger(topicId)) {
+    return res.status(400).json({ error: "topicId must be an integer" });
+  }
+  try {
+    const topic = await getSummaryTopicById(topicId);
+    if (!topic) return res.status(404).json({ error: "Topic not found" });
+    const stored = await getMessagesByMessageIds(topic.chatId, topic.messageIds);
+    const messages = stored.map((m) => ({
+      messageId: m.messageId ?? null,
+      role: m.role,
+      content: m.content,
+      createdAt: m.createdAt ? new Date(m.createdAt * 1000).toISOString() : "",
+    }));
+    res.json({ topic, messages });
+  } catch (err) {
+    res.status(500).json({ error: errorMessage(err) });
+  }
 });
 
 export function createSummariesRouter(): Router {

@@ -356,6 +356,38 @@ export interface SummaryRunResult {
   error?: string;
 }
 
+export interface SummaryChatStat {
+  chatId: string;
+  messageCount: number;
+  lastMessageAt: string;
+  topicCount: number;
+  summaryDays: number;
+  lastSummaryDate: string | null;
+}
+
+export interface SummaryTopicRecord {
+  id: number;
+  content: string;
+  messageIds: number[];
+}
+
+export interface SummaryDayGroup {
+  summaryDate: string;
+  topics: SummaryTopicRecord[];
+}
+
+export interface SummaryTopicDetail extends SummaryTopicRecord {
+  chatId: string;
+  summaryDate: string;
+}
+
+export interface SummarySourceMessage {
+  messageId: number | null;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface DataTableSummary {
   id: string;
   label: string;
@@ -699,5 +731,15 @@ export const api = {
         method: "POST",
         body: JSON.stringify(opts),
       },
+    ),
+  getSummaryChats: () =>
+    request<{ chats: SummaryChatStat[] }>("/api/summaries/chats"),
+  getChatSummaries: (chatId: string) =>
+    request<{ chatId: string; days: SummaryDayGroup[] }>(
+      `/api/summaries/chat/${encodeURIComponent(chatId)}`,
+    ),
+  getSummaryTopicMessages: (topicId: number) =>
+    request<{ topic: SummaryTopicDetail; messages: SummarySourceMessage[] }>(
+      `/api/summaries/topic/${topicId}/messages`,
     ),
 };

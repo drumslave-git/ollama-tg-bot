@@ -159,6 +159,137 @@ export async function searchSummaries(
     .slice(0, limit);
 }
 
+export interface SummaryChatStat {
+  chatId: string;
+  messageCount: number;
+  /** ISO timestamp of the most recent stored message. */
+  lastMessageAt: string;
+  topicCount: number;
+  summaryDays: number;
+  /** YYYY-MM-DD of the latest summarized day, or null if never summarized. */
+  lastSummaryDate: string | null;
+}
+
+/**
+ * Every chat that has stored history, newest-active first, annotated with how
+ * many summary topics/days it has. Drives the History page chat list. Joins
+ * across `chat_messages` (history feature) — both tables share this database.
+ */
+export async function listSummaryChats(): Promise<SummaryChatStat[]> {
+  const { rows } = await db.query<{
+    chat_id: string;
+    message_count: number;
+    last_message_at: number;
+    topic_count: number;
+    summary_days: number;
+    last_summary_date: unknown;
+  }>(`
+    SELECT m.entity_id AS chat_id,
+           COUNT(*)::int AS message_count,
+           MAX(m.created_at)::bigint AS last_message_at,
+           COALESCE(s.topic_count, 0) AS topic_count,
+           COALESCE(s.summary_days, 0) AS summary_days,
+           s.last_summary_date::text AS last_summary_date
+      FROM chat_messages m
+      LEFT JOIN (
+        SELECT chat_id,
+               COUNT(*)::int AS topic_count,
+               COUNT(DISTINCT summary_date)::int AS summary_days,
+               MAX(summary_date) AS last_summary_date
+          FROM chat_summaries
+         GROUP BY chat_id
+      ) s ON s.chat_id = m.entity_id
+     GROUP BY m.entity_id, s.topic_count, s.summary_days, s.last_summary_date
+     ORDER BY MAX(m.created_at) DESC
+  `);
+  return rows.map((row) => ({
+    chatId: row.chat_id,
+    messageCount: Number(row.message_count),
+    lastMessageAt: new Date(Number(row.last_message_at) * 1000).toISOString(),
+    topicCount: Number(row.topic_count),
+    summaryDays: Number(row.summary_days),
+    lastSummaryDate: row.last_summary_date
+      ? toIsoDate(row.last_summary_date)
+      : null,
+  }));
+}
+
+export interface SummaryTopicRecord {
+  id: number;
+  content: string;
+  messageIds: number[];
+}
+
+export interface SummaryDayGroup {
+  summaryDate: string;
+  topics: SummaryTopicRecord[];
+}
+
+/** All stored topics for a chat, grouped by day (newest day first). */
+export async function listSummaryDaysForChat(
+  chatId: string,
+): Promise<SummaryDayGroup[]> {
+  const { rows } = await db.query<{
+    id: number;
+    summary_date: unknown;
+    content: string;
+    message_ids: unknown;
+  }>(
+    `SELECT id, summary_date::text AS summary_date, content, message_ids
+       FROM chat_summaries
+       WHERE chat_id = $1
+       ORDER BY summary_date DESC, id ASC`,
+    [chatId],
+  );
+
+  const days: SummaryDayGroup[] = [];
+  let current: SummaryDayGroup | null = null;
+  for (const row of rows) {
+    const summaryDate = toIsoDate(row.summary_date);
+    if (!current || current.summaryDate !== summaryDate) {
+      current = { summaryDate, topics: [] };
+      days.push(current);
+    }
+    current.topics.push({
+      id: Number(row.id),
+      content: row.content,
+      messageIds: toNumberIds(row.message_ids),
+    });
+  }
+  return days;
+}
+
+export interface SummaryTopicDetail extends SummaryTopicRecord {
+  chatId: string;
+  summaryDate: string;
+}
+
+/** A single topic by primary key, with its chat and source message ids. */
+export async function getSummaryTopicById(
+  id: number,
+): Promise<SummaryTopicDetail | null> {
+  const { rows } = await db.query<{
+    id: number;
+    chat_id: string;
+    summary_date: unknown;
+    content: string;
+    message_ids: unknown;
+  }>(
+    `SELECT id, chat_id, summary_date::text AS summary_date, content, message_ids
+       FROM chat_summaries WHERE id = $1`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: Number(row.id),
+    chatId: row.chat_id,
+    summaryDate: toIsoDate(row.summary_date),
+    content: row.content,
+    messageIds: toNumberIds(row.message_ids),
+  };
+}
+
 /** All stored summary topics for a chat on a given date, for inspection/backfill. */
 export async function getSummariesForDate(
   chatId: string,

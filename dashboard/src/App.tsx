@@ -59,7 +59,7 @@ function DashboardRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<OverviewPage />} />
         <Route path="character" element={<CharacterPage />} />
-        <Route path="history" element={<HistoryPage />} />
+        <Route path="history/*" element={<HistoryPage />} />
         <Route path="history/debug/*" element={<SummariesDebugPage />} />
         <Route path="memory" element={<MemoriesPage />} />
         <Route path="memory/debug/*" element={<MemoryDebugPage />} />
