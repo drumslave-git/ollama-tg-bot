@@ -56,6 +56,15 @@ describe("parseStickerChoice", () => {
       reason: "LLM decision: skip",
     });
   });
+
+  it("captures the model reasoning in the selection reason", () => {
+    expect(
+      parseStickerChoice('{"reasoning":"smug reply fits 😈","choice":"1"}'),
+    ).toEqual({
+      choice: "1",
+      reason: "LLM sticker selected — smug reply fits 😈",
+    });
+  });
 });
 
 describe("resolveStickerFileId", () => {
