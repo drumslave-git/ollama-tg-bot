@@ -45,7 +45,6 @@ const navSections: NavSection[] = [
     label: "System",
     items: [
       { to: "/settings", label: "Settings" },
-      { to: "/workflow", label: "Workflow" },
       { to: "/debug", label: "Debug" },
       { to: "/data", label: "Data" },
     ],

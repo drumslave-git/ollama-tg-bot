@@ -9,7 +9,6 @@ import { CharacterPage } from "./pages/CharacterPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { DataPage } from "./pages/DataPage";
 import { DebugPage } from "./pages/DebugPage";
-import { WorkflowPage } from "./pages/WorkflowPage";
 import { HistoryPage } from "./features/history/HistoryPage";
 import { SummariesDebugPage } from "./features/summaries/SummariesDebugPage";
 import { MemoriesPage } from "./features/memory/MemoriesPage";
@@ -70,7 +69,6 @@ function DashboardRoutes() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="debug/*" element={<DebugPage />} />
         <Route path="data" element={<DataPage />} />
-        <Route path="workflow" element={<WorkflowPage />} />
         {/* Back-compat redirects from the former Modules navigation. */}
         <Route path="memories" element={<Navigate to="/memory" replace />} />
         <Route path="modules" element={<Navigate to="/" replace />} />

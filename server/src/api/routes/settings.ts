@@ -94,8 +94,6 @@ settingsRouter.patch("/", async (req, res) => {
       "reasoningEffort",
       "maintenanceModeEnabled",
       "workflowSteps",
-      "workflowNodes",
-      "workflowEdges",
     ];
     const patch: Partial<Settings> = {};
     for (const key of allowed) {

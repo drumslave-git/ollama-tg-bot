@@ -29,8 +29,6 @@ export function makeSettings(overrides: Partial<Settings> = {}): Settings {
     reasoningEffort: "medium",
     maintenanceModeEnabled: false,
     workflowSteps: ["mood", "links", "search", "sticker"],
-    workflowNodes: [],
-    workflowEdges: [],
     ...overrides,
   };
 }

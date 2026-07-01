@@ -63,8 +63,6 @@ export interface Settings {
   maintenanceModeEnabled: boolean;
   /** Enabled workflow steps. */
   workflowSteps: string[];
-  workflowNodes: { id: string; x: number; y: number }[];
-  workflowEdges: { id: string; source: string; target: string }[];
 }
 
 export interface Stats {
@@ -96,8 +94,6 @@ const DEFAULT_SETTINGS: Settings = {
   reasoningEffort: "medium",
   maintenanceModeEnabled: false,
   workflowSteps: ["mood", "links", "search", "sticker"],
-  workflowNodes: [],
-  workflowEdges: [],
 };
 
 export async function initDatabase(): Promise<void> {
@@ -195,9 +191,6 @@ export async function getSettings(): Promise<Settings> {
     reasoningEffort: read<Settings["reasoningEffort"]>("reasoningEffort"),
     maintenanceModeEnabled: read<boolean>("maintenanceModeEnabled"),
     workflowSteps: read<string[]>("workflowSteps"),
-    workflowNodes: read<{ id: string; x: number; y: number }[]>("workflowNodes"),
-    workflowEdges:
-      read<{ id: string; source: string; target: string }[]>("workflowEdges"),
   };
 }
 

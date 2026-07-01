@@ -222,32 +222,4 @@ describe("validateSettingsFields", () => {
       ),
     ).not.toThrow();
   });
-
-  it("rejects invalid workflowNodes", () => {
-    expect(() =>
-      validateSettingsFields(
-        makeSettings({ workflowNodes: "invalid" as never }),
-      ),
-    ).toThrow(/workflowNodes/);
-
-    expect(() =>
-      validateSettingsFields(
-        makeSettings({ workflowNodes: [{ id: "test", x: "invalid" as never, y: 0 }] }),
-      ),
-    ).toThrow(/workflowNodes/);
-  });
-
-  it("rejects invalid workflowEdges", () => {
-    expect(() =>
-      validateSettingsFields(
-        makeSettings({ workflowEdges: "invalid" as never }),
-      ),
-    ).toThrow(/workflowEdges/);
-
-    expect(() =>
-      validateSettingsFields(
-        makeSettings({ workflowEdges: [{ id: "test", source: 123 as never, target: "test" }] }),
-      ),
-    ).toThrow(/workflowEdges/);
-  });
 });

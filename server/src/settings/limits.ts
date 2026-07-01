@@ -209,28 +209,6 @@ export function validateSettingsFields(settings: Settings): void {
       Array.isArray(settings.workflowSteps) &&
         settings.workflowSteps.every((s) => typeof s === "string"),
     ],
-    [
-      "workflowNodes must be an array of node coordinates",
-      Array.isArray(settings.workflowNodes) &&
-        settings.workflowNodes.every(
-          (n) =>
-            n &&
-            typeof n.id === "string" &&
-            typeof n.x === "number" &&
-            typeof n.y === "number"
-        ),
-    ],
-    [
-      "workflowEdges must be an array of edge connections",
-      Array.isArray(settings.workflowEdges) &&
-        settings.workflowEdges.every(
-          (e) =>
-            e &&
-            typeof e.id === "string" &&
-            typeof e.source === "string" &&
-            typeof e.target === "string"
-        ),
-    ],
     ["ownerUsername must be a string", isString(settings.ownerUsername)],
     ["ownerUserId must be a string", isString(settings.ownerUserId)],
     ["stickerPackName must be a string", isString(settings.stickerPackName)],
