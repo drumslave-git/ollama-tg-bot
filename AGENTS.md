@@ -276,7 +276,7 @@ Maintain test coverage for all new features and bug fixes. Update `AGENTS.md` wh
 
 ### What `npm test` covers
 
-[Vitest](https://vitest.dev) runs the single server suite — every `server/test/**/*.test.ts` (feature suites in `server/test/features/<name>/`, shared in `server/test/shared/`, server units in `server/test/unit/**`; fixture in `server/test/helpers/settings.ts`; config `server/vitest.config.ts`). Live tests (`**/live/**`) are excluded. Postgres-backed db tests are opt-in: they skip unless `TEST_DATABASE_URL` points at a `pgvector` server (they exercise FTS + vector features no in-memory fake reproduces) — see `server/test/helpers/pg.ts`. They share one database, so run them serially: `TEST_DATABASE_URL=… npx vitest run --no-file-parallelism -w server`.
+[Vitest](https://vitest.dev) runs the single server suite — every `server/test/**/*.test.ts` (feature suites in `server/test/features/<name>/`, shared in `server/test/shared/`, server units in `server/test/unit/**`; fixture in `server/test/helpers/settings.ts`; config `server/vitest.config.ts`). Live tests (`**/live/**`) are excluded. Postgres-backed db tests run against the local dev database (`DATABASE_URL` from `.env`) and skip when it is unset — they exercise FTS + vector features no in-memory fake reproduces (see `server/test/helpers/pg.ts`). They share that one database, so the suite runs files serially (`fileParallelism: false`); a plain `npm test` is enough.
 
 ### Opt-in live LLM suites
 

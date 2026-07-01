@@ -135,6 +135,30 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("Current mood");
   });
 
+  it("lists known chat participants with their stored facts so names/nicknames resolve", () => {
+    const prompt = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      isGroupChat: true,
+      entityId: "chat-1",
+      knownChatUsers: [
+        {
+          userId: "381512221",
+          username: "rok13",
+          firstName: "R.K.",
+          lastName: null,
+          facts: ["Goes by Кирило", "Works in delivery/sales"],
+        },
+      ],
+    });
+    expect(prompt).toContain("## Known Telegram users in this chat");
+    expect(prompt).toContain("R.K. (@rok13)");
+    // The learned alias must sit under the directory entry, indented as a fact —
+    // this is what lets the model map "Кирило" to this participant.
+    expect(prompt).toContain("  - Goes by Кирило");
+    expect(prompt).toContain("  - Works in delivery/sales");
+  });
+
   it("always ends with the reply format spec", () => {
     const prompt = buildSystemPrompt({ settings: makeSettings(), customPrompt: "" });
     expect(prompt).toContain("plain text");

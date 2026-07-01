@@ -161,6 +161,35 @@ describe.skipIf(!hasTestDb)("memory db (Postgres + pgvector)", () => {
     expect(await getUserFacts("1")).toEqual(["Likes tea.", "Lives in Lisbon."]);
   });
 
+  it("getUserFacts folds in pending notes after the consolidated lines", async () => {
+    await upsertMemory({
+      type: "user",
+      entityId: "1",
+      content: "Likes tea.",
+      embedding: basisVector(0),
+    });
+    // A just-saved note that has not been consolidated yet must still surface.
+    await addMemoryEntry("user", "1", "Goes by Кирило.");
+    expect(await getUserFacts("1")).toEqual(["Likes tea.", "Goes by Кирило."]);
+  });
+
+  it("getUserFacts de-duplicates a note already present in the record", async () => {
+    await upsertMemory({
+      type: "user",
+      entityId: "1",
+      content: "Likes tea.",
+      embedding: basisVector(0),
+    });
+    await addMemoryEntry("user", "1", "likes tea.");
+    await addMemoryEntry("user", "1", "Lives in Lisbon.");
+    expect(await getUserFacts("1")).toEqual(["Likes tea.", "Lives in Lisbon."]);
+  });
+
+  it("getUserFacts returns pending notes even with no consolidated record", async () => {
+    await addMemoryEntry("user", "9", "Night owl.");
+    expect(await getUserFacts("9")).toEqual(["Night owl."]);
+  });
+
   it("clearUserMemory removes the record and pending entries", async () => {
     await upsertMemory({
       type: "user",

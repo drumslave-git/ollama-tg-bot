@@ -240,10 +240,21 @@ export function buildToolRoundSystemPrompt(
   );
 }
 
+/**
+ * A known chat participant plus their consolidated memory facts. The facts
+ * carry the names people actually use for each other (a first name or nickname
+ * that is not the Telegram display name), so listing them in the directory lets
+ * the model resolve "Кирило"/"he"/a bare first name to the right participant
+ * instead of treating a regular chat member as an unknown third party.
+ */
+export interface KnownChatUser extends KnownUserRecord {
+  facts?: string[];
+}
+
 export interface SystemPromptOptions {
   settings: Settings;
   customPrompt: string;
-  knownChatUsers?: KnownUserRecord[];
+  knownChatUsers?: KnownChatUser[];
   isGroupChat?: boolean;
   groupChatId?: string | null;
   currentUserId?: string | null;
@@ -344,9 +355,16 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
   if (knownChatUsers.length > 0) {
     prompt +=
       `\n\n## Known Telegram users in this chat\n` +
-      `When a message mentions their @username or name, it refers to this person:\n`;
+      `These are the regular participants of this chat — not strangers. When a message ` +
+      `uses someone's @username, name, nickname, or a bare first name, it refers to one of ` +
+      `these people. The noted facts under each person include the names they go by, so use ` +
+      `them to resolve who a first name, nickname, or "he/she/your one" points to. Never claim ` +
+      `you don't know a person, or that they weren't discussed, when their name resolves here:\n`;
     for (const known of knownChatUsers) {
       prompt += `\n- ${formatKnownUserLabel(known)} — tag ${userRoleTagFromKnown(known)}`;
+      for (const fact of known.facts ?? []) {
+        prompt += `\n  - ${fact}`;
+      }
     }
   }
 

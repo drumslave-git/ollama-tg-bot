@@ -10,10 +10,14 @@ import {
   type StoredMessage,
 } from "../features/history/db/index.js";
 import { getKnownUsersByIds } from "../db/users/known-users.js";
+import { getUserFacts } from "../features/memory/db/index.js";
 import { logEvent } from "../logging/event-log.js";
 import { getInputCharBudget } from "../settings/limits.js";
 import type { Settings } from "../db/index.js";
-import { buildSystemPrompt } from "./adapters/system-prompt.js";
+import {
+  buildSystemPrompt,
+  type KnownChatUser,
+} from "./adapters/system-prompt.js";
 import type { MoodValues } from "../features/mood/index.js";
 import { extractParticipantUserIds } from "../features/history/index.js";
 import { isReplyThreadContext } from "../bot/replies/replies.js";
@@ -170,14 +174,23 @@ async function loadRecentWindow(
 async function loadKnownChatUsers(
   chatKey: string,
   currentUserId: string | null,
-): Promise<Awaited<ReturnType<typeof getKnownUsersByIds>>> {
+): Promise<KnownChatUser[]> {
   const history = await getHistory(chatKey);
   const roles = history.map((m) => m.role);
   const participantIds = extractParticipantUserIds(
     roles,
     currentUserId ? [currentUserId] : [],
   );
-  return getKnownUsersByIds(participantIds);
+  const known = await getKnownUsersByIds(participantIds);
+  // Attach each participant's consolidated memory facts so the directory can
+  // carry the names/nicknames they go by (e.g. "R.K." is addressed as Кирило).
+  // Participant counts in a chat are small, so the per-user lookups are cheap.
+  return Promise.all(
+    known.map(async (record) => ({
+      ...record,
+      facts: await getUserFacts(record.userId),
+    })),
+  );
 }
 
 export interface BuiltChatPayload {

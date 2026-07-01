@@ -1,5 +1,11 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import dotenv from "dotenv";
 import pg from "pg";
 import type { SqlDatabase, SqlQueryResult } from "../../src/contracts/index.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.resolve(__dirname, "..", "..", "..", ".env") });
 
 const { Pool, types } = pg;
 
@@ -8,23 +14,21 @@ types.setTypeParser(20, (value) => parseInt(value, 10));
 types.setTypeParser(1082, (value) => value);
 
 /**
- * Postgres-backed tests are gated on an explicit TEST_DATABASE_URL: they need a
- * real pgvector server for FTS + vector features that no in-memory fake
- * reproduces. They are OPT-IN (a separate var from the app's DATABASE_URL) so a
- * plain `npm test` — which loads `.env` via the app config — does not try to hit
- * a database. They share one database, so run them serially:
- *   TEST_DATABASE_URL=postgres://bot:bot@localhost:5432/bot \
- *     npx vitest run --no-file-parallelism -w server
+ * Postgres-backed tests run against the local dev database (DATABASE_URL from
+ * `.env`) — there is no separate test DB. They need a real pgvector server for
+ * the FTS + vector features no in-memory fake reproduces, so they skip when
+ * DATABASE_URL is unset (e.g. CI with no database). They share one database, so
+ * the suite runs serially (see `fileParallelism: false` in vitest.config.ts).
  */
-export const TEST_DATABASE_URL = process.env.TEST_DATABASE_URL ?? "";
+export const DATABASE_URL = (process.env.DATABASE_URL ?? "").trim();
 
-export const hasTestDb = TEST_DATABASE_URL.length > 0;
+export const hasTestDb = DATABASE_URL.length > 0;
 
 let pool: pg.Pool | undefined;
 
 function getPool(): pg.Pool {
   if (!pool) {
-    pool = new Pool({ connectionString: TEST_DATABASE_URL });
+    pool = new Pool({ connectionString: DATABASE_URL });
   }
   return pool;
 }

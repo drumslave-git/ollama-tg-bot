@@ -1,7 +1,7 @@
 import type { SqlDatabase } from "../../../contracts/index.js";
 import { getFeatureLiveHooks } from "../../../contracts/index.js";
 import { EMBEDDING_DIM, toVectorLiteral } from "../../../llm/embeddings.js";
-import { deleteEntriesFor, type MemoryType } from "./entries.js";
+import { deleteEntriesFor, getEntriesFor, type MemoryType } from "./entries.js";
 
 let db: SqlDatabase;
 
@@ -147,14 +147,38 @@ export async function deleteMemory(id: number): Promise<boolean> {
   return false;
 }
 
-/** Consolidated user-memory facts as individual lines (for mention context). */
-export async function getUserFacts(userId: string): Promise<string[]> {
-  const record = await getMemoryRecord("user", userId);
-  if (!record) return [];
-  return record.content
+function splitFactLines(content: string): string[] {
+  return content
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
+}
+
+/**
+ * User-memory facts as individual lines (for mention/directory context).
+ *
+ * Consolidated record lines come first, then any raw notes saved since the last
+ * daily consolidation. Folding in the pending notes means a fact the model just
+ * wrote via memory_save — e.g. an alias someone stated moments ago — is usable
+ * on the very next turn, not only after the next consolidation run. Duplicate
+ * lines (case-insensitive) are dropped so an already-consolidated fact does not
+ * repeat once it is also queued.
+ */
+export async function getUserFacts(userId: string): Promise<string[]> {
+  const record = await getMemoryRecord("user", userId);
+  const consolidated = record ? splitFactLines(record.content) : [];
+  const pending = await getEntriesFor("user", userId);
+  const pendingLines = pending.flatMap((entry) => splitFactLines(entry.content));
+
+  const seen = new Set<string>();
+  const facts: string[] = [];
+  for (const line of [...consolidated, ...pendingLines]) {
+    const key = line.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    facts.push(line);
+  }
+  return facts;
 }
 
 /** Delete an entity's consolidated record and its pending notes. */

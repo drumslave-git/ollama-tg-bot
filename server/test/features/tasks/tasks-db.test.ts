@@ -33,7 +33,7 @@ import {
 function sampleInput(overrides: Partial<TaskInput> = {}): TaskInput {
   return {
     chatId: -100123,
-    entityId: "-100123",
+    entityId: FIXTURE_ENTITY_ID,
     createdByUserId: "777",
     instruction: "ask the team about standup",
     scheduleKind: "daily",
@@ -46,17 +46,31 @@ function sampleInput(overrides: Partial<TaskInput> = {}): TaskInput {
 
 const TABLES = ["tasks", "task_messages", "task_events"];
 
+/** Synthetic fixture chat used by every test here — never a real Telegram id. */
+const FIXTURE_ENTITY_ID = "-100123";
+
 describe.skipIf(!hasTestDb)("tasks db (Postgres)", () => {
   beforeAll(async () => {
     await dropTables(...TABLES);
     await bindFeatureDatabase(testDb);
     // chat_messages is the history feature's table; bind so it exists (the
-    // recent-texts query joins it). We never drop/truncate it — that would wipe
-    // real history on the shared local DB; the test scopes itself by message id.
+    // recent-texts query joins it). We never drop/truncate the whole table —
+    // that would wipe real history on the shared local DB.
     await bindHistoryDatabase(testDb);
   });
   afterAll(closeTestPool);
-  beforeEach(() => truncateTables(...TABLES));
+  beforeEach(async () => {
+    await truncateTables(...TABLES);
+    // `tasks` truncates with RESTART IDENTITY, so task ids (and the message ids
+    // this file derives from them) repeat every run. chat_messages has no unique
+    // (entity_id, message_id) constraint — production allows duplicates — and is
+    // never truncated, so without this the fixture chat accumulates duplicate
+    // rows across runs and the recent-texts join fans out. Clear only the
+    // synthetic fixture entity; real history for other entities is untouched.
+    await testDb.query(`DELETE FROM chat_messages WHERE entity_id = $1`, [
+      FIXTURE_ENTITY_ID,
+    ]);
+  });
 
   describe("tasks db CRUD", () => {
     it("creates and reads a task back", async () => {

@@ -3,11 +3,13 @@ import { defineConfig } from "vitest/config";
 /**
  * Committable unit/integration suite.
  *
- * Pure logic only — no network, no real LLM, no Telegram. Everything that
- * touches an external service is mocked. This is the default `npm test`.
+ * No network, no real LLM, no Telegram — those are mocked. This is the default
+ * `npm test`.
  *
- * Postgres-backed db tests are opt-in: set TEST_DATABASE_URL to a pgvector
- * server to run them (they skip otherwise). See test/helpers/pg.ts.
+ * Postgres-backed db tests run against the local dev database (DATABASE_URL from
+ * `.env`); they skip when it is unset. Because they share that one database,
+ * files run serially (`fileParallelism: false`) so suites don't race on tables.
+ * See test/helpers/pg.ts.
  */
 export default defineConfig({
   test: {
@@ -17,5 +19,6 @@ export default defineConfig({
     globals: false,
     clearMocks: true,
     restoreMocks: true,
+    fileParallelism: false,
   },
 });
