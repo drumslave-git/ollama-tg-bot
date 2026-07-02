@@ -4,11 +4,8 @@ import type {
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 import type { ChatMessage } from "../../src/llm/client.js";
-import { parseAssistantMessage, providerChatExtensions, shouldUseResponseFormat } from "../../src/llm/openai-compat.js";
-import {
-  extractTelegramReply,
-  getMainReplyResponseFormat,
-} from "../../src/features/completions/index.js";
+import { parseAssistantMessage, providerChatExtensions } from "../../src/llm/openai-compat.js";
+import { extractTelegramReply } from "../../src/features/completions/index.js";
 import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_REASONING_NUM_PREDICT,
@@ -82,7 +79,9 @@ export async function runTurn(
       : {}),
   });
   const ext = providerChatExtensions(settings, false);
-  const responseFormat = getMainReplyResponseFormat();
+  // Match production: the main reply is plain text with NO response_format —
+  // grammar-constrained decoding pushes models into repetition loops. The reply
+  // is taken from content via extractTelegramReply. See completionsHost.
   const completion: ChatCompletion = await client.chat.completions.create({
     model,
     messages,
@@ -91,9 +90,6 @@ export async function runTurn(
     temperature: settings.temperature,
     top_p: settings.topP,
     ...ext,
-    ...(shouldUseResponseFormat(settings, false, responseFormat)
-      ? { response_format: toOpenAiResponseFormat(responseFormat) }
-      : {}),
   });
 
   const choice = completion.choices[0];
