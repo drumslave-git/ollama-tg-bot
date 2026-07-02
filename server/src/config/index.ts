@@ -27,6 +27,12 @@ function resolveLlmApiKey(): string {
   return (process.env.LLM_API_KEY ?? "").trim();
 }
 
+/** Base URL for the embedding model. Falls back to LLM_BASE_URL when EMBEDDING_BASE_URL is unset. */
+function resolveEmbeddingBaseUrl(): string {
+  const embeddingUrl = (process.env.EMBEDDING_BASE_URL ?? "").trim();
+  return embeddingUrl || resolveLlmBaseUrl();
+}
+
 function resolveDatabaseUrl(): string {
   return (process.env.DATABASE_URL ?? "").trim();
 }
@@ -105,6 +111,8 @@ export const config = {
   tavilyApiKey: resolveTavilyApiKey(),
   /** OpenAI-compatible API base URL from env (LLM_BASE_URL). */
   llmBaseUrl: resolveLlmBaseUrl(),
+  /** Base URL for the embedding model (EMBEDDING_BASE_URL); falls back to LLM_BASE_URL when unset. */
+  embeddingBaseUrl: resolveEmbeddingBaseUrl(),
   /** OpenAI-compatible API key from env (LLM_API_KEY). Local servers can leave it empty. */
   llmApiKey: resolveLlmApiKey(),
   /** ERROR = errors only; DEBUG = lifecycle events. Use dashboard Debug page for message traces. */

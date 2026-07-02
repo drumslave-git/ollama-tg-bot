@@ -89,6 +89,7 @@ To add a feature: create `server/src/features/<name>/`, implement the pipeline h
 | `BOT_TOKEN` | Telegram bot token (required) |
 | `LLM_BASE_URL` | OpenAI-compatible API base URL (required) |
 | `LLM_API_KEY` | Optional API key for authenticated OpenAI-compatible endpoints |
+| `EMBEDDING_BASE_URL` | Optional base URL for the embedding model; falls back to `LLM_BASE_URL` when unset |
 | `LOGGING_LEVEL` | `ERROR` (default), `DEBUG` (lifecycle events to console) |
 | `TAVILY_API_KEY` | Optional web search via Tavily |
 | `PORT` | Docker/production listen port only — not for local dev |

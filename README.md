@@ -34,6 +34,7 @@ service provides it). Set `DATABASE_URL` accordingly.
 | `LLM_BASE_URL` | everywhere | required (OpenAI-compatible API base URL) |
 | `DATABASE_URL` | everywhere | required (Postgres + pgvector connection string) |
 | `LLM_API_KEY` | optional | empty (local servers usually skip this) |
+| `EMBEDDING_BASE_URL` | optional | falls back to `LLM_BASE_URL` (base URL for the embedding model) |
 | `TAVILY_API_KEY` | optional | empty (web search off) |
 | `LOGGING_LEVEL` | optional | `ERROR` (`DEBUG`) |
 | `PORT` | Docker / Portainer only | `3000` |

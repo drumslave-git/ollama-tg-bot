@@ -10,9 +10,11 @@ import { getSettings } from "../db/index.js";
 export const EMBEDDING_DIM = 1024;
 
 function resolveOpenAiBaseUrl(): string {
-  const host = config.llmBaseUrl.trim().replace(/\/$/, "");
+  const host = config.embeddingBaseUrl.trim().replace(/\/$/, "");
   if (!host) {
-    throw new Error("LLM base URL is not configured (set LLM_BASE_URL in .env)");
+    throw new Error(
+      "Embedding base URL is not configured (set EMBEDDING_BASE_URL or LLM_BASE_URL in .env)",
+    );
   }
   return host.endsWith("/v1") ? host : `${host}/v1`;
 }
