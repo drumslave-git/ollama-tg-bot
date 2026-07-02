@@ -11,9 +11,10 @@ const jobSink: ProcessingSink = {
   ensure: async () => {},
   report: (processingId, title, type, content) =>
     appendJobEntry(processingId, title, type, content),
-  setStatus: (processingId, status, { totalTimeSpentMs, extra }) =>
+  setStatus: (processingId, status, { totalTimeSpentMs, tokens, extra }) =>
     setJobProcessingStatus(processingId, status, {
       totalTimeSpentMs,
+      tokens,
       summary: (extra as { summary?: string } | undefined)?.summary,
     }),
 };
@@ -29,7 +30,7 @@ export async function beginJobProcessing(
   try {
     const processingId = await createJobProcessing(featureId);
     if (processingId == null) return null;
-    const recorder = new ProcessingRecorder(jobSink);
+    const recorder = new ProcessingRecorder(jobSink, undefined, "job");
     recorder.link(processingId);
     return recorder;
   } catch {

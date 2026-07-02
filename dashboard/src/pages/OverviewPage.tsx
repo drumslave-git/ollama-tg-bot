@@ -3,9 +3,11 @@ import { api } from "../api";
 import { useDashboard } from "../context/DashboardContext";
 import { ErrorBanner } from "../components/ErrorBanner";
 import { LatencyCard } from "../components/LatencyCard";
+import { TokenUsageCard } from "../components/TokenUsageCard";
 import { Button } from "../components/ui/Button";
 import { Card, Hint, Page, PageHeader } from "../components/ui/Layout";
 import { cn } from "../lib/cn";
+import { formatTokenCount } from "../pages/debug/debugUtils";
 
 function formatUptime(seconds: number): string {
   const h = Math.floor(seconds / 3600);
@@ -67,6 +69,14 @@ export function OverviewPage() {
               ["Messages received", String(stats.messagesReceived)],
               ["Replies sent", String(stats.messagesReplied)],
               ["Vision requests", String(stats.visionRequests)],
+              ["LLM calls", formatTokenCount(stats.llmCalls)],
+              [
+                "LLM tokens (in / out)",
+                `${formatTokenCount(stats.llmPromptTokens)} / ${formatTokenCount(
+                  stats.llmCompletionTokens,
+                )}`,
+              ],
+              ["LLM tokens total", formatTokenCount(stats.llmTotalTokens)],
               [
                 "Errors",
                 String(stats.errors),
@@ -196,6 +206,8 @@ export function OverviewPage() {
           </ul>
         </div>
       </Card>
+
+      <TokenUsageCard />
 
       <LatencyCard />
     </Page>

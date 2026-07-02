@@ -8,6 +8,7 @@ import { Button } from "../../components/ui/Button";
 import {
   formatDuration,
   formatTime,
+  formatTokens,
   liveDurationMs,
   statusClass,
   useLiveClock,
@@ -94,6 +95,11 @@ export function JobRunEntries({ runId }: { runId: number | null }) {
             <p className="m-0 text-[0.95rem] font-semibold">
               {detail.summary || "(no summary)"}
             </p>
+            {formatTokens(detail.tokens) ? (
+              <p className="m-0 mt-2 text-[0.82rem] tabular-nums text-muted">
+                {formatTokens(detail.tokens)}
+              </p>
+            ) : null}
           </section>
 
           <section className="rounded-lg border border-border bg-surface p-6">

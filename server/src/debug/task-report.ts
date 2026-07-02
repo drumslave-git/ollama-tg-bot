@@ -11,9 +11,10 @@ const taskSink: ProcessingSink = {
   ensure: async () => {},
   report: (processingId, title, type, content) =>
     appendTaskEntry(processingId, title, type, content),
-  setStatus: (processingId, status, { totalTimeSpentMs, extra }) =>
+  setStatus: (processingId, status, { totalTimeSpentMs, tokens, extra }) =>
     setTaskProcessingStatus(processingId, status, {
       totalTimeSpentMs,
+      tokens,
       summary: (extra as { summary?: string } | undefined)?.summary,
     }),
 };
@@ -28,7 +29,7 @@ export async function beginTaskProcessing(
 ): Promise<ProcessingRecorder | null> {
   const processingId = await createTaskProcessing(taskId);
   if (processingId == null) return null;
-  const recorder = new ProcessingRecorder(taskSink);
+  const recorder = new ProcessingRecorder(taskSink, undefined, "task");
   recorder.link(processingId);
   return recorder;
 }

@@ -9,6 +9,48 @@ import type { SqlDatabase } from "../../contracts/index.js";
 
 export type EntryType = "text" | "json";
 
+/** Token totals stored on a processing row, summed across its LLM calls. */
+export interface TokenCounts {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export const ZERO_TOKENS: TokenCounts = {
+  promptTokens: 0,
+  completionTokens: 0,
+  totalTokens: 0,
+};
+
+/**
+ * Add the shared token columns to a `<domain>_processings` table. Idempotent
+ * via ADD COLUMN IF NOT EXISTS so it doubles as the migration for existing DBs.
+ */
+export async function addTokenColumns(
+  db: SqlDatabase,
+  processingsTable: string,
+): Promise<void> {
+  await db.query(`
+    ALTER TABLE ${processingsTable}
+      ADD COLUMN IF NOT EXISTS prompt_tokens BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS completion_tokens BIGINT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS total_tokens BIGINT NOT NULL DEFAULT 0;
+  `);
+}
+
+/** Read the three token columns off a processing row into a {@link TokenCounts}. */
+export function readTokenCounts(row: {
+  prompt_tokens?: number | string | null;
+  completion_tokens?: number | string | null;
+  total_tokens?: number | string | null;
+}): TokenCounts {
+  return {
+    promptTokens: Number(row.prompt_tokens ?? 0),
+    completionTokens: Number(row.completion_tokens ?? 0),
+    totalTokens: Number(row.total_tokens ?? 0),
+  };
+}
+
 /** Lifecycle of a unit of work, shared across all debug domains. */
 export type ProcessingStatus = "processing" | "processed" | "ignored" | "error";
 

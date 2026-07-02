@@ -14,6 +14,7 @@ import {
   listProcessingsForFeature,
 } from "../../db/debug/job-processing.js";
 import { getPhaseTimingStats } from "../../db/debug/phase-timings.js";
+import { getLlmUsageWindow } from "../../db/debug/llm-usage.js";
 
 export const debugRouter = Router();
 
@@ -22,6 +23,13 @@ export const debugRouter = Router();
 debugRouter.get("/phase-timings", async (req, res) => {
   const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
   res.json({ days, phases: await getPhaseTimingStats(days) });
+});
+
+// ---- LLM token usage (dashboard token panel) ------------------------------
+
+debugRouter.get("/llm-usage", async (req, res) => {
+  const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
+  res.json(await getLlmUsageWindow(days));
 });
 
 // ---- Message processings (chats → processings → entries) -----------------

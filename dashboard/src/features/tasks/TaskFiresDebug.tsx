@@ -8,6 +8,7 @@ import {
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
 import { EntryRow } from "@llm-tg-bot/dashboard/pages/debug/DebugProcessingEntries";
+import { formatTokens } from "@llm-tg-bot/dashboard/pages/debug/debugUtils";
 
 const itemBtn =
   "flex w-full cursor-pointer flex-col gap-1 rounded-lg border border-border bg-surface px-3.5 py-2.5 text-left text-inherit hover:border-accent hover:bg-accent/6";
@@ -110,6 +111,11 @@ export function TaskFiresDebug() {
             <p className="m-0 text-sm text-muted">{fire.taskInstruction}</p>
           ) : null}
           <p className="m-0 text-sm font-semibold">{fire.summary || "(no output)"}</p>
+          {formatTokens(fire.tokens) ? (
+            <p className="m-0 mt-1.5 text-xs tabular-nums text-muted">
+              {formatTokens(fire.tokens)}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-2">
           {fire.entries.map((entry) => (

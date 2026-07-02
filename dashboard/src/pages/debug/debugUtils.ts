@@ -1,8 +1,28 @@
 import { useEffect, useState } from "react";
 import type { BadgeVariant } from "../../components/ui/Badge";
+import type { TokenCounts } from "../../api";
 
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleString();
+}
+
+const numberFmt = new Intl.NumberFormat();
+
+/** Thousands-separated integer, e.g. 12345 → "12,345". */
+export function formatTokenCount(n: number): string {
+  return numberFmt.format(Math.round(n || 0));
+}
+
+/**
+ * Compact token summary for a processing header, e.g.
+ * "1,234 tokens (982 in / 252 out)". Returns null when nothing was recorded so
+ * callers can omit the field entirely.
+ */
+export function formatTokens(tokens: TokenCounts | null | undefined): string | null {
+  if (!tokens || tokens.totalTokens <= 0) return null;
+  return `${formatTokenCount(tokens.totalTokens)} tokens (${formatTokenCount(
+    tokens.promptTokens,
+  )} in / ${formatTokenCount(tokens.completionTokens)} out)`;
 }
 
 export function formatDuration(ms: number | null | undefined): string {

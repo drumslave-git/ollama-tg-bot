@@ -4,9 +4,12 @@ import {
   type EntryType,
   type ProcessingEntry,
   type ProcessingStatus,
+  type TokenCounts,
+  addTokenColumns,
   createEntriesTable,
   insertEntry,
   listEntries,
+  readTokenCounts,
 } from "./processing-entries.js";
 
 let db: SqlDatabase;
@@ -36,6 +39,7 @@ export interface TaskProcessingListItem {
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   entryCount: number;
   createdAt: string;
 }
@@ -47,6 +51,7 @@ export interface TaskProcessingDetail {
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   createdAt: string;
   entries: ProcessingEntry[];
 }
@@ -65,6 +70,7 @@ export async function bindTaskProcessingDatabase(
       created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
   `);
+  await addTokenColumns(db, "task_processings");
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_task_processings_task
        ON task_processings (task_id, id DESC);`,
@@ -123,7 +129,7 @@ export async function appendTaskEntry(
 export async function setTaskProcessingStatus(
   processingId: number,
   status: ProcessingStatus,
-  options?: { totalTimeSpentMs?: number; summary?: string },
+  options?: { totalTimeSpentMs?: number; tokens?: TokenCounts; summary?: string },
 ): Promise<void> {
   await db.query(
     `UPDATE task_processings
@@ -131,9 +137,20 @@ export async function setTaskProcessingStatus(
             total_time_spent = COALESCE($3, total_time_spent),
             summary = CASE
               WHEN $4::text IS NOT NULL AND $4 <> '' THEN $4 ELSE summary
-            END
+            END,
+            prompt_tokens = $5,
+            completion_tokens = $6,
+            total_tokens = $7
       WHERE id = $1`,
-    [processingId, status, options?.totalTimeSpentMs ?? null, options?.summary ?? null],
+    [
+      processingId,
+      status,
+      options?.totalTimeSpentMs ?? null,
+      options?.summary ?? null,
+      options?.tokens?.promptTokens ?? 0,
+      options?.tokens?.completionTokens ?? 0,
+      options?.tokens?.totalTokens ?? 0,
+    ],
   );
   emit();
 }
@@ -176,6 +193,9 @@ type ListRow = {
   summary: string;
   status: ProcessingStatus;
   total_time_spent: number | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
   entry_count: number;
   created_at: number;
 };
@@ -187,6 +207,7 @@ function toListItem(row: ListRow): TaskProcessingListItem {
     summary: row.summary,
     status: row.status,
     totalTimeSpent: row.total_time_spent,
+    tokens: readTokenCounts(row),
     entryCount: row.entry_count,
     createdAt: new Date(row.created_at * 1000).toISOString(),
   };
@@ -200,6 +221,7 @@ export async function listProcessingsForTask(
   const params = taskId === DELETED_TASK_GROUP ? [] : [taskId];
   const { rows } = await db.query<ListRow>(
     `SELECT tp.id, tp.task_id, tp.summary, tp.status, tp.total_time_spent,
+            tp.prompt_tokens, tp.completion_tokens, tp.total_tokens,
             tp.created_at,
             (SELECT COUNT(*)::int FROM task_processing_entries e
                WHERE e.task_processing_id = tp.id) AS entry_count
@@ -217,6 +239,7 @@ export async function getTaskProcessingDetail(
 ): Promise<TaskProcessingDetail | null> {
   const { rows } = await db.query<ListRow & { instruction: string | null }>(
     `SELECT tp.id, tp.task_id, tp.summary, tp.status, tp.total_time_spent,
+            tp.prompt_tokens, tp.completion_tokens, tp.total_tokens,
             tp.created_at, t.instruction, 0 AS entry_count
        FROM task_processings tp
        LEFT JOIN tasks t ON tp.task_id = t.id
@@ -233,6 +256,7 @@ export async function getTaskProcessingDetail(
     summary: item.summary,
     status: item.status,
     totalTimeSpent: item.totalTimeSpent,
+    tokens: item.tokens,
     createdAt: item.createdAt,
     entries: await listEntries(db, ENTRIES, item.id),
   };

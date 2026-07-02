@@ -69,6 +69,13 @@ interface ChatResponseToolCall {
   arguments: string;
 }
 
+/** Token counts for one chat completion, when the provider reports usage. */
+export interface LlmTokenUsage {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 interface ChatResponse {
   message?: {
     role?: string;
@@ -78,6 +85,7 @@ interface ChatResponse {
   toolCalls?: ChatResponseToolCall[];
   done_reason?: string;
   eval_count?: number;
+  usage?: LlmTokenUsage;
 }
 
 function toChatResponse(
@@ -92,6 +100,7 @@ function toChatResponse(
         : null,
     )
     .filter((call): call is ChatResponseToolCall => call != null);
+  const tokenUsage = toTokenUsage(usage);
   return {
     message: {
       role: choice?.message?.role,
@@ -101,7 +110,22 @@ function toChatResponse(
     ...(toolCalls.length > 0 ? { toolCalls } : {}),
     done_reason: choice?.finish_reason ?? undefined,
     eval_count: usage?.completion_tokens ?? usage?.total_tokens,
+    ...(tokenUsage ? { usage: tokenUsage } : {}),
   };
+}
+
+/** Normalize provider usage into our token-count shape; undefined when absent. */
+function toTokenUsage(
+  usage: ChatCompletion["usage"],
+): LlmTokenUsage | undefined {
+  if (!usage) return undefined;
+  const promptTokens = usage.prompt_tokens ?? 0;
+  const completionTokens = usage.completion_tokens ?? 0;
+  const totalTokens = usage.total_tokens ?? promptTokens + completionTokens;
+  if (promptTokens === 0 && completionTokens === 0 && totalTokens === 0) {
+    return undefined;
+  }
+  return { promptTokens, completionTokens, totalTokens };
 }
 
 function resolveBaseUrl(): string {

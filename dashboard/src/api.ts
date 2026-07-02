@@ -112,6 +112,13 @@ export interface ProcessingEntry {
   createdAt: string;
 }
 
+/** Token totals summed across a processing's LLM calls. */
+export interface TokenCounts {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
 export interface DebugChatSummary {
   entityId: string;
   label: string;
@@ -127,6 +134,7 @@ export interface MessageProcessingListItem {
   userLabel: string | null;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   entryCount: number;
   createdAt: string;
 }
@@ -140,6 +148,7 @@ export interface MessageProcessingDetail {
   userLabel: string | null;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   createdAt: string;
   entries: ProcessingEntry[];
 }
@@ -157,6 +166,7 @@ export interface TaskFireListItem {
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   entryCount: number;
   createdAt: string;
 }
@@ -168,6 +178,7 @@ export interface TaskFireDetail {
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   createdAt: string;
   entries: ProcessingEntry[];
 }
@@ -178,6 +189,7 @@ export interface JobRunListItem {
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   entryCount: number;
   createdAt: string;
 }
@@ -188,6 +200,7 @@ export interface JobRunDetail {
   summary: string;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   createdAt: string;
   entries: ProcessingEntry[];
 }
@@ -209,11 +222,32 @@ export interface PhaseTimingStat {
   maxMs: number;
 }
 
+export interface LlmUsageBreakdownRow {
+  label: string;
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
+
+export interface LlmUsageWindow {
+  days: number;
+  calls: number;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  byLabel: LlmUsageBreakdownRow[];
+}
+
 export interface Stats {
   messagesReceived: number;
   messagesReplied: number;
   visionRequests: number;
   errors: number;
+  llmCalls: number;
+  llmPromptTokens: number;
+  llmCompletionTokens: number;
+  llmTotalTokens: number;
   lastActivityAt: string | null;
   queueSize: number;
   historyPointer: string | null;
@@ -673,6 +707,8 @@ export const api = {
     request<{ days: number; phases: PhaseTimingStat[] }>(
       `/api/debug/phase-timings?days=${days}`,
     ),
+  getLlmUsage: (days = 7) =>
+    request<LlmUsageWindow>(`/api/debug/llm-usage?days=${days}`),
   getDebugChats: () =>
     request<{ chats: DebugChatSummary[] }>("/api/debug/chats"),
   getDebugProcessings: (entityId: string) =>

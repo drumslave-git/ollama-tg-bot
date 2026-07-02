@@ -1,8 +1,20 @@
-import type { ChatMessage, VerbosePromptLayout } from "../llm/client.js";
+import type {
+  ChatMessage,
+  LlmTokenUsage,
+  VerbosePromptLayout,
+} from "../llm/client.js";
 import type {
   EntryType,
   ProcessingStatus,
 } from "../db/debug/processing-entries.js";
+import { recordLlmUsage } from "../db/debug/llm-usage.js";
+
+/** Running token totals summed across every LLM call in one unit of work. */
+export interface TokenTotals {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+}
 
 /**
  * Persistence backend for one debug domain (messages, tasks, scheduled jobs).
@@ -19,11 +31,11 @@ export interface ProcessingSink {
     type: EntryType,
     content: string,
   ): Promise<void>;
-  /** Set the terminal status (+ elapsed time and any domain-specific extras). */
+  /** Set the terminal status (+ elapsed time, token totals, and any domain-specific extras). */
   setStatus(
     ownerId: number,
     status: ProcessingStatus,
-    opts: { totalTimeSpentMs: number; extra?: unknown },
+    opts: { totalTimeSpentMs: number; tokens: TokenTotals; extra?: unknown },
   ): Promise<void>;
 }
 
@@ -50,6 +62,7 @@ interface ChatResponseShape {
   toolCalls?: Array<{ name: string; arguments: string }>;
   done_reason?: string;
   eval_count?: number;
+  usage?: LlmTokenUsage;
 }
 
 export function jsonContent(value: unknown): string {
@@ -85,11 +98,27 @@ export class ProcessingRecorder {
    */
   readonly traceId: number;
 
+  /**
+   * Which debug domain this recorder serves ("message" | "task" | "job"). Tags
+   * the per-call rows written to `llm_usage` so the overview can attribute
+   * token spend by source.
+   */
+  protected readonly domain: string;
+
+  /** Token counts summed across every LLM call recorded here. */
+  private readonly tokenTotals: TokenTotals = {
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+  };
+
   constructor(
     protected readonly sink: ProcessingSink,
     traceId: number = allocateTraceId(),
+    domain = "message",
   ) {
     this.traceId = traceId;
+    this.domain = domain;
     registerRecorder(traceId, this);
   }
 
@@ -141,12 +170,19 @@ export class ProcessingRecorder {
     return Math.round(performance.now() - this.startedAt);
   }
 
+  /** Snapshot of token counts summed across this unit of work's LLM calls. */
+  tokens(): TokenTotals {
+    return { ...this.tokenTotals };
+  }
+
   protected finish(status: ProcessingStatus, extra?: unknown): void {
     const elapsed = this.elapsedMs();
+    const tokens = this.tokens();
     const run = async () => {
       if (this.ownerId == null) return;
       await this.sink.setStatus(this.ownerId, status, {
         totalTimeSpentMs: elapsed,
+        tokens,
         extra,
       });
     };
@@ -243,7 +279,28 @@ export class ProcessingRecorder {
     }
     if (reasoning) summary.push(`${reasoning.length} chars reasoning`);
     summary.push(`done: ${response.done_reason ?? "unknown"}`);
-    summary.push(`tokens: ${response.eval_count ?? 0}/${maxTokens}`);
+
+    // Prefer the provider's full usage (prompt + completion); fall back to the
+    // completion-only eval_count/cap when usage is absent.
+    const usage = response.usage;
+    if (usage) {
+      this.tokenTotals.promptTokens += usage.promptTokens;
+      this.tokenTotals.completionTokens += usage.completionTokens;
+      this.tokenTotals.totalTokens += usage.totalTokens;
+      summary.push(
+        `tokens: ${usage.promptTokens} in + ${usage.completionTokens} out = ${usage.totalTokens}`,
+      );
+      recordLlmUsage({
+        domain: this.domain,
+        label,
+        model,
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+      });
+    } else {
+      summary.push(`tokens: ${response.eval_count ?? 0}/${maxTokens}`);
+    }
     if (durationMs != null) summary.push(`${Math.round(durationMs)}ms`);
 
     this.noteJson(

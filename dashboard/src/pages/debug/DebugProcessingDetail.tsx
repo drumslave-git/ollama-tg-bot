@@ -11,6 +11,7 @@ import { decodeRouteEntityId, parseRouteProcessingId } from "./debugPaths";
 import {
   formatDuration,
   formatTime,
+  formatTokens,
   liveDurationMs,
   statusClass,
   useLiveClock,
@@ -120,6 +121,14 @@ export function DebugProcessingDetail() {
                 <dt className={fieldLabelClass}>Total time</dt>
                 <dd className="m-0 text-sm">{formatDuration(duration)}</dd>
               </div>
+              {formatTokens(detail.tokens) ? (
+                <div>
+                  <dt className={fieldLabelClass}>Tokens</dt>
+                  <dd className="m-0 text-sm tabular-nums">
+                    {formatTokens(detail.tokens)}
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt className={fieldLabelClass}>Chat</dt>
                 <dd className="m-0 text-sm">{detail.entityId}</dd>

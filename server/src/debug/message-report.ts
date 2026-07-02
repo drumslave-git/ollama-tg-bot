@@ -41,9 +41,10 @@ const messageSink: ProcessingSink = {
   ensure: (ownerId) => ensureMessageProcessing(ownerId),
   report: (ownerId, title, type, content) =>
     reportMessageProcessing(ownerId, title, type, content),
-  setStatus: (ownerId, status, { totalTimeSpentMs, extra }) =>
+  setStatus: (ownerId, status, { totalTimeSpentMs, tokens, extra }) =>
     setMessageProcessingStatus(ownerId, status, {
       totalTimeSpentMs,
+      tokens,
       replyMessageIds: (extra as { replyMessageIds?: number[] } | undefined)
         ?.replyMessageIds,
     }),

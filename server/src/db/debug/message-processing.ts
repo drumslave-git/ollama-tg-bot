@@ -5,9 +5,12 @@ import {
   type EntryType,
   type ProcessingEntry,
   type ProcessingStatus,
+  type TokenCounts,
+  addTokenColumns,
   createEntriesTable,
   insertEntry,
   listEntries,
+  readTokenCounts,
 } from "./processing-entries.js";
 
 export type { EntryType, ProcessingStatus } from "./processing-entries.js";
@@ -34,6 +37,7 @@ export interface MessageProcessingListItem {
   userLabel: string | null;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   entryCount: number;
   createdAt: string;
 }
@@ -54,6 +58,7 @@ export interface MessageProcessingDetail {
   userLabel: string | null;
   status: ProcessingStatus;
   totalTimeSpent: number | null;
+  tokens: TokenCounts;
   createdAt: string;
   entries: MessageProcessingEntry[];
 }
@@ -73,6 +78,7 @@ export async function bindMessageProcessingDatabase(
       created_at BIGINT NOT NULL DEFAULT extract(epoch from now())::bigint
     );
   `);
+  await addTokenColumns(db, "message_processings");
   await createEntriesTable(db, ENTRIES);
 }
 
@@ -164,7 +170,11 @@ export async function reportMessageProcessing(
 export async function setMessageProcessingStatus(
   chatMessageId: number,
   status: ProcessingStatus,
-  options?: { totalTimeSpentMs?: number; replyMessageIds?: number[] },
+  options?: {
+    totalTimeSpentMs?: number;
+    tokens?: TokenCounts;
+    replyMessageIds?: number[];
+  },
 ): Promise<void> {
   await ensureMessageProcessing(chatMessageId);
   await db.query(
@@ -175,13 +185,19 @@ export async function setMessageProcessingStatus(
               WHEN $4::bigint[] IS NOT NULL AND array_length($4::bigint[], 1) > 0
                 THEN $4::bigint[]
               ELSE reply_message_ids
-            END
+            END,
+            prompt_tokens = $5,
+            completion_tokens = $6,
+            total_tokens = $7
       WHERE chat_message_id = $1`,
     [
       chatMessageId,
       status,
       options?.totalTimeSpentMs ?? null,
       options?.replyMessageIds ?? null,
+      options?.tokens?.promptTokens ?? 0,
+      options?.tokens?.completionTokens ?? 0,
+      options?.tokens?.totalTokens ?? 0,
     ],
   );
   const entityId = await entityForChatMessage(chatMessageId);
@@ -245,6 +261,9 @@ type ProcessingListRow = {
   role: string;
   status: ProcessingStatus;
   total_time_spent: number | null;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
   entry_count: number;
   created_at: number;
 };
@@ -267,6 +286,7 @@ async function toListItem(
     userLabel: userId ? await lookupUserLabel(userId) : null,
     status: row.status,
     totalTimeSpent: row.total_time_spent,
+    tokens: readTokenCounts(row),
     entryCount: row.entry_count,
     createdAt: new Date(row.created_at * 1000).toISOString(),
   };
@@ -277,7 +297,9 @@ export async function listProcessingsForChat(
 ): Promise<MessageProcessingListItem[]> {
   const { rows } = await db.query<ProcessingListRow>(
     `SELECT mp.id, mp.chat_message_id, cm.message_id, cm.content, cm.role,
-            mp.status, mp.total_time_spent, mp.created_at,
+            mp.status, mp.total_time_spent,
+            mp.prompt_tokens, mp.completion_tokens, mp.total_tokens,
+            mp.created_at,
             (SELECT COUNT(*)::int FROM message_processing_entries e
                WHERE e.message_processing_id = mp.id) AS entry_count
        FROM message_processings mp
@@ -299,7 +321,9 @@ export async function getProcessingDetail(
 ): Promise<MessageProcessingDetail | null> {
   const { rows } = await db.query<ProcessingListRow & { entity_id: string }>(
     `SELECT mp.id, mp.chat_message_id, cm.entity_id, cm.message_id, cm.content,
-            cm.role, mp.status, mp.total_time_spent, mp.created_at, 0 AS entry_count
+            cm.role, mp.status, mp.total_time_spent,
+            mp.prompt_tokens, mp.completion_tokens, mp.total_tokens,
+            mp.created_at, 0 AS entry_count
        FROM message_processings mp
        JOIN chat_messages cm ON mp.chat_message_id = cm.id
       WHERE mp.id = $1`,
@@ -317,6 +341,7 @@ export async function getProcessingDetail(
     userLabel: item.userLabel,
     status: item.status,
     totalTimeSpent: item.totalTimeSpent,
+    tokens: item.tokens,
     createdAt: item.createdAt,
     entries: await getEntries(item.id),
   };

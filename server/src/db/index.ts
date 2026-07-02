@@ -8,6 +8,7 @@ import {
 import { bindMessageProcessingDatabase } from "./debug/message-processing.js";
 import { bindJobProcessingDatabase } from "./debug/job-processing.js";
 import { bindPhaseTimingsDatabase } from "./debug/phase-timings.js";
+import { bindLlmUsageDatabase } from "./debug/llm-usage.js";
 import { bindKnownUsersDatabase } from "./users/known-users.js";
 import { bindDataBrowserDatabase } from "./data/browser.js";
 import { getPersonalityById } from "../features/mood/db/index.js";
@@ -71,6 +72,14 @@ export interface Stats {
   messagesReplied: number;
   visionRequests: number;
   errors: number;
+  /** Lifetime count of LLM chat calls that reported token usage. */
+  llmCalls: number;
+  /** Lifetime prompt (input) tokens across all LLM calls. */
+  llmPromptTokens: number;
+  /** Lifetime completion (output) tokens across all LLM calls. */
+  llmCompletionTokens: number;
+  /** Lifetime total tokens across all LLM calls. */
+  llmTotalTokens: number;
   lastActivityAt: string | null;
 }
 
@@ -131,6 +140,10 @@ export async function initDatabase(): Promise<void> {
     "messagesReplied",
     "visionRequests",
     "errors",
+    "llmCalls",
+    "llmPromptTokens",
+    "llmCompletionTokens",
+    "llmTotalTokens",
   ]) {
     await db.query(
       "INSERT INTO stats (key, value) VALUES ($1, 0) ON CONFLICT (key) DO NOTHING",
@@ -150,6 +163,8 @@ export async function initDatabase(): Promise<void> {
   await bindJobProcessingDatabase(db);
   // Per-phase latency samples for the dashboard's latency panel.
   await bindPhaseTimingsDatabase(db);
+  // Per-call LLM token usage + lifetime token counters.
+  await bindLlmUsageDatabase(db);
   bindDataBrowserDatabase(db);
 }
 
@@ -278,6 +293,10 @@ export async function getStats(): Promise<Stats> {
     messagesReplied: map.messagesReplied ?? 0,
     visionRequests: map.visionRequests ?? 0,
     errors: map.errors ?? 0,
+    llmCalls: Number(map.llmCalls ?? 0),
+    llmPromptTokens: Number(map.llmPromptTokens ?? 0),
+    llmCompletionTokens: Number(map.llmCompletionTokens ?? 0),
+    llmTotalTokens: Number(map.llmTotalTokens ?? 0),
     lastActivityAt: metaRows[0]?.value ?? null,
   };
 }
