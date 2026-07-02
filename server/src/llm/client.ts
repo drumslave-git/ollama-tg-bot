@@ -311,6 +311,8 @@ export interface ChatCompleteOptions {
   tools?: ChatCompletionTool[];
   /** When true, return tool_calls instead of failing on empty content. */
   allowToolCalls?: boolean;
+  /** Stop sequences that end generation when produced (max 4 on most backends). */
+  stop?: string[];
 }
 
 async function requestChat(
@@ -324,6 +326,7 @@ async function requestChat(
   responseFormat: JsonSchemaResponseFormat | undefined,
   tools: ChatCompletionTool[] | undefined,
   think: boolean | undefined,
+  stop: string[] | undefined,
   settings: Settings,
 ): Promise<{ data: ChatResponse; choice: ChatCompletion["choices"][number] | undefined }> {
   const providerSettings =
@@ -337,6 +340,7 @@ async function requestChat(
     responseFormat,
     tools,
     think,
+    stop,
   );
   const traceLabelText = traceLabel ?? "llm";
   const traceSampling = formatTraceSamplingLine(
@@ -344,6 +348,7 @@ async function requestChat(
     auxiliary,
     responseFormat,
     tools,
+    stop,
   );
   const llmStarted = performance.now();
   if (traceTurnId != null) {
@@ -421,27 +426,27 @@ function formatTraceSamplingLine(
   auxiliary: boolean,
   responseFormat?: JsonSchemaResponseFormat,
   tools?: ChatCompletionTool[],
+  stop?: string[],
 ): string {
   const temp = auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature;
   const extensions = providerChatExtensions(settings, auxiliary);
   const reasoningEffort = extensions.reasoning_effort ?? "none";
-  const enableThinking =
-    extensions.chat_template_kwargs?.enable_thinking === true;
   const responseFormatLine = responseFormat
     ? "response_format: json_schema"
     : null;
   const toolsLine =
     tools && tools.length > 0 ? `tools: ${tools.length}` : null;
+  const stopLine =
+    stop && stop.length > 0 ? `stop: ${stop.length}` : null;
   return [
     `temperature: ${temp}`,
     `top_p: ${settings.topP}`,
-    `top_k: ${settings.topK}`,
-    `repeat_penalty: ${settings.repeatPenalty}`,
     `num_ctx: ${settings.numCtx}`,
-    `enable_thinking: ${enableThinking}`,
+    `enable_thinking: ${settings.thinkingEnabled}`,
     `reasoning_effort: ${reasoningEffort}`,
     responseFormatLine,
     toolsLine,
+    stopLine,
   ]
     .filter(Boolean)
     .join(", ");
@@ -488,6 +493,7 @@ function chatCompletionBody(
   responseFormat?: JsonSchemaResponseFormat,
   tools?: ChatCompletionTool[],
   think?: boolean,
+  stop?: string[],
 ): ChatCompletionCreateParamsNonStreaming {
   const providerSettings =
     think === false ? { ...settings, thinkingEnabled: false } : settings;
@@ -495,7 +501,7 @@ function chatCompletionBody(
     model,
     messages: normalizeOpenAiMessages(messages),
     stream: false,
-    max_completion_tokens: numPredict,
+    max_tokens: numPredict,
     temperature: auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature,
     top_p: settings.topP,
     ...providerChatExtensions(providerSettings, auxiliary),
@@ -503,6 +509,7 @@ function chatCompletionBody(
       ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
     ...(tools && tools.length > 0 ? { tools, tool_choice: "auto" as const } : {}),
+    ...(stop && stop.length > 0 ? { stop } : {}),
   } as ChatCompletionCreateParamsNonStreaming;
 }
 
@@ -583,6 +590,7 @@ export async function chatCompleteDetailed(
       options?.responseFormat,
       options?.tools,
       options?.think,
+      options?.stop,
       settings,
     );
     const content = pickAssistantContent(data);

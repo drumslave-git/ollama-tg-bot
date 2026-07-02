@@ -204,16 +204,14 @@ export function validateSettingsFields(settings: Settings): void {
     ["numCtx must be a number", isFiniteNumber(settings.numCtx)],
     ["temperature must be a number", isFiniteNumber(settings.temperature)],
     ["topP must be a number", isFiniteNumber(settings.topP)],
-    ["topK must be a number", isFiniteNumber(settings.topK)],
-    ["repeatPenalty must be a number", isFiniteNumber(settings.repeatPenalty)],
     ["chatTimeoutSec must be a number", isFiniteNumber(settings.chatTimeoutSec)],
     ["visionMaxDimension must be a number", isFiniteNumber(settings.visionMaxDimension)],
     ["stickerReplyChance must be a number", isFiniteNumber(settings.stickerReplyChance)],
     ["activePersonalityId must be a number", isFiniteNumber(settings.activePersonalityId)],
     ["moodCooldownMinutes must be a number", isFiniteNumber(settings.moodCooldownMinutes)],
     [
-      "reasoningEffort must be none, low, medium, or high",
-      (["none", "low", "medium", "high"] as const).includes(
+      "reasoningEffort must be none, low, medium, high, or max",
+      (["none", "low", "medium", "high", "max"] as const).includes(
         settings.reasoningEffort,
       ),
     ],
@@ -236,18 +234,6 @@ export function validateSettingsFields(settings: Settings): void {
     ],
     ["temperature must be 0–2", isFiniteNumber(settings.temperature) && settings.temperature >= 0 && settings.temperature <= 2],
     ["topP must be 0.05–1", isFiniteNumber(settings.topP) && settings.topP >= 0.05 && settings.topP <= 1],
-    [
-      "topK must be 1–200",
-      Number.isInteger(settings.topK) &&
-        settings.topK >= 1 &&
-        settings.topK <= 200,
-    ],
-    [
-      "repeatPenalty must be 0.8–2",
-      isFiniteNumber(settings.repeatPenalty) &&
-        settings.repeatPenalty >= 0.8 &&
-        settings.repeatPenalty <= 2,
-    ],
     [
       "chatTimeoutSec must be 30–600",
       isFiniteNumber(settings.chatTimeoutSec) &&

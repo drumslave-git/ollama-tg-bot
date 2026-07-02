@@ -17,8 +17,6 @@ export interface Settings {
   numCtx: number;
   temperature: number;
   topP: number;
-  topK: number;
-  repeatPenalty: number;
   chatTimeoutSec: number;
   visionMaxDimension: number;
   derivedHistoryLimits?: DerivedHistoryLimits;
@@ -28,7 +26,7 @@ export interface Settings {
   stickerReplyChance: number;
   moodCooldownMinutes?: number;
   thinkingEnabled: boolean;
-  reasoningEffort: "none" | "low" | "medium" | "high";
+  reasoningEffort: "none" | "low" | "medium" | "high" | "max";
   maintenanceModeEnabled: boolean;
   workflowSteps: string[];
   contextBudget?: ContextBudget;

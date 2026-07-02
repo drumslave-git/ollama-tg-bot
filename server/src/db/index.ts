@@ -39,10 +39,6 @@ export interface Settings {
   temperature: number;
   /** Nucleus sampling — lower = more focused (LLM top_p). */
   topP: number;
-  /** Limits candidate tokens per step (LLM top_k). */
-  topK: number;
-  /** Penalizes repeated tokens (LLM repeat_penalty). */
-  repeatPenalty: number;
   /** LLM request timeout in seconds. */
   chatTimeoutSec: number;
   /** Longest edge for vision images (pixels). */
@@ -59,8 +55,8 @@ export interface Settings {
   moodCooldownMinutes: number;
   /** Request model reasoning when the backend supports it. */
   thinkingEnabled: boolean;
-  /** Level of reasoning effort for models that support it (none, low, medium, high). */
-  reasoningEffort: "none" | "low" | "medium" | "high";
+  /** Level of reasoning effort for models that support it (none, low, medium, high, max). */
+  reasoningEffort: "none" | "low" | "medium" | "high" | "max";
   /** When on, only the owner can trigger LLM-backed bot behavior. */
   maintenanceModeEnabled: boolean;
   /** Enabled workflow steps. */
@@ -91,8 +87,6 @@ const DEFAULT_SETTINGS: Settings = {
   numCtx: 4096,
   temperature: 0.7,
   topP: 0.9,
-  topK: 40,
-  repeatPenalty: 1.1,
   chatTimeoutSec: 120,
   visionMaxDimension: 768,
   ownerUsername: "",
@@ -196,8 +190,6 @@ export async function getSettings(): Promise<Settings> {
     numCtx: read<number>("numCtx"),
     temperature: read<number>("temperature"),
     topP: read<number>("topP"),
-    topK: read<number>("topK"),
-    repeatPenalty: read<number>("repeatPenalty"),
     chatTimeoutSec: read<number>("chatTimeoutSec"),
     visionMaxDimension: read<number>("visionMaxDimension"),
     ownerUsername: read<string>("ownerUsername"),
@@ -227,9 +219,6 @@ export async function updateSettings(
   }
   if (partial.stickerPackName !== undefined) {
     next.stickerPackName = partial.stickerPackName.trim().replace(/^@/, "");
-  }
-  if (partial.topK !== undefined) {
-    next.topK = Math.round(partial.topK);
   }
   if (partial.model !== undefined) {
     invalidateModelContextCache();

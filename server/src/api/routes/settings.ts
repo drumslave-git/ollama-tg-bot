@@ -86,8 +86,6 @@ settingsRouter.patch("/", async (req, res) => {
       "numCtx",
       "temperature",
       "topP",
-      "topK",
-      "repeatPenalty",
       "chatTimeoutSec",
       "visionMaxDimension",
       "ownerUsername",

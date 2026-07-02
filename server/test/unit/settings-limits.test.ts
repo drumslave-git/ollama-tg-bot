@@ -172,10 +172,18 @@ describe("validateSettingsFields", () => {
     ).toThrow(/temperature/);
   });
 
-  it("rejects topK out of range", () => {
-    expect(() => validateSettingsFields(makeSettings({ topK: 0 }))).toThrow(
-      /topK/,
-    );
+  it("rejects an unknown reasoning effort level", () => {
+    expect(() =>
+      validateSettingsFields(
+        makeSettings({ reasoningEffort: "ultra" as never }),
+      ),
+    ).toThrow(/reasoningEffort/);
+  });
+
+  it("accepts the max reasoning effort level", () => {
+    expect(() =>
+      validateSettingsFields(makeSettings({ reasoningEffort: "max" })),
+    ).not.toThrow();
   });
 
   it("requires ownerUserId when ownerUsername is set", () => {

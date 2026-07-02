@@ -16,13 +16,11 @@ function choice(message: Record<string, unknown>): Choice {
 describe("providerChatExtensions", () => {
   it("maps provider options from settings", () => {
     const ext = providerChatExtensions(
-      makeProviderSettings({ numCtx: 8192, topK: 50, repeatPenalty: 1.2 }),
+      makeProviderSettings({ numCtx: 8192 }),
       false,
     );
     expect(ext.options).toEqual({
       num_ctx: 8192,
-      top_k: 50,
-      repeat_penalty: 1.2,
       skip_special_tokens: false,
     });
   });
@@ -41,19 +39,22 @@ describe("providerChatExtensions", () => {
       false,
     );
     expect(ext.reasoning_effort).toBe("high");
-    expect(ext.chat_template_kwargs).toEqual({
-      enable_thinking: true,
-      reasoning_effort: "high",
-    });
   });
 
-  it("sends enable_thinking without reasoning_effort when effort is none", () => {
+  it("passes through the max reasoning effort level", () => {
+    const ext = providerChatExtensions(
+      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "max" }),
+      false,
+    );
+    expect(ext.reasoning_effort).toBe("max");
+  });
+
+  it("omits reasoning_effort when effort is none", () => {
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "none" }),
       false,
     );
     expect(ext.reasoning_effort).toBeUndefined();
-    expect(ext.chat_template_kwargs).toEqual({ enable_thinking: true });
   });
 
   it("uses low reasoning effort for auxiliary side passes when thinking is on", () => {
@@ -62,19 +63,14 @@ describe("providerChatExtensions", () => {
       true,
     );
     expect(ext.reasoning_effort).toBe("low");
-    expect(ext.chat_template_kwargs).toEqual({
-      enable_thinking: true,
-      reasoning_effort: "low",
-    });
   });
 
-  it("disables chat template thinking when thinking is off", () => {
+  it("never emits provider-specific chat_template_kwargs", () => {
     const ext = providerChatExtensions(
-      makeProviderSettings({ thinkingEnabled: false, reasoningEffort: "high" }),
+      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
       false,
     );
-    expect(ext.reasoning_effort).toBeUndefined();
-    expect(ext.chat_template_kwargs).toEqual({ enable_thinking: false });
+    expect(ext).not.toHaveProperty("chat_template_kwargs");
   });
 });
 
@@ -143,8 +139,6 @@ describe("providerRequestExtensions", () => {
     expect(ext).toEqual({
       options: {
         num_ctx: 4096,
-        top_k: 40,
-        repeat_penalty: 1.1,
         skip_special_tokens: false,
       },
     });

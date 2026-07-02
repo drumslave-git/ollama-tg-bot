@@ -13,8 +13,6 @@ export const ASSISTANT_MESSAGE_FIELDS = {
 /** Provider-specific request `options` bag used by several local backends. */
 export interface ProviderChatOptions {
   num_ctx: number;
-  top_k: number;
-  repeat_penalty: number;
   /** Preserve channel tokens when the backend supports it. */
   skip_special_tokens?: boolean;
 }
@@ -26,27 +24,19 @@ export interface ParsedAssistantMessage {
   reasoning: string;
 }
 
-export interface ChatTemplateKwargs {
-  enable_thinking?: boolean;
-  reasoning_effort?: ReasoningEffort;
-}
-
 export interface ProviderChatExtensions {
   options: ProviderChatOptions;
   reasoning_effort?: ReasoningEffort;
-  /** llama.cpp and similar backends read thinking flags from the chat template. */
-  chat_template_kwargs?: ChatTemplateKwargs;
 }
 
-export type ReasoningEffort = "none" | "low" | "medium" | "high";
+/** OpenAI-standard reasoning effort levels (Ollama also accepts "max"). */
+export type ReasoningEffort = "none" | "low" | "medium" | "high" | "max";
 
 /** Side passes use low effort when thinking is enabled (main reply may be higher). */
 export const AUXILIARY_REASONING_EFFORT: ReasoningEffort = "low";
 
 export interface ProviderChatSettings {
   numCtx: number;
-  topK: number;
-  repeatPenalty: number;
   thinkingEnabled: boolean;
   reasoningEffort: ReasoningEffort;
 }
@@ -62,9 +52,12 @@ export function providerRequestExtensions(
 /**
  * OpenAI-compatible chat request extensions for provider-specific options.
  *
- * Reasoning is parsed from a separate backend field when returned, but is never
- * merged into user-facing reply text. Side passes keep `response_format` and
- * use {@link AUXILIARY_REASONING_EFFORT} when thinking is on.
+ * Only standard OpenAI-compatible fields are sent so any compliant backend
+ * works: thinking is controlled through the top-level `reasoning_effort`
+ * (Ollama maps it to its `think` value; `"none"` disables reasoning). Reasoning
+ * is parsed from a separate backend field when returned, but is never merged
+ * into user-facing reply text. Side passes use {@link AUXILIARY_REASONING_EFFORT}
+ * when thinking is on.
  */
 export function providerChatExtensions(
   settings: ProviderChatSettings,
@@ -73,8 +66,6 @@ export function providerChatExtensions(
   const extensions: Partial<ProviderChatExtensions> = {
     options: {
       num_ctx: settings.numCtx,
-      top_k: settings.topK,
-      repeat_penalty: settings.repeatPenalty,
       skip_special_tokens: false,
     },
   };
@@ -85,14 +76,6 @@ export function providerChatExtensions(
     : auxiliary
       ? AUXILIARY_REASONING_EFFORT
       : settings.reasoningEffort;
-
-  const templateKwargs: ChatTemplateKwargs = {
-    enable_thinking: thinkingOn,
-  };
-  if (thinkingOn && effort !== "none") {
-    templateKwargs.reasoning_effort = effort;
-  }
-  extensions.chat_template_kwargs = templateKwargs;
 
   if (effort !== "none") {
     extensions.reasoning_effort = effort;

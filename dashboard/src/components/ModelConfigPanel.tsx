@@ -224,30 +224,6 @@ export function ModelConfigPanel({
           disabled={disabled}
           onChange={(topP) => update({ topP })}
         />
-        <SettingsNumberField
-          id="topK"
-          label="Top K"
-          hint="Candidate tokens per step. Lower = safer; higher = more diverse."
-          value={draft.topK}
-          min={1}
-          max={200}
-          step={1}
-          variant="slider"
-          disabled={disabled}
-          onChange={(topK) => update({ topK })}
-        />
-        <SettingsNumberField
-          id="repeatPenalty"
-          label="Repeat penalty"
-          hint="Above 1.0 reduces loops; below 1.0 allows more repetition."
-          value={draft.repeatPenalty}
-          min={0.8}
-          max={2}
-          step={0.05}
-          variant="slider"
-          disabled={disabled}
-          onChange={(repeatPenalty) => update({ repeatPenalty })}
-        />
       </section>
 
       <section

@@ -16,8 +16,6 @@ export function makeSettings(overrides: Partial<Settings> = {}): Settings {
     numCtx: 4096,
     temperature: 0.7,
     topP: 0.9,
-    topK: 40,
-    repeatPenalty: 1.1,
     chatTimeoutSec: 120,
     visionMaxDimension: 768,
     ownerUsername: "",

@@ -86,11 +86,11 @@ export async function runTurn(
     model,
     messages,
     stream: false,
-    max_completion_tokens: opts.numPredict ?? 512,
+    max_tokens: opts.numPredict ?? 512,
     temperature: settings.temperature,
     top_p: settings.topP,
     ...ext,
-  });
+  } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
 
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);
@@ -148,14 +148,14 @@ export async function runAuxiliary(
     model,
     messages: toParams(messages),
     stream: false,
-    max_completion_tokens: numPredict,
+    max_tokens: numPredict,
     temperature: AUXILIARY_TEMPERATURE,
     top_p: settings.topP,
     ...ext,
     ...(responseFormat
       ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
-  });
+  } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
   const choice = completion.choices[0];
   const { content, reasoning } = parseAssistantMessage(choice);
   return {

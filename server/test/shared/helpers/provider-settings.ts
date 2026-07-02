@@ -5,8 +5,6 @@ export function makeProviderSettings(
 ): ProviderChatSettings {
   return {
     numCtx: 4096,
-    topK: 40,
-    repeatPenalty: 1.1,
     thinkingEnabled: false,
     reasoningEffort: "medium",
     ...overrides,

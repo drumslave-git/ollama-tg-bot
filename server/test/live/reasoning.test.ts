@@ -24,7 +24,7 @@ function userTurn(text: string): ChatCompletionMessageParam[] {
   ];
 }
 
-const REASONING_EFFORT_LEVELS = ["none", "low", "medium", "high"] as const;
+const REASONING_EFFORT_LEVELS = ["none", "low", "medium", "high", "max"] as const;
 const EFFORT_LEVEL_PROMPT = "What is 12 + 13? One word in the reply field.";
 
 describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled)", () => {
@@ -35,10 +35,7 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
       shouldUseResponseFormat(settings, false, format),
     ).toBe(true);
     expect(format.schema.required).not.toContain("reasoning");
-    expect(providerChatExtensions(settings, false).chat_template_kwargs).toEqual({
-      enable_thinking: true,
-      reasoning_effort: "medium",
-    });
+    expect(providerChatExtensions(settings, false).reasoning_effort).toBe("medium");
   });
 
   it.each(REASONING_EFFORT_LEVELS)(
@@ -48,10 +45,8 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
       const ext = providerChatExtensions(settings, false);
       if (reasoningEffort === "none") {
         expect(ext.reasoning_effort).toBeUndefined();
-        expect(ext.chat_template_kwargs?.reasoning_effort).toBeUndefined();
       } else {
         expect(ext.reasoning_effort).toBe(reasoningEffort);
-        expect(ext.chat_template_kwargs?.reasoning_effort).toBe(reasoningEffort);
       }
 
       const client = liveClient(cfg!);

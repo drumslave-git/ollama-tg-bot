@@ -80,7 +80,6 @@ export async function auxiliaryChatComplete(
     ? providerChatExtensions(options.providerSettings, true)
     : {
         reasoning_effort: "none" as const,
-        chat_template_kwargs: { enable_thinking: false },
         options: { skip_special_tokens: false },
       };
 
@@ -88,7 +87,7 @@ export async function auxiliaryChatComplete(
     model: llm.model,
     messages: toParams(messages),
     stream: false,
-    max_completion_tokens: numPredict,
+    max_tokens: numPredict,
     temperature: AUXILIARY_TEMPERATURE,
     ...providerExt,
     ...(options.responseFormat

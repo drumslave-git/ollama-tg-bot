@@ -17,8 +17,6 @@ export type ModelConfigField =
   | "thinkingEnabled"
   | "temperature"
   | "topP"
-  | "topK"
-  | "repeatPenalty"
   | "chatTimeoutSec"
   | "reasoningEffort";
 
@@ -36,8 +34,6 @@ export type ModelConfigPatch = Partial<
     | "thinkingEnabled"
     | "temperature"
     | "topP"
-    | "topK"
-    | "repeatPenalty"
     | "chatTimeoutSec"
     | "reasoningEffort"
   >

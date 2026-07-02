@@ -4,10 +4,12 @@ import { Hint, SectionTitle } from "../ui/Layout";
 interface BotBehaviorSectionProps {
   maintenanceModeEnabled: boolean;
   thinkingEnabled: boolean;
-  reasoningEffort: "none" | "low" | "medium" | "high";
+  reasoningEffort: "none" | "low" | "medium" | "high" | "max";
   onMaintenanceModeChange: (value: boolean) => void;
   onThinkingEnabledChange: (value: boolean) => void;
-  onReasoningEffortChange: (value: "none" | "low" | "medium" | "high") => void;
+  onReasoningEffortChange: (
+    value: "none" | "low" | "medium" | "high" | "max",
+  ) => void;
 }
 
 const checkboxLabelClass =
@@ -47,13 +49,14 @@ const BotBehaviorSection: React.FC<BotBehaviorSectionProps> = ({
             value={reasoningEffort}
             onChange={(e) =>
               onReasoningEffortChange(
-                e.target.value as "none" | "low" | "medium" | "high",
+                e.target.value as "none" | "low" | "medium" | "high" | "max",
               )
             }
           >
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
+            <option value="max">Max</option>
           </select>
           <Hint>
             Controls how much computation the model spends on reasoning.
