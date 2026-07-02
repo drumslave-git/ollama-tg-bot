@@ -102,14 +102,16 @@ function buildReplyThread(
   });
 
   const lines: string[] = [
-    "[REPLY THREAD — oldest first; the last step is from the person you answer now]",
+    "[REPLY THREAD — oldest first; the last step is the person talking to you now. Their message may be on behalf of, or about, an earlier person in this thread — if so, address that earlier person, not the sender.]",
   ];
 
   for (let i = 0; i < steps.length; i++) {
     const step = steps[i];
     const stepNum = i + 1;
     const isLast = i === steps.length - 1;
-    const speakerTag = isLast ? " [CURRENT SPEAKER — reply to them]" : "";
+    const speakerTag = isLast
+      ? " [CURRENT SPEAKER — talking to you now; may be asking on behalf of, or about, someone earlier in this thread]"
+      : "";
     const replyNote = step.replyToSender
       ? ` (replying to ${step.replyToSender})`
       : "";

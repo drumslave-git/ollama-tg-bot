@@ -49,7 +49,7 @@ export function buildLatestTurnMessage(options: LatestTurnOptions): string {
       ? "They are the bot owner — prioritize their intent.\n"
       : "";
     parts.push(
-      `[CURRENT SPEAKER — the person whose message you must answer]\n` +
+      `[CURRENT SPEAKER — the person talking to you now; not necessarily who your reply is addressed to]\n` +
         `Name: ${options.currentSpeaker.label}\n` +
         `Tag/ID: ${options.speakerTag ?? options.currentSpeaker.userId}\n` +
         ownerLine,
@@ -99,7 +99,9 @@ function buildCurrentMessageBlock(options: LatestTurnOptions): string {
   const line = speaker ? `${speaker}: ${body}` : body;
   const replyNote = isReplyThreadContext(options.replyContext)
     ? `\n(This is a reply — answer the message it replies to in [REPLY CONTEXT] above, ` +
-      `which may be an earlier topic, not the latest line in [RECENT CHAT].)`
+      `which may be an earlier topic, not the latest line in [RECENT CHAT]. If the ` +
+      `speaker is asking on behalf of, or about, the person they replied to, address ` +
+      `THAT person — by @username or name — not the speaker.)`
     : "";
   return (
     `[CURRENT MESSAGE — the only message to reply to; everything above is background]\n` +
