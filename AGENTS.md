@@ -94,8 +94,28 @@ To add a feature: create `server/src/features/<name>/`, implement the pipeline h
 | `PORT` | Docker/production listen port only — not for local dev |
 | `DATABASE_URL` | Postgres connection string (required); needs the `pgvector` extension |
 | `TZ` | Optional IANA timezone for scheduled tasks + daily summaries (default `UTC`); jobs fire at wall-clock times in this zone |
+| `PUBLIC_URL` | Optional base URL of the live/prod deployment, for agents to inspect live state via its REST API (see below). Read-only debugging aid; not used by the app itself |
 
 Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (Postgres), not `.env`. The embedding model (history-summary RAG) is a dashboard setting too — no default; pick one from the provider's models (it must produce `EMBEDDING_DIM`-length vectors, see `server/src/llm/embeddings.ts`).
+
+### Inspecting the live deployment (`PUBLIC_URL`)
+
+When `PUBLIC_URL` is set, it points at a running (usually prod) instance whose Express API is mounted at `PUBLIC_URL/api` (see `server/src/index.ts` → `createApiRouter`). Use it to diagnose real behavior against real data — e.g. to see exactly what a message produced end to end — instead of guessing. Fetch with `curl`/`WebFetch`; responses are JSON.
+
+**Treat it as read-only.** Use `GET` only. Do not `PATCH`/`DELETE` (some routes mutate or clear prod state, e.g. `DELETE /api/tasks/debug`), and never copy the real IDs, usernames, chat text, or other data you see into committed code, tests, or fixtures — invent placeholders (see **Code conventions**).
+
+Most useful read endpoints (full list in `server/src/api/routes/*.ts` and each feature's `db/routes.ts`):
+
+- `GET /api/health` — liveness (`{ ok: true }`).
+- **Message processing traces** — the per-message execution log (system prompt, every LLM request/response, mood, retrieved memory/history, tool calls) behind the dashboard's processing view and the exported `processing-<id>` files:
+  - `GET /api/debug/chats` — chats that have recorded processings.
+  - `GET /api/debug/chat/:entityId` — recent processings for one chat.
+  - `GET /api/debug/processing/:id` — the full trace for one processing (this is the JSON an exported `processing-<id>` file is rendered from).
+- **Scheduled task fires** — `GET /api/debug/tasks`, `GET /api/debug/task/:taskId`, `GET /api/debug/task-processing/:id`.
+- **Background job runs** (memory consolidation, summaries, …) — `GET /api/debug/job/:featureId`, `GET /api/debug/job-processing/:id`.
+- **State** — `GET /api/settings`, `GET /api/stats`, and feature reads under `/api/tasks`, `/api/memories`, `/api/mood`, `/api/summaries`, `/api/vision`.
+
+Example: `curl "$PUBLIC_URL/api/debug/processing/6019"` returns the same trace a user might hand you as an exported log.
 
 ## Architecture
 
