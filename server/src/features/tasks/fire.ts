@@ -174,7 +174,9 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   }
   // Store the first chunk's Telegram id on the assistant history row so future
   // fires can join task_messages → chat_messages to recall this wording.
-  await appendAssistantMessage(task.entityId, reply, sentMessages[0]?.messageId);
+  await appendAssistantMessage(task.entityId, reply, {
+    messageId: sentMessages[0]?.messageId,
+  });
   await recordReply(false);
   report?.okPhase(
     "history",

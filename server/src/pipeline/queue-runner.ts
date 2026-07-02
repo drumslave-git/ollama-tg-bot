@@ -154,6 +154,12 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       isForum: state.isForum,
       messageThreadId: state.messageThreadId,
     });
+    // Hand the delivered Telegram id to the post-reply history record so the
+    // assistant row carries its own message_id (never null) and other users'
+    // replies to the bot can resolve back to it.
+    if (delivered.messageIds.length > 0) {
+      state.assistantMessageId = delivered.messageIds[0];
+    }
 
     // Text reply is on screen — stop "typing". Post-reply hosts (e.g. sticker)
     // show their own chat action only while they do visible work.

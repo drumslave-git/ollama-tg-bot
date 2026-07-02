@@ -46,10 +46,6 @@ export function buildStickerAnalyzerSystem(
   );
 }
 
-function isReplyThreadContext(context: string | null | undefined): boolean {
-  return Boolean(context?.includes("[REPLY THREAD"));
-}
-
 export function buildStickerAnalyzerMessages(params: {
   catalog: StickerCatalog;
   botReply: string;
@@ -63,15 +59,11 @@ export function buildStickerAnalyzerMessages(params: {
   let content = `Bot reply to evaluate:\n${botReply}`;
   const replyContext = params.replyContext?.trim() ?? "";
 
-  if (isReplyThreadContext(replyContext)) {
-    content += `\n\nConversation context:\n${replyContext}`;
-  } else {
-    if (params.message?.trim()) {
-      content += `\n\nUser message that prompted this reply:\n${params.message.trim()}`;
-    }
-    if (replyContext) {
-      content += `\n\nQuoted reply context:\n${replyContext}`;
-    }
+  if (params.message?.trim()) {
+    content += `\n\nUser message that prompted this reply:\n${params.message.trim()}`;
+  }
+  if (replyContext) {
+    content += `\n\nQuoted reply context:\n${replyContext}`;
   }
 
   content += "\n\n" + jsonReplyTail("a choice field");

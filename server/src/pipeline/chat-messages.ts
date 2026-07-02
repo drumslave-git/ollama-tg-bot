@@ -6,6 +6,7 @@ import {
   getLatestMessages,
   getLatestMessagesBefore,
   formatStoredMessageLine,
+  collectMessageIds,
   redactBase64MediaForDisplay,
   type StoredMessage,
 } from "../features/history/db/index.js";
@@ -20,7 +21,6 @@ import {
 } from "./adapters/system-prompt.js";
 import type { MoodValues } from "../features/mood/index.js";
 import { extractParticipantUserIds } from "../features/history/index.js";
-import { isReplyThreadContext } from "../bot/replies/replies.js";
 import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 
 export interface LatestTurnOptions {
@@ -35,6 +35,8 @@ export interface LatestTurnOptions {
   images?: string[];
   /** Recent-conversation window (tagged transcript) prepended as background. */
   recentWindow?: string | null;
+  /** Telegram message_id the current turn replies to (drives the reply pointer). */
+  replyToMessageId?: number | null;
 }
 
 export function buildLatestTurnMessage(options: LatestTurnOptions): string {
@@ -73,7 +75,8 @@ export function buildLatestTurnMessage(options: LatestTurnOptions): string {
   // and no reply is unambiguous on its own, so the raw body is enough there.
   const hasBackground =
     Boolean(options.recentWindow?.trim()) ||
-    Boolean(options.replyContext?.trim());
+    Boolean(options.replyContext?.trim()) ||
+    options.replyToMessageId != null;
   parts.push(
     hasBackground ? buildCurrentMessageBlock(options) : options.body.trim(),
   );
@@ -85,8 +88,8 @@ export function buildLatestTurnMessage(options: LatestTurnOptions): string {
  * The literal message to reply to, as its own strict block so it can never be
  * confused with the last line of the [RECENT CHAT] window (which is older
  * background and may be on a different topic). When the turn is an explicit
- * reply, a pointer steers the model to follow the reply link rather than the
- * window's running topic.
+ * reply, a `msg:` pointer steers the model to follow the reply link (find that
+ * id in [RECENT CHAT]) rather than the window's running topic.
  */
 function buildCurrentMessageBlock(options: LatestTurnOptions): string {
   const body = options.body.trim();
@@ -97,12 +100,14 @@ function buildCurrentMessageBlock(options: LatestTurnOptions): string {
         }]`
       : null;
   const line = speaker ? `${speaker}: ${body}` : body;
-  const replyNote = isReplyThreadContext(options.replyContext)
-    ? `\n(This is a reply — answer the message it replies to in [REPLY CONTEXT] above, ` +
-      `which may be an earlier topic, not the latest line in [RECENT CHAT]. If the ` +
-      `speaker is asking on behalf of, or about, the person they replied to, address ` +
-      `THAT person — by @username or name — not the speaker.)`
-    : "";
+  const replyNote =
+    options.replyToMessageId != null
+      ? `\n(This is a reply to msg:${options.replyToMessageId} — find that line in ` +
+        `[RECENT CHAT] above (or fetch it with the history tools) and answer it; it ` +
+        `may be an earlier topic than the latest window line. If the speaker is asking ` +
+        `on behalf of, or about, the person who sent msg:${options.replyToMessageId}, ` +
+        `address THAT person — by @username or name — not the speaker.)`
+      : "";
   return (
     `[CURRENT MESSAGE — the only message to reply to; everything above is background]\n` +
     line +
@@ -125,10 +130,13 @@ const RECENT_WINDOW_MAX_ROWS = 200;
 const RECENT_WINDOW_BUDGET_FRACTION = 0.5;
 
 /** One stored row as a time-stamped tagged line, base64 media redacted. */
-function formatWindowLine(message: StoredMessage): string {
+function formatWindowLine(
+  message: StoredMessage,
+  resolvableReplyIds?: ReadonlySet<number>,
+): string {
   const redacted = redactBase64MediaForDisplay(message.content);
   const safe = redacted == null ? message : { ...message, content: redacted };
-  const line = formatStoredMessageLine(safe);
+  const line = formatStoredMessageLine(safe, resolvableReplyIds);
   if (!line) return "";
   if (safe.createdAt == null) return line;
   return `[${new Date(safe.createdAt * 1000).toISOString()}] ${line}`;
@@ -151,26 +159,35 @@ async function loadRecentWindow(
       ? await getLatestMessagesBefore(chatKey, beforeId, RECENT_WINDOW_MAX_ROWS)
       : await getLatestMessages(chatKey, RECENT_WINDOW_MAX_ROWS);
 
-  const kept: { line: string; message: StoredMessage }[] = [];
+  const kept: StoredMessage[] = [];
   let used = 0;
-  // Walk from the newest message backward so the window keeps what is closest
-  // to the current turn and drops the oldest lines that no longer fit.
+  // First pass — walk from the newest message backward so the window keeps what
+  // is closest to the current turn and drops the oldest lines that no longer
+  // fit. Cost is measured without the reply pointer (a dozen chars); the soft
+  // budget absorbs it.
   for (let i = recent.length - 1; i >= 0; i -= 1) {
     const message = recent[i]!;
-    const line = formatWindowLine(message);
-    if (!line) continue;
-    const cost = line.length + 1; // trailing newline between lines
+    const probe = formatWindowLine(message);
+    if (!probe) continue;
+    const cost = probe.length + 1; // trailing newline between lines
     if (used + cost > charBudget) break;
     used += cost;
-    kept.push({ line, message });
+    kept.push(message);
   }
   if (kept.length === 0) return { block: "", messages: [] };
 
   kept.reverse(); // oldest first
-  return {
-    block: kept.map((k) => k.line).join("\n"),
-    messages: kept.map((k) => k.message),
-  };
+
+  // Second pass — with the visible set fixed, render reply pointers only for
+  // targets that are themselves in the window, so every shown pointer resolves
+  // inline (no dangling id, no forced tool call).
+  const visibleIds = collectMessageIds(kept);
+  const block = kept
+    .map((message) => formatWindowLine(message, visibleIds))
+    .filter(Boolean)
+    .join("\n");
+
+  return { block, messages: kept };
 }
 
 async function loadKnownChatUsers(
@@ -312,7 +329,11 @@ export async function recordExchange(
   userRole: string | null,
   userContent: string | null,
   assistantText: string,
-  options?: { skipUser?: boolean; anchorMessageId?: number },
+  options?: {
+    skipUser?: boolean;
+    anchorMessageId?: number;
+    assistantMessageId?: number;
+  },
 ): Promise<void> {
   if (!options?.skipUser && userRole && userContent?.trim()) {
     await appendMessage(
@@ -325,8 +346,16 @@ export async function recordExchange(
     );
   }
   // Autoincrement id + created_at already order the reply after everything
-  // stored so far, so a plain append is enough.
-  await appendAssistantMessage(chatKey, assistantText);
+  // stored so far, so a plain append is enough. The reply threads to the
+  // triggering message (anchorMessageId), so record that as its reply pointer.
+  await appendAssistantMessage(chatKey, assistantText, {
+    ...(options?.assistantMessageId != null
+      ? { messageId: options.assistantMessageId }
+      : {}),
+    ...(options?.anchorMessageId != null
+      ? { replyToMessageId: options.anchorMessageId }
+      : {}),
+  });
   logEvent("history_exchange_stored", {
     convKey: chatKey,
     skipUser: Boolean(options?.skipUser),

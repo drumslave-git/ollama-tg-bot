@@ -95,6 +95,8 @@ export interface PipelineTurnState {
   historyPointer?: string;
   /** Telegram message_id for the current turn. */
   telegramMessageId?: number;
+  /** Telegram message_id the current turn replies to, when it is a reply. */
+  replyToMessageId?: number;
   /** chat_messages.id of the stored triggering message — anchor for debug processing entries. */
   chatMessageId?: number;
 
@@ -119,6 +121,8 @@ export interface PipelineTurnState {
   stickerFileId?: string | null;
 
   assistantReply?: string;
+  /** Telegram message_id of the delivered reply's first chunk (set after send). */
+  assistantMessageId?: number;
 
   /** Pipeline control — early exit without delivery. */
   haltReason?: string;

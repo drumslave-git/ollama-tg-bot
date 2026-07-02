@@ -56,18 +56,6 @@ export function extractParticipantUserIds(
   return [...ids];
 }
 
-export function formatSaidContent(_userTag: string, text: string): string {
-  return text.trim();
-}
-
-export function formatRepliedContent(
-  _userTag: string,
-  _replyToTag: string,
-  text: string,
-): string {
-  return text.trim();
-}
-
 const ASSISTANT_SAID_PREFIX = /^\[assistant said\]\s*:?\s*/i;
 const STICKER_HISTORY_LINE = /^\[sticker:\s*[^\]]+\]\s*$/i;
 const ECHOED_USER_HISTORY_PREFIX =
@@ -92,30 +80,18 @@ function stripStickerHistoryLines(text: string): string {
     .join("\n");
 }
 
-export function resolveReplyTargetTag(
-  message: Message,
-  botId?: number,
-): string | null {
-  const replied = message.reply_to_message;
-  if (!replied) return null;
-  if (botId != null && replied.from?.id === botId) return ASSISTANT_ROLE;
-  return userRoleTag(replied.from);
-}
-
 export function buildTextHistoryContent(
   user: User | undefined,
-  message: Message,
+  _message: Message,
   text: string,
-  botId?: number,
+  _botId?: number,
 ): string | null {
   const userTag = userRoleTag(user);
-  if (!userTag || !text.trim()) return null;
-
-  const replyTo = resolveReplyTargetTag(message, botId);
-  if (replyTo) {
-    return formatRepliedContent(userTag, replyTo, text);
-  }
-  return formatSaidContent(userTag, text);
+  const trimmed = text.trim();
+  if (!userTag || !trimmed) return null;
+  // Stored content stays clean: the speaker tag and reply pointer are added at
+  // format time (see formatStoredMessageLine) from the row's role + columns.
+  return trimmed;
 }
 
 export type MediaKind = "sticker" | "image";
@@ -128,27 +104,24 @@ export function mediaKindForMessage(
   return "image";
 }
 
-/** History line after vision: [user:… sent sticker]: … or [user:… replied to … with image]: … */
+/** History line after vision: `[sent image]: …`. The reply link (if any) is a
+ * row column, rendered by formatStoredMessageLine — not embedded in content. */
 export function buildMediaHistoryContent(
   user: User | undefined,
-  message: Message,
+  _message: Message,
   mediaKind: MediaKind,
   visionDescription: string,
-  botId?: number,
+  _botId?: number,
   packEmoji?: string | null,
 ): string | null {
   const userTag = userRoleTag(user);
   if (!userTag || !visionDescription.trim()) return null;
 
-  const replyTo = resolveReplyTargetTag(message, botId);
-  const prefix = replyTo
-    ? `[replied to ${replyTo}]`
-    : `[sent ${mediaKind}]`;
   let body = visionDescription.trim();
   if (mediaKind === "sticker" && packEmoji) {
     body = `${body}. it represents emoji ${packEmoji}`;
   }
-  return `${prefix}: ${body}`;
+  return `[sent ${mediaKind}]: ${body}`;
 }
 
 /** Passive intake — text only. */
@@ -172,21 +145,18 @@ const STICKER_EMOJI_LINE = /^\(sticker emoji:\s*(.+?)\)\s*$/i;
 /** History line with pending vision — base64 data URI after the media prefix. */
 export function buildBase64MediaHistoryContent(
   user: User | undefined,
-  message: Message,
+  _message: Message,
   mediaKind: MediaKind,
   base64: string,
   mimeHint: string,
-  botId?: number,
+  _botId?: number,
   packEmoji?: string | null,
 ): string | null {
   const userTag = userRoleTag(user);
   const raw = base64.trim();
   if (!userTag || !raw) return null;
 
-  const replyTo = resolveReplyTargetTag(message, botId);
-  const prefix = replyTo
-    ? `[replied to ${replyTo} with ${mediaKind}]`
-    : `[sent ${mediaKind}]`;
+  const prefix = `[sent ${mediaKind}]`;
   const mime = mimeHint.trim() || "image/jpeg";
   let body = `data:${mime};base64,${raw}`;
   if (mediaKind === "sticker" && packEmoji) {
@@ -288,23 +258,66 @@ export function redactBase64MediaForDisplay(content: string): string | null {
   return rebuildMediaContent(parsed, `[${parsed.mediaKind} not yet described]`);
 }
 
-/** One stored row as a tagged line for tool output or debug display. */
-export function formatStoredMessageLine(message: StoredMessage): string {
-  const content = message.content.trim();
-  if (!content) return "";
+/**
+ * The bracketed tag for one stored row: speaker · own message id · reply
+ * pointer. The reply pointer (`replied to msg:X`) is only shown when `X` is in
+ * `resolvableReplyIds` — the set of message ids visible in the same rendered
+ * block — so a shown pointer can always be followed inline, never dangling.
+ */
+function buildLineTag(
+  message: StoredMessage,
+  resolvableReplyIds?: ReadonlySet<number>,
+): string {
+  const parts: string[] = [];
 
   if (message.role === ASSISTANT_ROLE) {
-    return ASSISTANT_SAID_PREFIX.test(content)
-      ? content
-      : `[assistant said]: ${content}`;
+    parts.push("assistant said");
+  } else {
+    const parsed = parseUserRole(message.role);
+    parts.push(parsed ? `user:${parsed.username}:${parsed.userId}` : message.role);
   }
 
-  const parsed = parseUserRole(message.role);
-  if (parsed) {
-    return `[user:${parsed.username}:${parsed.userId}]: ${content}`;
+  if (message.messageId != null) {
+    parts.push(`msg:${message.messageId}`);
   }
 
-  return `[${message.role}]: ${content}`;
+  if (
+    message.replyToMessageId != null &&
+    resolvableReplyIds?.has(message.replyToMessageId)
+  ) {
+    parts.push(`replied to msg:${message.replyToMessageId}`);
+  }
+
+  return parts.join(" · ");
+}
+
+/**
+ * One stored row as a tagged line for tool output, the recent-chat window, or
+ * debug display. Pass `resolvableReplyIds` (the message ids present in the same
+ * block) to have reply pointers rendered; omit it to suppress them.
+ */
+export function formatStoredMessageLine(
+  message: StoredMessage,
+  resolvableReplyIds?: ReadonlySet<number>,
+): string {
+  let content = message.content.trim();
+  if (message.role === ASSISTANT_ROLE) {
+    content = content.replace(ASSISTANT_SAID_PREFIX, "").trim();
+  }
+  if (!content) return "";
+
+  return `[${buildLineTag(message, resolvableReplyIds)}]: ${content}`;
+}
+
+/** The set of message ids present in a batch — the resolvable-reply set. */
+export function collectMessageIds(
+  messages: readonly StoredMessage[],
+): Set<number> {
+  const ids = new Set<number>();
+  for (const message of messages) {
+    if (message.messageId != null) ids.add(message.messageId);
+  }
+  return ids;
 }
 
 function sanitizeTagPart(value: string): string {

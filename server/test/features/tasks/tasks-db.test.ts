@@ -173,7 +173,7 @@ describe.skipIf(!hasTestDb)("tasks db (Postgres)", () => {
         [2, "second delivery"],
         [3, "third delivery"],
       ] as const) {
-        await appendAssistantMessage(task.entityId, text, mid(n));
+        await appendAssistantMessage(task.entityId, text, { messageId: mid(n) });
         await recordTaskMessage(task.id, task.entityId, mid(n));
       }
 

@@ -95,6 +95,7 @@ export async function buildChatContextForTurn(state: PipelineTurnState) {
     speakerTag: state.userRole,
     mentionedUsersContext: state.mentionedUsersContext,
     replyContext: state.replyContext,
+    replyToMessageId: state.replyToMessageId ?? null,
     currentSpeaker: state.currentSpeaker as LatestTurnOptions["currentSpeaker"],
     currentSpeakerIsOwner: state.currentSpeakerIsOwner,
     isGroupChat: state.inGroup,

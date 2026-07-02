@@ -53,12 +53,14 @@ export const turnSetupHost: PipelineFeatureHost = {
     if (msg?.message_id != null) {
       state.telegramMessageId = msg.message_id;
     }
+    if (msg?.reply_to_message?.message_id != null) {
+      state.replyToMessageId = msg.reply_to_message.message_id;
+    }
 
     const rawText = state.rawText ?? "";
     const promptText = stripCurrentBotAddressing(rawText) || rawText;
     state.latestBody = promptText || "(non-text message)";
-    state.replyContext =
-      formatReplyContext(state.telegram, state.currentSpeaker) ?? null;
+    state.replyContext = formatReplyContext(state.telegram) ?? null;
     state.mentionedUsersContext =
       (await resolveMentionedUsersContext(rawText, state.telegram)) ?? null;
 
@@ -151,10 +153,13 @@ export const intakeHistoryHost: PipelineFeatureHost = {
       }
     }
 
+    const replyToMessageId = state.replyToMessageId;
+
     const combined = combineHistoryContent(textContent, mediaContent);
     if (combined) {
       const chatMessageId = await appendMessage(convKey, role, combined, {
         messageId,
+        ...(replyToMessageId != null ? { replyToMessageId } : {}),
       });
       if (chatMessageId != null) {
         state.chatMessageId = chatMessageId;
@@ -223,6 +228,9 @@ export const historyRecordHost: PipelineFeatureHost = {
       {
         skipUser: state.skipUserHistory,
         anchorMessageId: state.telegramMessageId,
+        ...(state.assistantMessageId != null
+          ? { assistantMessageId: state.assistantMessageId }
+          : {}),
       },
     );
 

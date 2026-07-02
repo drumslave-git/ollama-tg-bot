@@ -22,6 +22,11 @@ export async function bindHistoryDatabase(database: SqlDatabase): Promise<void> 
       tsv tsvector GENERATED ALWAYS AS (to_tsvector('simple', content)) STORED
     );
   `);
+  // Reply pointer: the Telegram message_id this row replied to (null when it
+  // was not a reply). Added after the fact, so ADD COLUMN IF NOT EXISTS.
+  await db.query(
+    `ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS reply_to_message_id BIGINT;`,
+  );
   await db.query(
     `CREATE INDEX IF NOT EXISTS idx_chat_messages_entity_time
        ON chat_messages(entity_id, created_at);`,
@@ -41,10 +46,12 @@ interface MessageRow {
   role: string;
   content: string;
   message_id: number | null;
+  reply_to_message_id: number | null;
   created_at: number;
 }
 
-const SELECT_COLUMNS = "id, role, content, message_id, created_at";
+const SELECT_COLUMNS =
+  "id, role, content, message_id, reply_to_message_id, created_at";
 
 function rowToStored(row: MessageRow): StoredMessage {
   const stored: StoredMessage = {
@@ -53,6 +60,9 @@ function rowToStored(row: MessageRow): StoredMessage {
     createdAt: row.created_at,
   };
   if (row.message_id != null) stored.messageId = row.message_id;
+  if (row.reply_to_message_id != null) {
+    stored.replyToMessageId = row.reply_to_message_id;
+  }
   return stored;
 }
 
@@ -239,16 +249,22 @@ export async function appendMessage(
   entityId: string,
   role: string,
   content: string,
-  options?: { messageId?: number },
+  options?: { messageId?: number; replyToMessageId?: number },
 ): Promise<number | null> {
   const trimmed = content.trim();
   if (!trimmed) return null;
 
   const { rows } = await db.query<{ id: number }>(
-    `INSERT INTO chat_messages (entity_id, role, content, message_id)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO chat_messages (entity_id, role, content, message_id, reply_to_message_id)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id`,
-    [entityId, role, trimmed, options?.messageId ?? null],
+    [
+      entityId,
+      role,
+      trimmed,
+      options?.messageId ?? null,
+      options?.replyToMessageId ?? null,
+    ],
   );
   getFeatureLiveHooks().emitDataUpdated?.(["chat_messages"]);
   return rows[0]?.id ?? null;
@@ -257,15 +273,19 @@ export async function appendMessage(
 export async function appendAssistantMessage(
   entityId: string,
   assistantText: string,
-  messageId?: number,
+  options?: { messageId?: number; replyToMessageId?: number },
 ): Promise<void> {
   // The `assistant` role already identifies the speaker; the human-readable
   // `[assistant said]` tag is added at format time (see formatStoredMessageLine),
   // so the stored content stays clean. `messageId` (the delivered Telegram id) is
   // stored when the caller knows it — e.g. task fires join task_messages back to
-  // this row to recall prior wording.
+  // this row to recall prior wording. `replyToMessageId` is the message this
+  // reply threads to, so history renders the bot's reply link like any other.
   await appendMessage(entityId, ASSISTANT_ROLE, assistantText.trim(), {
-    ...(messageId != null ? { messageId } : {}),
+    ...(options?.messageId != null ? { messageId: options.messageId } : {}),
+    ...(options?.replyToMessageId != null
+      ? { replyToMessageId: options.replyToMessageId }
+      : {}),
   });
 }
 

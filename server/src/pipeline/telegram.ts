@@ -1,6 +1,5 @@
 import type { PipelineTelegramContext } from "../contracts/index.js";
 import type { Context } from "grammy";
-import type { CurrentSpeaker } from "../bot/messages/speaker.js";
 import { formatReplyContext } from "../bot/replies/replies.js";
 import {
   formatMentionedUsersContext,
@@ -68,13 +67,8 @@ function asGrammyContext(telegram: PipelineTelegramContext): Context {
 
 export function formatReplyContextFromTelegram(
   telegram: PipelineTelegramContext,
-  currentSpeaker?: unknown,
 ): string | null {
-  return formatReplyContext(
-    asGrammyContext(telegram),
-    telegram.me?.id,
-    currentSpeaker as CurrentSpeaker | null,
-  );
+  return formatReplyContext(asGrammyContext(telegram));
 }
 
 export async function resolveMentionedUsersContextFromTelegram(

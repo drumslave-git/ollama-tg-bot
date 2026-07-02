@@ -5,6 +5,8 @@ export interface StoredMessage {
   content: string;
   /** Telegram message_id for passive user rows (queue history pointer). */
   messageId?: number;
+  /** Telegram message_id this row is a reply to, when it replied to something. */
+  replyToMessageId?: number;
   /** Unix epoch seconds when the row was stored. */
   createdAt?: number;
 }

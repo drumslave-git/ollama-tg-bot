@@ -12,6 +12,7 @@ import {
   searchMessagesSince,
 } from "./db/history.js";
 import {
+  collectMessageIds,
   formatStoredMessageLine,
   redactBase64MediaForDisplay,
 } from "./format.js";
@@ -106,13 +107,15 @@ function buildResult(messages: StoredMessage[]) {
     at: isoFromStored(m),
   }));
 
+  // Reply pointers resolve against the ids present in this same result batch.
+  const resolvableReplyIds = collectMessageIds(sanitized);
   const transcript =
     sanitized.length === 0
       ? "(no matching messages)"
       : sanitized
           .map((m) => {
             const at = isoFromStored(m);
-            const line = formatStoredMessageLine(m);
+            const line = formatStoredMessageLine(m, resolvableReplyIds);
             return at ? `[${at}] ${line}` : line;
           })
           .filter(Boolean)
