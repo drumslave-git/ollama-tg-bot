@@ -1,6 +1,11 @@
 import OpenAI from "openai";
 import { config } from "../config/index.js";
 import { getSettings } from "../db/index.js";
+import {
+  checkHealthFor,
+  listModelsFrom,
+  type LlmModel,
+} from "./client.js";
 
 /**
  * Vector dimension the `chat_summaries.embedding` column is sized to. The chosen
@@ -21,10 +26,20 @@ function resolveOpenAiBaseUrl(): string {
 
 function embeddingsClient(): OpenAI {
   return new OpenAI({
-    apiKey: config.llmApiKey || "not-needed",
+    apiKey: config.embeddingApiKey || "not-needed",
     baseURL: resolveOpenAiBaseUrl(),
     maxRetries: 0,
   });
+}
+
+/** List models available on the embedding host (may differ from the chat LLM host). */
+export async function listEmbeddingModels(): Promise<LlmModel[]> {
+  return listModelsFrom(config.embeddingBaseUrl, config.embeddingApiKey);
+}
+
+/** Health-check the embedding host. */
+export async function checkEmbeddingHealth(): Promise<void> {
+  return checkHealthFor(config.embeddingBaseUrl, config.embeddingApiKey);
 }
 
 /**

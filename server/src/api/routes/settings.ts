@@ -15,6 +15,10 @@ import { getResolvedSettings, getResolvedHistoryLimits, getContextBudgetForSetti
 import { buildBaseSystemPrompt } from "../../pipeline/adapters/system-prompt.js";
 import { config } from "../../config/index.js";
 import { listModels, checkHealth } from "../../llm/client.js";
+import {
+  listEmbeddingModels,
+  checkEmbeddingHealth,
+} from "../../llm/embeddings.js";
 import { snapNumPredict, getHistoryLimits } from "../../settings/limits.js";
 import { calculateContextBudget } from "../../settings/context-budget.js";
 import { runWebSearch } from "../../features/web-search/index.js";
@@ -156,6 +160,18 @@ settingsRouter.get("/models", async (_req, res) => {
   }
 });
 
+settingsRouter.get("/embedding-models", async (_req, res) => {
+  try {
+    const models = await listEmbeddingModels();
+    res.json({ models });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to fetch embedding models";
+    const status = message.includes("not configured") ? 400 : 502;
+    res.status(status).json({ error: message });
+  }
+});
+
 settingsRouter.get("/budget", async (req, res) => {
   try {
     const settings = await getSettings();
@@ -199,6 +215,18 @@ settingsRouter.post("/test-llm", async (_req, res) => {
   } catch (err) {
     res.status(400).json({
       error: err instanceof Error ? err.message : "LLM health check failed",
+    });
+  }
+});
+
+settingsRouter.post("/test-embedding", async (_req, res) => {
+  try {
+    await checkEmbeddingHealth();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({
+      error:
+        err instanceof Error ? err.message : "Embedding health check failed",
     });
   }
 });

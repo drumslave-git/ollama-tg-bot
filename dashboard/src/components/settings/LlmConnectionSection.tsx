@@ -13,16 +13,24 @@ interface LlmConnectionSectionProps {
   showModelSelection: boolean;
   models: any[];
   modelOptions: { value: string; label: string }[];
+  embeddingModelOptions: { value: string; label: string }[];
+  embeddingBaseUrl: string;
+  embeddingHostDistinct: boolean;
+  embeddingApiKeyConfigured: boolean;
+  embeddingModelsLoading: boolean;
   draftModel: string;
   draftEmbeddingModel: string;
   sectionErrorLlm: any;
   sectionErrorModels: any;
+  sectionErrorEmbedding: any;
   onTestConnection: () => void;
   onRefreshModels: () => void;
+  onRefreshEmbeddingModels: () => void;
   onModelChange: (value: string) => void;
   onEmbeddingModelChange: (value: string) => void;
   onDismissLlmError: () => void;
   onDismissModelsError: () => void;
+  onDismissEmbeddingError: () => void;
 }
 
 const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
@@ -35,16 +43,24 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
   showModelSelection,
   models,
   modelOptions,
+  embeddingModelOptions,
+  embeddingBaseUrl,
+  embeddingHostDistinct,
+  embeddingApiKeyConfigured,
+  embeddingModelsLoading,
   draftModel,
   draftEmbeddingModel,
   sectionErrorLlm,
   sectionErrorModels,
+  sectionErrorEmbedding,
   onTestConnection,
   onRefreshModels,
+  onRefreshEmbeddingModels,
   onModelChange,
   onEmbeddingModelChange,
   onDismissLlmError,
   onDismissModelsError,
+  onDismissEmbeddingError,
 }) => {
   return (
     <>
@@ -154,32 +170,69 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
             Use a vision model (e.g. llava) for images and stickers.
           </Hint>
 
-          <div className="min-w-0 flex-1">
-            <label htmlFor="embeddingModel">Embedding model</label>
-            <select
-              id="embeddingModel"
-              value={
-                modelOptions.some((o) => o.value === draftEmbeddingModel)
-                  ? draftEmbeddingModel
-                  : ""
-              }
-              onChange={(e) => onEmbeddingModelChange(e.target.value)}
-              disabled={modelsLoading}
-            >
-              {modelOptions.some((o) => o.value === draftEmbeddingModel) ? null : (
-                <option value="" disabled>
-                  {draftEmbeddingModel
-                    ? `${draftEmbeddingModel} (not pulled locally)`
-                    : "Select an embedding model"}
-                </option>
-              )}
-              {modelOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-end gap-3">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="embeddingModel">Embedding model</label>
+              <select
+                id="embeddingModel"
+                value={
+                  embeddingModelOptions.some(
+                    (o) => o.value === draftEmbeddingModel,
+                  )
+                    ? draftEmbeddingModel
+                    : ""
+                }
+                onChange={(e) => onEmbeddingModelChange(e.target.value)}
+                disabled={modelsLoading || embeddingModelsLoading}
+              >
+                {embeddingModelOptions.some(
+                  (o) => o.value === draftEmbeddingModel,
+                ) ? null : (
+                  <option value="" disabled>
+                    {draftEmbeddingModel
+                      ? `${draftEmbeddingModel} (not available on this host)`
+                      : "Select an embedding model"}
+                  </option>
+                )}
+                {embeddingModelOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {embeddingHostDistinct ? (
+              <Button
+                variant="secondary"
+                onClick={onRefreshEmbeddingModels}
+                disabled={embeddingModelsLoading || configBlocked}
+                title="Fetch models from the embedding host"
+              >
+                {embeddingModelsLoading ? "…" : "Refresh"}
+              </Button>
+            ) : null}
           </div>
+
+          {embeddingHostDistinct ? (
+            <Hint>
+              Embedding host:{" "}
+              <code className="font-mono text-[0.85em]">{embeddingBaseUrl}</code>{" "}
+              (from <code className="font-mono text-[0.85em]">EMBEDDING_BASE_URL</code>).{" "}
+              {embeddingApiKeyConfigured
+                ? "API key configured."
+                : "No embedding API key set."}
+            </Hint>
+          ) : null}
+
+          {sectionErrorEmbedding != null ? (
+            <ErrorBanner
+              error={sectionErrorEmbedding}
+              compact
+              onRetry={onRefreshEmbeddingModels}
+              onDismiss={onDismissEmbeddingError}
+            />
+          ) : null}
+
           <Hint>
             Used to embed daily history summaries for semantic recall (e.g.
             bge-m3). Changing to a model with a different vector dimension

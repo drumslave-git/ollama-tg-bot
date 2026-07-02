@@ -35,6 +35,7 @@ service provides it). Set `DATABASE_URL` accordingly.
 | `DATABASE_URL` | everywhere | required (Postgres + pgvector connection string) |
 | `LLM_API_KEY` | optional | empty (local servers usually skip this) |
 | `EMBEDDING_BASE_URL` | optional | falls back to `LLM_BASE_URL` (base URL for the embedding model) |
+| `EMBEDDING_API_KEY` | optional | falls back to `LLM_API_KEY` (API key for the embedding host) |
 | `TAVILY_API_KEY` | optional | empty (web search off) |
 | `LOGGING_LEVEL` | optional | `ERROR` (`DEBUG`) |
 | `PORT` | Docker / Portainer only | `3000` |

@@ -112,9 +112,23 @@ function resolveBaseUrl(): string {
   return host.replace(/\/$/, "");
 }
 
+/** Normalize any base URL to its OpenAI-compatible `/v1` form. */
+function toOpenAiBaseUrl(base: string): string {
+  const host = base.trim().replace(/\/$/, "");
+  return host.endsWith("/v1") ? host : `${host}/v1`;
+}
+
 function resolveOpenAiBaseUrl(): string {
-  const base = resolveBaseUrl();
-  return base.endsWith("/v1") ? base : `${base}/v1`;
+  return toOpenAiBaseUrl(resolveBaseUrl());
+}
+
+/** Build an OpenAI client pointed at an arbitrary host (used for the embedding host). */
+function openAiClientFor(baseUrl: string, apiKey: string): OpenAI {
+  return new OpenAI({
+    apiKey: apiKey || "not-needed",
+    baseURL: toOpenAiBaseUrl(baseUrl),
+    maxRetries: 0,
+  });
 }
 
 function openAiClient(): OpenAI {
@@ -167,6 +181,25 @@ export async function listModels(): Promise<LlmModel[]> {
     return normalizeModels(page.data ?? []);
   } catch (err) {
     throw wrapModelListError(err);
+  }
+}
+
+/** List models from an arbitrary OpenAI-compatible host (e.g. the embedding host). */
+export async function listModelsFrom(
+  baseUrl: string,
+  apiKey: string,
+): Promise<LlmModel[]> {
+  const host = baseUrl.trim();
+  if (!host) {
+    throw new Error("Base URL is not configured");
+  }
+  try {
+    const page = await openAiClientFor(host, apiKey).models.list({
+      timeout: LIST_MODELS_TIMEOUT_MS,
+    });
+    return normalizeModels(page.data ?? []);
+  } catch (err) {
+    throw wrapModelListError(err, host.replace(/\/$/, ""));
   }
 }
 
@@ -593,8 +626,7 @@ function apiErrorDetails(err: APIError): string {
   return err.message;
 }
 
-function wrapModelListError(err: unknown): Error {
-  const apiUrl = resolveBaseUrl();
+function wrapModelListError(err: unknown, apiUrl: string = resolveBaseUrl()): Error {
   if (err instanceof APIConnectionTimeoutError) {
     return new Error(
       `Model listing timed out (${apiUrl}): ${err.message}`,
@@ -619,5 +651,21 @@ export async function checkHealth(): Promise<void> {
     await openAiClient().models.list({ timeout: 5000 });
   } catch (err) {
     throw wrapModelListError(err);
+  }
+}
+
+/** Health-check an arbitrary OpenAI-compatible host (e.g. the embedding host). */
+export async function checkHealthFor(
+  baseUrl: string,
+  apiKey: string,
+): Promise<void> {
+  const host = baseUrl.trim();
+  if (!host) {
+    throw new Error("Base URL is not configured");
+  }
+  try {
+    await openAiClientFor(host, apiKey).models.list({ timeout: 5000 });
+  } catch (err) {
+    throw wrapModelListError(err, host.replace(/\/$/, ""));
   }
 }

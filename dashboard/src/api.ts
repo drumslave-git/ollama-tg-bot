@@ -6,6 +6,9 @@ export interface DerivedHistoryLimits {
 export interface Settings {
   llmBaseUrl: string;
   llmApiKeyConfigured: boolean;
+  embeddingBaseUrl: string;
+  embeddingApiKeyConfigured: boolean;
+  embeddingHostDistinct: boolean;
   model: string;
   embeddingModel: string;
   activePersonalityId: number;
@@ -544,6 +547,10 @@ export const api = {
     request<{ models: LlmModel[] }>("/api/settings/models").then(
       (r) => r.models,
     ),
+  getEmbeddingModels: () =>
+    request<{ models: LlmModel[] }>("/api/settings/embedding-models").then(
+      (r) => r.models,
+    ),
   getBudget: (model: string, numPredict: number, numCtx: number) =>
     request<{
       contextBudget: ContextBudget;
@@ -598,6 +605,12 @@ export const api = {
     }),
   llmHealth: async () => {
     await request<{ ok: boolean }>("/api/settings/test-llm", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+  embeddingHealth: async () => {
+    await request<{ ok: boolean }>("/api/settings/test-embedding", {
       method: "POST",
       body: JSON.stringify({}),
     });

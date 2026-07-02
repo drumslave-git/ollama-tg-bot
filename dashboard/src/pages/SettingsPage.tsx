@@ -37,12 +37,15 @@ export function SettingsPage() {
     configBlocked,
     showModelSelection,
     modelOptions,
+    embeddingModelOptions,
+    embeddingModelsLoading,
     llmConnectionVerified,
     testingLlm,
     modelsLoading,
     saving,
     testLlmConnection,
     fetchModels,
+    fetchEmbeddingModels,
     save,
     load,
   } = useDashboard();
@@ -98,18 +101,26 @@ export function SettingsPage() {
             showModelSelection={showModelSelection}
             models={models}
             modelOptions={modelOptions}
+            embeddingModelOptions={embeddingModelOptions}
+            embeddingBaseUrl={draft.embeddingBaseUrl}
+            embeddingHostDistinct={draft.embeddingHostDistinct}
+            embeddingApiKeyConfigured={draft.embeddingApiKeyConfigured}
+            embeddingModelsLoading={embeddingModelsLoading}
             draftModel={draft.model}
             draftEmbeddingModel={draft.embeddingModel}
             sectionErrorLlm={sectionErrors.llm}
             sectionErrorModels={sectionErrors.models}
+            sectionErrorEmbedding={sectionErrors.embedding}
             onTestConnection={() => void testLlmConnection()}
             onRefreshModels={() => void fetchModels()}
+            onRefreshEmbeddingModels={() => void fetchEmbeddingModels()}
             onModelChange={(model) => setDraft({ ...draft, model })}
             onEmbeddingModelChange={(embeddingModel) =>
               setDraft({ ...draft, embeddingModel })
             }
             onDismissLlmError={() => setSectionError("llm", null)}
             onDismissModelsError={() => setSectionError("models", null)}
+            onDismissEmbeddingError={() => setSectionError("embedding", null)}
           />
 
           <OwnerSection

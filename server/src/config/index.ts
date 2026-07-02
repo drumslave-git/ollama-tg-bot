@@ -33,6 +33,17 @@ function resolveEmbeddingBaseUrl(): string {
   return embeddingUrl || resolveLlmBaseUrl();
 }
 
+/** API key for the embedding host. Falls back to LLM_API_KEY when EMBEDDING_API_KEY is unset. */
+function resolveEmbeddingApiKey(): string {
+  const embeddingKey = (process.env.EMBEDDING_API_KEY ?? "").trim();
+  return embeddingKey || resolveLlmApiKey();
+}
+
+/** True when the embedding host resolves to a different URL than the chat LLM host. */
+function resolveEmbeddingHostDistinct(): boolean {
+  return resolveEmbeddingBaseUrl() !== resolveLlmBaseUrl();
+}
+
 function resolveDatabaseUrl(): string {
   return (process.env.DATABASE_URL ?? "").trim();
 }
@@ -113,6 +124,10 @@ export const config = {
   llmBaseUrl: resolveLlmBaseUrl(),
   /** Base URL for the embedding model (EMBEDDING_BASE_URL); falls back to LLM_BASE_URL when unset. */
   embeddingBaseUrl: resolveEmbeddingBaseUrl(),
+  /** API key for the embedding host (EMBEDDING_API_KEY); falls back to LLM_API_KEY when unset. */
+  embeddingApiKey: resolveEmbeddingApiKey(),
+  /** True when EMBEDDING_BASE_URL points somewhere other than LLM_BASE_URL. */
+  embeddingHostDistinct: resolveEmbeddingHostDistinct(),
   /** OpenAI-compatible API key from env (LLM_API_KEY). Local servers can leave it empty. */
   llmApiKey: resolveLlmApiKey(),
   /** ERROR = errors only; DEBUG = lifecycle events. Use dashboard Debug page for message traces. */
