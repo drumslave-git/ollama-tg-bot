@@ -44,6 +44,23 @@ function resolveEmbeddingHostDistinct(): boolean {
   return resolveEmbeddingBaseUrl() !== resolveLlmBaseUrl();
 }
 
+/** Base URL for image generation. Falls back to LLM_BASE_URL when IMAGE_GENERATION_BASE_URL is unset. */
+function resolveImageBaseUrl(): string {
+  const imageUrl = (process.env.IMAGE_GENERATION_BASE_URL ?? "").trim();
+  return imageUrl || resolveLlmBaseUrl();
+}
+
+/** API key for the image host. Falls back to LLM_API_KEY when IMAGE_GENERATION_API_KEY is unset. */
+function resolveImageApiKey(): string {
+  const imageKey = (process.env.IMAGE_GENERATION_API_KEY ?? "").trim();
+  return imageKey || resolveLlmApiKey();
+}
+
+/** True when the image host resolves to a different URL than the chat LLM host. */
+function resolveImageHostDistinct(): boolean {
+  return resolveImageBaseUrl() !== resolveLlmBaseUrl();
+}
+
 function resolveDatabaseUrl(): string {
   return (process.env.DATABASE_URL ?? "").trim();
 }
@@ -128,6 +145,12 @@ export const config = {
   embeddingApiKey: resolveEmbeddingApiKey(),
   /** True when EMBEDDING_BASE_URL points somewhere other than LLM_BASE_URL. */
   embeddingHostDistinct: resolveEmbeddingHostDistinct(),
+  /** Base URL for image generation (IMAGE_GENERATION_BASE_URL); falls back to LLM_BASE_URL when unset. */
+  imageBaseUrl: resolveImageBaseUrl(),
+  /** API key for the image host (IMAGE_GENERATION_API_KEY); falls back to LLM_API_KEY when unset. */
+  imageApiKey: resolveImageApiKey(),
+  /** True when IMAGE_GENERATION_BASE_URL points somewhere other than LLM_BASE_URL. */
+  imageHostDistinct: resolveImageHostDistinct(),
   /** OpenAI-compatible API key from env (LLM_API_KEY). Local servers can leave it empty. */
   llmApiKey: resolveLlmApiKey(),
   /** ERROR = errors only; DEBUG = lifecycle events. Use dashboard Debug page for message traces. */

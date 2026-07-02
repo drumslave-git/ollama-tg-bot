@@ -18,19 +18,29 @@ interface LlmConnectionSectionProps {
   embeddingHostDistinct: boolean;
   embeddingApiKeyConfigured: boolean;
   embeddingModelsLoading: boolean;
+  imageModelOptions: { value: string; label: string }[];
+  imageBaseUrl: string;
+  imageHostDistinct: boolean;
+  imageApiKeyConfigured: boolean;
+  imageModelsLoading: boolean;
   draftModel: string;
   draftEmbeddingModel: string;
+  draftImageModel: string;
   sectionErrorLlm: any;
   sectionErrorModels: any;
   sectionErrorEmbedding: any;
+  sectionErrorImage: any;
   onTestConnection: () => void;
   onRefreshModels: () => void;
   onRefreshEmbeddingModels: () => void;
+  onRefreshImageModels: () => void;
   onModelChange: (value: string) => void;
   onEmbeddingModelChange: (value: string) => void;
+  onImageModelChange: (value: string) => void;
   onDismissLlmError: () => void;
   onDismissModelsError: () => void;
   onDismissEmbeddingError: () => void;
+  onDismissImageError: () => void;
 }
 
 const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
@@ -48,19 +58,29 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
   embeddingHostDistinct,
   embeddingApiKeyConfigured,
   embeddingModelsLoading,
+  imageModelOptions,
+  imageBaseUrl,
+  imageHostDistinct,
+  imageApiKeyConfigured,
+  imageModelsLoading,
   draftModel,
   draftEmbeddingModel,
+  draftImageModel,
   sectionErrorLlm,
   sectionErrorModels,
   sectionErrorEmbedding,
+  sectionErrorImage,
   onTestConnection,
   onRefreshModels,
   onRefreshEmbeddingModels,
+  onRefreshImageModels,
   onModelChange,
   onEmbeddingModelChange,
+  onImageModelChange,
   onDismissLlmError,
   onDismissModelsError,
   onDismissEmbeddingError,
+  onDismissImageError,
 }) => {
   return (
     <>
@@ -237,6 +257,73 @@ const LlmConnectionSection: React.FC<LlmConnectionSectionProps> = ({
             Used to embed daily history summaries for semantic recall (e.g.
             bge-m3). Changing to a model with a different vector dimension
             requires recreating the summaries table.
+          </Hint>
+
+          <div className="flex items-end gap-3">
+            <div className="min-w-0 flex-1">
+              <label htmlFor="imageModel">Image model</label>
+              <select
+                id="imageModel"
+                value={draftImageModel}
+                onChange={(e) => onImageModelChange(e.target.value)}
+                disabled={modelsLoading || imageModelsLoading}
+              >
+                <option value="">Off (no image generation)</option>
+                {draftImageModel &&
+                !imageModelOptions.some(
+                  (o) => o.value === draftImageModel,
+                ) ? (
+                  <option value={draftImageModel} disabled>
+                    {`${draftImageModel} (not available on this host)`}
+                  </option>
+                ) : null}
+                {imageModelOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {imageHostDistinct ? (
+              <Button
+                variant="secondary"
+                onClick={onRefreshImageModels}
+                disabled={imageModelsLoading || configBlocked}
+                title="Fetch models from the image host"
+              >
+                {imageModelsLoading ? "…" : "Refresh"}
+              </Button>
+            ) : null}
+          </div>
+
+          {imageHostDistinct ? (
+            <Hint>
+              Image host:{" "}
+              <code className="font-mono text-[0.85em]">{imageBaseUrl}</code>{" "}
+              (from{" "}
+              <code className="font-mono text-[0.85em]">
+                IMAGE_GENERATION_BASE_URL
+              </code>
+              ).{" "}
+              {imageApiKeyConfigured
+                ? "API key configured."
+                : "No image API key set."}
+            </Hint>
+          ) : null}
+
+          {sectionErrorImage != null ? (
+            <ErrorBanner
+              error={sectionErrorImage}
+              compact
+              onRetry={onRefreshImageModels}
+              onDismiss={onDismissImageError}
+            />
+          ) : null}
+
+          <Hint>
+            Used by the <code className="font-mono text-[0.85em]">image_generate</code>{" "}
+            tool to create images on request (e.g. gpt-image-1). Leave off to
+            disable image generation; picking a model turns the tool on.
           </Hint>
         </>
       ) : null}

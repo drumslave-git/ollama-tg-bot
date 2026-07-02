@@ -19,6 +19,7 @@ import {
   listEmbeddingModels,
   checkEmbeddingHealth,
 } from "../../llm/embeddings.js";
+import { listImageModels, checkImageHealth } from "../../llm/images.js";
 import { snapNumPredict, getHistoryLimits } from "../../settings/limits.js";
 import { calculateContextBudget } from "../../settings/context-budget.js";
 import { runWebSearch } from "../../features/web-search/index.js";
@@ -81,6 +82,7 @@ settingsRouter.patch("/", async (req, res) => {
     const allowed: (keyof Settings)[] = [
       "model",
       "embeddingModel",
+      "imageModel",
       "activePersonalityId",
       "numPredict",
       "numCtx",
@@ -170,6 +172,18 @@ settingsRouter.get("/embedding-models", async (_req, res) => {
   }
 });
 
+settingsRouter.get("/image-models", async (_req, res) => {
+  try {
+    const models = await listImageModels();
+    res.json({ models });
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to fetch image models";
+    const status = message.includes("not configured") ? 400 : 502;
+    res.status(status).json({ error: message });
+  }
+});
+
 settingsRouter.get("/budget", async (req, res) => {
   try {
     const settings = await getSettings();
@@ -225,6 +239,17 @@ settingsRouter.post("/test-embedding", async (_req, res) => {
     res.status(400).json({
       error:
         err instanceof Error ? err.message : "Embedding health check failed",
+    });
+  }
+});
+
+settingsRouter.post("/test-image", async (_req, res) => {
+  try {
+    await checkImageHealth();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : "Image health check failed",
     });
   }
 });

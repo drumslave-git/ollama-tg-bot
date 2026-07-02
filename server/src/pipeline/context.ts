@@ -72,7 +72,7 @@ export async function buildSystemPromptForTurn(
     knownChatUsers: [],
     ownerUserId: await getOwnerUserId(),
     ownerUsername: await getOwnerUsername(),
-    enabledToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
+    enabledToolNames: resolveEnabledMcpToolNames(settings),
   });
 }
 
@@ -111,7 +111,7 @@ export async function buildChatContextForTurn(state: PipelineTurnState) {
       currentUserIsOwner: state.currentSpeakerIsOwner === true,
       repliedTask: await resolveRepliedTask(),
       currentMessageId: state.chatMessageId ?? null,
-      enabledToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
+      enabledToolNames: resolveEnabledMcpToolNames(settings),
     },
   );
 }
@@ -122,10 +122,12 @@ export function preparePipelineDelivery(
   const replyBody = state.replyBody ?? "";
   const hasReply = hasVisibleTelegramReply(replyBody);
   const webSearchSources = (state.webSearchSources ?? []) as WebSearchSource[];
+  const generatedImages = (state.generatedImages ?? []) as string[];
   const stickerFileId = state.stickerFileId ?? null;
   const stickerEmoji = state.stickerEmoji ?? null;
 
-  if (!hasReply && !stickerFileId) {
+  // A generated image is deliverable content on its own, even with no text.
+  if (!hasReply && !stickerFileId && generatedImages.length === 0) {
     return { error: "Model response had no reply content" };
   }
 
@@ -140,5 +142,6 @@ export function preparePipelineDelivery(
     stickerFileId,
     stickerEmoji,
     webSearchSources,
+    generatedImages,
   };
 }

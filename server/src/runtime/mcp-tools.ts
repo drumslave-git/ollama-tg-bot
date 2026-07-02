@@ -1,5 +1,6 @@
 import type { FeatureLogging } from "../shared/index.js";
 import { BotMcpRegistry } from "../shared/index.js";
+import type { Settings } from "../db/index.js";
 import { config } from "../config/index.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { FEATURE_REGISTRY } from "./feature-registry.js";
@@ -8,6 +9,8 @@ interface RegisteredMcpFeature {
   workflowStepId: string;
   toolNames: string[];
   alwaysOn: boolean;
+  /** When set, the tools are enabled only if this settings key holds a truthy value. */
+  requiresSettingKey?: string;
 }
 
 let registry: BotMcpRegistry | null = null;
@@ -44,6 +47,7 @@ export async function loadMcpTools(): Promise<BotMcpRegistry> {
       workflowStepId: entry.mcpTools.workflowStepId,
       toolNames: [...entry.mcpTools.toolNames],
       alwaysOn: entry.mcpTools.alwaysOn ?? false,
+      requiresSettingKey: entry.mcpTools.requiresSettingKey,
     });
   }
 
@@ -58,10 +62,20 @@ export function getMcpRegistry(): BotMcpRegistry {
   return registry;
 }
 
-export function resolveEnabledMcpToolNames(workflowSteps: string[]): string[] {
+export function resolveEnabledMcpToolNames(settings: Settings): string[] {
+  const workflowSteps = settings.workflowSteps ?? [];
+  const settingsRecord = settings as unknown as Record<string, unknown>;
   const enabled = new Set<string>();
   for (const feature of registeredFeatures) {
     if (!feature.alwaysOn && !workflowSteps.includes(feature.workflowStepId)) {
+      continue;
+    }
+    // Capability gate: e.g. image_generate is exposed only once an image model
+    // is picked in Settings — the model selection is its on/off switch.
+    if (
+      feature.requiresSettingKey &&
+      !settingsRecord[feature.requiresSettingKey]
+    ) {
       continue;
     }
     for (const toolName of feature.toolNames) {

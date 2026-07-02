@@ -30,6 +30,8 @@ export interface Settings {
   model: string;
   /** Model used for embeddings (history summaries RAG), e.g. bge-m3. */
   embeddingModel: string;
+  /** Model used for image generation (empty = image generation off), e.g. gpt-image-1. */
+  imageModel: string;
   /** Id of the personality whose prompt is layered on the base system prompt (0 = none). */
   activePersonalityId: number;
   /** Max tokens LLM may generate per reply (lower = faster). */
@@ -82,6 +84,7 @@ export interface Stats {
 const DEFAULT_SETTINGS: Settings = {
   model: "gpt-4o-mini",
   embeddingModel: "",
+  imageModel: "",
   activePersonalityId: 0,
   numPredict: 512,
   numCtx: 4096,
@@ -185,6 +188,7 @@ export async function getSettings(): Promise<Settings> {
   return {
     model: read<string>("model"),
     embeddingModel: read<string>("embeddingModel"),
+    imageModel: read<string>("imageModel"),
     activePersonalityId: read<number>("activePersonalityId"),
     numPredict: read<number>("numPredict"),
     numCtx: read<number>("numCtx"),

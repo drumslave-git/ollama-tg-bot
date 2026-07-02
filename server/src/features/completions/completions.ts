@@ -54,15 +54,19 @@ export const completionsHost: PipelineFeatureHost = {
       },
     });
 
-    const { raw: modelOutput, thinking, webSearchSources } =
+    const { raw: modelOutput, thinking, webSearchSources, generatedImages } =
       await complete(built.messages);
     state.thinking = thinking;
     if (webSearchSources?.length) {
       state.webSearchSources = webSearchSources;
     }
+    if (generatedImages?.length) {
+      state.generatedImages = generatedImages;
+    }
 
     const replyBody = extractTelegramReply(modelOutput);
     state.replyBody = replyBody;
+    const hasImages = (state.generatedImages?.length ?? 0) > 0;
 
     // Dynamic delivery: thread the reply to the speaker's message when it
     // answers them; send a plain message when it addresses someone else (a
@@ -81,7 +85,9 @@ export const completionsHost: PipelineFeatureHost = {
       state.threadReply = true;
     }
 
-    if (!replyBody.trim()) {
+    // An image-only turn (model generated an image and returned no text) is a
+    // valid reply — the photo is delivered separately from state.generatedImages.
+    if (!replyBody.trim() && !hasImages) {
       report?.failPhase(
         "completions",
         "Main reply",

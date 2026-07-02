@@ -190,6 +190,7 @@ export function validateSettingsFields(settings: Settings): void {
 
   const checks: [string, boolean][] = [
     ["model must be a string", isString(settings.model)],
+    ["imageModel must be a string", isString(settings.imageModel)],
     ["thinkingEnabled must be true or false", isBoolean(settings.thinkingEnabled)],
     ["maintenanceModeEnabled must be true or false", isBoolean(settings.maintenanceModeEnabled)],
     [

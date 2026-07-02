@@ -18,6 +18,7 @@ import {
   deliverEarlyReply,
   deliverPipelineError,
   deliverReplyText,
+  deliverReplyImages,
   deliverReplySticker,
   finalizeReplyDelivery,
 } from "./deliver.js";
@@ -166,6 +167,23 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
     // show their own chat action only while they do visible work.
     endTyping?.();
     endTyping = undefined;
+
+    // Send any images the model generated during the reply, right after the text.
+    const generatedImages = (state.generatedImages ?? []) as string[];
+    if (generatedImages.length > 0) {
+      try {
+        await deliverReplyImages(ctx, {
+          turnId,
+          chatId: deliveryChatId,
+          images: generatedImages,
+          chunkCount: delivered.chunkCount,
+          messageThreadId: state.messageThreadId,
+          threadAsReply: state.threadReply === true,
+        });
+      } catch (err) {
+        services.logging.logEventError("image_send_failed", err, { turnId });
+      }
+    }
 
     // Off the critical path: sticker pick, history record, and the mood update
     // for the next turn. Failures here must not disturb the reply already sent.

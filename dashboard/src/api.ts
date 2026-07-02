@@ -9,8 +9,12 @@ export interface Settings {
   embeddingBaseUrl: string;
   embeddingApiKeyConfigured: boolean;
   embeddingHostDistinct: boolean;
+  imageBaseUrl: string;
+  imageApiKeyConfigured: boolean;
+  imageHostDistinct: boolean;
   model: string;
   embeddingModel: string;
+  imageModel: string;
   activePersonalityId: number;
   baseSystemPrompt?: string;
   numPredict: number;
@@ -592,6 +596,10 @@ export const api = {
     request<{ models: LlmModel[] }>("/api/settings/embedding-models").then(
       (r) => r.models,
     ),
+  getImageModels: () =>
+    request<{ models: LlmModel[] }>("/api/settings/image-models").then(
+      (r) => r.models,
+    ),
   getBudget: (model: string, numPredict: number, numCtx: number) =>
     request<{
       contextBudget: ContextBudget;
@@ -652,6 +660,12 @@ export const api = {
   },
   embeddingHealth: async () => {
     await request<{ ok: boolean }>("/api/settings/test-embedding", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+  imageHealth: async () => {
+    await request<{ ok: boolean }>("/api/settings/test-image", {
       method: "POST",
       body: JSON.stringify({}),
     });

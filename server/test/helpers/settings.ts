@@ -11,6 +11,7 @@ export function makeSettings(overrides: Partial<Settings> = {}): Settings {
   return {
     model: "gpt-4o-mini",
     embeddingModel: "",
+    imageModel: "",
     activePersonalityId: 0,
     numPredict: 512,
     numCtx: 4096,

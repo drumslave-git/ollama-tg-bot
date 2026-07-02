@@ -6,6 +6,8 @@ import { visionDbFeature } from "../features/vision/db/index.js";
 import { memoryDbFeature } from "../features/memory/db/index.js";
 import { registerMcpTools as registerLinkFetchTools } from "../features/link-fetch/register-mcp-tools.js";
 import { registerMcpTools as registerWebSearchTools } from "../features/web-search/register-mcp-tools.js";
+import { registerMcpTools as registerImageGenTools } from "../features/image-gen/register-mcp-tools.js";
+import { IMAGE_GEN_TOOL_NAMES } from "../features/image-gen/mcp-tools.js";
 import { registerMcpTools as registerHistoryTools } from "../features/history/register-mcp-tools.js";
 import { HISTORY_TOOL_NAMES } from "../features/history/mcp-tools.js";
 import { registerMcpTools as registerMemoryTools } from "../features/memory/register-mcp-tools.js";
@@ -38,6 +40,8 @@ export interface FeatureEntry {
     registrar: McpToolRegistrar;
     /** Always exposed to the model, regardless of enabled workflow steps. */
     alwaysOn?: boolean;
+    /** When set, tools are exposed only while this settings key holds a truthy value. */
+    requiresSettingKey?: string;
   };
 }
 
@@ -162,6 +166,23 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
       workflowStepId: "search",
       toolNames: ["search_web"],
       registrar: registerWebSearchTools,
+    },
+  },
+  {
+    id: "image-gen",
+    name: "Image generation",
+    description:
+      "Generate an image on explicit request via the image_generate MCP tool and deliver it to the chat.",
+    settingsKeys: ["imageModel"],
+    mcpTools: {
+      // Not gated by a workflow step (there is no UI to toggle those); the
+      // picked image model in Settings is the on/off switch — the tool is
+      // exposed only when imageModel is set.
+      workflowStepId: "images",
+      toolNames: IMAGE_GEN_TOOL_NAMES,
+      registrar: registerImageGenTools,
+      alwaysOn: true,
+      requiresSettingKey: "imageModel",
     },
   },
 ];

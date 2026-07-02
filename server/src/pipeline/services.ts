@@ -7,6 +7,10 @@ import type {
 } from "../contracts/index.js";
 import { readSearchWebSources } from "../features/web-search/index.js";
 import type { WebSearchSource } from "../features/web-search/index.js";
+import {
+  IMAGE_GENERATE_TOOL_NAME,
+  readGeneratedImages,
+} from "../features/image-gen/index.js";
 import { chatComplete, chatCompleteDetailed } from "../llm/client.js";
 import { chatCompleteWithTools } from "../llm/tool-loop.js";
 import { config } from "../config/index.js";
@@ -27,6 +31,9 @@ function mcpToolTrace(name: string): { phaseId: string; phaseTitle: string } {
   }
   if (name === FETCH_LINK_TOOL_NAME) {
     return { phaseId: "links", phaseTitle: "Link fetch" };
+  }
+  if (name === IMAGE_GENERATE_TOOL_NAME) {
+    return { phaseId: "images", phaseTitle: "Image generation" };
   }
   return { phaseId: "mcp", phaseTitle: "MCP tool" };
 }
@@ -62,11 +69,11 @@ async function createLlmServices(): Promise<PipelineLlmServices> {
       }),
     createMainChatComplete: (options) => async (messages) => {
       const currentSettings = getResolvedSettings(await getSettings());
-      const workflowSteps = currentSettings.workflowSteps ?? [];
       const registry = getMcpRegistry();
-      registry.setEnabledToolNames(resolveEnabledMcpToolNames(workflowSteps));
+      registry.setEnabledToolNames(resolveEnabledMcpToolNames(currentSettings));
       const tools = await registry.listOpenAiTools();
       const webSearchSources: WebSearchSource[] = [];
+      const generatedImages: string[] = [];
 
       if (tools.length === 0) {
         const result = await chatCompleteDetailed(messages as ChatMessage[], {
@@ -93,6 +100,11 @@ async function createLlmServices(): Promise<PipelineLlmServices> {
               ...readSearchWebSources(toolResult.structuredContent),
             );
           }
+          if (name === IMAGE_GENERATE_TOOL_NAME) {
+            generatedImages.push(
+              ...readGeneratedImages(toolResult.structuredContent),
+            );
+          }
           if (options.traceTurnId == null) return;
           const trace = mcpToolTrace(name);
           getMessageReport(options.traceTurnId)?.okPhase(
@@ -106,6 +118,7 @@ async function createLlmServices(): Promise<PipelineLlmServices> {
         raw: result.raw,
         thinking: result.thinking,
         webSearchSources,
+        generatedImages,
       };
     },
   };

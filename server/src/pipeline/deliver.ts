@@ -1,4 +1,4 @@
-import type { Context } from "grammy";
+import { InputFile, type Context } from "grammy";
 import type { PipelineDeliveryResult } from "../contracts/index.js";
 import type { WebSearchSource } from "../features/web-search/index.js";
 import { recordReply } from "../db/index.js";
@@ -92,6 +92,55 @@ export async function deliverReplySticker(
     "Sticker",
     options.stickerEmoji ? `Sent ${options.stickerEmoji}` : "Sent",
   );
+}
+
+/** Send generated images as photos, following the already-delivered text reply. */
+export async function deliverReplyImages(
+  ctx: Context,
+  options: {
+    turnId: number;
+    chatId: number;
+    images: string[];
+    chunkCount: number;
+    messageThreadId?: number;
+    /** Thread the image to the triggering message (answering the speaker). */
+    threadAsReply?: boolean;
+  },
+): Promise<number> {
+  let sent = 0;
+  for (const [index, b64] of options.images.entries()) {
+    const buffer = Buffer.from(b64, "base64");
+    const photoExtra: Parameters<Context["api"]["sendPhoto"]>[2] = {};
+    if (options.messageThreadId) {
+      photoExtra.message_thread_id = options.messageThreadId;
+    }
+    // Only an image-only reply (no text preceded it) threads its first photo to
+    // the trigger, and only when the turn answers the speaker.
+    if (
+      options.threadAsReply &&
+      options.chunkCount === 0 &&
+      index === 0
+    ) {
+      const replyExtra = buildReplyExtra(ctx, { threadAsReply: true });
+      if (replyExtra?.reply_parameters) {
+        photoExtra.reply_parameters = replyExtra.reply_parameters;
+      }
+    }
+    await ctx.api.sendPhoto(
+      options.chatId,
+      new InputFile(buffer, `image-${index + 1}.png`),
+      Object.keys(photoExtra).length > 0 ? photoExtra : undefined,
+    );
+    sent += 1;
+  }
+  if (sent > 0) {
+    getMessageReport(options.turnId)?.okPhase(
+      "image-sent",
+      "Image",
+      `Sent ${sent} image${sent === 1 ? "" : "s"}`,
+    );
+  }
+  return sent;
 }
 
 /** Record the reply, log it, and finalize the debug report once delivery is done. */

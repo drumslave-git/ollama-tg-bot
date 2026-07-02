@@ -34,6 +34,7 @@ export type SectionKey =
   | "llm"
   | "models"
   | "embedding"
+  | "image"
   | "save";
 
 interface DashboardContextValue {
@@ -43,6 +44,7 @@ interface DashboardContextValue {
   stats: Stats | null;
   models: LlmModel[];
   embeddingModels: LlmModel[];
+  imageModels: LlmModel[];
   llmOk: boolean | null;
   tavilyConfigured: boolean | null;
   apiOnline: boolean | null;
@@ -50,6 +52,7 @@ interface DashboardContextValue {
   saving: boolean;
   modelsLoading: boolean;
   embeddingModelsLoading: boolean;
+  imageModelsLoading: boolean;
   testingLlm: boolean;
   llmConnectionVerified: boolean;
   sectionErrors: Partial<Record<SectionKey, unknown>>;
@@ -58,10 +61,12 @@ interface DashboardContextValue {
   load: () => Promise<void>;
   fetchModels: () => Promise<void>;
   fetchEmbeddingModels: () => Promise<void>;
+  fetchImageModels: () => Promise<void>;
   testLlmConnection: () => Promise<void>;
   save: () => Promise<void>;
   modelOptions: ReturnType<typeof buildModelOptions>;
   embeddingModelOptions: ReturnType<typeof buildModelOptions>;
+  imageModelOptions: ReturnType<typeof buildModelOptions>;
   showModelSelection: boolean;
   configBlocked: boolean;
   apiUnreachable: boolean;
@@ -79,6 +84,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [models, setModels] = useState<LlmModel[]>([]);
   const [embeddingModels, setEmbeddingModels] = useState<LlmModel[]>([]);
+  const [imageModels, setImageModels] = useState<LlmModel[]>([]);
   const [llmOk, setLlmOk] = useState<boolean | null>(null);
   const [tavilyConfigured, setTavilyConfigured] = useState<boolean | null>(
     null,
@@ -88,6 +94,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [saving, setSaving] = useState(false);
   const [modelsLoading, setModelsLoading] = useState(false);
   const [embeddingModelsLoading, setEmbeddingModelsLoading] = useState(false);
+  const [imageModelsLoading, setImageModelsLoading] = useState(false);
   const [testingLlm, settestingLlm] = useState(false);
   const [llmConnectionVerified, setLlmConnectionVerified] = useState(false);
   const [sectionErrors, setSectionErrors] = useState<
@@ -150,6 +157,17 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  /** Load the image host's model list; returns an error to surface, or null on success. */
+  const loadImageModels = useCallback(async (): Promise<unknown | null> => {
+    try {
+      setImageModels(await api.getImageModels());
+      return null;
+    } catch (err) {
+      setImageModels([]);
+      return err;
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
 
@@ -199,6 +217,11 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         ? settingsRes.value.embeddingHostDistinct
         : false;
 
+    const imageHostDistinct =
+      settingsRes.status === "fulfilled"
+        ? settingsRes.value.imageHostDistinct
+        : false;
+
     if (llmBaseUrl && llmReachable) {
       try {
         const list = await api.getModels();
@@ -210,16 +233,24 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
         } else {
           setEmbeddingModels([]);
         }
+        if (imageHostDistinct) {
+          const imgErr = await loadImageModels();
+          if (imgErr) nextErrors.image = imgErr;
+        } else {
+          setImageModels([]);
+        }
       } catch (err) {
         setLlmConnectionVerified(false);
         setModels([]);
         setEmbeddingModels([]);
+        setImageModels([]);
         nextErrors.models = err;
       }
     } else {
       setLlmConnectionVerified(false);
       setModels([]);
       setEmbeddingModels([]);
+      setImageModels([]);
     }
 
     try {
@@ -231,7 +262,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
     setSectionErrors(nextErrors);
     setLoading(false);
-  }, [applyModels, loadEmbeddingModels]);
+  }, [applyModels, loadEmbeddingModels, loadImageModels]);
 
   useEffect(() => {
     void load();
@@ -344,6 +375,25 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchImageModels = async () => {
+    setImageModelsLoading(true);
+    setSectionError("image", null);
+    try {
+      setImageModels(await api.getImageModels());
+      setSectionErrors((prev) => {
+        const next = { ...prev };
+        delete next.image;
+        return next;
+      });
+    } catch (err) {
+      setImageModels([]);
+      setSectionError("image", err);
+      throw err;
+    } finally {
+      setImageModelsLoading(false);
+    }
+  };
+
   const testLlmConnection = async () => {
     if (!draft) return;
     setSectionError("llm", null);
@@ -362,6 +412,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setLlmConnectionVerified(false);
     setModels([]);
     setEmbeddingModels([]);
+    setImageModels([]);
 
     try {
       await api.llmHealth();
@@ -374,6 +425,14 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
           await fetchEmbeddingModels();
         } catch (err) {
           setSectionError("embedding", err);
+        }
+      }
+      if (draft.imageHostDistinct) {
+        try {
+          await api.imageHealth();
+          await fetchImageModels();
+        } catch (err) {
+          setSectionError("image", err);
         }
       }
       setSectionErrors((prev) => {
@@ -450,6 +509,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     [settings?.embeddingHostDistinct, embeddingModels, modelOptions],
   );
 
+  // Same host-sharing rule as embeddings: reuse the LLM model list unless the
+  // image host is distinct, in which case use the image host's own models.
+  const imageModelOptions = useMemo(
+    () =>
+      settings?.imageHostDistinct
+        ? buildModelOptions(imageModels)
+        : modelOptions,
+    [settings?.imageHostDistinct, imageModels, modelOptions],
+  );
+
   const showModelSelection = llmConnectionVerified;
 
   const apiUnreachable = apiOnline === false;
@@ -465,6 +534,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     stats,
     models,
     embeddingModels,
+    imageModels,
     llmOk,
     tavilyConfigured,
     apiOnline,
@@ -472,6 +542,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     saving,
     modelsLoading,
     embeddingModelsLoading,
+    imageModelsLoading,
     testingLlm,
     llmConnectionVerified,
     sectionErrors,
@@ -480,10 +551,12 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     load,
     fetchModels,
     fetchEmbeddingModels,
+    fetchImageModels,
     testLlmConnection,
     save,
     modelOptions,
     embeddingModelOptions,
+    imageModelOptions,
     showModelSelection,
     configBlocked,
     apiUnreachable,

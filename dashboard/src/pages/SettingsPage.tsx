@@ -39,6 +39,8 @@ export function SettingsPage() {
     modelOptions,
     embeddingModelOptions,
     embeddingModelsLoading,
+    imageModelOptions,
+    imageModelsLoading,
     llmConnectionVerified,
     testingLlm,
     modelsLoading,
@@ -46,6 +48,7 @@ export function SettingsPage() {
     testLlmConnection,
     fetchModels,
     fetchEmbeddingModels,
+    fetchImageModels,
     save,
     load,
   } = useDashboard();
@@ -106,21 +109,33 @@ export function SettingsPage() {
             embeddingHostDistinct={draft.embeddingHostDistinct}
             embeddingApiKeyConfigured={draft.embeddingApiKeyConfigured}
             embeddingModelsLoading={embeddingModelsLoading}
+            imageModelOptions={imageModelOptions}
+            imageBaseUrl={draft.imageBaseUrl}
+            imageHostDistinct={draft.imageHostDistinct}
+            imageApiKeyConfigured={draft.imageApiKeyConfigured}
+            imageModelsLoading={imageModelsLoading}
             draftModel={draft.model}
             draftEmbeddingModel={draft.embeddingModel}
+            draftImageModel={draft.imageModel}
             sectionErrorLlm={sectionErrors.llm}
             sectionErrorModels={sectionErrors.models}
             sectionErrorEmbedding={sectionErrors.embedding}
+            sectionErrorImage={sectionErrors.image}
             onTestConnection={() => void testLlmConnection()}
             onRefreshModels={() => void fetchModels()}
             onRefreshEmbeddingModels={() => void fetchEmbeddingModels()}
+            onRefreshImageModels={() => void fetchImageModels()}
             onModelChange={(model) => setDraft({ ...draft, model })}
             onEmbeddingModelChange={(embeddingModel) =>
               setDraft({ ...draft, embeddingModel })
             }
+            onImageModelChange={(imageModel) =>
+              setDraft({ ...draft, imageModel })
+            }
             onDismissLlmError={() => setSectionError("llm", null)}
             onDismissModelsError={() => setSectionError("models", null)}
             onDismissEmbeddingError={() => setSectionError("embedding", null)}
+            onDismissImageError={() => setSectionError("image", null)}
           />
 
           <OwnerSection
