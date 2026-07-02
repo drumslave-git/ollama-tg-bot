@@ -273,7 +273,7 @@ export interface ChatCompleteOptions {
   numPredict?: number;
   /** Use low temperature for structured side passes (mood, memory, search, etc.). */
   auxiliary?: boolean;
-  /** Reserved for main reply calls. */
+  /** `false` forces thinking off for this call regardless of settings (e.g. the address gate). */
   think?: boolean;
   /** Record LLM I/O on the active debug trace for this turn. */
   traceTurnId?: number;
@@ -535,9 +535,16 @@ export async function chatCompleteDetailed(
   const auxiliary = options?.auxiliary ?? false;
 
   try {
+    // A think:false call needs no reasoning-token headroom, so derive the
+    // budget from thinking-off settings (drops the auxiliary floor to the
+    // non-reasoning value).
+    const budgetSettings =
+      options?.think === false
+        ? { ...settings, thinkingEnabled: false }
+        : settings;
     const numPredict = auxiliary
-      ? getAuxiliaryNumPredict(settings, options?.numPredict)
-      : getEffectiveNumPredict(settings, {
+      ? getAuxiliaryNumPredict(budgetSettings, options?.numPredict)
+      : getEffectiveNumPredict(budgetSettings, {
           baseNumPredict: options?.numPredict,
         });
 

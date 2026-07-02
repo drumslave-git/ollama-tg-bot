@@ -87,6 +87,10 @@ export const addressingHost: PipelineFeatureHost = {
           responseFormat,
           traceTurnId: state.turnId,
           traceLabel: "address detection",
+          // Thinking off regardless of the global setting: this gate is a
+          // boolean decision that runs on every unaddressed group message, so
+          // reasoning tokens here just delay every reply in the chat.
+          think: false,
         }),
       },
     );
