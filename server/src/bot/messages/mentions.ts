@@ -36,19 +36,57 @@ export async function resolveMentionedKnownUsers(
   return collectMentionedKnownUsers(trimmed, message, context);
 }
 
+function escapeRegExpPart(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
- * Whether the bot's OWN reply text is addressed to a known participant other
- * than the current speaker — i.e. it @mentions or names someone else. `senderId`
- * in `context` is the current speaker, who is excluded. Drives delivery: a reply
- * aimed at a third party is sent as a plain message; a reply to the speaker is
- * threaded to their message.
+ * Whether the reply OPENS by addressing this participant — a leading @mention
+ * (`@rok13 …`) or a vocative name immediately followed by address punctuation
+ * (`Rok, …` / `Rok: …`). A name that merely appears later ("…nicer than @rok13",
+ * "Rok said that") is a reference, not an address, so it does not count.
+ */
+export function replyOpensByAddressing(
+  reply: string,
+  user: KnownUserRecord,
+): boolean {
+  const head = reply.trimStart();
+  if (user.username) {
+    const at = new RegExp(`^@${escapeRegExpPart(user.username)}\\b`, "i");
+    if (at.test(head)) return true;
+  }
+  const first = user.firstName?.trim();
+  if (first && first.length >= 2) {
+    const vocative = new RegExp(`^${escapeRegExpPart(first)}\\s*[,:!]`, "i");
+    if (vocative.test(head)) return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the bot's OWN reply is DIRECTED AT a known participant other than the
+ * current speaker — i.e. it opens by addressing them (leading @mention or
+ * vocative name). Merely referencing someone mid-sentence still answers the
+ * speaker and does NOT count. `senderId` in `context` is the current speaker,
+ * who is excluded. Drives delivery: a reply directed at a third party is sent as
+ * a plain message; a reply to the speaker is threaded to their message.
  */
 export async function replyAddressesOtherParticipant(
   replyText: string,
   context: MentionContext = {},
 ): Promise<boolean> {
-  const mentions = await resolveMentionedKnownUsers(replyText, undefined, context);
-  return mentions.some((m) => m.isKnown);
+  const trimmed = replyText.trim();
+  if (!trimmed) return false;
+  const { senderId, botId, botUsername } = context;
+  const excludeUserIds = [
+    senderId != null ? String(senderId) : null,
+    botId != null ? String(botId) : null,
+  ].filter((id): id is string => Boolean(id));
+  const candidates = await findKnownUsersMentionedInText(trimmed, {
+    excludeUserIds,
+    botUsername,
+  });
+  return candidates.some((user) => replyOpensByAddressing(trimmed, user));
 }
 
 /** Passive history / transcript: append a compact mention footer. */
