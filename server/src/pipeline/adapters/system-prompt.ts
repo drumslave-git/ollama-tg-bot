@@ -246,7 +246,7 @@ export function buildToolRoundSystemPrompt(
  * A known chat participant plus their consolidated memory facts. The facts
  * carry the names people actually use for each other (a first name or nickname
  * that is not the Telegram display name), so listing them in the directory lets
- * the model resolve "Кирило"/"he"/a bare first name to the right participant
+ * the model resolve a nickname/"he"/a bare first name to the right participant
  * instead of treating a regular chat member as an unknown third party.
  */
 export interface KnownChatUser extends KnownUserRecord {

@@ -202,7 +202,7 @@ async function loadKnownChatUsers(
   );
   const known = await getKnownUsersByIds(participantIds);
   // Attach each participant's consolidated memory facts so the directory can
-  // carry the names/nicknames they go by (e.g. "R.K." is addressed as Кирило).
+  // carry the names/nicknames they go by (e.g. a display name vs. a nickname).
   // Participant counts in a chat are small, so the per-user lookups are cheap.
   return Promise.all(
     known.map(async (record) => ({

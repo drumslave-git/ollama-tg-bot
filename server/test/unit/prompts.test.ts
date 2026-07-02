@@ -143,19 +143,19 @@ describe("buildSystemPrompt", () => {
       entityId: "chat-1",
       knownChatUsers: [
         {
-          userId: "381512221",
-          username: "rok13",
-          firstName: "R.K.",
+          userId: "1000001",
+          username: "alice",
+          firstName: "Alice",
           lastName: null,
-          facts: ["Goes by Кирило", "Works in delivery/sales"],
+          facts: ["Goes by Ace", "Works in delivery/sales"],
         },
       ],
     });
     expect(prompt).toContain("## Known Telegram users in this chat");
-    expect(prompt).toContain("R.K. (@rok13)");
+    expect(prompt).toContain("Alice (@alice)");
     // The learned alias must sit under the directory entry, indented as a fact —
-    // this is what lets the model map "Кирило" to this participant.
-    expect(prompt).toContain("  - Goes by Кирило");
+    // this is what lets the model map "Ace" to this participant.
+    expect(prompt).toContain("  - Goes by Ace");
     expect(prompt).toContain("  - Works in delivery/sales");
   });
 

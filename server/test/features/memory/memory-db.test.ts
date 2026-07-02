@@ -169,8 +169,8 @@ describe.skipIf(!hasTestDb)("memory db (Postgres + pgvector)", () => {
       embedding: basisVector(0),
     });
     // A just-saved note that has not been consolidated yet must still surface.
-    await addMemoryEntry("user", "1", "Goes by Кирило.");
-    expect(await getUserFacts("1")).toEqual(["Likes tea.", "Goes by Кирило."]);
+    await addMemoryEntry("user", "1", "Goes by Ace.");
+    expect(await getUserFacts("1")).toEqual(["Likes tea.", "Goes by Ace."]);
   });
 
   it("getUserFacts de-duplicates a note already present in the record", async () => {
