@@ -4,8 +4,7 @@ import {
   buildBaseSystemPrompt,
   buildExplainSystemPrompt,
   buildSystemPrompt,
-  buildToolRoundSystemPrompt,
-  extractSessionBlock,
+  buildTurnContextBlocks,
 } from "../../src/pipeline/adapters/system-prompt.js";
 import { FETCH_LINK_TOOL_NAME } from "../../src/features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../src/features/web-search/index.js";
@@ -32,115 +31,46 @@ describe("buildSystemPrompt", () => {
     expect(prompt).toContain("You are a pirate.");
   });
 
-  it("gives current time as a local wall clock for task scheduling, plus UTC ISO for history ranges", () => {
-    // The block must carry a NAMED local wall clock the model computes relative
-    // times from, not only a raw UTC ISO value (which previously made it
-    // miscompute "in 5 min"). Compute the expected local clock the same way the
-    // prompt does so the test holds under any machine TZ.
-    const now = new Date("2026-06-30T15:24:00.000Z");
-    const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: config.timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }).formatToParts(now);
-    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
-    const localClock = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
-
+  it("is cache-stable: no session block, timestamps, or mood in the system prompt", () => {
+    // Volatile per-turn values live in buildTurnContextBlocks (user message) so
+    // the system prompt stays byte-identical between turns for prompt caching.
     const prompt = buildSystemPrompt({
       settings: makeSettings(),
-      customPrompt: "",
-      entityId: "chat-1",
-      now,
+      customPrompt: "You are a pirate.",
+      ownerUsername: "georg",
+      ownerUserId: "42",
     });
-    // Local wall clock line is the `current time:` terminator, names the zone,
-    // and steers relative-time math to it.
-    expect(prompt).toContain(`current time: ${localClock}`);
-    expect(prompt).toContain(`${config.timezone}`);
-    expect(prompt).toMatch(/tasks_\*[^\n]*timezone/i);
-    // UTC ISO is still present for history tool ranges.
-    expect(prompt).toContain("utc now: 2026-06-30T15:24:00.000Z");
+    // The core text may MENTION the [SESSION] block (it tells the model where
+    // to find it), but the block's volatile lines must not be present.
+    expect(prompt).not.toContain("utc now:");
+    expect(prompt).not.toContain("current time:");
+    expect(prompt).not.toContain("current speaker id:");
+    expect(prompt).not.toContain("Current mood");
 
-    // The tool-loop reuse path must capture BOTH lines (the regex terminates on
-    // `current time:`, so the UTC line has to sit above it).
-    const block = extractSessionBlock(prompt);
-    expect(block).toContain("utc now: 2026-06-30T15:24:00.000Z");
-    expect(block).toContain(`current time: ${localClock}`);
+    const again = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "You are a pirate.",
+      ownerUsername: "georg",
+      ownerUserId: "42",
+    });
+    expect(again).toBe(prompt);
   });
 
-  it("does not expose a group memory id in the session block", () => {
-    // Group memory was removed — only user and general scopes remain, so the
-    // session block no longer carries a group id for the memory tools.
-    const group = buildSystemPrompt({
-      settings: makeSettings(),
-      customPrompt: "",
-      isGroupChat: true,
-      entityId: "chat-1",
-      groupChatId: "555",
-    });
-    expect(group).not.toContain("group id:");
-    expect(group).not.toContain("This group's culture and how to behave here");
-
-    const dm = buildSystemPrompt({
-      settings: makeSettings(),
-      customPrompt: "",
-      isGroupChat: false,
-      entityId: "dm-1",
-    });
-    expect(dm).not.toContain("group id:");
-  });
-
-  it("surfaces the current speaker's id, tag, and label in DMs (not just the id)", () => {
-    const dm = buildSystemPrompt({
-      settings: makeSettings(),
-      customPrompt: "",
-      isGroupChat: false,
-      entityId: "dm-1",
-      currentUserId: "312973896",
-      currentUserTag: "user:alice:312973896",
-      currentUserLabel: "Alice (@alice)",
-    });
-    expect(dm).toContain("current speaker id: 312973896");
-    expect(dm).toContain("[user:alice:312973896]");
-    expect(dm).toContain("Alice (@alice)");
-  });
-
-  it("notes owner status and a replied-to task in the session block", () => {
-    const prompt = buildSystemPrompt({
-      settings: makeSettings(),
-      customPrompt: "",
-      entityId: "dm-1",
-      currentUserId: "42",
-      currentUserIsOwner: true,
-      repliedTask: { id: 7, instruction: "ask how they are doing" },
-    });
-    expect(prompt).toContain("OWNER");
-    expect(prompt).toContain("tasks_update");
-    expect(prompt).toContain("#7");
-  });
-
-  it("includes the owner section and mood when provided", () => {
+  it("includes the owner section when provided", () => {
     const prompt = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
       ownerUsername: "georg",
       ownerUserId: "42",
-      mood: { happiness: 5, energy: 5, sociability: 5, sarcasm: 5 } as never,
     });
     expect(prompt).toContain("Bot owner");
     expect(prompt).toContain("@georg");
-    expect(prompt).toContain("Current mood");
   });
 
   it("lists known chat participants with their stored facts so names/nicknames resolve", () => {
     const prompt = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
-      isGroupChat: true,
-      entityId: "chat-1",
       knownChatUsers: [
         {
           userId: "1000001",
@@ -166,34 +96,113 @@ describe("buildSystemPrompt", () => {
     expect(prompt.trimEnd().endsWith("you do not have to use tags at all.")).toBe(true);
   });
 
-  it("does not carry MCP tool descriptions — those live only in the tool-round pass", () => {
-    const prompt = buildSystemPrompt({ settings: makeSettings(), customPrompt: "" });
-    expect(prompt).not.toContain("## MCP tools");
-    expect(prompt).not.toContain(FETCH_LINK_TOOL_NAME);
-  });
-});
+  it("adds the Tools section only when tools are enabled", () => {
+    const withoutTools = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+    });
+    expect(withoutTools).not.toContain("## Tools");
+    expect(withoutTools).not.toContain(FETCH_LINK_TOOL_NAME);
 
-describe("buildToolRoundSystemPrompt", () => {
-  it("is a standalone tool-selection prompt without personality or reply format", () => {
-    const prompt = buildToolRoundSystemPrompt([
-      FETCH_LINK_TOOL_NAME,
-      SEARCH_WEB_TOOL_NAME,
-    ]);
-    expect(prompt).toContain("MCP tool-selection pass");
-    expect(prompt).toContain(FETCH_LINK_TOOL_NAME);
-    expect(prompt).toContain(SEARCH_WEB_TOOL_NAME);
-    expect(prompt).toContain("tool_calls");
-    expect(prompt).not.toContain("Respond with JSON only");
-    expect(prompt).not.toContain(BASE_SYSTEM_PROMPT_CORE);
+    const withTools = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      enabledToolNames: [FETCH_LINK_TOOL_NAME, SEARCH_WEB_TOOL_NAME],
+    });
+    expect(withTools).toContain("## Tools");
+    expect(withTools).toContain(FETCH_LINK_TOOL_NAME);
+    expect(withTools).toContain(SEARCH_WEB_TOOL_NAME);
   });
 
   it("nudges memory_save (explicit requests + proactive) only when that tool is enabled", () => {
-    const withMemory = buildToolRoundSystemPrompt(["memory_save"]);
+    const withMemory = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      enabledToolNames: ["memory_save"],
+    });
     expect(withMemory).toMatch(/explicitly asks you to remember/i);
     expect(withMemory).toMatch(/introduc|name/i);
 
-    const withoutMemory = buildToolRoundSystemPrompt([FETCH_LINK_TOOL_NAME]);
+    const withoutMemory = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      enabledToolNames: [FETCH_LINK_TOOL_NAME],
+    });
     expect(withoutMemory).not.toMatch(/explicitly asks you to remember/i);
+  });
+});
+
+describe("buildTurnContextBlocks", () => {
+  it("gives current time as a local wall clock for task scheduling, plus UTC ISO for history ranges", () => {
+    // The block must carry a NAMED local wall clock the model computes relative
+    // times from, not only a raw UTC ISO value (which previously made it
+    // miscompute "in 5 min"). Compute the expected local clock the same way the
+    // prompt does so the test holds under any machine TZ.
+    const now = new Date("2026-06-30T15:24:00.000Z");
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: config.timezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(now);
+    const p = Object.fromEntries(parts.map((x) => [x.type, x.value]));
+    const localClock = `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+
+    const block = buildTurnContextBlocks({
+      session: { entityId: "chat-1", now },
+    });
+    expect(block).toContain("[SESSION]");
+    // Local wall clock line is the `current time:` terminator, names the zone,
+    // and steers relative-time math to it.
+    expect(block).toContain(`current time: ${localClock}`);
+    expect(block).toContain(`${config.timezone}`);
+    expect(block).toMatch(/tasks_\*[^\n]*timezone/i);
+    // UTC ISO is still present for history tool ranges.
+    expect(block).toContain("utc now: 2026-06-30T15:24:00.000Z");
+  });
+
+  it("surfaces the current speaker's id, tag, and label", () => {
+    const block = buildTurnContextBlocks({
+      session: {
+        entityId: "dm-1",
+        now: new Date(),
+        currentUserId: "312973896",
+        currentUserTag: "user:alice:312973896",
+        currentUserLabel: "Alice (@alice)",
+      },
+    });
+    expect(block).toContain("current speaker id: 312973896");
+    expect(block).toContain("[user:alice:312973896]");
+    expect(block).toContain("Alice (@alice)");
+  });
+
+  it("notes owner status and a replied-to task in the session block", () => {
+    const block = buildTurnContextBlocks({
+      session: {
+        entityId: "dm-1",
+        now: new Date(),
+        currentUserId: "42",
+        currentUserIsOwner: true,
+        repliedTask: { id: 7, instruction: "ask how they are doing" },
+      },
+    });
+    expect(block).toContain("OWNER");
+    expect(block).toContain("tasks_update");
+    expect(block).toContain("#7");
+  });
+
+  it("carries the mood block when a mood is set", () => {
+    const block = buildTurnContextBlocks({
+      mood: { happiness: 5, energy: 5, sociability: 5, sarcasm: 5 } as never,
+    });
+    expect(block).toContain("[CURRENT MOOD");
+  });
+
+  it("is empty when there is no session and no mood", () => {
+    expect(buildTurnContextBlocks({})).toBe("");
   });
 });
 

@@ -200,6 +200,15 @@ export interface BotErrorRecord {
   createdAt: string;
 }
 
+export interface PhaseTimingStat {
+  phaseId: string;
+  count: number;
+  p50Ms: number;
+  p95Ms: number;
+  avgMs: number;
+  maxMs: number;
+}
+
 export interface Stats {
   messagesReceived: number;
   messagesReplied: number;
@@ -660,6 +669,10 @@ export const api = {
     request<MoodPayload>("/api/mood/state/reset", {
       method: "POST",
     }),
+  getPhaseTimings: (days = 7) =>
+    request<{ days: number; phases: PhaseTimingStat[] }>(
+      `/api/debug/phase-timings?days=${days}`,
+    ),
   getDebugChats: () =>
     request<{ chats: DebugChatSummary[] }>("/api/debug/chats"),
   getDebugProcessings: (entityId: string) =>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import { useDashboard } from "../context/DashboardContext";
 import { ErrorBanner } from "../components/ErrorBanner";
+import { LatencyCard } from "../components/LatencyCard";
 import { Button } from "../components/ui/Button";
 import { Card, Hint, Page, PageHeader } from "../components/ui/Layout";
 import { cn } from "../lib/cn";
@@ -195,6 +196,8 @@ export function OverviewPage() {
           </ul>
         </div>
       </Card>
+
+      <LatencyCard />
     </Page>
   );
 }

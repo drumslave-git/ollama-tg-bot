@@ -14,7 +14,6 @@ import { logEvent, logEventError } from "../logging/event-log.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { getSettings } from "../db/index.js";
 import { getResolvedSettings } from "../settings/runtime.js";
-import { getToolRoundNumPredict } from "../settings/limits.js";
 import {
   getMcpRegistry,
   resolveEnabledMcpToolNames,
@@ -87,7 +86,6 @@ async function createLlmServices(): Promise<PipelineLlmServices> {
         traceLabel: options.traceLabel,
         traceLayout: options.traceLayout as never,
         tools,
-        toolRoundNumPredict: getToolRoundNumPredict(currentSettings),
         callTool: (name, args) => registry.callTool(name, args),
         onToolCall: ({ name, result: toolResult }) => {
           if (name === SEARCH_WEB_TOOL_NAME) {

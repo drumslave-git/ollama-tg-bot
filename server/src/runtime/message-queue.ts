@@ -4,6 +4,7 @@ import type {
   PipelineTurnState,
 } from "../contracts/index.js";
 import { parseHistoryPointer } from "../features/history/index.js";
+import { recordPhaseTiming } from "../db/debug/phase-timings.js";
 import { getMessageReport } from "../debug/message-report.js";
 import { logEvent, logEventError } from "../logging/event-log.js";
 import { processQueuedTurn } from "../pipeline/queue-runner.js";
@@ -18,6 +19,8 @@ export interface QueuedMessage {
   services: PipelineHostServices;
   /** `{convKey}:{telegramMessageId}` anchor for inject / reply placement. */
   historyPointer?: string;
+  /** Set by enqueueMessage — start of the queue wait for latency stats. */
+  enqueuedAt?: number;
 }
 
 const pending: QueuedMessage[] = [];
@@ -55,6 +58,7 @@ function advanceHistoryPointer(convKey: string): void {
 }
 
 export function enqueueMessage(item: QueuedMessage): void {
+  item.enqueuedAt = Date.now();
   pending.push(item);
   const convKey = item.state.convKey;
   if (convKey && item.historyPointer && !historyPointerByChat.has(convKey)) {
@@ -98,6 +102,10 @@ async function pump(): Promise<void> {
       }
 
       getMessageReport(item.turnId)?.setProcessingStarted();
+      if (item.enqueuedAt != null) {
+        recordPhaseTiming("queue-wait", Date.now() - item.enqueuedAt);
+      }
+      const turnStarted = performance.now();
 
       try {
         await processQueuedTurn(item);
@@ -108,6 +116,7 @@ async function pump(): Promise<void> {
           historyPointer: item.historyPointer ?? null,
         });
       } finally {
+        recordPhaseTiming("turn-total", performance.now() - turnStarted);
         const convKey = item.state.convKey;
         if (convKey) {
           advanceHistoryPointer(convKey);

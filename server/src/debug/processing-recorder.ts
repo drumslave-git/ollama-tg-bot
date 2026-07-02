@@ -39,8 +39,9 @@ const LLM_TITLES: Record<string, string> = {
 };
 
 export function llmTitle(label: string): string {
-  const toolRound = /^main reply tools (\d+)$/.exec(label);
-  if (toolRound) return `Main reply · tools (round ${toolRound[1]})`;
+  const afterTools = /^main reply · after tools (\d+)$/.exec(label);
+  if (afterTools) return `Main reply · after tools (round ${afterTools[1]})`;
+  if (label === "main reply · final") return "Main reply · final (tools stalled)";
   return LLM_TITLES[label] ?? label;
 }
 

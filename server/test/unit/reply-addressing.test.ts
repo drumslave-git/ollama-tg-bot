@@ -6,6 +6,7 @@ const rok: KnownUserRecord = {
   userId: "381512221",
   username: "rok13",
   firstName: "Rok",
+  lastName: null,
 };
 
 describe("replyOpensByAddressing — directed-at vs merely-mentioned", () => {

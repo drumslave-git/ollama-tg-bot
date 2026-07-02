@@ -17,6 +17,7 @@ import { getInputCharBudget } from "../settings/limits.js";
 import type { Settings } from "../db/index.js";
 import {
   buildSystemPrompt,
+  buildTurnContextBlocks,
   type KnownChatUser,
 } from "./adapters/system-prompt.js";
 import type { MoodValues } from "../features/mood/index.js";
@@ -37,10 +38,19 @@ export interface LatestTurnOptions {
   recentWindow?: string | null;
   /** Telegram message_id the current turn replies to (drives the reply pointer). */
   replyToMessageId?: number | null;
+  /**
+   * Volatile per-turn blocks ([SESSION], mood) — carried here instead of the
+   * system prompt so the system prompt stays cache-stable across turns.
+   */
+  turnContextBlocks?: string | null;
 }
 
 export function buildLatestTurnMessage(options: LatestTurnOptions): string {
   const parts: string[] = [];
+
+  if (options.turnContextBlocks?.trim()) {
+    parts.push(options.turnContextBlocks.trim());
+  }
 
   if (options.recentWindow?.trim()) {
     parts.push(RECENT_CHAT_HEADER + options.recentWindow.trim());
@@ -227,7 +237,6 @@ export async function buildChatMessages(
   options: {
     settings: Settings;
     isGroupChat?: boolean;
-    groupChatId?: string | null;
     currentUserId?: string | null;
     ownerUserId?: string | null;
     ownerUsername?: string | null;
@@ -236,12 +245,13 @@ export async function buildChatMessages(
     repliedTask?: { id: number; instruction: string } | null;
     /** chat_messages.id of the current turn — excluded from the recent window. */
     currentMessageId?: number | null;
+    /** MCP tools available to the main reply (adds the `## Tools` section). */
+    enabledToolNames?: string[];
   },
 ): Promise<BuiltChatPayload> {
   const {
     settings,
     isGroupChat = false,
-    groupChatId = null,
     currentUserId = null,
     ownerUserId = null,
     ownerUsername = null,
@@ -249,26 +259,35 @@ export async function buildChatMessages(
     currentUserIsOwner = false,
     repliedTask = null,
     currentMessageId = null,
+    enabledToolNames = [],
   } = options;
 
   const knownChatUsers = await loadKnownChatUsers(chatKey, currentUserId);
 
+  // Stable prefix: no per-turn values in here — with the same settings,
+  // personality, participants, and tool set this string is byte-identical
+  // between turns, so the LLM backend's prompt cache keeps reusing it.
   const system = buildSystemPrompt({
     settings,
     customPrompt: customSystemPrompt,
     knownChatUsers: isGroupChat ? knownChatUsers : [],
-    isGroupChat,
-    groupChatId,
-    currentUserId,
-    currentUserTag: latestTurn.speakerTag ?? null,
-    currentUserLabel: latestTurn.currentSpeaker?.label ?? null,
     ownerUserId,
     ownerUsername,
+    enabledToolNames,
+  });
+
+  // Volatile per-turn context rides in the user message instead.
+  const turnContextBlocks = buildTurnContextBlocks({
+    session: {
+      entityId: chatKey,
+      now: new Date(),
+      currentUserId,
+      currentUserTag: latestTurn.speakerTag ?? null,
+      currentUserLabel: latestTurn.currentSpeaker?.label ?? null,
+      currentUserIsOwner,
+      repliedTask,
+    },
     mood,
-    entityId: chatKey,
-    now: new Date(),
-    currentUserIsOwner,
-    repliedTask,
   });
 
   // Deeper history stays on-demand via the history MCP tools. For group chats
@@ -283,6 +302,7 @@ export async function buildChatMessages(
     isGroupChat,
     speakerTag: latestTurn.speakerTag ?? null,
     recentWindow: null,
+    turnContextBlocks,
   });
 
   let windowCharBudget = 0;
@@ -306,6 +326,7 @@ export async function buildChatMessages(
         isGroupChat,
         speakerTag: latestTurn.speakerTag ?? null,
         recentWindow,
+        turnContextBlocks,
       })
     : baseLatest;
 

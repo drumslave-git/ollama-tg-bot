@@ -2,6 +2,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import { describe, expect, it } from "vitest";
 import {
   buildSystemPrompt,
+  buildTurnContextBlocks,
   type KnownChatUser,
 } from "../../src/pipeline/adapters/system-prompt.js";
 import { buildLatestTurnMessage } from "../../src/pipeline/chat-messages.js";
@@ -39,18 +40,24 @@ const carol: KnownChatUser = {
 };
 
 /** The full group-chat system prompt the bot uses, minus the DB round-trips. */
-function groupSystem(speaker: KnownChatUser): string {
+function groupSystem(): string {
   return buildSystemPrompt({
     settings: makeSettings({ numCtx: 8192, numPredict: 512 }),
     customPrompt: "",
     knownChatUsers: [alice, bob, carol],
-    isGroupChat: true,
-    groupChatId: "-100999",
-    currentUserId: speaker.userId,
-    currentUserTag: `user:${speaker.username}:${speaker.userId}`,
-    currentUserLabel: `${speaker.firstName} (@${speaker.username})`,
-    entityId: "-100999",
-    now: new Date("2026-07-02T10:10:00.000Z"),
+  });
+}
+
+/** Volatile session context, carried in the user turn like production does. */
+function speakerTurnContext(speaker: KnownChatUser): string {
+  return buildTurnContextBlocks({
+    session: {
+      entityId: "-100999",
+      now: new Date("2026-07-02T10:10:00.000Z"),
+      currentUserId: speaker.userId,
+      currentUserTag: `user:${speaker.username}:${speaker.userId}`,
+      currentUserLabel: `${speaker.firstName} (@${speaker.username})`,
+    },
   });
 }
 
@@ -81,12 +88,13 @@ function groupTurn(input: {
     },
     isGroupChat: true,
     recentWindow: input.window.join("\n"),
+    turnContextBlocks: speakerTurnContext(input.speaker),
     ...(input.replyToMessageId != null
       ? { replyToMessageId: input.replyToMessageId }
       : {}),
   });
   return [
-    { role: "system", content: groupSystem(input.speaker) },
+    { role: "system", content: groupSystem() },
     { role: "user", content: turn },
   ];
 }

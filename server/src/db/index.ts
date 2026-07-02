@@ -7,6 +7,7 @@ import {
 } from "./debug/error-log.js";
 import { bindMessageProcessingDatabase } from "./debug/message-processing.js";
 import { bindJobProcessingDatabase } from "./debug/job-processing.js";
+import { bindPhaseTimingsDatabase } from "./debug/phase-timings.js";
 import { bindKnownUsersDatabase } from "./users/known-users.js";
 import { bindDataBrowserDatabase } from "./data/browser.js";
 import { getPersonalityById } from "../features/mood/db/index.js";
@@ -147,6 +148,8 @@ export async function initDatabase(): Promise<void> {
   await bindMessageProcessingDatabase(db);
   // Background-job run history (memory/vision backfill); no owner FK, capped per feature.
   await bindJobProcessingDatabase(db);
+  // Per-phase latency samples for the dashboard's latency panel.
+  await bindPhaseTimingsDatabase(db);
   bindDataBrowserDatabase(db);
 }
 

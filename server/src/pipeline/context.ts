@@ -14,6 +14,7 @@ import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
 import { getTaskTurnContext } from "../features/tasks/index.js";
 import { getTaskById } from "../features/tasks/db/index.js";
 import { buildSystemPrompt } from "./adapters/system-prompt.js";
+import { resolveEnabledMcpToolNames } from "../runtime/mcp-tools.js";
 import {
   buildChatMessages,
   type LatestTurnOptions,
@@ -59,27 +60,19 @@ export async function buildSystemPromptForTurn(
   state: PipelineTurnState,
 ): Promise<string> {
   const settings = getResolvedSettings(await getSettings());
-  const groupChatId = state.groupChatId;
   const personalityPrompt =
     state.personalityPrompt ?? (await getActivePersonalityPrompt());
-  const speaker = state.currentSpeaker as { label?: string } | null | undefined;
 
+  // Per-turn context (session, mood, speaker) is NOT part of the system
+  // prompt — it rides in the latest user message (buildTurnContextBlocks) so
+  // the system prompt stays byte-identical across turns for prompt caching.
   return buildSystemPrompt({
     settings,
     customPrompt: personalityPrompt,
     knownChatUsers: [],
-    isGroupChat: state.inGroup,
-    groupChatId,
-    currentUserId: state.userId,
-    currentUserTag: state.userRole ?? null,
-    currentUserLabel: speaker?.label ?? null,
     ownerUserId: await getOwnerUserId(),
     ownerUsername: await getOwnerUsername(),
-    mood: (state.mood ?? (await getEffectiveMood())) as MoodValues | null,
-    entityId: state.convKey,
-    now: new Date(),
-    currentUserIsOwner: state.currentSpeakerIsOwner === true,
-    repliedTask: await resolveRepliedTask(),
+    enabledToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
   });
 }
 
@@ -103,7 +96,6 @@ export async function buildChatContextForTurn(state: PipelineTurnState) {
   };
 
   const userId = state.userId;
-  const groupChatId = state.groupChatId;
 
   return buildChatMessages(
     state.personalityPrompt ?? (await getActivePersonalityPrompt()),
@@ -112,7 +104,6 @@ export async function buildChatContextForTurn(state: PipelineTurnState) {
     {
       settings,
       isGroupChat: state.inGroup,
-      groupChatId,
       currentUserId: userId,
       ownerUserId: await getOwnerUserId(),
       ownerUsername: await getOwnerUsername(),
@@ -120,6 +111,7 @@ export async function buildChatContextForTurn(state: PipelineTurnState) {
       currentUserIsOwner: state.currentSpeakerIsOwner === true,
       repliedTask: await resolveRepliedTask(),
       currentMessageId: state.chatMessageId ?? null,
+      enabledToolNames: resolveEnabledMcpToolNames(settings.workflowSteps ?? []),
     },
   );
 }

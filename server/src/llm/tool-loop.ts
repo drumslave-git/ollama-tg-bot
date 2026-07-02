@@ -11,16 +11,10 @@ import type {
   VerbosePromptLayout,
 } from "./client.js";
 import { chatCompleteDetailed, toOpenAiMessage } from "./client.js";
-import {
-  buildToolRoundSystemPrompt,
-  extractSessionBlock,
-} from "../pipeline/adapters/system-prompt.js";
 import type { ChatCompletionMessageToolCall } from "openai/resources/chat/completions";
 
 export interface ToolLoopOptions extends ChatCompleteOptions {
   tools: ChatCompletionTool[];
-  /** Generation budget for the tool-selection rounds (separate from the final reply). */
-  toolRoundNumPredict?: number;
   callTool: (
     name: string,
     args: Record<string, unknown>,
@@ -37,44 +31,6 @@ function toOpenAiSeedMessages(messages: ChatMessage[]): ChatCompletionMessagePar
   // Use the shared converter so user images survive as image_url content —
   // the model reads them in the same pass as the text (no separate vision call).
   return messages.map(toOpenAiMessage);
-}
-
-function toolNamesFromOptions(tools: ChatCompletionTool[]): string[] {
-  return tools
-    .map((tool) => (tool.type === "function" ? tool.function?.name : undefined))
-    .filter((name): name is string => Boolean(name));
-}
-
-function applyToolRoundSystem(
-  conversation: ChatCompletionMessageParam[],
-  enabledToolNames: string[],
-  sessionBlock: string,
-): ChatCompletionMessageParam[] {
-  const toolSystem = buildToolRoundSystemPrompt(enabledToolNames, sessionBlock);
-  if (conversation.length === 0) {
-    return [{ role: "system", content: toolSystem }];
-  }
-  if (conversation[0]?.role === "system") {
-    return [{ role: "system", content: toolSystem }, ...conversation.slice(1)];
-  }
-  return [{ role: "system", content: toolSystem }, ...conversation];
-}
-
-function restoreFullSystem(
-  fullSystemContent: string,
-  conversation: ChatCompletionMessageParam[],
-): ChatCompletionMessageParam[] {
-  if (!fullSystemContent || conversation.length === 0) {
-    return conversation;
-  }
-  if (conversation[0]?.role === "system") {
-    return [{ role: "system", content: fullSystemContent }, ...conversation.slice(1)];
-  }
-  return [{ role: "system", content: fullSystemContent }, ...conversation];
-}
-
-function toolRoundTraceLabel(round: number): string {
-  return `main reply tools ${round + 1}`;
 }
 
 /** Stable identity for a tool call, used to detect a model that stops making progress. */
@@ -95,55 +51,56 @@ function parseToolArguments(raw: string): Record<string, unknown> {
   return {};
 }
 
+function joinThinking(...parts: (string | undefined)[]): string {
+  return parts.filter(Boolean).join("\n\n");
+}
+
+/**
+ * Main reply with tools as ONE conversation. Each round the model either
+ * answers — that response IS the reply — or emits tool_calls; tool results are
+ * appended and the same conversation is sent again. There is no separate
+ * tool-selection pass and no system-prompt swap: every request carries the
+ * same system prompt, so a message that needs no tools costs a single
+ * inference and the backend's prompt cache keeps its prefix between rounds.
+ *
+ * Termination is progress-driven: a round with no tool calls ends the loop
+ * with the answer; a round that only repeats calls already executed this turn
+ * (a stuck model) gets the tools taken away for one final forced-answer call.
+ */
 export async function chatCompleteWithTools(
   messages: ChatMessage[],
   options: ToolLoopOptions,
 ): Promise<ChatCompleteResult> {
-  const seedMessages = toOpenAiSeedMessages(messages);
-  const fullSystemContent =
-    seedMessages[0]?.role === "system"
-      ? String(seedMessages[0].content ?? "")
-      : "";
-  const sessionBlock = extractSessionBlock(fullSystemContent);
-  const enabledToolNames = toolNamesFromOptions(options.tools);
-
-  let conversation = seedMessages;
+  let conversation = toOpenAiSeedMessages(messages);
   let accumulatedThinking = "";
-  // No fixed round cap: the model keeps calling tools until it has what it needs.
-  // Termination is driven by progress instead — a round that produces no tool
-  // call, or only repeats of calls already run this turn, ends the loop and lets
-  // the model answer. That bounds a stuck/looping model without an arbitrary limit.
   const executedSignatures = new Set<string>();
+  const baseLabel = options.traceLabel ?? "main reply";
 
   for (let round = 0; ; round += 1) {
-    conversation = applyToolRoundSystem(
-      conversation,
-      enabledToolNames,
-      sessionBlock,
-    );
-
-    const toolRound = await chatCompleteDetailed(conversation, {
+    const response = await chatCompleteDetailed(conversation, {
       model: options.model,
-      numPredict: options.toolRoundNumPredict ?? options.numPredict,
+      numPredict: options.numPredict,
       think: options.think,
-      auxiliary: true,
-      responseFormat: undefined,
+      responseFormat: options.responseFormat as JsonSchemaResponseFormat | undefined,
       allowToolCalls: true,
-      traceTurnId: options.traceTurnId,
-      traceLabel: toolRoundTraceLabel(round),
       tools: options.tools,
+      traceTurnId: options.traceTurnId,
+      traceLabel: round === 0 ? baseLabel : `${baseLabel} · after tools ${round}`,
+      traceLayout:
+        round === 0
+          ? (options.traceLayout as VerbosePromptLayout | undefined)
+          : undefined,
     });
-    accumulatedThinking = [accumulatedThinking, toolRound.thinking]
-      .filter(Boolean)
-      .join("\n\n");
+    accumulatedThinking = joinThinking(accumulatedThinking, response.thinking);
 
-    const toolCalls = toolRound.toolCalls ?? [];
+    const toolCalls = response.toolCalls ?? [];
     if (toolCalls.length === 0) {
-      break;
+      return { raw: response.raw, thinking: accumulatedThinking };
     }
 
     // Stall guard: if every call this round just repeats one already executed,
-    // the model has stopped making progress — stop looping and let it answer.
+    // the model has stopped making progress — take the tools away below and
+    // force a text answer.
     const hasNewCall = toolCalls.some(
       (call) => !executedSignatures.has(toolCallSignature(call)),
     );
@@ -151,8 +108,8 @@ export async function chatCompleteWithTools(
       break;
     }
 
-    if (toolRound.conversationMessages) {
-      conversation = toolRound.conversationMessages;
+    if (response.conversationMessages) {
+      conversation = response.conversationMessages;
     }
 
     for (const toolCall of toolCalls) {
@@ -186,20 +143,17 @@ export async function chatCompleteWithTools(
     }
   }
 
-  const finalConversation = restoreFullSystem(fullSystemContent, conversation);
-
-  const final = await chatCompleteDetailed(finalConversation, {
+  const final = await chatCompleteDetailed(conversation, {
     model: options.model,
     numPredict: options.numPredict,
     think: options.think,
     responseFormat: options.responseFormat as JsonSchemaResponseFormat | undefined,
     traceTurnId: options.traceTurnId,
-    traceLabel: options.traceLabel ?? "main reply",
-    traceLayout: options.traceLayout as VerbosePromptLayout | undefined,
+    traceLabel: `${baseLabel} · final`,
   });
 
   return {
     raw: final.raw,
-    thinking: [accumulatedThinking, final.thinking].filter(Boolean).join("\n\n"),
+    thinking: joinThinking(accumulatedThinking, final.thinking),
   };
 }

@@ -13,61 +13,105 @@ import { chatCompleteDetailed } from "../../src/llm/client.js";
 
 const mockedChatCompleteDetailed = vi.mocked(chatCompleteDetailed);
 
-const replyFormat = {
-  name: "reply",
-  schema: {
-    type: "object",
-    properties: { reply: { type: "string" } },
-    required: ["reply"],
-  },
-};
-
 describe("chatCompleteWithTools", () => {
   beforeEach(() => {
     mockedChatCompleteDetailed.mockReset();
   });
 
-  it("continues to the JSON final pass when the tool round returns text without tool calls", async () => {
-    mockedChatCompleteDetailed
-      .mockResolvedValueOnce({
-        raw: "premature plain-text reply",
-        thinking: "tool-round thinking",
-      })
-      .mockResolvedValueOnce({
-        raw: '{"reply":"final json reply"}',
-        thinking: "final thinking",
-      });
+  it("answers in a single call when the model needs no tools", async () => {
+    // The collapsed loop: the first response without tool calls IS the reply —
+    // no separate tool-selection pass, no extra final pass.
+    mockedChatCompleteDetailed.mockResolvedValueOnce({
+      raw: "direct reply",
+      thinking: "some thinking",
+    });
 
     const result = await chatCompleteWithTools(
       [{ role: "user", content: "hello without a link" }],
       {
         tools: [{ type: "function", function: { name: "fetch_link", parameters: {} } }],
         callTool: vi.fn(),
-        responseFormat: replyFormat,
         think: true,
-        toolRoundNumPredict: 2048,
+        numPredict: 512,
       },
     );
 
-    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(2);
+    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(1);
     expect(mockedChatCompleteDetailed.mock.calls[0]?.[1]).toMatchObject({
       allowToolCalls: true,
-      responseFormat: undefined,
       think: true,
-      numPredict: 2048,
-      auxiliary: true,
-      traceLabel: "main reply tools 1",
-    });
-    expect(mockedChatCompleteDetailed.mock.calls[1]?.[1]).toMatchObject({
-      responseFormat: replyFormat,
+      numPredict: 512,
       traceLabel: "main reply",
     });
-    expect(result.raw).toBe('{"reply":"final json reply"}');
-    expect(result.thinking).toContain("tool-round thinking");
-    expect(result.thinking).toContain("final thinking");
+    expect(result.raw).toBe("direct reply");
+    expect(result.thinking).toBe("some thinking");
   });
 
-  it("runs tools then finishes with the JSON pass", async () => {
+  it("keeps the same system prompt on every round (no tool-round swap)", async () => {
+    const systemContent = "Stable system prompt with ## Tools section";
+    mockedChatCompleteDetailed
+      .mockResolvedValueOnce({
+        raw: "",
+        thinking: "",
+        toolCalls: [
+          {
+            id: "call_1",
+            type: "function",
+            function: {
+              name: "fetch_link",
+              arguments: '{"url":"https://example.com/repo"}',
+            },
+          },
+        ],
+        conversationMessages: [
+          { role: "system", content: systemContent },
+          { role: "user", content: "https://example.com/repo" },
+          {
+            role: "assistant",
+            content: "",
+            tool_calls: [
+              {
+                id: "call_1",
+                type: "function",
+                function: {
+                  name: "fetch_link",
+                  arguments: '{"url":"https://example.com/repo"}',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .mockResolvedValueOnce({ raw: "answer from page", thinking: "" });
+
+    const result = await chatCompleteWithTools(
+      [
+        { role: "system", content: systemContent },
+        { role: "user", content: "https://example.com/repo" },
+      ],
+      {
+        tools: [{ type: "function", function: { name: "fetch_link", parameters: {} } }],
+        callTool: vi.fn().mockResolvedValue({ text: "page text" }),
+        traceLabel: "main reply",
+      },
+    );
+
+    // Both rounds carry the original system message untouched.
+    for (const call of mockedChatCompleteDetailed.mock.calls) {
+      const messages = call[0];
+      expect(messages?.[0]).toMatchObject({
+        role: "system",
+        content: systemContent,
+      });
+    }
+    expect(mockedChatCompleteDetailed.mock.calls[1]?.[1]).toMatchObject({
+      traceLabel: "main reply · after tools 1",
+      allowToolCalls: true,
+    });
+    expect(result.raw).toBe("answer from page");
+  });
+
+  it("runs tools then answers on the next round", async () => {
     const callTool = vi.fn().mockResolvedValue({ text: "page content" });
 
     mockedChatCompleteDetailed
@@ -103,11 +147,7 @@ describe("chatCompleteWithTools", () => {
         ],
       })
       .mockResolvedValueOnce({
-        raw: "",
-        thinking: "",
-      })
-      .mockResolvedValueOnce({
-        raw: '{"reply":"based on page content"}',
+        raw: "based on page content",
         thinking: "",
       });
 
@@ -116,15 +156,14 @@ describe("chatCompleteWithTools", () => {
       {
         tools: [{ type: "function", function: { name: "fetch_link", parameters: {} } }],
         callTool,
-        responseFormat: replyFormat,
       },
     );
 
     expect(callTool).toHaveBeenCalledWith("fetch_link", {
       url: "https://example.com/repo",
     });
-    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(3);
-    expect(result.raw).toBe('{"reply":"based on page content"}');
+    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(2);
+    expect(result.raw).toBe("based on page content");
   });
 
   function toolRoundResponse(name: string, args: string) {
@@ -144,118 +183,71 @@ describe("chatCompleteWithTools", () => {
     };
   }
 
-  it("keeps calling tools past the old 6-round cap until the model is done", async () => {
+  it("keeps calling tools while the model makes progress", async () => {
     const callTool = vi.fn().mockResolvedValue({ text: "result" });
-    // 8 distinct tool rounds (more than the former cap of 6).
+    // 8 distinct tool rounds (no fixed round cap).
     for (let i = 0; i < 8; i += 1) {
       mockedChatCompleteDetailed.mockResolvedValueOnce(
         toolRoundResponse("search", `{"q":"${i}"}`),
       );
     }
-    // The model then stops requesting tools, which ends the loop...
-    mockedChatCompleteDetailed.mockResolvedValueOnce({ raw: "", thinking: "" });
-    // ...and the final JSON reply pass runs.
+    // The model then answers, which ends the loop with that reply.
     mockedChatCompleteDetailed.mockResolvedValueOnce({
-      raw: '{"reply":"done"}',
+      raw: "done",
       thinking: "",
     });
 
     const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
       tools: [{ type: "function", function: { name: "search", parameters: {} } }],
       callTool,
-      responseFormat: replyFormat,
     });
 
     expect(callTool).toHaveBeenCalledTimes(8);
-    // 8 tool rounds + 1 closing round + 1 final reply.
-    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(10);
-    expect(result.raw).toBe('{"reply":"done"}');
+    // 8 tool rounds + 1 answering round — no extra final pass.
+    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(9);
+    expect(result.raw).toBe("done");
   });
 
-  it("stops looping when a round only repeats an already-executed tool call", async () => {
+  it("forces a no-tools answer when a round only repeats an executed tool call", async () => {
     const callTool = vi.fn().mockResolvedValue({ text: "result" });
     mockedChatCompleteDetailed
       .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
-      // Same call again — no progress, so the loop must break to the final reply.
+      // Same call again — no progress, so the loop must break to a forced
+      // final call without tools.
       .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
-      .mockResolvedValueOnce({ raw: '{"reply":"answer"}', thinking: "" });
+      .mockResolvedValueOnce({ raw: "answer", thinking: "" });
 
     const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
       tools: [{ type: "function", function: { name: "search", parameters: {} } }],
       callTool,
-      responseFormat: replyFormat,
+      traceLabel: "main reply",
     });
 
     // The duplicate round was detected before executing, so the tool ran once.
     expect(callTool).toHaveBeenCalledTimes(1);
-    // round 1 + duplicate round (detected) + final reply.
+    // round 1 + duplicate round (detected) + forced final.
     expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(3);
-    expect(result.raw).toBe('{"reply":"answer"}');
+    // The forced final call must not offer tools again.
+    const finalOptions = mockedChatCompleteDetailed.mock.calls[2]?.[1];
+    expect(finalOptions?.tools).toBeUndefined();
+    expect(finalOptions?.traceLabel).toBe("main reply · final");
+    expect(result.raw).toBe("answer");
   });
 
-  it("uses tool-round system instructions without the JSON reply spec", async () => {
+  it("accumulates thinking across rounds", async () => {
     mockedChatCompleteDetailed
       .mockResolvedValueOnce({
-        raw: "",
-        thinking: "",
-        toolCalls: [
-          {
-            id: "call_1",
-            type: "function",
-            function: {
-              name: "fetch_link",
-              arguments: '{"url":"https://example.com/repo"}',
-            },
-          },
-        ],
-        conversationMessages: [
-          { role: "user", content: "https://example.com/repo" },
-          {
-            role: "assistant",
-            content: "",
-            tool_calls: [
-              {
-                id: "call_1",
-                type: "function",
-                function: {
-                  name: "fetch_link",
-                  arguments: '{"url":"https://example.com/repo"}',
-                },
-              },
-            ],
-          },
-        ],
+        ...toolRoundResponse("search", '{"q":"a"}'),
+        thinking: "round thinking",
       })
-      .mockResolvedValueOnce({ raw: "", thinking: "" })
-      .mockResolvedValueOnce({ raw: '{"reply":"ok"}', thinking: "" });
+      .mockResolvedValueOnce({ raw: "answer", thinking: "final thinking" });
 
-    await chatCompleteWithTools(
-      [
-        {
-          role: "system",
-          content:
-            "Base prompt\n\nRespond with JSON only, matching the provided schema.",
-        },
-        { role: "user", content: "https://example.com/repo" },
-      ],
-      {
-        tools: [{ type: "function", function: { name: "fetch_link", parameters: {} } }],
-        callTool: vi.fn().mockResolvedValue({ text: "page text" }),
-        responseFormat: replyFormat,
-        traceLabel: "main reply",
-      },
-    );
+    const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
+      tools: [{ type: "function", function: { name: "search", parameters: {} } }],
+      callTool: vi.fn().mockResolvedValue({ text: "result" }),
+    });
 
-    const toolRoundMessages = mockedChatCompleteDetailed.mock.calls[0]?.[0];
-    const toolRoundSystem = toolRoundMessages?.[0];
-    expect(toolRoundSystem?.role).toBe("system");
-    expect(String(toolRoundSystem?.content)).toContain("MCP tool-selection pass");
-    expect(String(toolRoundSystem?.content)).toContain("fetch_link");
-    expect(String(toolRoundSystem?.content)).not.toContain("Respond with JSON only");
-    expect(String(toolRoundSystem?.content)).not.toContain("You are Igor");
-
-    const finalMessages = mockedChatCompleteDetailed.mock.calls[2]?.[0];
-    const finalSystem = finalMessages?.[0];
-    expect(String(finalSystem?.content)).toContain("Respond with JSON only");
+    expect(result.thinking).toContain("round thinking");
+    expect(result.thinking).toContain("final thinking");
   });
 });

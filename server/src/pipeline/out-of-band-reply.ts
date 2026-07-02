@@ -5,7 +5,10 @@ import {
 } from "../features/mood/db/index.js";
 import { getSettings } from "../db/index.js";
 import { chatCompleteDetailed } from "../llm/client.js";
-import { buildSystemPrompt } from "./adapters/system-prompt.js";
+import {
+  buildSystemPrompt,
+  buildTurnContextBlocks,
+} from "./adapters/system-prompt.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { getMaintenanceAnnounceNumPredict } from "../settings/limits.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
@@ -37,12 +40,21 @@ export async function generateOutOfBandReplyRaw(
     settings,
     customPrompt,
     knownChatUsers: [],
-    isGroupChat: opts.isGroupChat ?? false,
     ownerUserId: await getOwnerUserId(),
     ownerUsername: await getOwnerUsername(),
-    mood,
-    ...(opts.entityId != null ? { entityId: opts.entityId } : {}),
   });
+  // Session and mood are per-turn context and live in the user message (same
+  // layout as normal turns), keeping the system prompt cache-stable.
+  const turnContext = buildTurnContextBlocks({
+    session:
+      opts.entityId != null
+        ? { entityId: opts.entityId, now: new Date() }
+        : null,
+    mood,
+  });
+  const userContent = turnContext
+    ? `${turnContext}\n\n${opts.userMessage}`
+    : opts.userMessage;
 
   const report =
     opts.traceTurnId != null ? getRecorder(opts.traceTurnId) : undefined;
@@ -57,7 +69,7 @@ export async function generateOutOfBandReplyRaw(
   const { raw } = await chatCompleteDetailed(
     [
       { role: "system", content: systemPrompt },
-      { role: "user", content: opts.userMessage },
+      { role: "user", content: userContent },
     ],
     {
       auxiliary: true,

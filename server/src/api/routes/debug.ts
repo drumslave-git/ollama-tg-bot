@@ -13,8 +13,16 @@ import {
   getJobProcessingDetail,
   listProcessingsForFeature,
 } from "../../db/debug/job-processing.js";
+import { getPhaseTimingStats } from "../../db/debug/phase-timings.js";
 
 export const debugRouter = Router();
+
+// ---- Per-phase latency stats (dashboard latency panel) --------------------
+
+debugRouter.get("/phase-timings", async (req, res) => {
+  const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
+  res.json({ days, phases: await getPhaseTimingStats(days) });
+});
 
 // ---- Message processings (chats → processings → entries) -----------------
 

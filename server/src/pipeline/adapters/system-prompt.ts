@@ -208,32 +208,42 @@ export function buildSessionBlock(session: SessionContext): string {
   return lines.join("\n");
 }
 
-const SESSION_BLOCK_PATTERN = /\[SESSION\][\s\S]*?current time:[^\n]*/;
-
-/** Pull the `[SESSION]` block out of an assembled system prompt, if present. */
-export function extractSessionBlock(systemContent: string): string {
-  return SESSION_BLOCK_PATTERN.exec(systemContent)?.[0] ?? "";
+/**
+ * Volatile per-turn context — the `[SESSION]` block and current mood. These
+ * change every turn (wall clock, speaker, mood), so they ride in the latest
+ * user message instead of the system prompt: the system prompt stays
+ * byte-identical across turns and the backend's prompt/KV cache keeps reusing
+ * its prefix instead of re-evaluating the whole prompt.
+ */
+export function buildTurnContextBlocks(options: {
+  session?: SessionContext | null;
+  mood?: MoodValues | null;
+}): string {
+  const parts: string[] = [];
+  if (options.session) {
+    parts.push(buildSessionBlock(options.session));
+  }
+  if (options.mood) {
+    parts.push(
+      `[CURRENT MOOD — your mood right now; highest priority for tone]\n${formatMoodForPrompt(options.mood)}`,
+    );
+  }
+  return parts.join("\n\n");
 }
 
-/** Standalone system prompt for MCP tool-selection passes (no personality or reply format). */
-export function buildToolRoundSystemPrompt(
-  enabledToolNames: string[],
-  sessionBlock?: string,
-): string {
-  const toolList =
-    enabledToolNames.length > 0 ? enabledToolNames.join(", ") : "(none registered)";
+/**
+ * `## Tools` section for the main system prompt. The main reply now calls
+ * tools directly from its own conversation (no separate tool-selection pass),
+ * so the usage guidance lives here. Built only from the enabled tool set —
+ * stable across turns, so it does not disturb the cacheable prompt prefix.
+ */
+function buildToolsSection(enabledToolNames: string[]): string {
   const descriptions = buildMcpToolDescriptionLines(enabledToolNames);
   return (
-    `You are the MCP tool-selection pass for a Telegram bot main reply.\n` +
-    `This pass is not the in-character user reply. Review the conversation and decide whether to call tools.\n\n` +
-    (sessionBlock ? `${sessionBlock}\n\n` : "") +
-    `Registered tools: ${toolList}\n` +
-    (descriptions.length > 0 ? `${descriptions.join("\n")}\n\n` : "\n") +
-    `Rules for this pass:\n` +
-    `- Respond with tool_calls when a registered tool is needed.\n` +
-    `- The turn is laid out as strict blocks: [RECENT CHAT] is older background, and [CURRENT MESSAGE] is the only message being answered. Decide what to retrieve for [CURRENT MESSAGE] — when it carries a "replied to msg:X" pointer whose target is not in [RECENT CHAT], use history_get_messages to fetch msg:X; the reply may be an earlier topic, not the last line of [RECENT CHAT].\n` +
-    `- Do not write the user-facing reply or JSON output.\n` +
-    `- If no tool is needed, respond with empty assistant content and no tool_calls.\n` +
+    `## Tools\n` +
+    `You may call the registered tools while producing a reply: call the ones you need first, then answer from their results. When no tool is needed, just answer.\n` +
+    (descriptions.length > 0 ? `${descriptions.join("\n")}\n` : "") +
+    `- Decide what to retrieve for [CURRENT MESSAGE] — when it carries a "replied to msg:X" pointer whose target is not in [RECENT CHAT], use history_get_messages to fetch msg:X; the reply may be an earlier topic, not the last line of [RECENT CHAT].\n` +
     (enabledToolNames.includes(MEMORY_SAVE_TOOL_NAME)
       ? `- Always call ${MEMORY_SAVE_TOOL_NAME} when the user explicitly asks you to remember or save something (e.g. "remember that …", "save this", "don't forget …") — store exactly what they asked, using type 'user' for facts about a person or 'general' for shared knowledge. This overrides any "skip chit-chat" judgement.\n` +
         `- Also call ${MEMORY_SAVE_TOOL_NAME} PROACTIVELY when the user reveals a durable fact about themselves — their name (when they introduce themselves), where they live, their work, stable preferences, or boundaries — even while you answer casually and no other tool is needed. A self-introduction is not chit-chat.\n`
@@ -253,22 +263,20 @@ export interface KnownChatUser extends KnownUserRecord {
   facts?: string[];
 }
 
+/**
+ * Options for the stable system prompt. Everything here changes rarely
+ * (settings edits, personality switches, new facts) — per-turn context
+ * (session, mood, speaker) belongs in {@link buildTurnContextBlocks} so the
+ * assembled system prompt stays byte-identical between turns of a chat.
+ */
 export interface SystemPromptOptions {
   settings: Settings;
   customPrompt: string;
   knownChatUsers?: KnownChatUser[];
-  isGroupChat?: boolean;
-  groupChatId?: string | null;
-  currentUserId?: string | null;
   ownerUserId?: string | null;
   ownerUsername?: string | null;
-  mood?: MoodValues | null;
-  entityId?: string | null;
-  now?: Date;
-  currentUserTag?: string | null;
-  currentUserLabel?: string | null;
-  currentUserIsOwner?: boolean;
-  repliedTask?: { id: number; instruction: string } | null;
+  /** MCP tools available to the main reply; adds the `## Tools` section. */
+  enabledToolNames?: string[];
 }
 
 export function buildBaseSystemPrompt(settings: Settings): string {
@@ -319,35 +327,13 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
     settings,
     customPrompt,
     knownChatUsers = [],
-    isGroupChat = false,
-    groupChatId = null,
-    currentUserId = null,
     ownerUserId = null,
     ownerUsername = null,
-    mood = null,
-    entityId = null,
-    now,
-    currentUserTag = null,
-    currentUserLabel = null,
-    currentUserIsOwner = false,
-    repliedTask = null,
+    enabledToolNames = [],
   } = options;
 
   const { systemHint, formatHint } = getReplyLengthGuidance(settings);
   let prompt = `${BASE_SYSTEM_PROMPT_CORE}\n\n${systemHint}`;
-
-  if (entityId) {
-    prompt += `\n\n${buildSessionBlock({
-      entityId,
-      now: now ?? new Date(),
-      groupChatId: isGroupChat ? groupChatId : null,
-      currentUserId,
-      currentUserTag,
-      currentUserLabel,
-      currentUserIsOwner,
-      repliedTask,
-    })}`;
-  }
 
   const custom = customPrompt.trim();
   if (custom) {
@@ -370,6 +356,10 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
     }
   }
 
+  if (enabledToolNames.length > 0) {
+    prompt += `\n\n${buildToolsSection(enabledToolNames)}`;
+  }
+
   if (ownerUserId || ownerUsername) {
     const who = [
       ownerUsername ? `@${ownerUsername}` : null,
@@ -382,10 +372,6 @@ export function buildSystemPrompt(options: SystemPromptOptions): string {
       `${who}\n` +
       `This person deployed and runs the bot. When they speak, treat them as the owner — ` +
       `follow their standing instructions, be loyal to their intent, and do not undermine them in front of others.`;
-  }
-
-  if (mood) {
-    prompt += `\n\n## Current mood (highest priority)\n${formatMoodForPrompt(mood)}`;
   }
 
   prompt += `\n\n${buildReplyFormatSpec(formatHint)}`;

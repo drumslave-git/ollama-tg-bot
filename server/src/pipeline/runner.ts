@@ -6,6 +6,7 @@ import type {
   PipelineStepResult,
   PipelineTurnState,
 } from "../contracts/index.js";
+import { recordPhaseTiming } from "../db/debug/phase-timings.js";
 
 export function isPipelineStepEnabled(
   host: PipelineFeatureHost,
@@ -105,7 +106,15 @@ export async function runPipelineHost(
       return null;
     }
   }
-  const result = await host.run(state, services);
+  // Wall-clock timing for every host that actually ran (also on throw) — the
+  // dashboard latency panel aggregates these into per-phase p50/p95.
+  const started = performance.now();
+  let result: PipelineStepResult;
+  try {
+    result = await host.run(state, services);
+  } finally {
+    recordPhaseTiming(host.stepId, performance.now() - started);
+  }
   const shouldRecord =
     typeof options?.recordResult === "function"
       ? options.recordResult(result)
