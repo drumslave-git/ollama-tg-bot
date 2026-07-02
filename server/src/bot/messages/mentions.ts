@@ -36,6 +36,21 @@ export async function resolveMentionedKnownUsers(
   return collectMentionedKnownUsers(trimmed, message, context);
 }
 
+/**
+ * Whether the bot's OWN reply text is addressed to a known participant other
+ * than the current speaker — i.e. it @mentions or names someone else. `senderId`
+ * in `context` is the current speaker, who is excluded. Drives delivery: a reply
+ * aimed at a third party is sent as a plain message; a reply to the speaker is
+ * threaded to their message.
+ */
+export async function replyAddressesOtherParticipant(
+  replyText: string,
+  context: MentionContext = {},
+): Promise<boolean> {
+  const mentions = await resolveMentionedKnownUsers(replyText, undefined, context);
+  return mentions.some((m) => m.isKnown);
+}
+
 /** Passive history / transcript: append a compact mention footer. */
 export async function enrichTextWithUserMentions(
   text: string,

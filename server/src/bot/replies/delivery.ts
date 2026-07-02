@@ -19,9 +19,17 @@ export function splitTelegramMessage(text: string, maxLen = 4000): string[] {
   return chunks;
 }
 
+/**
+ * Extra for the bot's conversational reply. Threading is dynamic: when
+ * `threadAsReply` is set the message is a Telegram reply to the triggering
+ * message (the bot is answering the speaker); otherwise it is a plain message
+ * (the reply addresses another participant, e.g. a referral "Igor, explain to
+ * him" → "@him …", where a reply arrow to the summoner would point at the wrong
+ * person). The forum topic (`message_thread_id`) is always preserved.
+ */
 export function buildReplyExtra(
   ctx: Context,
-  options?: { messageThreadId?: number },
+  options?: { messageThreadId?: number; threadAsReply?: boolean },
 ): Parameters<Context["reply"]>[1] {
   const extra: Parameters<Context["reply"]>[1] = {};
   if (options?.messageThreadId) {
@@ -30,8 +38,10 @@ export function buildReplyExtra(
     });
     if (threadParams) extra.message_thread_id = threadParams.message_thread_id;
   }
-  const replyParams = replyParameters(ctx);
-  if (replyParams) extra.reply_parameters = replyParams;
+  if (options?.threadAsReply) {
+    const replyParams = replyParameters(ctx);
+    if (replyParams) extra.reply_parameters = replyParams;
+  }
   return Object.keys(extra).length > 0 ? extra : undefined;
 }
 
@@ -43,6 +53,8 @@ export async function sendChunkedHtmlReply(
     messageThreadId?: number;
     inGroup?: boolean;
     isForum?: boolean;
+    /** Thread the reply to the triggering message (answering the speaker). */
+    threadAsReply?: boolean;
   },
 ): Promise<{ chunkCount: number; messageIds: number[] }> {
   if (!options.html.trim()) {
@@ -51,6 +63,7 @@ export async function sendChunkedHtmlReply(
 
   const replyExtra = buildReplyExtra(ctx, {
     messageThreadId: options.messageThreadId,
+    threadAsReply: options.threadAsReply,
   });
   const typingThreadParams = resolveTypingThreadParams(
     options.inGroup
@@ -83,8 +96,11 @@ export async function deliverHtmlErrorReply(
     plainFallback?: string;
   },
 ): Promise<void> {
+  // Errors are a system response to the specific triggering message — thread
+  // them so the user sees which of their messages failed.
   const errReplyExtra = buildReplyExtra(ctx, {
     messageThreadId: options.messageThreadId,
+    threadAsReply: true,
   });
   const html = `${options.prefix}\n\n<code>${escapeHtml(options.detail)}</code>`;
   await replyHtml(ctx, html, errReplyExtra).catch(async () => {

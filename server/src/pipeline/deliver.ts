@@ -32,6 +32,8 @@ export async function deliverReplyText(
     inGroup: boolean;
     isForum?: boolean;
     messageThreadId?: number;
+    /** Thread the reply to the triggering message (answering the speaker). */
+    threadAsReply?: boolean;
   },
 ): Promise<DeliveredReply> {
   const replyBody = delivery.replyHtml ?? "";
@@ -47,6 +49,7 @@ export async function deliverReplyText(
     messageThreadId: options.messageThreadId,
     inGroup: options.inGroup,
     isForum: options.isForum,
+    threadAsReply: options.threadAsReply,
   });
 
   const replyChars = hasReply ? visibleTelegramText(replyBody).length : 0;
@@ -63,17 +66,21 @@ export async function deliverReplySticker(
     stickerEmoji?: string | null;
     chunkCount: number;
     messageThreadId?: number;
+    /** Thread the sticker to the triggering message (answering the speaker). */
+    threadAsReply?: boolean;
   },
 ): Promise<void> {
-  const replyExtra = buildReplyExtra(ctx, {
-    messageThreadId: options.messageThreadId,
-  });
   const stickerExtra: Parameters<Context["reply"]>[1] = {};
   if (options.messageThreadId) {
     stickerExtra.message_thread_id = options.messageThreadId;
   }
-  if (options.chunkCount === 0 && replyExtra?.reply_parameters) {
-    stickerExtra.reply_parameters = replyExtra.reply_parameters;
+  // Only a sticker-only reply (no text preceded it) threads to the trigger, and
+  // only when the turn answers the speaker; otherwise it is a plain send.
+  if (options.threadAsReply && options.chunkCount === 0) {
+    const replyExtra = buildReplyExtra(ctx, { threadAsReply: true });
+    if (replyExtra?.reply_parameters) {
+      stickerExtra.reply_parameters = replyExtra.reply_parameters;
+    }
   }
   await ctx.api.sendSticker(
     options.chatId,

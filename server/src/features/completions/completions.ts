@@ -3,7 +3,10 @@ import type {
   PipelineStepResult,
 } from "../../contracts/index.js";
 import { extractTelegramReply } from "./response-format.js";
-import { buildChatContextForTurn } from "../../pipeline/turn-services.js";
+import {
+  buildChatContextForTurn,
+  replyAddressesOtherParticipant,
+} from "../../pipeline/turn-services.js";
 
 export const completionsHost: PipelineFeatureHost = {
   id: "completions",
@@ -60,6 +63,23 @@ export const completionsHost: PipelineFeatureHost = {
 
     const replyBody = extractTelegramReply(modelOutput);
     state.replyBody = replyBody;
+
+    // Dynamic delivery: thread the reply to the speaker's message when it
+    // answers them; send a plain message when it addresses someone else (a
+    // referral like "tell userB to stop" → "@userB stop"). In private chats
+    // there is no third party, so always thread.
+    if (state.inGroup && replyBody.trim()) {
+      const from = state.telegram.from as { username?: string } | undefined;
+      const addressesOther = await replyAddressesOtherParticipant(replyBody, {
+        botId: state.telegram.me?.id,
+        botUsername: state.telegram.me?.username,
+        senderId: state.userId ? Number(state.userId) : undefined,
+        senderUsername: from?.username,
+      });
+      state.threadReply = !addressesOther;
+    } else {
+      state.threadReply = true;
+    }
 
     if (!replyBody.trim()) {
       report?.failPhase(

@@ -115,6 +115,12 @@ export interface PipelineTurnState {
   /** Main reply body before sticker/post-processing. */
   replyBody?: string;
   thinking?: string;
+  /**
+   * Whether to deliver the reply as a Telegram reply threaded to the triggering
+   * message. True when the reply answers the speaker; false when it addresses
+   * another participant (a referral), which is sent as a plain message.
+   */
+  threadReply?: boolean;
 
   /** Sticker selection outputs. */
   stickerEmoji?: string | null;

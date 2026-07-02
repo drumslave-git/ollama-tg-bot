@@ -27,7 +27,10 @@ import {
 import { getSettings } from "../db/index.js";
 import { appendMessage, mapHistoryBase64Media } from "../features/history/db/index.js";
 import { isOwner as botIsOwner } from "../bot/owner/owner.js";
-import { enrichTextWithUserMentions as botEnrichTextWithUserMentions } from "../bot/messages/mentions.js";
+import {
+  enrichTextWithUserMentions as botEnrichTextWithUserMentions,
+  replyAddressesOtherParticipant as botReplyAddressesOtherParticipant,
+} from "../bot/messages/mentions.js";
 import { currentSpeakerFromUser as botCurrentSpeakerFromUser } from "../bot/messages/speaker.js";
 import {
   buildChatContextForTurn,
@@ -87,6 +90,18 @@ export function enrichTextWithUserMentions(
   },
 ): Promise<string> {
   return botEnrichTextWithUserMentions(text, message as never, options);
+}
+
+export function replyAddressesOtherParticipant(
+  text: string,
+  options: {
+    botId?: number;
+    botUsername?: string;
+    senderId?: number;
+    senderUsername?: string;
+  },
+): Promise<boolean> {
+  return botReplyAddressesOtherParticipant(text, options);
 }
 
 export function messageHasVisionMedia(message: unknown): boolean {

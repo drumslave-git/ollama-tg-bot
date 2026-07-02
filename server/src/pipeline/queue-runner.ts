@@ -153,6 +153,7 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
       inGroup: Boolean(state.inGroup),
       isForum: state.isForum,
       messageThreadId: state.messageThreadId,
+      threadAsReply: state.threadReply === true,
     });
     // Hand the delivered Telegram id to the post-reply history record so the
     // assistant row carries its own message_id (never null) and other users'
@@ -192,6 +193,7 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
             stickerEmoji: state.stickerEmoji,
             chunkCount: delivered.chunkCount,
             messageThreadId: state.messageThreadId,
+            threadAsReply: state.threadReply === true,
           });
         } catch (err) {
           services.logging.logEventError("sticker_send_failed", err, { turnId });
