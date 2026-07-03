@@ -3,65 +3,70 @@ import {
   providerChatExtensions,
   shouldUseResponseFormat,
 } from "../../src/llm/openai-compat.js";
-import {
-  getMainReplyResponseFormat,
-  MAIN_REPLY_RESPONSE_FORMAT,
-} from "../../src/features/completions/index.js";
+import { strictObjectSchema } from "../../src/shared/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
-describe("main reply thinking request policy", () => {
+// A neutral structured-output format standing in for any JSON pass (reply,
+// mood, memory, search, …). The response_format and reasoning_effort request
+// policy is generic — nothing below is specific to the main reply.
+const SAMPLE_FORMAT = strictObjectSchema(
+  "sample",
+  { value: { type: "string", description: "any structured field" } },
+  ["value"],
+);
+
+describe("json response_format request policy", () => {
   const thinkingSettings = makeSettings({
     thinkingEnabled: true,
     reasoningEffort: "medium",
     numCtx: 32768,
   });
 
-  it("keeps json_schema for main reply when thinking is on", () => {
+  it("attaches a supplied response_format when thinking is on", () => {
     expect(
-      shouldUseResponseFormat(
-        thinkingSettings,
-        false,
-        getMainReplyResponseFormat(),
-      ),
+      shouldUseResponseFormat(thinkingSettings, false, SAMPLE_FORMAT),
     ).toBe(true);
   });
 
-  it("keeps json_schema for main reply when thinking is off", () => {
+  it("attaches a supplied response_format when thinking is off", () => {
     const settings = makeSettings({ thinkingEnabled: false });
+    expect(shouldUseResponseFormat(settings, false, SAMPLE_FORMAT)).toBe(true);
+  });
+
+  it("attaches a supplied response_format on auxiliary passes", () => {
     expect(
-      shouldUseResponseFormat(settings, false, MAIN_REPLY_RESPONSE_FORMAT),
+      shouldUseResponseFormat(thinkingSettings, true, SAMPLE_FORMAT),
     ).toBe(true);
   });
 
-  it("never adds reasoning to the main reply schema", () => {
-    const format = getMainReplyResponseFormat();
-    expect(format.schema.required).toEqual(["reply"]);
-    expect(format.schema.properties).not.toHaveProperty("reasoning");
+  it("omits response_format when none is supplied", () => {
+    expect(shouldUseResponseFormat(thinkingSettings, false, undefined)).toBe(
+      false,
+    );
+  });
+});
+
+describe("reasoning_effort request policy", () => {
+  const thinkingSettings = makeSettings({
+    thinkingEnabled: true,
+    reasoningEffort: "medium",
+    numCtx: 32768,
   });
 
-  it("keeps json_schema for auxiliary passes when thinking is on", () => {
-    expect(
-      shouldUseResponseFormat(
-        thinkingSettings,
-        true,
-        MAIN_REPLY_RESPONSE_FORMAT,
-      ),
-    ).toBe(true);
+  it("sends reasoning_effort on main and auxiliary passes when thinking is on", () => {
+    expect(providerChatExtensions(thinkingSettings, false).reasoning_effort).toBe(
+      "medium",
+    );
+    expect(providerChatExtensions(thinkingSettings, true).reasoning_effort).toBe(
+      "low",
+    );
   });
 
-  it("sends reasoning_effort on main and auxiliary when thinking is on", () => {
-    const main = providerChatExtensions(thinkingSettings, false);
-    expect(main.reasoning_effort).toBe("medium");
-
-    const aux = providerChatExtensions(thinkingSettings, true);
-    expect(aux.reasoning_effort).toBe("low");
-  });
-
-  it("omits reasoning_effort when think is false on the request", () => {
-    const settings = providerChatExtensions(
+  it("omits reasoning_effort when thinking is off", () => {
+    const ext = providerChatExtensions(
       { ...thinkingSettings, thinkingEnabled: false },
       false,
     );
-    expect(settings.reasoning_effort).toBeUndefined();
+    expect(ext.reasoning_effort).toBeUndefined();
   });
 });
