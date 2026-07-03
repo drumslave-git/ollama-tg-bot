@@ -1,0 +1,99 @@
+name: Publish Docker image
+
+# Release model: the `version` field in the root package.json is the single
+# source of truth. On every push to main this workflow checks whether a git tag
+# `v<version>` already exists. If it does not, it creates & pushes that tag and
+# publishes the image to Docker Hub. If it does, the run is a no-op. So a release
+# is just: bump the version in package.json, commit, push.
+on:
+  push:
+    branches: [main]
+    # Skip runs that only touch things the image never contains.
+    paths-ignore:
+      - "**/*.md"
+      - ".github/**"
+      - "!.github/workflows/publish.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: drumslave-git/llm-tg-bot
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create & push the release tag
+    outputs:
+      version: ${{ steps.pkg.outputs.version }}
+      released: ${{ steps.tag.outputs.released }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from package.json
+        id: pkg
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "package.json version: $version"
+
+      - name: Create tag if the version is new
+        id: tag
+        run: |
+          tag="v${{ steps.pkg.outputs.version }}"
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $tag already exists — nothing to release."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Release $tag"
+          git push origin "$tag"
+          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "Created and pushed $tag."
+
+  publish:
+    needs: version
+    if: needs.version.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.version.outputs.version }}
+            type=semver,pattern={{major}},value=v${{ needs.version.outputs.version }}
+            type=raw,value=latest
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

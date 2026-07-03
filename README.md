@@ -79,6 +79,42 @@ Bot capabilities are organized as plain folders under `server/src/features/<name
 
 Pipeline order is declared in `server/src/runtime/feature-hosts.ts`; feature metadata/db/MCP wiring lives in `server/src/runtime/feature-registry.ts`. Shared helpers are in `server/src/shared/`. In dev, `tsx` runs the server directly from `src/` (no build step for features).
 
+## Releases (Docker Hub)
+
+Images are published to Docker Hub at [`drumslave-git/llm-tg-bot`](https://hub.docker.com/r/drumslave-git/llm-tg-bot) by the [`Publish Docker image`](.github/workflows/publish.yml) GitHub Action.
+
+The `version` field in the root [`package.json`](package.json) is the single source of truth. On every push to `main`, the workflow tags the commit `v<version>` **if that tag does not already exist yet**, then builds and pushes the image with tags `<version>`, `<major>.<minor>`, `<major>`, and `latest`. If the tag already exists (version unchanged), the run is a no-op — so ordinary commits don't republish.
+
+**To cut a release:** bump the version, commit, and push to `main`.
+
+```bash
+npm run release:patch   # 1.0.0 -> 1.0.1  (also release:minor / release:major)
+git commit -am "Release v1.0.1"
+git push
+```
+
+These scripts only edit `package.json` (`--no-git-tag-version`); the CI creates and pushes the git tag so it stays the tag authority.
+
+**Required repo secrets** (Settings → Secrets and variables → Actions):
+
+| Secret | Value |
+|--------|-------|
+| `DOCKERHUB_USERNAME` | Docker Hub account/namespace (`drumslave-git`) |
+| `DOCKERHUB_TOKEN` | Docker Hub [access token](https://hub.docker.com/settings/security) with Read/Write scope |
+
+The image is built for `linux/amd64`.
+
+### Running the published image
+
+The base `docker-compose.yml` builds locally (`build: .`). To run the published image instead, add the [`docker-compose.prod.yml`](docker-compose.prod.yml) overlay, which overrides only the `bot` service to pull from Docker Hub:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+Pin a specific release with `IMAGE_TAG` in `.env` (e.g. `IMAGE_TAG=1.2.3`); it defaults to `latest`.
+
 ## Stack
 
 Node 22.13+, TypeScript, Grammy, Express, Postgres + pgvector, React (Vite), Docker.

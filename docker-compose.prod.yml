@@ -1,0 +1,11 @@
+# Production overlay: run the published Docker Hub image instead of building locally.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Pin a release with IMAGE_TAG in .env (e.g. IMAGE_TAG=1.2.3); defaults to latest.
+services:
+  bot:
+    image: drumslave-git/llm-tg-bot:${IMAGE_TAG:-latest}
+    # Always fetch the image from the registry; never fall back to a local build.
+    pull_policy: always

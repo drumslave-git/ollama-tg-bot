@@ -15,7 +15,10 @@
     "test:llm": "npm run test:llm -w server",
     "test:llm:reasoning": "npm run test:llm:reasoning -w server",
     "docker:build": "docker compose build",
-    "docker:up": "docker compose up -d"
+    "docker:up": "docker compose up -d",
+    "release:patch": "npm version patch --no-git-tag-version",
+    "release:minor": "npm version minor --no-git-tag-version",
+    "release:major": "npm version major --no-git-tag-version"
   },
   "workspaces": [
     "server",
