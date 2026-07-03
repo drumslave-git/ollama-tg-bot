@@ -182,8 +182,16 @@ function emptyResponseError(
 
   let hint =
     "The owner can send /reset to shorten context, or raise generation tokens in Settings.";
-  if (reason === "length") {
-    hint = `Generation used all ${numPredict} tokens before a usable JSON reply. Raise generation tokens in Settings (try 512+), or the owner can send /reset.`;
+  if (reason === "length" && hadReasoning) {
+    // All tokens were consumed inside reasoning before any content was
+    // emitted: a thinking runaway, not a budget shortfall. A larger cap just
+    // feeds a longer ramble, so point at the real lever (thinking).
+    hint =
+      `All ${numPredict} tokens were spent on reasoning before any reply text. ` +
+      "This is a thinking runaway, not a budget shortfall, so raising the cap rarely helps. " +
+      "Disable thinking or lower reasoning effort for this call, or the owner can send /reset.";
+  } else if (reason === "length") {
+    hint = `Generation used all ${numPredict} tokens before a usable reply. Raise generation tokens in Settings (above ${numPredict}), or the owner can send /reset.`;
   } else if (hadReasoning) {
     hint =
       "The API returned reasoning but left content empty. " +
