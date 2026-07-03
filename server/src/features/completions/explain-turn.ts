@@ -63,7 +63,6 @@ export async function runExplainTurn(
     deps.logging.logEvent("llm_reply_started", { ...turnLog, mode: "explain" });
     const { raw: modelOutput } = await deps.chatCompleteDetailed(messages, {
       think: Boolean(settings.thinkingEnabled),
-      responseFormat: deps.getMainReplyResponseFormat(),
     });
     deps.logging.logEvent("llm_reply_done", {
       ...turnLog,

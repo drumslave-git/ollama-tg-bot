@@ -58,19 +58,10 @@ export function extractParticipantUserIds(
 
 const ASSISTANT_SAID_PREFIX = /^\[assistant said\]\s*:?\s*/i;
 const STICKER_HISTORY_LINE = /^\[sticker:\s*[^\]]+\]\s*$/i;
-const ECHOED_USER_HISTORY_PREFIX =
-  /^\[user:[^\]]+(?:\s+(?:said|replied to[^\]]*|sent \w+))?\]\s*:\s*/i;
 
 /** Stored assistant rows use an envelope; strip before sending to the model. */
 export function stripAssistantHistoryEnvelope(text: string): string {
   return stripStickerHistoryLines(text.replace(ASSISTANT_SAID_PREFIX, "")).trim();
-}
-
-/** Remove internal history metadata if the model echoes it in a user-facing reply. */
-export function stripEchoedHistoryMarkup(text: string): string {
-  let result = text.trim().replace(ASSISTANT_SAID_PREFIX, "");
-  result = result.replace(ECHOED_USER_HISTORY_PREFIX, "");
-  return stripStickerHistoryLines(result).trim();
 }
 
 function stripStickerHistoryLines(text: string): string {

@@ -1,4 +1,3 @@
-import { getMainReplyResponseFormat } from "../features/completions/response-format.js";
 import {
   getActivePersonalityPrompt,
   getEffectiveMood,
@@ -26,9 +25,9 @@ export interface OutOfBandReplyOptions {
 /**
  * Generate one in-character model reply outside the normal turn pipeline —
  * used by scheduled task fires and maintenance announcements. Builds the
- * personality/mood system prompt and runs a single auxiliary completion,
- * returning the raw model output; callers parse the reply field themselves
- * (loosely via extractTelegramReply, or strictly when bad output must abort).
+ * personality/mood system prompt and runs a single plain-text auxiliary
+ * completion, returning the raw model output; callers clean it via
+ * extractTelegramReply.
  */
 export async function generateOutOfBandReplyRaw(
   opts: OutOfBandReplyOptions,
@@ -73,7 +72,6 @@ export async function generateOutOfBandReplyRaw(
     ],
     {
       auxiliary: true,
-      responseFormat: getMainReplyResponseFormat(),
       numPredict: getMaintenanceAnnounceNumPredict(settings),
       ...(opts.traceLabel != null ? { traceLabel: opts.traceLabel } : {}),
       ...(opts.traceTurnId != null ? { traceTurnId: opts.traceTurnId } : {}),

@@ -1,5 +1,4 @@
 import { extractTelegramReply } from "../../features/completions/index.js";
-import { asObject, parseJsonContent } from "../../shared/index.js";
 import { listDistinctHistoryChatIds } from "../../features/history/db/index.js";
 import { MAINTENANCE_MODE_ON_BEHAVIOR } from "./maintenance-mode.js";
 
@@ -15,15 +14,8 @@ export function buildMaintenanceAnnouncementUserMessage(
     : "Maintenance mode is now off.";
 }
 
-/** Parse maintenance broadcast output; never fall back to raw JSON text. */
+/** Clean the plain-text maintenance broadcast output; reject an empty reply. */
 export function parseMaintenanceAnnouncementReply(raw: string): string {
-  const parsed = asObject(parseJsonContent(raw));
-  if (!parsed || typeof parsed.reply !== "string") {
-    throw new Error(
-      "Maintenance announcement: LLM response was not valid JSON with a reply field",
-    );
-  }
-
   const reply = extractTelegramReply(raw).trim();
   if (!reply) {
     throw new Error("Maintenance announcement: LLM returned an empty reply");

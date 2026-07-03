@@ -30,9 +30,8 @@ function makeDeps(overrides: Record<string, unknown> = {}) {
     resolveActivePersonalityId: () => null,
     getPersonalityById: () => null,
     buildExplainSystemPrompt: vi.fn().mockReturnValue("system"),
-    getMainReplyResponseFormat: () => ({}),
     chatCompleteDetailed: vi.fn().mockResolvedValue({
-      raw: '{"reply":"Because the personality says so."}',
+      raw: "Because the personality says so.",
     }),
     extractTelegramReply: (raw: string) => raw,
     hasVisibleTelegramReply: () => true,
@@ -114,6 +113,11 @@ describe("explain command", () => {
       }),
     );
     expect(deps.chatCompleteDetailed).toHaveBeenCalledTimes(1);
+    // The explain pass is plain text — it must not request a JSON response_format.
+    expect(deps.chatCompleteDetailed).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.not.objectContaining({ responseFormat: expect.anything() }),
+    );
     expect(deps.sendChunkedHtmlReply).toHaveBeenCalledTimes(1);
     // Typing indicator runs during the wait and is stopped afterwards.
     expect(deps.startTyping).toHaveBeenCalledTimes(1);

@@ -43,8 +43,7 @@ export const completionsHost: PipelineFeatureHost = {
     const complete = createMain({
       think: true,
       // Plain-text main reply: no JSON schema. Grammar-constrained decoding can
-      // push weaker models into repetition loops; extractTelegramReply still
-      // parses a JSON wrapper defensively if a model emits one anyway.
+      // push weaker models into repetition loops.
       responseFormat: undefined,
       traceTurnId: state.turnId,
       traceLabel: "main reply",

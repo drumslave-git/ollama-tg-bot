@@ -10,10 +10,7 @@ import {
   resolveActivePersonalityId,
 } from "../features/mood/db/index.js";
 import { chatCompleteDetailed } from "../llm/client.js";
-import {
-  extractTelegramReply,
-  getMainReplyResponseFormat,
-} from "../features/completions/index.js";
+import { extractTelegramReply } from "../features/completions/index.js";
 import {
   hasVisibleTelegramReply,
   prepareTelegramHtml,
@@ -64,9 +61,8 @@ export function createExplainExtension(): ExplainExtension {
         activePersonalityPrompt: input.activePersonalityPrompt,
         traceText: input.traceText,
       }),
-    getMainReplyResponseFormat,
-    // Single plain completion — the explain pass reasons over the supplied trace
-    // and uses no tools. The output budget is sized from the context left after
+    // Single plain-text completion — the explain pass reasons over the supplied
+    // trace and uses no tools. The output budget is sized from the context left after
     // the (potentially large) trace prompt so a generous budget can't push the
     // backend into truncating the prompt.
     chatCompleteDetailed: async (messages, options) => {

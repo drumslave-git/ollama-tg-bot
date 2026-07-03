@@ -9,7 +9,6 @@ import {
   redactBase64MediaForDisplay,
   replaceBase64WithVisionDescription,
   stripAssistantHistoryEnvelope,
-  stripEchoedHistoryMarkup,
   userRoleTagFromParts,
 } from "../../../src/features/history/format.js";
 import { ASSISTANT_ROLE } from "../../../src/features/history/types.js";
@@ -63,16 +62,6 @@ describe("stripAssistantHistoryEnvelope", () => {
   it("removes the assistant-said prefix and sticker lines", () => {
     const input = "[assistant said] hi\n[sticker: smile]";
     expect(stripAssistantHistoryEnvelope(input)).toBe("hi");
-  });
-});
-
-describe("stripEchoedHistoryMarkup", () => {
-  it("removes an echoed user history prefix", () => {
-    expect(stripEchoedHistoryMarkup("[user:bob:42 said]: hello")).toBe("hello");
-  });
-
-  it("removes an echoed assistant prefix", () => {
-    expect(stripEchoedHistoryMarkup("[assistant said]: hey")).toBe("hey");
   });
 });
 

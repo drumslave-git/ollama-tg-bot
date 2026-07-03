@@ -1,7 +1,4 @@
-import type {
-  ChatMessage,
-  JsonSchemaResponseFormat,
-} from "../../shared/index.js";
+import type { ChatMessage } from "../../shared/index.js";
 
 export const EXPLAIN_EXTENSION_ID = "explain";
 
@@ -43,13 +40,11 @@ export interface ExplainTurnDeps {
     id: number,
   ) => Promise<{ name: string; prompt: string } | null>;
   buildExplainSystemPrompt: (input: ExplainPromptInput) => string;
-  getMainReplyResponseFormat: () => JsonSchemaResponseFormat;
-  /** Single plain completion — the explain pass uses no tools. */
+  /** Single plain-text completion — the explain pass uses no tools and no response_format. */
   chatCompleteDetailed: (
     messages: ChatMessage[],
     options: {
       think: boolean;
-      responseFormat: JsonSchemaResponseFormat;
     },
   ) => Promise<{ raw: string; thinking?: string | null }>;
   extractTelegramReply: (raw: string) => string;

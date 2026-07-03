@@ -42,24 +42,15 @@ describe("maintenance announcement helpers", () => {
     expect(text).toBe("Maintenance mode is now off.");
   });
 
-  it("extracts reply from valid JSON", () => {
-    const reply = parseMaintenanceAnnouncementReply(
-      JSON.stringify({ reply: "Back soon, mortals." }),
+  it("returns the trimmed plain-text reply", () => {
+    expect(parseMaintenanceAnnouncementReply("  Back soon, mortals.  ")).toBe(
+      "Back soon, mortals.",
     );
-    expect(reply).toBe("Back soon, mortals.");
   });
 
-  it("rejects raw JSON without a parsed reply field", () => {
-    expect(() =>
-      parseMaintenanceAnnouncementReply(
-        '{"reasoning":"thinking aloud","reply":"Hi',
-      ),
-    ).toThrow(/not valid JSON with a reply field/);
-  });
-
-  it("rejects empty reply field", () => {
-    expect(() =>
-      parseMaintenanceAnnouncementReply(JSON.stringify({ reply: "   " })),
-    ).toThrow(/empty reply/);
+  it("rejects an empty reply", () => {
+    expect(() => parseMaintenanceAnnouncementReply("   ")).toThrow(
+      /empty reply/,
+    );
   });
 });
