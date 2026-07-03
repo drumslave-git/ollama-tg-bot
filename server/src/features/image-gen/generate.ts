@@ -42,8 +42,13 @@ function formatSuccess(prompt: string, count: number): string {
 }
 
 function formatFailure(prompt: string, err: unknown): string {
+  // Lead with the error, not the prompt: the debug trace truncates this text,
+  // so the actionable reason must come first (the prompt can be long).
+  const shortPrompt =
+    prompt.length > 60 ? `${prompt.slice(0, 60)}…` : prompt;
   return (
-    `Image generation failed for "${prompt}": ${errorMessage(err)}. ` +
+    `Image generation failed: ${errorMessage(err)}. ` +
+    (shortPrompt ? `(prompt: "${shortPrompt}") ` : "") +
     "Tell the user you could not generate the image."
   );
 }
