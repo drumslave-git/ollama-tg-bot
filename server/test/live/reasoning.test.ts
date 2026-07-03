@@ -20,7 +20,10 @@ function userTurn(text: string): ChatCompletionMessageParam[] {
   ];
 }
 
-const REASONING_EFFORT_LEVELS = ["none", "low", "medium", "high", "max"] as const;
+// Active thinking levels only. "none" is the off switch (it disables thinking
+// on Ollama's /v1 endpoint), not a thinking level, and the UI never pairs it
+// with thinking enabled — so it has no place in a "thinking on" test.
+const REASONING_EFFORT_LEVELS = ["low", "medium", "high", "max"] as const;
 const EFFORT_LEVEL_PROMPT = "What is 12 + 13? One word in the reply field.";
 
 describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled)", () => {
@@ -29,11 +32,7 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
     async (reasoningEffort) => {
       const settings = makeSettings({ thinkingEnabled: true, reasoningEffort });
       const ext = providerChatExtensions(settings, false);
-      if (reasoningEffort === "none") {
-        expect(ext.reasoning_effort).toBeUndefined();
-      } else {
-        expect(ext.reasoning_effort).toBe(reasoningEffort);
-      }
+      expect(ext.reasoning_effort).toBe(reasoningEffort);
 
       const client = liveClient(cfg!);
       const result = await runTurn(

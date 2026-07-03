@@ -610,12 +610,14 @@ export async function chatCompleteDetailed(
     // Thinking-runaway recovery: the model can spend its whole budget inside the
     // reasoning channel and emit no reply (finish_reason=length, reasoning
     // present, content empty). Retry once with more headroom and bounded
-    // reasoning — thinking stays on. Excludes tool rounds (a tool_call is a
-    // valid empty-content result) and auxiliary side passes.
+    // reasoning. This also covers auxiliary structured passes (e.g. the address
+    // gate) and think:false calls: some backends (gemma) keep reasoning even when
+    // told not to, so a runaway there silently loses the JSON reply and the empty
+    // content parses to a wrong decision (a message that names the bot gets
+    // treated as unaddressed). Only tool rounds are excluded — a tool_call is a
+    // valid empty-content result.
     const noToolCalls = (choice?.message?.tool_calls?.length ?? 0) === 0;
     if (
-      !auxiliary &&
-      options?.think !== false &&
       noToolCalls &&
       isThinkingRunaway(
         { content: pickAssistantContent(data), reasoning: pickReasoning(data) },

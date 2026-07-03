@@ -62,11 +62,13 @@ describe("reasoning_effort request policy", () => {
     );
   });
 
-  it("omits reasoning_effort when thinking is off", () => {
+  it("sends reasoning_effort 'none' when thinking is off", () => {
+    // Absent field => Ollama /v1 turns thinking on for capable models, so "off"
+    // has to be an explicit "none".
     const ext = providerChatExtensions(
       { ...thinkingSettings, thinkingEnabled: false },
       false,
     );
-    expect(ext.reasoning_effort).toBeUndefined();
+    expect(ext.reasoning_effort).toBe("none");
   });
 });

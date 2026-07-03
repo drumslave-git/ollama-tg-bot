@@ -27,12 +27,14 @@ describe("providerChatExtensions", () => {
     });
   });
 
-  it("omits reasoning_effort when thinking is disabled", () => {
+  it("sends reasoning_effort 'none' when thinking is disabled", () => {
+    // Ollama's /v1 endpoint auto-enables thinking when the field is absent, so
+    // "off" must be sent explicitly as "none" — omitting it leaves thinking on.
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: false, reasoningEffort: "high" }),
       false,
     );
-    expect(ext.reasoning_effort).toBeUndefined();
+    expect(ext.reasoning_effort).toBe("none");
   });
 
   it("sends reasoning_effort when thinking is enabled", () => {
@@ -51,12 +53,12 @@ describe("providerChatExtensions", () => {
     expect(ext.reasoning_effort).toBe("max");
   });
 
-  it("omits reasoning_effort when effort is none", () => {
+  it("sends reasoning_effort 'none' when effort is none even with thinking flagged on", () => {
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "none" }),
       false,
     );
-    expect(ext.reasoning_effort).toBeUndefined();
+    expect(ext.reasoning_effort).toBe("none");
   });
 
   it("uses low reasoning effort for auxiliary side passes when thinking is on", () => {

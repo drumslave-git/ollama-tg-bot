@@ -90,10 +90,15 @@ export function providerRequestExtensions(
  *
  * Only standard OpenAI-compatible fields are sent so any compliant backend
  * works: thinking is controlled through the top-level `reasoning_effort`
- * (Ollama maps it to its `think` value; `"none"` disables reasoning). Reasoning
- * is parsed from a separate backend field when returned, but is never merged
- * into user-facing reply text. Side passes use {@link AUXILIARY_REASONING_EFFORT}
- * when thinking is on.
+ * (Ollama maps it to its `think` value; `"none"` disables reasoning).
+ *
+ * `reasoning_effort` is always sent, including `"none"` — Ollama's `/v1` endpoint
+ * auto-enables thinking for capable models when the field is ABSENT, so omitting
+ * it (rather than sending `"none"`) is exactly what leaves thinking on. Native
+ * `think:false` has no effect on `/v1`; only `reasoning_effort` does. Reasoning is
+ * parsed from a separate backend field when returned, but is never merged into
+ * user-facing reply text. Side passes use {@link AUXILIARY_REASONING_EFFORT} when
+ * thinking is on.
  */
 export function providerChatExtensions(
   settings: ProviderChatSettings,
@@ -107,15 +112,11 @@ export function providerChatExtensions(
   };
 
   const thinkingOn = settings.thinkingEnabled;
-  const effort: ReasoningEffort = !thinkingOn
+  extensions.reasoning_effort = !thinkingOn
     ? "none"
     : auxiliary
       ? AUXILIARY_REASONING_EFFORT
       : settings.reasoningEffort;
-
-  if (effort !== "none") {
-    extensions.reasoning_effort = effort;
-  }
 
   return extensions;
 }
