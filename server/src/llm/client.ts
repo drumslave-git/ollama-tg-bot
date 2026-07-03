@@ -22,10 +22,13 @@ import {
   getAuxiliaryNumPredict,
   getChatTimeoutMs,
   getEffectiveNumPredict,
+  getRunawayRetryNumPredict,
 } from "../settings/limits.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { normalizeImageForChat } from "../features/vision/index.js";
 import {
+  boundedRetryEffort,
+  isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
   shouldUseResponseFormat,
@@ -183,13 +186,14 @@ function emptyResponseError(
   let hint =
     "The owner can send /reset to shorten context, or raise generation tokens in Settings.";
   if (reason === "length" && hadReasoning) {
-    // All tokens were consumed inside reasoning before any content was
-    // emitted: a thinking runaway, not a budget shortfall. A larger cap just
-    // feeds a longer ramble, so point at the real lever (thinking).
+    // Even after the one-shot runaway retry (raised cap + bounded reasoning),
+    // all tokens were consumed inside reasoning before any content was emitted:
+    // a persistent thinking runaway, not a budget shortfall. Point at the real
+    // lever (thinking) rather than a still-larger cap.
     hint =
-      `All ${numPredict} tokens were spent on reasoning before any reply text. ` +
+      `All ${numPredict} tokens were spent on reasoning before any reply text, even after a retry with more headroom. ` +
       "This is a thinking runaway, not a budget shortfall, so raising the cap rarely helps. " +
-      "Disable thinking or lower reasoning effort for this call, or the owner can send /reset.";
+      "Lower reasoning effort for this call, or the owner can send /reset.";
   } else if (reason === "length") {
     hint = `Generation used all ${numPredict} tokens before a usable reply. Raise generation tokens in Settings (above ${numPredict}), or the owner can send /reset.`;
   } else if (hadReasoning) {
@@ -587,7 +591,7 @@ export async function chatCompleteDetailed(
           baseNumPredict: options?.numPredict,
         });
 
-    const { data, choice } = await requestChat(
+    let { data, choice } = await requestChat(
       model,
       prepared,
       numPredict,
@@ -601,6 +605,44 @@ export async function chatCompleteDetailed(
       options?.stop,
       settings,
     );
+    let effectiveNumPredict = numPredict;
+
+    // Thinking-runaway recovery: the model can spend its whole budget inside the
+    // reasoning channel and emit no reply (finish_reason=length, reasoning
+    // present, content empty). Retry once with more headroom and bounded
+    // reasoning — thinking stays on. Excludes tool rounds (a tool_call is a
+    // valid empty-content result) and auxiliary side passes.
+    const noToolCalls = (choice?.message?.tool_calls?.length ?? 0) === 0;
+    if (
+      !auxiliary &&
+      options?.think !== false &&
+      noToolCalls &&
+      isThinkingRunaway(
+        { content: pickAssistantContent(data), reasoning: pickReasoning(data) },
+        data.done_reason,
+      )
+    ) {
+      effectiveNumPredict = getRunawayRetryNumPredict(numPredict);
+      const retrySettings: Settings = {
+        ...settings,
+        reasoningEffort: boundedRetryEffort(settings.reasoningEffort),
+      };
+      ({ data, choice } = await requestChat(
+        model,
+        prepared,
+        effectiveNumPredict,
+        auxiliary,
+        traceTurnId,
+        traceLayout,
+        traceLabel ? `${traceLabel} (thinking runaway retry)` : traceLabel,
+        options?.responseFormat,
+        options?.tools,
+        options?.think,
+        options?.stop,
+        retrySettings,
+      ));
+    }
+
     const content = pickAssistantContent(data);
     const thinking = pickReasoning(data);
     const toolCalls = choice?.message?.tool_calls ?? [];
@@ -622,7 +664,7 @@ export async function chatCompleteDetailed(
     if (auxiliary && thinking) {
       return { raw: thinking, thinking: "" };
     }
-    throw emptyResponseError(model, data, numPredict);
+    throw emptyResponseError(model, data, effectiveNumPredict);
   } catch (err) {
     throw wrapChatError(err, settings.chatTimeoutSec, auxiliary);
   }

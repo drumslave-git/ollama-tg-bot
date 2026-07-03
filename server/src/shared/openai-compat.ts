@@ -35,6 +35,42 @@ export type ReasoningEffort = "none" | "low" | "medium" | "high" | "max";
 /** Side passes use low effort when thinking is enabled (main reply may be higher). */
 export const AUXILIARY_REASONING_EFFORT: ReasoningEffort = "low";
 
+/** Active reasoning-effort levels, lowest first (excludes the "off" value "none"). */
+const REASONING_EFFORT_LADDER: readonly ReasoningEffort[] = [
+  "low",
+  "medium",
+  "high",
+  "max",
+];
+
+/**
+ * Lower reasoning effort by one step for a thinking-runaway retry, never below
+ * "low" so thinking stays on. "none"/"low" both retry at "low".
+ */
+export function boundedRetryEffort(effort: ReasoningEffort): ReasoningEffort {
+  const idx = REASONING_EFFORT_LADDER.indexOf(effort);
+  if (idx <= 0) return "low";
+  return REASONING_EFFORT_LADDER[idx - 1]!;
+}
+
+/**
+ * Recognize the "thinking runaway" shape: the model spent its whole generation
+ * budget inside the reasoning channel and emitted no reply, so the completion
+ * stopped on length with reasoning present but content empty. A one-shot retry
+ * with more headroom and bounded reasoning recovers a reply without disabling
+ * thinking.
+ */
+export function isThinkingRunaway(
+  parsed: ParsedAssistantMessage,
+  finishReason: string | null | undefined,
+): boolean {
+  return (
+    finishReason === "length" &&
+    parsed.content.trim() === "" &&
+    parsed.reasoning.trim() !== ""
+  );
+}
+
 export interface ProviderChatSettings {
   numCtx: number;
   thinkingEnabled: boolean;

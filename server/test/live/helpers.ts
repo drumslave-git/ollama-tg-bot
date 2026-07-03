@@ -4,12 +4,18 @@ import type {
   ChatCompletionMessageParam,
 } from "openai/resources/chat/completions";
 import type { ChatMessage } from "../../src/llm/client.js";
-import { parseAssistantMessage, providerChatExtensions } from "../../src/llm/openai-compat.js";
+import {
+  boundedRetryEffort,
+  isThinkingRunaway,
+  parseAssistantMessage,
+  providerChatExtensions,
+} from "../../src/llm/openai-compat.js";
 import { extractTelegramReply } from "../../src/features/completions/index.js";
 import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_REASONING_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,
+  getRunawayRetryNumPredict,
 } from "../../src/settings/limits.js";
 import {
   toOpenAiResponseFormat,
@@ -79,26 +85,48 @@ export async function runTurn(
       : {}),
   });
   const ext = providerChatExtensions(settings, false);
+  const numPredict = opts.numPredict ?? 512;
   // Match production: the main reply is plain text with NO response_format —
   // grammar-constrained decoding pushes models into repetition loops. The reply
   // is taken from content via extractTelegramReply. See completionsHost.
-  const completion: ChatCompletion = await client.chat.completions.create({
-    model,
-    messages,
-    stream: false,
-    max_tokens: opts.numPredict ?? 512,
-    temperature: settings.temperature,
-    top_p: settings.topP,
-    ...ext,
-  } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
+  const runRequest = async (
+    maxTokens: number,
+    extensions: Partial<ReturnType<typeof providerChatExtensions>>,
+  ): Promise<ChatCompletion> =>
+    client.chat.completions.create({
+      model,
+      messages,
+      stream: false,
+      max_tokens: maxTokens,
+      temperature: settings.temperature,
+      top_p: settings.topP,
+      ...extensions,
+    } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
 
-  const choice = completion.choices[0];
-  const { content, reasoning } = parseAssistantMessage(choice);
+  let completion = await runRequest(numPredict, ext);
+  let choice = completion.choices[0];
+  let parsed = parseAssistantMessage(choice);
+  let finishReason = choice?.finish_reason ?? null;
+
+  // Mirror production's thinking-runaway recovery (see chatCompleteDetailed):
+  // when reasoning burned the whole budget and left content empty, retry once
+  // with more headroom and bounded reasoning — thinking stays on.
+  if (isThinkingRunaway(parsed, finishReason)) {
+    const retryExt = providerChatExtensions(
+      { ...settings, reasoningEffort: boundedRetryEffort(settings.reasoningEffort) },
+      false,
+    );
+    completion = await runRequest(getRunawayRetryNumPredict(numPredict), retryExt);
+    choice = completion.choices[0];
+    parsed = parseAssistantMessage(choice);
+    finishReason = choice?.finish_reason ?? null;
+  }
+
   return {
-    content,
-    reasoning: reasoning.trim(),
-    reply: extractTelegramReply(content),
-    finishReason: choice?.finish_reason ?? null,
+    content: parsed.content,
+    reasoning: parsed.reasoning.trim(),
+    reply: extractTelegramReply(parsed.content),
+    finishReason,
   };
 }
 

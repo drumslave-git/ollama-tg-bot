@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  boundedRetryEffort,
+  isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
   providerRequestExtensions,
@@ -71,6 +73,48 @@ describe("providerChatExtensions", () => {
       false,
     );
     expect(ext).not.toHaveProperty("chat_template_kwargs");
+  });
+});
+
+describe("isThinkingRunaway", () => {
+  it("flags empty content with reasoning that stopped on length", () => {
+    expect(
+      isThinkingRunaway({ content: "", reasoning: "long chain" }, "length"),
+    ).toBe(true);
+  });
+
+  it("ignores whitespace-only content", () => {
+    expect(
+      isThinkingRunaway({ content: "   ", reasoning: "chain" }, "length"),
+    ).toBe(true);
+  });
+
+  it("does not flag when content is present", () => {
+    expect(
+      isThinkingRunaway({ content: "hi", reasoning: "chain" }, "length"),
+    ).toBe(false);
+  });
+
+  it("does not flag when it stopped normally", () => {
+    expect(
+      isThinkingRunaway({ content: "", reasoning: "chain" }, "stop"),
+    ).toBe(false);
+  });
+
+  it("does not flag when there was no reasoning", () => {
+    expect(isThinkingRunaway({ content: "", reasoning: "" }, "length")).toBe(
+      false,
+    );
+  });
+});
+
+describe("boundedRetryEffort", () => {
+  it("lowers effort one step but never below low", () => {
+    expect(boundedRetryEffort("max")).toBe("high");
+    expect(boundedRetryEffort("high")).toBe("medium");
+    expect(boundedRetryEffort("medium")).toBe("low");
+    expect(boundedRetryEffort("low")).toBe("low");
+    expect(boundedRetryEffort("none")).toBe("low");
   });
 });
 
