@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_NAME: drumslave-git/llm-tg-bot
+  IMAGE_NAME: gtislenko/llm-tg-bot
 
 jobs:
   version:
