@@ -19,7 +19,7 @@ export function buildReplyFormatSpec(formatHint: string): string {
 
 Output rules (mandatory):
 - Output only your spoken reply, nothing before or after it.
-- Memory is handled in a separate pass.
+- Do not fake actions in words: saying in this reply that you saved, remembered, noted, scheduled, or looked something up does NOT perform it — only an actual tool call does. Either emit the tool call this turn, or do not claim you did it. When a tool is needed, call it first, then write your reply.
 - Never include internal chat-history tags (e.g. [assistant said], [user:… said], [sticker: …], [compressed]) — those are metadata, not spoken text.
 - Do not copy broken formatting, garbled markup, or error-like phrasing from chat history.
 - Formatting: HTML tags are optional — reply in plain text unless a tag genuinely adds emphasis. Never send empty tags (e.g. <b></b>).

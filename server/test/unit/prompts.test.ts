@@ -122,6 +122,9 @@ describe("buildSystemPrompt", () => {
     });
     expect(withMemory).toMatch(/explicitly asks you to remember/i);
     expect(withMemory).toMatch(/introduc|name/i);
+    // Must spell out that a written acknowledgment is not a save — gemma
+    // otherwise replies "saved" without emitting the memory_save call.
+    expect(withMemory).toMatch(/stores nothing|ONLY thing that saves/i);
 
     const withoutMemory = buildSystemPrompt({
       settings: makeSettings(),

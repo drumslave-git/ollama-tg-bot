@@ -58,4 +58,12 @@ describe("buildReplyFormatSpec", () => {
     const spec = buildReplyFormatSpec("HINT-TEXT");
     expect(spec).not.toContain("reasoning");
   });
+
+  it("tells the model that narrating an action is not performing it", () => {
+    // Regression: the old "Memory is handled in a separate pass" line let the
+    // model acknowledge a save in prose and skip the memory_save tool call.
+    const spec = buildReplyFormatSpec("HINT-TEXT");
+    expect(spec).not.toContain("separate pass");
+    expect(spec).toMatch(/does NOT perform it|only an actual tool call/i);
+  });
 });

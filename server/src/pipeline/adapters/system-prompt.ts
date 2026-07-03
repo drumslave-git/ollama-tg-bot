@@ -245,7 +245,7 @@ function buildToolsSection(enabledToolNames: string[]): string {
     (descriptions.length > 0 ? `${descriptions.join("\n")}\n` : "") +
     `- Decide what to retrieve for [CURRENT MESSAGE] — when it carries a "replied to msg:X" pointer whose target is not in [RECENT CHAT], use history_get_messages to fetch msg:X; the reply may be an earlier topic, not the last line of [RECENT CHAT].\n` +
     (enabledToolNames.includes(MEMORY_SAVE_TOOL_NAME)
-      ? `- Always call ${MEMORY_SAVE_TOOL_NAME} when the user explicitly asks you to remember or save something (e.g. "remember that …", "save this", "don't forget …") — store exactly what they asked, using type 'user' for facts about a person or 'general' for shared knowledge. This overrides any "skip chit-chat" judgement.\n` +
+      ? `- Always call ${MEMORY_SAVE_TOOL_NAME} when the user explicitly asks you to remember or save something (e.g. "remember that …", "save this", "don't forget …") — store exactly what they asked, using type 'user' for facts about a person or 'general' for shared knowledge. This overrides any "skip chit-chat" judgement. Emitting the ${MEMORY_SAVE_TOOL_NAME} call is the ONLY thing that saves; replying "saved"/"noted"/"I'll remember" without calling it stores nothing, so never acknowledge a save you did not actually call.\n` +
         `- Also call ${MEMORY_SAVE_TOOL_NAME} PROACTIVELY when the user reveals a durable fact about themselves — their name (when they introduce themselves), where they live, their work, stable preferences, or boundaries — even while you answer casually and no other tool is needed. A self-introduction is not chit-chat.\n`
       : "") +
     `- Prefer tools over guessing page content, library versions, live web facts, or chat history you have not retrieved.`
