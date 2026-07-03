@@ -60,8 +60,8 @@ export function llmTitle(label: string): string {
 interface ChatResponseShape {
   message?: { content?: string; reasoning?: string };
   toolCalls?: Array<{ name: string; arguments: string }>;
-  done_reason?: string;
-  eval_count?: number;
+  finishReason?: string;
+  completionTokens?: number;
   usage?: LlmTokenUsage;
 }
 
@@ -278,10 +278,10 @@ export class ProcessingRecorder {
       summary.push(`${content.length} chars output`);
     }
     if (reasoning) summary.push(`${reasoning.length} chars reasoning`);
-    summary.push(`done: ${response.done_reason ?? "unknown"}`);
+    summary.push(`done: ${response.finishReason ?? "unknown"}`);
 
     // Prefer the provider's full usage (prompt + completion); fall back to the
-    // completion-only eval_count/cap when usage is absent.
+    // completion-only token count/cap when usage is absent.
     const usage = response.usage;
     if (usage) {
       this.tokenTotals.promptTokens += usage.promptTokens;
@@ -299,7 +299,7 @@ export class ProcessingRecorder {
         totalTokens: usage.totalTokens,
       });
     } else {
-      summary.push(`tokens: ${response.eval_count ?? 0}/${maxTokens}`);
+      summary.push(`tokens: ${response.completionTokens ?? 0}/${maxTokens}`);
     }
     if (durationMs != null) summary.push(`${Math.round(durationMs)}ms`);
 

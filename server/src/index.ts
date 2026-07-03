@@ -4,8 +4,7 @@ import express from "express";
 import cors from "cors";
 import { config, requireStartupEnv } from "./config/index.js";
 import { logInfo } from "./logging/index.js";
-import { initDatabase, getSettings } from "./db/index.js";
-import { refreshModelContextCache } from "./llm/model-context-cache.js";
+import { initDatabase } from "./db/index.js";
 import { createApiRouter } from "./api/routes.js";
 import { startBot, stopBot } from "./bot/index.js";
 import { closePlaywrightBrowser } from "./features/link-fetch/index.js";
@@ -53,8 +52,6 @@ async function main(): Promise<void> {
   initQueueSchedulers();
   await loadMcpTools();
   const featureRouters = await createFeatureRouters();
-  const bootSettings = await getSettings();
-  void refreshModelContextCache(bootSettings.model, config.llmBaseUrl);
   startMoodCooldownWorker();
 
   const app = express();

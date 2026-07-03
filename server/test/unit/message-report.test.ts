@@ -53,7 +53,7 @@ describe("message processing report", () => {
       "test-model",
       512,
       [{ role: "user", content: "ping" }],
-      { message: { content: '{"reply":"pong"}' }, done_reason: "stop" },
+      { message: { content: '{"reply":"pong"}' }, finishReason: "stop" },
       undefined,
       undefined,
       undefined,

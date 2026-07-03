@@ -20,10 +20,10 @@ function userTurn(text: string): ChatCompletionMessageParam[] {
   ];
 }
 
-// Active thinking levels only. "none" is the off switch (it disables thinking
-// on Ollama's /v1 endpoint), not a thinking level, and the UI never pairs it
-// with thinking enabled — so it has no place in a "thinking on" test.
-const REASONING_EFFORT_LEVELS = ["low", "medium", "high", "max"] as const;
+// OpenAI-standard reasoning-effort levels. Thinking is turned off via the
+// separate `thinkingEnabled` flag (which omits the field), so there is no "off"
+// level to test here.
+const REASONING_EFFORT_LEVELS = ["low", "medium", "high"] as const;
 const EFFORT_LEVEL_PROMPT = "What is 12 + 13? One word in the reply field.";
 
 describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled)", () => {

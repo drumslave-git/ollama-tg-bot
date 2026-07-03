@@ -9,7 +9,6 @@ import {
   getPersonalityById,
   resolveActivePersonalityId,
 } from "../features/mood/db/index.js";
-import { ensureModelContextCache } from "../llm/model-context-cache.js";
 import { MOOD_TRAIT_HINTS } from "../features/mood/index.js";
 import { buildBaseSystemPrompt } from "../pipeline/adapters/system-prompt.js";
 import { processStartedAt } from "../config/process-info.js";
@@ -63,7 +62,6 @@ export async function buildMoodPayload() {
 
 export async function buildSettingsPayload() {
   const settings = await getSettings();
-  await ensureModelContextCache(settings.model, config.llmBaseUrl);
   const resolved = getResolvedSettings(settings);
   return {
     ...resolved,

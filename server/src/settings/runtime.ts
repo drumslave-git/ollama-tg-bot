@@ -1,11 +1,9 @@
 import type { Settings } from "../db/index.js";
-import { config } from "../config/index.js";
 import {
   buildContextBudget,
   getEffectiveNumCtx,
   type ContextBudget,
 } from "./context-budget.js";
-import { getModelContextForBudget } from "../llm/model-context-cache.js";
 import {
   getHistoryLimits,
   normalizeTokenBudget,
@@ -17,11 +15,7 @@ import {
 // can run inside sync helpers (e.g. the LLM request body builders).
 export function getResolvedSettings(settings: Settings): Settings {
   const normalized = normalizeTokenBudget(settings);
-  const model = getModelContextForBudget(
-    normalized.model,
-    config.llmBaseUrl,
-  );
-  const numCtx = getEffectiveNumCtx(normalized, model);
+  const numCtx = getEffectiveNumCtx(normalized, { name: normalized.model });
   return { ...normalized, numCtx };
 }
 
@@ -31,9 +25,5 @@ export function getResolvedHistoryLimits(settings: Settings): HistoryLimits {
 
 export function getContextBudgetForSettings(settings: Settings): ContextBudget {
   const normalized = normalizeTokenBudget(settings);
-  const model = getModelContextForBudget(
-    normalized.model,
-    config.llmBaseUrl,
-  );
-  return buildContextBudget(normalized, model);
+  return buildContextBudget(normalized, { name: normalized.model });
 }

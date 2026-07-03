@@ -41,23 +41,18 @@ export {
   isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
-  providerRequestExtensions,
   shouldUseResponseFormat,
   AUXILIARY_REASONING_EFFORT,
   type ParsedAssistantMessage,
   type ProviderChatExtensions,
-  type ProviderChatOptions,
   type ProviderChatSettings,
   type ReasoningEffort,
 } from "./openai-compat.js";
 export {
   calculateContextBudget,
-  extractModelMaxCtx,
   minRequiredCtxForPredict,
-  modelContextInputFromTags,
   type ContextBudget,
   type ContextBudgetLimiter,
-  type ModelCatalogEntry,
   type ModelContextInput,
 } from "./context-budget.js";
 export {

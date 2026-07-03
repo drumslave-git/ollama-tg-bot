@@ -10,13 +10,6 @@ export const ASSISTANT_MESSAGE_FIELDS = {
   reasoningContent: "reasoning_content",
 } as const;
 
-/** Provider-specific request `options` bag used by several local backends. */
-export interface ProviderChatOptions {
-  num_ctx: number;
-  /** Preserve channel tokens when the backend supports it. */
-  skip_special_tokens?: boolean;
-}
-
 export interface ParsedAssistantMessage {
   /** Final answer: parse JSON reply and side-pass objects from this only. */
   content: string;
@@ -25,27 +18,25 @@ export interface ParsedAssistantMessage {
 }
 
 export interface ProviderChatExtensions {
-  options: ProviderChatOptions;
   reasoning_effort?: ReasoningEffort;
 }
 
-/** OpenAI-standard reasoning effort levels (Ollama also accepts "max"). */
-export type ReasoningEffort = "none" | "low" | "medium" | "high" | "max";
+/** OpenAI-standard reasoning effort levels. */
+export type ReasoningEffort = "low" | "medium" | "high";
 
 /** Side passes use low effort when thinking is enabled (main reply may be higher). */
 export const AUXILIARY_REASONING_EFFORT: ReasoningEffort = "low";
 
-/** Active reasoning-effort levels, lowest first (excludes the "off" value "none"). */
+/** Reasoning-effort levels, lowest first. */
 const REASONING_EFFORT_LADDER: readonly ReasoningEffort[] = [
   "low",
   "medium",
   "high",
-  "max",
 ];
 
 /**
  * Lower reasoning effort by one step for a thinking-runaway retry, never below
- * "low" so thinking stays on. "none"/"low" both retry at "low".
+ * "low" so thinking stays on.
  */
 export function boundedRetryEffort(effort: ReasoningEffort): ReasoningEffort {
   const idx = REASONING_EFFORT_LADDER.indexOf(effort);
@@ -77,48 +68,26 @@ export interface ProviderChatSettings {
   reasoningEffort: ReasoningEffort;
 }
 
-/** Options bag only for dashboard/API previews. */
-export function providerRequestExtensions(
-  settings: ProviderChatSettings,
-): { options: ProviderChatOptions } {
-  const extensions = providerChatExtensions(settings, true);
-  return { options: extensions.options! };
-}
-
 /**
- * OpenAI-compatible chat request extensions for provider-specific options.
+ * OpenAI-standard chat request extensions.
  *
- * Only standard OpenAI-compatible fields are sent so any compliant backend
- * works: thinking is controlled through the top-level `reasoning_effort`
- * (Ollama maps it to its `think` value; `"none"` disables reasoning).
- *
- * `reasoning_effort` is always sent, including `"none"` — Ollama's `/v1` endpoint
- * auto-enables thinking for capable models when the field is ABSENT, so omitting
- * it (rather than sending `"none"`) is exactly what leaves thinking on. Native
- * `think:false` has no effect on `/v1`; only `reasoning_effort` does. Reasoning is
- * parsed from a separate backend field when returned, but is never merged into
+ * Only the top-level `reasoning_effort` field is used, and only when thinking is
+ * enabled. When thinking is off the field is omitted entirely — the standard way
+ * to request no reasoning. Values are `"low" | "medium" | "high"`. Reasoning is
+ * parsed from a separate response field when returned, but never merged into
  * user-facing reply text. Side passes use {@link AUXILIARY_REASONING_EFFORT} when
  * thinking is on.
  */
 export function providerChatExtensions(
   settings: ProviderChatSettings,
   auxiliary: boolean,
-): Partial<ProviderChatExtensions> {
-  const extensions: Partial<ProviderChatExtensions> = {
-    options: {
-      num_ctx: settings.numCtx,
-      skip_special_tokens: false,
-    },
-  };
-
-  const thinkingOn = settings.thinkingEnabled;
-  extensions.reasoning_effort = !thinkingOn
-    ? "none"
-    : auxiliary
+): ProviderChatExtensions {
+  if (!settings.thinkingEnabled) return {};
+  return {
+    reasoning_effort: auxiliary
       ? AUXILIARY_REASONING_EFFORT
-      : settings.reasoningEffort;
-
-  return extensions;
+      : settings.reasoningEffort,
+  };
 }
 
 /**

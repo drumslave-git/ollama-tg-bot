@@ -22,14 +22,6 @@ export interface ModelContextInput {
   modelMaxCtx?: number;
 }
 
-export interface ModelCatalogEntry {
-  name?: string;
-  size?: number;
-  details?: { parameter_size?: string };
-  parameterSize?: string;
-  modelMaxCtx?: number;
-}
-
 export type ContextBudgetLimiter =
   | "manual"
   | "model_max"
@@ -45,28 +37,6 @@ export interface ContextBudget {
   modelMaxCtx: number | null;
   limitedBy: ContextBudgetLimiter;
   notes: string[];
-}
-
-export function modelContextInputFromTags(
-  modelName: string,
-  entry?: ModelCatalogEntry | null,
-): ModelContextInput {
-  return {
-    name: modelName,
-    modelMaxCtx: entry?.modelMaxCtx,
-  };
-}
-
-export function extractModelMaxCtx(modelInfo: Record<string, unknown>): number | null {
-  let max: number | null = null;
-  for (const [key, value] of Object.entries(modelInfo)) {
-    if (!/\.context_length$/i.test(key)) continue;
-    const n = typeof value === "number" ? value : Number(value);
-    if (Number.isFinite(n) && n > 0) {
-      max = max == null ? n : Math.max(max, n);
-    }
-  }
-  return max;
 }
 
 export function minRequiredCtxForPredict(numPredict: number): number {

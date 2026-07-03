@@ -197,10 +197,16 @@ describe("validateSettingsFields", () => {
     ).toThrow(/reasoningEffort/);
   });
 
-  it("accepts the max reasoning effort level", () => {
+  it("accepts the high reasoning effort level", () => {
     expect(() =>
-      validateSettingsFields(makeSettings({ reasoningEffort: "max" })),
+      validateSettingsFields(makeSettings({ reasoningEffort: "high" })),
     ).not.toThrow();
+  });
+
+  it("rejects the dropped Ollama 'max' reasoning effort level", () => {
+    expect(() =>
+      validateSettingsFields(makeSettings({ reasoningEffort: "max" as never })),
+    ).toThrow(/reasoningEffort/);
   });
 
   it("requires ownerUserId when ownerUsername is set", () => {

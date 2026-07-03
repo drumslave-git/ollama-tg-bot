@@ -193,9 +193,6 @@ export function getChatTimeoutMs(settings: Settings): number {
   return settings.chatTimeoutSec * 1000;
 }
 
-/** Provider-specific request extensions for OpenAI-compatible backends. */
-export { providerRequestExtensions as getProviderExtensions } from "../llm/openai-compat.js";
-
 export function validateSettingsFields(settings: Settings): void {
   const normalized = normalizeTokenBudget(settings);
   const isFiniteNumber = (value: unknown): value is number =>
@@ -228,10 +225,8 @@ export function validateSettingsFields(settings: Settings): void {
     ["activePersonalityId must be a number", isFiniteNumber(settings.activePersonalityId)],
     ["moodCooldownMinutes must be a number", isFiniteNumber(settings.moodCooldownMinutes)],
     [
-      "reasoningEffort must be none, low, medium, high, or max",
-      (["none", "low", "medium", "high", "max"] as const).includes(
-        settings.reasoningEffort,
-      ),
+      "reasoningEffort must be low, medium, or high",
+      (["low", "medium", "high"] as const).includes(settings.reasoningEffort),
     ],
     [
       `numPredict must be ${MIN_NUM_PREDICT}–${maxNumPredictForContext(settings.numCtx)} (context headroom)`,

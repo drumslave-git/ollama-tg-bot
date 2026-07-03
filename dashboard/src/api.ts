@@ -30,7 +30,7 @@ export interface Settings {
   stickerReplyChance: number;
   moodCooldownMinutes?: number;
   thinkingEnabled: boolean;
-  reasoningEffort: "none" | "low" | "medium" | "high" | "max";
+  reasoningEffort: "low" | "medium" | "high";
   maintenanceModeEnabled: boolean;
   workflowSteps: string[];
   contextBudget?: ContextBudget;

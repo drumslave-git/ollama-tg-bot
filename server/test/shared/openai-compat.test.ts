@@ -4,7 +4,6 @@ import {
   isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
-  providerRequestExtensions,
   shouldUseResponseFormat,
 } from "../../src/shared/openai-compat.js";
 import { makeProviderSettings } from "./helpers/provider-settings.js";
@@ -16,25 +15,14 @@ function choice(message: Record<string, unknown>): Choice {
 }
 
 describe("providerChatExtensions", () => {
-  it("maps provider options from settings", () => {
-    const ext = providerChatExtensions(
-      makeProviderSettings({ numCtx: 8192 }),
-      false,
-    );
-    expect(ext.options).toEqual({
-      num_ctx: 8192,
-      skip_special_tokens: false,
-    });
-  });
-
-  it("sends reasoning_effort 'none' when thinking is disabled", () => {
-    // Ollama's /v1 endpoint auto-enables thinking when the field is absent, so
-    // "off" must be sent explicitly as "none" — omitting it leaves thinking on.
+  it("omits reasoning_effort when thinking is disabled", () => {
+    // No reasoning field is the OpenAI-standard way to request no reasoning.
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: false, reasoningEffort: "high" }),
       false,
     );
-    expect(ext.reasoning_effort).toBe("none");
+    expect(ext).not.toHaveProperty("reasoning_effort");
+    expect(ext).toEqual({});
   });
 
   it("sends reasoning_effort when thinking is enabled", () => {
@@ -45,22 +33,6 @@ describe("providerChatExtensions", () => {
     expect(ext.reasoning_effort).toBe("high");
   });
 
-  it("passes through the max reasoning effort level", () => {
-    const ext = providerChatExtensions(
-      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "max" }),
-      false,
-    );
-    expect(ext.reasoning_effort).toBe("max");
-  });
-
-  it("sends reasoning_effort 'none' when effort is none even with thinking flagged on", () => {
-    const ext = providerChatExtensions(
-      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "none" }),
-      false,
-    );
-    expect(ext.reasoning_effort).toBe("none");
-  });
-
   it("uses low reasoning effort for auxiliary side passes when thinking is on", () => {
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
@@ -69,11 +41,13 @@ describe("providerChatExtensions", () => {
     expect(ext.reasoning_effort).toBe("low");
   });
 
-  it("never emits provider-specific chat_template_kwargs", () => {
+  it("emits only the standard reasoning_effort field", () => {
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
       false,
     );
+    expect(Object.keys(ext)).toEqual(["reasoning_effort"]);
+    expect(ext).not.toHaveProperty("options");
     expect(ext).not.toHaveProperty("chat_template_kwargs");
   });
 });
@@ -112,11 +86,9 @@ describe("isThinkingRunaway", () => {
 
 describe("boundedRetryEffort", () => {
   it("lowers effort one step but never below low", () => {
-    expect(boundedRetryEffort("max")).toBe("high");
     expect(boundedRetryEffort("high")).toBe("medium");
     expect(boundedRetryEffort("medium")).toBe("low");
     expect(boundedRetryEffort("low")).toBe("low");
-    expect(boundedRetryEffort("none")).toBe("low");
   });
 });
 
@@ -174,20 +146,6 @@ describe("shouldUseResponseFormat", () => {
         undefined,
       ),
     ).toBe(false);
-  });
-});
-
-describe("providerRequestExtensions", () => {
-  it("returns only the options bag (no reasoning_effort)", () => {
-    const ext = providerRequestExtensions(
-      makeProviderSettings({ thinkingEnabled: true, reasoningEffort: "high" }),
-    );
-    expect(ext).toEqual({
-      options: {
-        num_ctx: 4096,
-        skip_special_tokens: false,
-      },
-    });
   });
 });
 

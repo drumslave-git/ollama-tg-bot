@@ -3,7 +3,6 @@ import { getSettings, updateSettings, type Settings } from "../../db/index.js";
 import { buildSettingsPayload } from "../../dashboard/payloads.js";
 import { getBot } from "../../bot/index.js";
 import { resolveOwnerUsername } from "../../bot/owner/resolve-owner.js";
-import { ensureModelContextCache } from "../../llm/model-context-cache.js";
 import {
   syncStickerCatalogFromSettings,
   getStickerCatalogState,
@@ -116,7 +115,6 @@ settingsRouter.patch("/", async (req, res) => {
     }
 
     const updated = await updateSettings(patch);
-    await ensureModelContextCache(updated.model, config.llmBaseUrl);
 
     if (body.stickerPackName !== undefined) {
       try {
@@ -201,8 +199,9 @@ settingsRouter.get("/budget", async (req, res) => {
         ? parseInt(req.query.numCtx, 10)
         : settings.numCtx;
 
-    const modelInput = await ensureModelContextCache(model, config.llmBaseUrl);
-    const budget = calculateContextBudget(numCtxRaw, numPredict, modelInput);
+    const budget = calculateContextBudget(numCtxRaw, numPredict, {
+      name: model,
+    });
 
     const historyLimits = getHistoryLimits({
       numPredict,

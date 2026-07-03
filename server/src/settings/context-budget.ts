@@ -1,9 +1,7 @@
 import type { Settings } from "../db/index.js";
 import {
   calculateContextBudget,
-  extractModelMaxCtx,
   minRequiredCtxForPredict,
-  modelContextInputFromTags,
   type ContextBudget,
   type ContextBudgetLimiter,
   type ModelContextInput,
@@ -11,9 +9,7 @@ import {
 
 export {
   calculateContextBudget,
-  extractModelMaxCtx,
   minRequiredCtxForPredict,
-  modelContextInputFromTags,
   type ContextBudget,
   type ContextBudgetLimiter,
   type ModelContextInput,

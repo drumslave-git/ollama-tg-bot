@@ -35,7 +35,6 @@ import {
 } from "./openai-compat.js";
 import { getRecorder } from "../debug/processing-recorder.js";
 import { sanitizeLlmPayloadForDebug } from "./debug-payload.js";
-import { extractModelMaxCtx } from "../settings/context-budget.js";
 
 const LIST_MODELS_TIMEOUT_MS = 60_000;
 
@@ -49,10 +48,6 @@ export interface LlmModel {
     parameter_size?: string;
     quantization_level?: string;
   };
-}
-
-export interface ModelShowResult {
-  modelMaxCtx: number | null;
 }
 
 export interface ChatMessage {
@@ -86,8 +81,8 @@ interface ChatResponse {
     reasoning?: string;
   };
   toolCalls?: ChatResponseToolCall[];
-  done_reason?: string;
-  eval_count?: number;
+  finishReason?: string;
+  completionTokens?: number;
   usage?: LlmTokenUsage;
 }
 
@@ -111,8 +106,8 @@ function toChatResponse(
       reasoning: reasoning.trim(),
     },
     ...(toolCalls.length > 0 ? { toolCalls } : {}),
-    done_reason: choice?.finish_reason ?? undefined,
-    eval_count: usage?.completion_tokens ?? usage?.total_tokens,
+    finishReason: choice?.finish_reason ?? undefined,
+    completionTokens: usage?.completion_tokens ?? usage?.total_tokens,
     ...(tokenUsage ? { usage: tokenUsage } : {}),
   };
 }
@@ -179,8 +174,8 @@ function emptyResponseError(
   data: ChatResponse,
   numPredict: number,
 ): Error {
-  const reason = data.done_reason ?? "unknown";
-  const evalCount = data.eval_count ?? 0;
+  const reason = data.finishReason ?? "unknown";
+  const evalCount = data.completionTokens ?? 0;
   const hadReasoning = Boolean(pickReasoning(data));
 
   let hint =
@@ -251,29 +246,6 @@ function normalizeModels(models: (OpenAiModel | Model)[]): LlmModel[] {
     })
     .filter((m): m is LlmModel => m !== null)
     .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-export async function showModel(
-  name: string,
-): Promise<ModelShowResult> {
-  const empty: ModelShowResult = { modelMaxCtx: null };
-  try {
-    const base = resolveBaseUrl();
-    const url = `${base}/api/show`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: name }),
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return empty;
-    const data = (await res.json()) as Record<string, unknown>;
-    const modelInfo = data.model_info as Record<string, unknown> | undefined;
-    const modelMaxCtx = modelInfo ? extractModelMaxCtx(modelInfo) : null;
-    return { modelMaxCtx };
-  } catch {
-    return empty;
-  }
 }
 
 function messagesHaveImages(
@@ -442,7 +414,7 @@ function formatTraceSamplingLine(
 ): string {
   const temp = auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature;
   const extensions = providerChatExtensions(settings, auxiliary);
-  const reasoningEffort = extensions.reasoning_effort ?? "none";
+  const reasoningEffort = extensions.reasoning_effort ?? "off";
   const responseFormatLine = responseFormat
     ? "response_format: json_schema"
     : null;
@@ -621,7 +593,7 @@ export async function chatCompleteDetailed(
       noToolCalls &&
       isThinkingRunaway(
         { content: pickAssistantContent(data), reasoning: pickReasoning(data) },
-        data.done_reason,
+        data.finishReason,
       )
     ) {
       effectiveNumPredict = getRunawayRetryNumPredict(numPredict);

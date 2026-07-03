@@ -1,4 +1,3 @@
-import { config } from "../config/index.js";
 import { db, initPool } from "./pool.js";
 import {
   appendErrorLog,
@@ -12,10 +11,6 @@ import { bindLlmUsageDatabase } from "./debug/llm-usage.js";
 import { bindKnownUsersDatabase } from "./users/known-users.js";
 import { bindDataBrowserDatabase } from "./data/browser.js";
 import { getPersonalityById } from "../features/mood/db/index.js";
-import {
-  invalidateModelContextCache,
-  refreshModelContextCache,
-} from "../llm/model-context-cache.js";
 import {
   normalizeTokenBudget,
   validateSettingsFields,
@@ -57,8 +52,8 @@ export interface Settings {
   moodCooldownMinutes: number;
   /** Request model reasoning when the backend supports it. */
   thinkingEnabled: boolean;
-  /** Level of reasoning effort for models that support it (none, low, medium, high, max). */
-  reasoningEffort: "none" | "low" | "medium" | "high" | "max";
+  /** OpenAI-standard reasoning effort for models that support it (only sent when thinking is on). */
+  reasoningEffort: "low" | "medium" | "high";
   /** When on, only the owner can trigger LLM-backed bot behavior. */
   maintenanceModeEnabled: boolean;
   /** Enabled workflow steps. */
@@ -175,6 +170,26 @@ async function setSetting<K extends keyof Settings>(
   );
 }
 
+/**
+ * Map any stored reasoning-effort value to the OpenAI-standard set. Legacy DBs
+ * may hold the dropped Ollama values `"none"`/`"max"`; map them to the nearest
+ * valid level so old settings load without failing validation.
+ */
+function normalizeReasoningEffort(value: string): Settings["reasoningEffort"] {
+  switch (value) {
+    case "none":
+      return "low";
+    case "max":
+      return "high";
+    case "low":
+    case "medium":
+    case "high":
+      return value;
+    default:
+      return DEFAULT_SETTINGS.reasoningEffort;
+  }
+}
+
 export async function getSettings(): Promise<Settings> {
   const { rows } = await db.query<{ key: string; value: string }>(
     "SELECT key, value FROM settings",
@@ -202,7 +217,9 @@ export async function getSettings(): Promise<Settings> {
     stickerReplyChance: read<number>("stickerReplyChance"),
     moodCooldownMinutes: read<number>("moodCooldownMinutes"),
     thinkingEnabled: read<boolean>("thinkingEnabled"),
-    reasoningEffort: read<Settings["reasoningEffort"]>("reasoningEffort"),
+    reasoningEffort: normalizeReasoningEffort(
+      read<string>("reasoningEffort"),
+    ),
     maintenanceModeEnabled: read<boolean>("maintenanceModeEnabled"),
     workflowSteps: read<string[]>("workflowSteps"),
   };
@@ -224,13 +241,8 @@ export async function updateSettings(
   if (partial.stickerPackName !== undefined) {
     next.stickerPackName = partial.stickerPackName.trim().replace(/^@/, "");
   }
-  if (partial.model !== undefined) {
-    invalidateModelContextCache();
-  }
 
   // Store the manually-configured numCtx as-is (clamped to absolute bounds).
-  // The model-max cap is applied at request time by getResolvedSettings, not
-  // baked into the stored value — so switching to a larger model restores it.
   const normalized = normalizeTokenBudget(next);
   validateSettingsFields(normalized);
 
@@ -245,7 +257,6 @@ export async function updateSettings(
     await setSetting(key, normalized[key]);
   }
 
-  void refreshModelContextCache(normalized.model, config.llmBaseUrl);
   void import("../dashboard/live-events.js").then(({ emitDataUpdated, emitMoodUpdated, emitSettingsUpdated }) => {
     void emitSettingsUpdated();
     emitMoodUpdated();

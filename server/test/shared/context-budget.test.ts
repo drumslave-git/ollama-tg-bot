@@ -1,24 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  calculateContextBudget,
-  extractModelMaxCtx,
-} from "../../src/shared/context-budget.js";
-
-describe("extractModelMaxCtx", () => {
-  it("reads the largest *.context_length value", () => {
-    expect(
-      extractModelMaxCtx({
-        "llama.context_length": 8192,
-        "general.context_length": "4096",
-        unrelated: 999,
-      }),
-    ).toBe(8192);
-  });
-
-  it("returns null when no context length key", () => {
-    expect(extractModelMaxCtx({ foo: 1 })).toBeNull();
-  });
-});
+import { calculateContextBudget } from "../../src/shared/context-budget.js";
 
 describe("calculateContextBudget", () => {
   it("uses the manually-configured numCtx when within limits", () => {
