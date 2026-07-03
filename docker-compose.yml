@@ -11,16 +11,26 @@ services:
         condition: service_healthy
     environment:
       BOT_TOKEN: ${BOT_TOKEN:?Set BOT_TOKEN}
-      LLM_BASE_URL: ${LLM_BASE_URL:?Set LLM_BASE_URL}
-      LLM_API_KEY: ${LLM_API_KEY:-}
-      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
-      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+#      LLM_BASE_URL: ${LLM_BASE_URL:?Set LLM_BASE_URL}
+#      LLM_API_KEY: ${LLM_API_KEY:-}
+#      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+#      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       TAVILY_API_KEY: ${TAVILY_API_KEY:-}
       DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-bot}:${POSTGRES_PASSWORD:-bot}@db:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-bot}}
       LOGGING_LEVEL: ${LOGGING_LEVEL:-}
       TZ: ${TZ:-UTC}
       NODE_ENV: production
       PORT: ${PORT:-3000}
+    models:
+      llm:
+        endpoint_var: LLM_BASE_URL
+        model_var: LLM_MODEL
+      embedding:
+        endpoint_var: EMBEDDING_BASE_URL
+        model_var: EMBEDDING_MODEL
+      image_generation:
+        endpoint_var: IMAGE_GENERATION_BASE_URL
+        model_var: IMAGE_GENERATION_MODEL
     extra_hosts:
       - "host.docker.internal:host-gateway"
     restart: unless-stopped
@@ -58,6 +68,22 @@ services:
     restart: unless-stopped
     networks:
       - default
+
+models:
+  llm:
+    model: ${LLM_MODEL:?Set LLM_MODEL}
+    context_size: ${LLM_CONTEXT_SIZE:-8192}
+    runtime_flags:
+      - "--no-prefill-assistant"
+
+  embedding:
+    model: ${EMBEDDING_MODEL:?Set EMBEDDING_MODEL}
+    context_size: ${EMBEDDING_CONTEXT_SIZE:-2048}
+    runtime_flags:
+      - "--embeddings"
+
+  image_generation:
+    model: ${IMAGE_GENERATION_MODEL:?Set IMAGE_GENERATION_MODEL}
 
 networks:
   traefik:
