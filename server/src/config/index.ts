@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
@@ -6,6 +7,26 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..", "..", "..");
 
 dotenv.config({ path: path.join(rootDir, ".env") });
+
+/**
+ * Resolve an env value with Docker-secret support: when `${name}_FILE` is set,
+ * the referenced file's trimmed contents are used; otherwise the plain `${name}`
+ * variable. This lets any credential (e.g. `BOT_TOKEN`, `TAVILY_API_KEY`) be
+ * supplied via a mounted secret file rather than a literal env value.
+ */
+function readEnv(name: string): string {
+  const filePath = (process.env[`${name}_FILE`] ?? "").trim();
+  if (filePath) {
+    try {
+      return fs.readFileSync(filePath, "utf8").trim();
+    } catch (err) {
+      throw new Error(
+        `Failed to read ${name}_FILE at ${filePath}: ${(err as Error).message}`,
+      );
+    }
+  }
+  return (process.env[name] ?? "").trim();
+}
 
 /** API listen port. `PORT` in `.env` applies in production (Docker) only; local dev uses 3000 for Vite proxy. */
 function resolvePort(): number {
@@ -16,26 +37,26 @@ function resolvePort(): number {
 }
 
 function resolveTavilyApiKey(): string {
-  return (process.env.TAVILY_API_KEY ?? "").trim();
+  return readEnv("TAVILY_API_KEY");
 }
 
 function resolveLlmBaseUrl(): string {
-  return (process.env.LLM_BASE_URL ?? "").trim();
+  return readEnv("LLM_BASE_URL");
 }
 
 function resolveLlmApiKey(): string {
-  return (process.env.LLM_API_KEY ?? "").trim();
+  return readEnv("LLM_API_KEY");
 }
 
 /** Base URL for the embedding model. Falls back to LLM_BASE_URL when EMBEDDING_BASE_URL is unset. */
 function resolveEmbeddingBaseUrl(): string {
-  const embeddingUrl = (process.env.EMBEDDING_BASE_URL ?? "").trim();
+  const embeddingUrl = readEnv("EMBEDDING_BASE_URL");
   return embeddingUrl || resolveLlmBaseUrl();
 }
 
 /** API key for the embedding host. Falls back to LLM_API_KEY when EMBEDDING_API_KEY is unset. */
 function resolveEmbeddingApiKey(): string {
-  const embeddingKey = (process.env.EMBEDDING_API_KEY ?? "").trim();
+  const embeddingKey = readEnv("EMBEDDING_API_KEY");
   return embeddingKey || resolveLlmApiKey();
 }
 
@@ -46,13 +67,13 @@ function resolveEmbeddingHostDistinct(): boolean {
 
 /** Base URL for image generation. Falls back to LLM_BASE_URL when IMAGE_GENERATION_BASE_URL is unset. */
 function resolveImageBaseUrl(): string {
-  const imageUrl = (process.env.IMAGE_GENERATION_BASE_URL ?? "").trim();
+  const imageUrl = readEnv("IMAGE_GENERATION_BASE_URL");
   return imageUrl || resolveLlmBaseUrl();
 }
 
 /** API key for the image host. Falls back to LLM_API_KEY when IMAGE_GENERATION_API_KEY is unset. */
 function resolveImageApiKey(): string {
-  const imageKey = (process.env.IMAGE_GENERATION_API_KEY ?? "").trim();
+  const imageKey = readEnv("IMAGE_GENERATION_API_KEY");
   return imageKey || resolveLlmApiKey();
 }
 
@@ -61,12 +82,31 @@ function resolveImageHostDistinct(): boolean {
   return resolveImageBaseUrl() !== resolveLlmBaseUrl();
 }
 
+/**
+ * Postgres connection string from `DATABASE_URL`. When `PG_PASSWORD` (or
+ * `PG_PASSWORD_FILE`, for Docker secrets) is set, its value overrides the
+ * password embedded in the URL — so the URL can be committed without the
+ * secret and the password supplied separately via a mounted file.
+ */
 function resolveDatabaseUrl(): string {
-  return (process.env.DATABASE_URL ?? "").trim();
+  const url = readEnv("DATABASE_URL");
+  if (!url) return url;
+
+  const password = readEnv("PG_PASSWORD");
+  if (!password) return url;
+
+  try {
+    const parsed = new URL(url);
+    parsed.password = password;
+    return parsed.toString();
+  } catch {
+    // Not a parseable URL (e.g. a bare DSN); leave it untouched.
+    return url;
+  }
 }
 
 function resolveTimezone(): string {
-  const raw = (process.env.TZ ?? "").trim();
+  const raw = readEnv("TZ");
   return raw || "UTC";
 }
 
@@ -87,7 +127,7 @@ let startupEnv: StartupEnv | undefined;
 function collectRequiredEnvErrors(): string[] {
   const errors: string[] = [];
 
-  const botToken = (process.env.BOT_TOKEN ?? "").trim();
+  const botToken = readEnv("BOT_TOKEN");
   if (!botToken) {
     errors.push("BOT_TOKEN environment variable is required");
   }
@@ -113,7 +153,7 @@ function resolveStartupEnv(): StartupEnv {
   }
 
   return {
-    botToken: (process.env.BOT_TOKEN ?? "").trim(),
+    botToken: readEnv("BOT_TOKEN"),
   };
 }
 

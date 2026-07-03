@@ -98,6 +98,8 @@ To add a feature: create `server/src/features/<name>/`, implement the pipeline h
 | `TZ` | Optional IANA timezone for scheduled tasks + daily summaries (default `UTC`); jobs fire at wall-clock times in this zone |
 | `PUBLIC_URL` | Optional base URL of the live/prod deployment, for agents to inspect live state via its REST API (see below). Read-only debugging aid; not used by the app itself |
 
+Every variable also accepts a `<NAME>_FILE` variant (Docker secrets): when set, the file's trimmed contents are used instead of the literal value. `readEnv()` in `server/src/config/index.ts` handles this for all vars; `PG_PASSWORD`/`PG_PASSWORD_FILE` is special-cased to override the password embedded in `DATABASE_URL`.
+
 Model, prompts, owner, maintenance mode, and performance limits live in **dashboard settings** (Postgres), not `.env`. The embedding model (history-summary RAG) is a dashboard setting too — no default; pick one from the provider's models (it must produce `EMBEDDING_DIM`-length vectors, see `server/src/llm/embeddings.ts`).
 
 ### Inspecting the live deployment (`PUBLIC_URL`)

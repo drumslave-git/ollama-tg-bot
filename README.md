@@ -42,6 +42,8 @@ service provides it). Set `DATABASE_URL` accordingly.
 
 Do not put `PORT` in `.env` for local dev — it is only for `docker-compose.yml` (`PORT:PORT` mapping + app listen).
 
+**Docker secrets:** every variable also accepts a `<NAME>_FILE` variant — when set, the file's contents are used instead of the literal value. Use this to feed credentials from mounted secret files: `BOT_TOKEN_FILE`, `TAVILY_API_KEY_FILE`, and `PG_PASSWORD_FILE` (overrides the password embedded in `DATABASE_URL`). `docker-compose.yml` ships a commented `secrets:` block you can uncomment to wire them up.
+
 LLM base URL and API key are set in **`.env`** (`LLM_BASE_URL`, optional `LLM_API_KEY`). Model, embedding model, prompts, owner, maintenance mode, and performance limits live in the **dashboard** (stored in Postgres). Tavily is configured via **`TAVILY_API_KEY`** in `.env`.
 
 ### Web search (Tavily)

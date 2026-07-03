@@ -16,5 +16,7 @@ if (existsSync(rootEnv)) {
 
 // Tests must never hit Tavily web search. Drop any key loaded from `.env` so
 // `isTavilyConfigured()` is false and no external search request can be made,
-// even if a test imports a module that touches the Tavily client.
+// even if a test imports a module that touches the Tavily client. Also drop the
+// Docker-secret `_FILE` variant so it cannot reintroduce a key.
 delete process.env.TAVILY_API_KEY;
+delete process.env.TAVILY_API_KEY_FILE;
