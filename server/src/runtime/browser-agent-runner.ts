@@ -85,8 +85,8 @@ async function deliverReport(
   );
 }
 
-/** What one link (or the whole goal) produced. Nothing is delivered per link —
- * the run collects every link's output and reports ONCE when fully done. */
+/** What one link (or the whole goal) produced. Each link is reported to the
+ * chat as it finishes; a multi-link run adds a final summary once all are done. */
 interface LinkOutcome {
   ok: boolean;
   steps: number;
@@ -154,6 +154,24 @@ async function runOneLink(
   }
 }
 
+/** Build one link's chat report: the deterministic download section (source
+ * url / filename / size) plus any research/failure note, prefixed with
+ * "Link n/total" for multi-link runs so each message says which URL it is for. */
+function buildLinkReport(
+  outcome: LinkOutcome,
+  position: { index: number; total: number } | null,
+): string {
+  const sections: string[] = [];
+  const downloadSection = formatDownloadReport(outcome.downloads);
+  if (downloadSection) sections.push(downloadSection);
+  if (outcome.note.trim()) sections.push(outcome.note.trim());
+  const body =
+    sections.join("\n\n") || "I browsed but couldn't find anything useful.";
+  return position
+    ? `<b>Link ${position.index}/${position.total}</b>\n\n${body}`
+    : body;
+}
+
 async function runOne(run: BrowserAgentRun): Promise<void> {
   await setBrowserAgentRunStatus(run.id, "running");
   await refreshCounts();
@@ -161,17 +179,17 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
   const recorder = await beginBrowserAgentProcessing(run.id);
   recorder?.note("Goal", run.goal);
 
-  // Multiple links → process one by one, each with its OWN fresh session. One/
-  // zero links → a single task. Output is collected and reported ONCE below.
+  // Multiple links → process one by one, each with its OWN fresh session, and
+  // report each link to the chat as it finishes (incremental feedback). One/
+  // zero links → a single task whose report IS the whole end-of-task result.
   const tasks = planGoalLinks(run.goal);
-  const files: CollectedFile[] = [];
-  const downloads: DownloadRecord[] = [];
-  const notes: string[] = [];
+  const multi = tasks.length > 1;
   let okCount = 0;
   let totalSteps = 0;
+  let totalDownloads = 0;
 
   for (const [index, task] of tasks.entries()) {
-    if (tasks.length > 1) {
+    if (multi) {
       recorder?.note(
         `Link ${index + 1}/${tasks.length}`,
         task.url ?? "(from goal)",
@@ -180,44 +198,59 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
     const outcome = await runOneLink(run, task.goal, recorder);
     if (outcome.ok) okCount += 1;
     totalSteps += outcome.steps;
-    files.push(...outcome.files);
-    downloads.push(...outcome.downloads);
-    if (outcome.note.trim()) notes.push(outcome.note.trim());
+    totalDownloads += outcome.downloads.length;
+
+    // Report this link now, with its own inline files, so the user sees each
+    // URL's result as it lands instead of waiting for the whole run.
+    const report = buildLinkReport(
+      outcome,
+      multi ? { index: index + 1, total: tasks.length } : null,
+    );
+    try {
+      await deliverReport(run, report, outcome.files, recorder);
+    } catch (deliverErr) {
+      logEventError("browser_agent_report_failed", deliverErr, {
+        runId: run.id,
+      });
+    }
   }
 
-  // One final report when the whole task is done: a deterministic download
-  // section (source url / filename / size) plus any research/failure notes.
-  const sections: string[] = [];
-  const downloadSection = formatDownloadReport(downloads);
-  if (downloadSection) sections.push(downloadSection);
-  if (notes.length) sections.push(notes.join("\n\n"));
-  const report =
-    sections.join("\n\n") || "I browsed but couldn't find anything useful.";
-
-  try {
-    await deliverReport(run, report, files, recorder);
-  } catch (deliverErr) {
-    logEventError("browser_agent_report_failed", deliverErr, { runId: run.id });
+  // Final summary once the whole task is done — only for multi-link runs, where
+  // a single wrap-up line ties the per-link reports together. A single link
+  // needs none: its report above already was the end-of-task report.
+  if (multi) {
+    const summary =
+      `<b>All links done — ${okCount}/${tasks.length} succeeded` +
+      (totalDownloads > 0 ? `, ${totalDownloads} file(s) downloaded.` : ".") +
+      `</b>`;
+    try {
+      await deliverReport(run, summary, [], recorder);
+    } catch (deliverErr) {
+      logEventError("browser_agent_report_failed", deliverErr, {
+        runId: run.id,
+      });
+    }
   }
 
-  const summary =
-    tasks.length > 1
-      ? `${okCount}/${tasks.length} link(s) done`
-      : okCount > 0
-        ? "done"
-        : "no result";
+  const statusSummary = multi
+    ? `${okCount}/${tasks.length} link(s) done`
+    : okCount > 0
+      ? "done"
+      : "no result";
   await setBrowserAgentRunStatus(
     run.id,
-    tasks.length > 1 || okCount > 0 ? "completed" : "failed",
-    { result: summary, stepCount: totalSteps },
+    multi || okCount > 0 ? "completed" : "failed",
+    { result: statusSummary, stepCount: totalSteps },
   );
-  recorder?.complete(okCount > 0 ? "processed" : "error", { summary });
+  recorder?.complete(okCount > 0 ? "processed" : "error", {
+    summary: statusSummary,
+  });
   logEvent("browser_agent_completed", {
     runId: run.id,
     links: tasks.length,
     ok: okCount,
     steps: totalSteps,
-    downloads: downloads.length,
+    downloads: totalDownloads,
   });
 }
 
