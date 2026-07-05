@@ -21,16 +21,13 @@ import {
 } from "../features/web-browse/db/index.js";
 import { BrowserSession } from "../features/web-browse/session.js";
 import { runBrowserAgent } from "../features/web-browse/agent.js";
+import { planGoalLinks } from "../features/web-browse/goal-links.js";
 import type { CollectedFile } from "../features/web-browse/tools.js";
 import { setRunEnqueuedListener } from "../features/web-browse/signal.js";
 
 let started = false;
 let pumping = false;
 const active = new Set<number>();
-
-function clip(text: string, max = 200): string {
-  return text.length > max ? `${text.slice(0, max)}…` : text;
-}
 
 async function refreshCounts(): Promise<void> {
   try {
@@ -84,25 +81,24 @@ async function deliverReport(
   );
 }
 
-async function runOne(run: BrowserAgentRun): Promise<void> {
-  await setBrowserAgentRunStatus(run.id, "running");
-  await refreshCounts();
-
-  const recorder = await beginBrowserAgentProcessing(run.id);
-  recorder?.note("Goal", run.goal);
+/** Run one link (or the whole goal) with its OWN fresh session, step budget,
+ * and wall-clock timeout, then deliver its report. Never throws. */
+async function runOneLink(
+  run: BrowserAgentRun,
+  goal: string,
+  recorder: ProcessingRecorder | null,
+): Promise<{ ok: boolean; steps: number }> {
   const session = new BrowserSession();
-
   const settings = await getSettings();
-  const timeoutMs = settings.browserAgentMaxSeconds * 1000;
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
     void session.close();
-  }, timeoutMs);
+  }, settings.browserAgentMaxSeconds * 1000);
 
   try {
     const result = await runBrowserAgent({
-      goal: run.goal,
+      goal,
       isOwner: run.isOwner,
       recorder,
       session,
@@ -116,18 +112,14 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
         ? "I ran out of time before finishing that."
         : "I browsed but couldn't find anything useful.");
     await deliverReport(run, report, result.files, recorder);
-    await setBrowserAgentRunStatus(run.id, "completed", {
-      result: clip(report),
-      stepCount: result.steps,
-    });
-    recorder?.complete("processed", { summary: clip(report) });
-    logEvent("browser_agent_completed", { runId: run.id, steps: result.steps });
+    return { ok: Boolean(result.report) && !timedOut, steps: result.steps };
   } catch (err) {
     clearTimeout(timer);
     const message = timedOut
       ? `Timed out after ${settings.browserAgentMaxSeconds}s`
       : errorMessage(err);
     logEventError("browser_agent_failed", err, { runId: run.id });
+    recorder?.failPhase("agent", "Agent run", message);
     try {
       await deliverReport(
         run,
@@ -140,12 +132,55 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
     } catch (deliverErr) {
       logEventError("browser_agent_report_failed", deliverErr, { runId: run.id });
     }
-    await setBrowserAgentRunStatus(run.id, "failed", { result: clip(message) });
-    recorder?.failPhase("agent", "Agent run", message);
-    recorder?.complete("error", { summary: clip(message) });
+    return { ok: false, steps: 0 };
   } finally {
     await session.close();
   }
+}
+
+async function runOne(run: BrowserAgentRun): Promise<void> {
+  await setBrowserAgentRunStatus(run.id, "running");
+  await refreshCounts();
+
+  const recorder = await beginBrowserAgentProcessing(run.id);
+  recorder?.note("Goal", run.goal);
+
+  // Multiple links → process one by one; each gets a fresh budget ("reset
+  // limits") and its own report. One/zero links → a single task.
+  const tasks = planGoalLinks(run.goal);
+  let okCount = 0;
+  let totalSteps = 0;
+
+  for (const [index, task] of tasks.entries()) {
+    if (tasks.length > 1) {
+      recorder?.note(
+        `Link ${index + 1}/${tasks.length}`,
+        task.url ?? "(from goal)",
+      );
+    }
+    const { ok, steps } = await runOneLink(run, task.goal, recorder);
+    if (ok) okCount += 1;
+    totalSteps += steps;
+  }
+
+  const summary =
+    tasks.length > 1
+      ? `${okCount}/${tasks.length} link(s) done`
+      : okCount > 0
+        ? "done"
+        : "no result";
+  await setBrowserAgentRunStatus(
+    run.id,
+    tasks.length > 1 || okCount > 0 ? "completed" : "failed",
+    { result: summary, stepCount: totalSteps },
+  );
+  recorder?.complete(okCount > 0 ? "processed" : "error", { summary });
+  logEvent("browser_agent_completed", {
+    runId: run.id,
+    links: tasks.length,
+    ok: okCount,
+    steps: totalSteps,
+  });
 }
 
 async function pump(): Promise<void> {

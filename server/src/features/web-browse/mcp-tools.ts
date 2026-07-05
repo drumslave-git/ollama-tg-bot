@@ -24,15 +24,16 @@ export function registerWebBrowseMcpTools(
         "Start a background agent that browses the web to accomplish a goal, then reports back " +
         "into THIS chat when done. Use when the owner asks you to research, look up, find, or " +
         "gather something online that needs opening pages, clicking, or downloading a file — not " +
-        "for a single known URL (use fetch_link) or a quick search (use search_web). The agent " +
-        "runs on its own; after calling this, tell the user you're on it and will report back. " +
-        "Owner only.",
+        "for a single known URL (use fetch_link) or a quick search (use search_web). You may pass " +
+        "MULTIPLE links in the goal — the agent processes them one by one and reports on each. " +
+        "The agent runs on its own; after calling this, tell the user you're on it and will report " +
+        "back. Owner only.",
       inputSchema: z.object({
         goal: z
           .string()
           .min(4)
           .describe(
-            "A clear, self-contained description of what to find or do on the web",
+            "A clear, self-contained description of what to find or do on the web. Include ALL links the user gave (the agent handles each).",
           ),
       }),
       annotations: {

@@ -135,7 +135,7 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
   }
   if (enabledToolNames.includes(BROWSER_AGENT_START_TOOL_NAME)) {
     lines.push(
-      `- ${BROWSER_AGENT_START_TOOL_NAME}(goal): Owner only. Start a background agent that browses the web — opening pages, clicking, and (owner) downloading files — to accomplish a multi-step goal, then reports back into this chat. Use for research/lookups that need navigating across pages, NOT for a single known URL (${FETCH_LINK_TOOL_NAME}) or a quick lookup (${SEARCH_WEB_TOOL_NAME}). After calling it, briefly tell the user you're on it and will report back.`,
+      `- ${BROWSER_AGENT_START_TOOL_NAME}(goal): Owner only. Start a background agent that browses the web — opening pages, clicking, and (owner) downloading files — to accomplish a multi-step goal, then reports back into this chat. Include ALL links the user gave in the goal (it processes several one by one and reports on each). Use for research/lookups that need navigating across pages, NOT for a single known URL (${FETCH_LINK_TOOL_NAME}) or a quick lookup (${SEARCH_WEB_TOOL_NAME}). After calling it, briefly tell the user you're on it and will report back.`,
     );
   }
   return lines;
