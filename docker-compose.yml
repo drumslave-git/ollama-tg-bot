@@ -37,6 +37,10 @@ services:
     #   - pg_password
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      # Web-browse agent downloads — bind-mounted so files are accessible on the
+      # host (configurable via DOWNLOADS_DIR).
+      - "${DOWNLOADS_DIR:-./downloads}:/app/downloads"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
