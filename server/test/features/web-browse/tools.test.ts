@@ -15,6 +15,7 @@ function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
     downloadMaxMb: 20,
     recorder: null,
     files: [],
+    downloads: [],
     onAction: vi.fn(),
     ...overrides,
   };
