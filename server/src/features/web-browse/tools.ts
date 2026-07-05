@@ -96,7 +96,7 @@ export const BROWSER_AGENT_TOOLS: ChatCompletionTool[] = [
   }),
   fn(
     "browser_extract_media",
-    "Find the real media (video/audio) file URLs on the current page. It automatically presses play and dismisses ad pop-ups/redirects to make the video stream load, then returns the URLs it captured from the player and network traffic. Use this to get the actual video URL for browser_download — do NOT click a 'download' link (usually an ad).",
+    "Find the real media file URL for the video on the current page. It automatically presses play and dismisses ad pop-ups/redirects to make the video stream load, then returns the single best URL captured from the player and network traffic. Use this to get the actual video URL for browser_download — do NOT click a 'download' link (usually an ad). One video page yields one file.",
     { type: "object", properties: {} },
   ),
   fn(
@@ -203,17 +203,15 @@ export function makeBrowserToolDispatcher(ctx: AgentToolContext) {
               text: "No media URLs captured even after pressing play and retrying. The video may be DRM/login-protected or the player blocked automation. Report that the video could not be extracted.",
             };
           }
-          // Concise, directive result: the best URL is first (already ranked).
-          // Your NEXT action must be browser_download with that URL.
-          const [top, ...rest] = urls;
-          const extra =
-            rest.length > 0
-              ? `\nOther candidates: ${rest.slice(0, 4).join(" ")}`
-              : "";
+          // Return ONLY the single best URL. The other entries are just
+          // lower-quality variants of the SAME video (HD/SD of one file), not
+          // separate videos — surfacing them makes the model download the same
+          // video several times. Ranking already put the best variant first.
+          const [top] = urls;
           return {
             text:
               `Video file URL: ${top}\n` +
-              `Next, call browser_download with url "${top}".${extra}`,
+              `This is the one file for this video. Next, call browser_download with url "${top}". Do not download any other URL for this video.`,
           };
         }
         case "browser_screenshot": {
