@@ -22,7 +22,11 @@ import {
 import { BrowserSession } from "../features/web-browse/session.js";
 import { runBrowserAgent } from "../features/web-browse/agent.js";
 import { planGoalLinks } from "../features/web-browse/goal-links.js";
-import type { CollectedFile } from "../features/web-browse/tools.js";
+import type {
+  CollectedFile,
+  DownloadRecord,
+} from "../features/web-browse/tools.js";
+import { formatDownloadReport } from "../features/web-browse/report.js";
 import { setRunEnqueuedListener } from "../features/web-browse/signal.js";
 
 let started = false;
@@ -81,15 +85,26 @@ async function deliverReport(
   );
 }
 
-/** Run one link (or the whole goal) with its OWN fresh session, to completion,
- * then deliver its report. There is no step or wall-clock cap — the run ends
- * when the agent reports back or the tool loop detects it is looping (in which
- * case the link is a failure). Never throws. */
+/** What one link (or the whole goal) produced. Nothing is delivered per link —
+ * the run collects every link's output and reports ONCE when fully done. */
+interface LinkOutcome {
+  ok: boolean;
+  steps: number;
+  files: CollectedFile[];
+  downloads: DownloadRecord[];
+  /** Text shown in the final report ONLY when the link produced no download
+   * (a research answer or a failure) — download links use the structured form. */
+  note: string;
+}
+
+/** Run one link with its OWN fresh session, to completion. There is no step or
+ * wall-clock cap — it ends when the agent reports back or the tool loop detects
+ * it is looping (which fails the link). Never throws; never delivers. */
 async function runOneLink(
   run: BrowserAgentRun,
   goal: string,
   recorder: ProcessingRecorder | null,
-): Promise<{ ok: boolean; steps: number }> {
+): Promise<LinkOutcome> {
   const session = new BrowserSession();
 
   try {
@@ -101,36 +116,39 @@ async function runOneLink(
       onProgress: (step, action, url) =>
         setBrowserAgentActivity(run.goal, step, action, url),
     });
+    const hasDownload = result.downloads.length > 0;
     if (result.loopDetected) {
       recorder?.failPhase(
         "agent",
         "Agent run",
         "Stopped: repeated the same steps without progress",
       );
-      const report =
-        result.report ||
-        "I kept repeating the same steps without making progress, so I stopped.";
-      await deliverReport(run, report, result.files, recorder);
-      return { ok: false, steps: result.steps };
     }
-    const report =
-      result.report || "I browsed but couldn't find anything useful.";
-    await deliverReport(run, report, result.files, recorder);
-    return { ok: Boolean(result.report), steps: result.steps };
+    // A download link is reported by the deterministic download section, so its
+    // (dropped) prose becomes an empty note.
+    const note = hasDownload
+      ? ""
+      : result.loopDetected
+        ? result.report ||
+          "I kept repeating the same steps without making progress, so I stopped."
+        : result.report;
+    return {
+      ok: hasDownload || (!result.loopDetected && Boolean(result.report)),
+      steps: result.steps,
+      files: result.files,
+      downloads: result.downloads,
+      note,
+    };
   } catch (err) {
     logEventError("browser_agent_failed", err, { runId: run.id });
     recorder?.failPhase("agent", "Agent run", errorMessage(err));
-    try {
-      await deliverReport(
-        run,
-        "I hit a problem while browsing and had to stop.",
-        [],
-        recorder,
-      );
-    } catch (deliverErr) {
-      logEventError("browser_agent_report_failed", deliverErr, { runId: run.id });
-    }
-    return { ok: false, steps: 0 };
+    return {
+      ok: false,
+      steps: 0,
+      files: [],
+      downloads: [],
+      note: "I hit a problem while browsing and had to stop.",
+    };
   } finally {
     await session.close();
   }
@@ -143,9 +161,12 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
   const recorder = await beginBrowserAgentProcessing(run.id);
   recorder?.note("Goal", run.goal);
 
-  // Multiple links → process one by one; each gets a fresh budget ("reset
-  // limits") and its own report. One/zero links → a single task.
+  // Multiple links → process one by one, each with its OWN fresh session. One/
+  // zero links → a single task. Output is collected and reported ONCE below.
   const tasks = planGoalLinks(run.goal);
+  const files: CollectedFile[] = [];
+  const downloads: DownloadRecord[] = [];
+  const notes: string[] = [];
   let okCount = 0;
   let totalSteps = 0;
 
@@ -156,9 +177,27 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
         task.url ?? "(from goal)",
       );
     }
-    const { ok, steps } = await runOneLink(run, task.goal, recorder);
-    if (ok) okCount += 1;
-    totalSteps += steps;
+    const outcome = await runOneLink(run, task.goal, recorder);
+    if (outcome.ok) okCount += 1;
+    totalSteps += outcome.steps;
+    files.push(...outcome.files);
+    downloads.push(...outcome.downloads);
+    if (outcome.note.trim()) notes.push(outcome.note.trim());
+  }
+
+  // One final report when the whole task is done: a deterministic download
+  // section (source url / filename / size) plus any research/failure notes.
+  const sections: string[] = [];
+  const downloadSection = formatDownloadReport(downloads);
+  if (downloadSection) sections.push(downloadSection);
+  if (notes.length) sections.push(notes.join("\n\n"));
+  const report =
+    sections.join("\n\n") || "I browsed but couldn't find anything useful.";
+
+  try {
+    await deliverReport(run, report, files, recorder);
+  } catch (deliverErr) {
+    logEventError("browser_agent_report_failed", deliverErr, { runId: run.id });
   }
 
   const summary =
@@ -178,6 +217,7 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
     links: tasks.length,
     ok: okCount,
     steps: totalSteps,
+    downloads: downloads.length,
   });
 }
 

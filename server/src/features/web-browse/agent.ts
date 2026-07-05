@@ -11,11 +11,14 @@ import {
   makeBrowserToolDispatcher,
   type AgentToolContext,
   type CollectedFile,
+  type DownloadRecord,
 } from "./tools.js";
 
 export interface AgentRunResult {
   report: string;
   files: CollectedFile[];
+  /** Every file downloaded this run, for the deterministic end-of-run report. */
+  downloads: DownloadRecord[];
   steps: number;
   /** The run was stopped because the model looped on the same steps (see tool-loop). */
   loopDetected: boolean;
@@ -65,6 +68,7 @@ export async function runBrowserAgent(params: {
 }): Promise<AgentRunResult> {
   const settings = getResolvedSettings(await getSettings());
   const files: CollectedFile[] = [];
+  const downloads: DownloadRecord[] = [];
   let steps = 0;
 
   const ctx: AgentToolContext = {
@@ -73,6 +77,7 @@ export async function runBrowserAgent(params: {
     downloadMaxMb: settings.browserDownloadMaxMb,
     recorder: params.recorder,
     files,
+    downloads,
     onAction: (action, url) => {
       steps += 1;
       params.onProgress(steps, action, url);
@@ -99,6 +104,7 @@ export async function runBrowserAgent(params: {
   return {
     report: extractTelegramReply(result.raw).trim(),
     files,
+    downloads,
     steps,
     loopDetected: result.loopDetected ?? false,
   };

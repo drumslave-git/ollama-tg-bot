@@ -15,6 +15,19 @@ export interface CollectedFile {
   mime: string;
 }
 
+/**
+ * One completed download, used to build the deterministic end-of-run report
+ * (source url / filename / size) without asking the model to phrase it.
+ */
+export interface DownloadRecord {
+  /** The page the file came from — i.e. the link the user gave. */
+  sourceUrl: string;
+  filename: string;
+  sizeBytes: number;
+  /** True when the file was small enough to also attach to the chat. */
+  inline: boolean;
+}
+
 export interface AgentToolContext {
   session: BrowserSession;
   /** Whether the run was started by the owner — gates browser_download. */
@@ -23,6 +36,8 @@ export interface AgentToolContext {
   recorder: ProcessingRecorder | null;
   /** Inline files gathered for delivery when the run reports back. */
   files: CollectedFile[];
+  /** Every completed download, for the deterministic end-of-run report. */
+  downloads: DownloadRecord[];
   /** Called before each action to bump the step counter and live status. */
   onAction: (action: string, url: string | null) => void;
 }
@@ -91,12 +106,11 @@ export const BROWSER_AGENT_TOOLS: ChatCompletionTool[] = [
   ),
   fn(
     "browser_download",
-    "Download a file from a URL to the server's downloads folder, named from the page (owner only). Small files are also attached to the chat; large ones get a link. Call this with a URL from browser_extract_media to save the video.",
+    "Download a file from a URL to the server's downloads folder (owner only). The file is named automatically from the page title — do NOT pass a filename. Small files are also attached to the chat; large ones get a link. Call this with a URL from browser_extract_media to save the video.",
     {
       type: "object",
       properties: {
         url: { type: "string", description: "Public http(s) URL of the file" },
-        filename: { type: "string", description: "Optional filename to use" },
       },
       required: ["url"],
     },
@@ -221,12 +235,13 @@ export function makeBrowserToolDispatcher(ctx: AgentToolContext) {
             );
           }
           const url = str(args, "url");
-          const nameArg = str(args, "filename");
           ctx.onAction(`download ${url}`, ctx.session.currentUrl());
-          // Name the file (and its metadata) from the page it came from.
+          // Always name the file (and its metadata) from the page it came from
+          // — never from a model-supplied name, which is inconsistent (the model
+          // sometimes passes the raw URL basename, e.g. "6810.mp4").
           const meta = await ctx.session.getPageMetadata().catch(() => null);
           const result = await downloadToDisk(url, {
-            title: nameArg || meta?.title || null,
+            title: meta?.title || null,
           });
           // Bake the page's data into the file's own metadata tags.
           const tagged = await embedMetadata(result.filePath, {
@@ -246,6 +261,12 @@ export function makeBrowserToolDispatcher(ctx: AgentToolContext) {
               mime: result.mime,
             });
           }
+          ctx.downloads.push({
+            sourceUrl: meta?.url ?? ctx.session.currentUrl() ?? url,
+            filename: result.filename,
+            sizeBytes: result.sizeBytes,
+            inline,
+          });
           ctx.recorder?.okPhase(
             "browser",
             "Download",
