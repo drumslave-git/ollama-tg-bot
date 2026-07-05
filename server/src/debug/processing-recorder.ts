@@ -166,6 +166,11 @@ export class ProcessingRecorder {
     this.entry(title, "json", jsonContent(value));
   }
 
+  /** Append an image entry (base64 PNG/JPEG, no data-URL prefix). */
+  noteImage(title: string, base64: string): void {
+    this.entry(title, "image", base64);
+  }
+
   protected elapsedMs(): number {
     return Math.round(performance.now() - this.startedAt);
   }

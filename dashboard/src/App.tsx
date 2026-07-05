@@ -17,6 +17,7 @@ import { MoodPage } from "./features/mood-evaluation/MoodPage";
 import { TasksPage } from "./features/tasks/TasksPage";
 import { TasksDebugPage } from "./features/tasks/TasksDebugPage";
 import { VisionPage } from "./features/vision/VisionPage";
+import { BrowserPage } from "./features/web-browse/BrowserPage";
 
 function DashboardRoutes() {
   const {
@@ -66,6 +67,7 @@ function DashboardRoutes() {
         <Route path="tasks" element={<TasksPage />} />
         <Route path="tasks/debug" element={<TasksDebugPage />} />
         <Route path="vision/*" element={<VisionPage />} />
+        <Route path="browser" element={<BrowserPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="debug/*" element={<DebugPage />} />
         <Route path="data" element={<DataPage />} />

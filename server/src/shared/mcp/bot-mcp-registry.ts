@@ -3,7 +3,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ChatCompletionTool } from "openai/resources/chat/completions";
 import { InProcessTransport } from "./in-process-transport.js";
 import type { McpToolHostContext, McpToolRegistrar } from "./host-context.js";
-import { callToolResultToText, mcpToolToOpenAi } from "./openai-tools.js";
+import {
+  callToolResultToImages,
+  callToolResultToText,
+  mcpToolToOpenAi,
+} from "./openai-tools.js";
 import type { McpToolCallResult } from "./tool-result.js";
 
 export type { McpToolHostContext, McpToolRegistrar } from "./host-context.js";
@@ -72,9 +76,11 @@ export class BotMcpRegistry {
     const payload = result as {
       structuredContent?: unknown;
     };
+    const images = callToolResultToImages(result);
     return {
       text: callToolResultToText(result),
       structuredContent: payload.structuredContent,
+      ...(images.length > 0 ? { images } : {}),
     };
   }
 }

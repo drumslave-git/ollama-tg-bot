@@ -25,6 +25,12 @@ export interface ToolLoopOptions extends ChatCompleteOptions {
     result: McpToolCallResult;
     round: number;
   }) => void;
+  /**
+   * Cap on tool-call rounds. When reached, the tools are taken away and the
+   * model is asked once for a final tool-free answer. Unset = unbounded (the
+   * default main-reply behavior, which relies on the progress/stall guard).
+   */
+  maxRounds?: number;
 }
 
 function toOpenAiSeedMessages(messages: ChatMessage[]): ChatCompletionMessageParam[] {
@@ -77,6 +83,9 @@ export async function chatCompleteWithTools(
   const baseLabel = options.traceLabel ?? "main reply";
 
   for (let round = 0; ; round += 1) {
+    // Step budget: stop asking for tools and force a final answer.
+    if (options.maxRounds != null && round >= options.maxRounds) break;
+
     const response = await chatCompleteDetailed(conversation, {
       model: options.model,
       numPredict: options.numPredict,
@@ -140,6 +149,22 @@ export async function chatCompleteWithTools(
         tool_call_id: toolCall.id,
         content: toolResult.text,
       });
+
+      // A tool that returned images (e.g. a page screenshot) feeds them back to
+      // the model as a follow-up user message — the tool role can't legally
+      // carry image content, so a vision-capable model reads them next round.
+      if (toolResult.images?.length) {
+        conversation.push({
+          role: "user",
+          content: [
+            { type: "text", text: `Result image(s) from ${fn.name}:` },
+            ...toolResult.images.map((image) => ({
+              type: "image_url" as const,
+              image_url: { url: `data:image/png;base64,${image}` },
+            })),
+          ],
+        });
+      }
     }
   }
 

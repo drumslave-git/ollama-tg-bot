@@ -9,6 +9,7 @@ import {
 import LlmConnectionSection from "../components/settings/LlmConnectionSection";
 import OwnerSection from "../components/settings/OwnerSection";
 import BotBehaviorSection from "../components/settings/BotBehaviorSection";
+import BrowserAgentSection from "../components/settings/BrowserAgentSection";
 import VisionSection from "../components/settings/VisionSection";
 import { StickersSettingsSection } from "../components/settings/StickersSettingsSection";
 import { VisionBackfillSection } from "../components/settings/VisionBackfillSection";
@@ -151,6 +152,16 @@ export function SettingsPage() {
             onMaintenanceModeChange={(maintenanceModeEnabled) => setDraft({ ...draft, maintenanceModeEnabled })}
             onThinkingEnabledChange={(thinkingEnabled) => setDraft({ ...draft, thinkingEnabled })}
             onReasoningEffortChange={(reasoningEffort) => setDraft({ ...draft, reasoningEffort })}
+          />
+
+          <BrowserAgentSection
+            browserAgentEnabled={draft.browserAgentEnabled}
+            browserAgentMaxSteps={draft.browserAgentMaxSteps}
+            browserAgentMaxSeconds={draft.browserAgentMaxSeconds}
+            browserAgentConcurrency={draft.browserAgentConcurrency}
+            browserDownloadMaxMb={draft.browserDownloadMaxMb}
+            disabled={configBlocked}
+            onChange={(patch) => setDraft({ ...draft, ...patch })}
           />
 
           <ModelConfigPanel

@@ -33,6 +33,11 @@ export interface Settings {
   reasoningEffort: "low" | "medium" | "high";
   maintenanceModeEnabled: boolean;
   workflowSteps: string[];
+  browserAgentEnabled: boolean;
+  browserAgentMaxSteps: number;
+  browserAgentMaxSeconds: number;
+  browserAgentConcurrency: number;
+  browserDownloadMaxMb: number;
   contextBudget?: ContextBudget;
 }
 
@@ -104,7 +109,7 @@ export type ProcessingStatus =
   | "ignored"
   | "error";
 
-export type ProcessingEntryType = "text" | "json";
+export type ProcessingEntryType = "text" | "json" | "image";
 
 export interface ProcessingEntry {
   id: number;
@@ -215,6 +220,38 @@ export interface BotErrorRecord {
   createdAt: string;
 }
 
+export type BrowserAgentRunStatus =
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed";
+
+export interface BrowserAgentRun {
+  id: number;
+  goal: string;
+  chatId: number;
+  entityId: string;
+  messageThreadId: number | null;
+  createdByUserId: string;
+  isOwner: boolean;
+  status: BrowserAgentRunStatus;
+  stepCount: number;
+  result: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BrowserAgentProcessingDetail {
+  id: number;
+  runId: number | null;
+  summary: string;
+  status: ProcessingStatus;
+  totalTimeSpent: number | null;
+  tokens: TokenCounts;
+  createdAt: string;
+  entries: ProcessingEntry[];
+}
+
 export interface PhaseTimingStat {
   phaseId: string;
   count: number;
@@ -257,6 +294,13 @@ export interface Stats {
   memoryJobRunAt: string | null;
   visionJobStatus: "idle" | "scheduled" | "running";
   visionJobRunAt: string | null;
+  browserAgentStatus: "idle" | "running";
+  browserAgentGoal: string | null;
+  browserAgentUrl: string | null;
+  browserAgentStep: number;
+  browserAgentAction: string | null;
+  browserAgentRunning: number;
+  browserAgentQueued: number;
   botUsername: string | null;
   botRunning: boolean;
   uptimeSeconds: number;
@@ -756,6 +800,13 @@ export const api = {
     }),
   deleteTask: (id: number) =>
     request<{ ok: boolean }>(`/api/tasks/${id}`, { method: "DELETE" }),
+  getBrowserRuns: () =>
+    request<{ runs: BrowserAgentRun[] }>("/api/browser/runs"),
+  getBrowserRun: (id: number) =>
+    request<{
+      run: BrowserAgentRun;
+      processing: BrowserAgentProcessingDetail | null;
+    }>(`/api/browser/run/${id}`),
   getTaskEvents: () => request<{ events: TaskEvent[] }>("/api/tasks/debug"),
   clearTaskEvents: () =>
     request<{ ok: boolean }>("/api/tasks/debug", { method: "DELETE" }),

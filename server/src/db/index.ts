@@ -58,6 +58,16 @@ export interface Settings {
   maintenanceModeEnabled: boolean;
   /** Enabled workflow steps. */
   workflowSteps: string[];
+  /** Enable the background web-browsing agent (exposes the browser_agent_start tool). */
+  browserAgentEnabled: boolean;
+  /** Max browsing actions the agent may take in one run. */
+  browserAgentMaxSteps: number;
+  /** Max wall-clock seconds one browsing run may take before it is stopped. */
+  browserAgentMaxSeconds: number;
+  /** How many browsing runs may execute at once. */
+  browserAgentConcurrency: number;
+  /** Files up to this size (MB) are sent inline; larger ones are stored and linked. */
+  browserDownloadMaxMb: number;
 }
 
 export interface Stats {
@@ -96,6 +106,11 @@ const DEFAULT_SETTINGS: Settings = {
   reasoningEffort: "medium",
   maintenanceModeEnabled: false,
   workflowSteps: ["mood", "links", "search", "sticker"],
+  browserAgentEnabled: false,
+  browserAgentMaxSteps: 15,
+  browserAgentMaxSeconds: 120,
+  browserAgentConcurrency: 1,
+  browserDownloadMaxMb: 20,
 };
 
 export async function initDatabase(): Promise<void> {
@@ -222,6 +237,11 @@ export async function getSettings(): Promise<Settings> {
     ),
     maintenanceModeEnabled: read<boolean>("maintenanceModeEnabled"),
     workflowSteps: read<string[]>("workflowSteps"),
+    browserAgentEnabled: read<boolean>("browserAgentEnabled"),
+    browserAgentMaxSteps: read<number>("browserAgentMaxSteps"),
+    browserAgentMaxSeconds: read<number>("browserAgentMaxSeconds"),
+    browserAgentConcurrency: read<number>("browserAgentConcurrency"),
+    browserDownloadMaxMb: read<number>("browserDownloadMaxMb"),
   };
 }
 

@@ -234,6 +234,55 @@ describe("chatCompleteWithTools", () => {
     expect(result.raw).toBe("answer");
   });
 
+  it("feeds tool result images back as a user image message", async () => {
+    const callTool = vi
+      .fn()
+      .mockResolvedValue({ text: "screenshot taken", images: ["QUJD"] });
+    mockedChatCompleteDetailed
+      .mockResolvedValueOnce(toolRoundResponse("browser_screenshot", "{}"))
+      .mockResolvedValueOnce({ raw: "I can see the page", thinking: "" });
+
+    await chatCompleteWithTools([{ role: "user", content: "look" }], {
+      tools: [
+        { type: "function", function: { name: "browser_screenshot", parameters: {} } },
+      ],
+      callTool,
+    });
+
+    // The second round's conversation must contain a user message carrying the
+    // screenshot as image_url content.
+    const secondRoundMessages = mockedChatCompleteDetailed.mock.calls[1]?.[0] ?? [];
+    const imageMessage = secondRoundMessages.find(
+      (m) =>
+        m.role === "user" &&
+        Array.isArray((m as { content?: unknown }).content) &&
+        ((m as { content: { type: string }[] }).content).some(
+          (part) => part.type === "image_url",
+        ),
+    );
+    expect(imageMessage).toBeTruthy();
+  });
+
+  it("stops at maxRounds and forces a tool-free final answer", async () => {
+    const callTool = vi.fn().mockResolvedValue({ text: "result" });
+    mockedChatCompleteDetailed
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"b"}'))
+      .mockResolvedValueOnce({ raw: "final", thinking: "" });
+
+    const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
+      tools: [{ type: "function", function: { name: "search", parameters: {} } }],
+      callTool,
+      maxRounds: 2,
+    });
+
+    // Two tool rounds ran, then the cap forced a final tool-free call.
+    expect(callTool).toHaveBeenCalledTimes(2);
+    const finalOptions = mockedChatCompleteDetailed.mock.calls[2]?.[1];
+    expect(finalOptions?.tools).toBeUndefined();
+    expect(result.raw).toBe("final");
+  });
+
   it("accumulates thinking across rounds", async () => {
     mockedChatCompleteDetailed
       .mockResolvedValueOnce({

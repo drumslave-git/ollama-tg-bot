@@ -28,6 +28,11 @@ export function makeSettings(overrides: Partial<Settings> = {}): Settings {
     reasoningEffort: "medium",
     maintenanceModeEnabled: false,
     workflowSteps: ["mood", "links", "search", "sticker"],
+    browserAgentEnabled: false,
+    browserAgentMaxSteps: 15,
+    browserAgentMaxSeconds: 120,
+    browserAgentConcurrency: 1,
+    browserDownloadMaxMb: 20,
     ...overrides,
   };
 }

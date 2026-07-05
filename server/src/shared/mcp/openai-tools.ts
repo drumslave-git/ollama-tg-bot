@@ -40,3 +40,16 @@ export function callToolResultToText(result: unknown): string {
 
   return parts.join("\n\n");
 }
+
+/** Extract base64 image payloads from an MCP tool result's image content blocks. */
+export function callToolResultToImages(result: unknown): string[] {
+  const payload = result as {
+    content?: Array<{ type: string; data?: string }>;
+  };
+  return (
+    payload.content
+      ?.filter((item) => item.type === "image" && item.data)
+      .map((item) => item.data!)
+      .filter(Boolean) ?? []
+  );
+}

@@ -4,6 +4,7 @@ import type {
 } from "../../contracts/index.js";
 import { buildSystemPromptForTurn } from "../../pipeline/turn-services.js";
 import { captureTaskTurnContext } from "../tasks/index.js";
+import { captureBrowserTurnContext } from "../web-browse/index.js";
 
 export const systemPromptHost: PipelineFeatureHost = {
   id: "completions",
@@ -16,8 +17,9 @@ export const systemPromptHost: PipelineFeatureHost = {
 
   async run(state): Promise<PipelineStepResult> {
     const started = performance.now();
-    // Bind tasks tool context to this turn before the main-reply tool loop.
+    // Bind tasks + browser-agent tool context to this turn before the tool loop.
     await captureTaskTurnContext(state);
+    captureBrowserTurnContext(state);
     const systemPromptContent = await buildSystemPromptForTurn(state);
 
     return {

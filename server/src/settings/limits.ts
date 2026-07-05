@@ -301,6 +301,31 @@ export function validateSettingsFields(settings: Settings): void {
         settings.moodCooldownMinutes >= 5 &&
         settings.moodCooldownMinutes <= 1440,
     ],
+    ["browserAgentEnabled must be true or false", isBoolean(settings.browserAgentEnabled)],
+    [
+      "browserAgentMaxSteps must be 1–50",
+      isFiniteNumber(settings.browserAgentMaxSteps) &&
+        settings.browserAgentMaxSteps >= 1 &&
+        settings.browserAgentMaxSteps <= 50,
+    ],
+    [
+      "browserAgentMaxSeconds must be 15–600",
+      isFiniteNumber(settings.browserAgentMaxSeconds) &&
+        settings.browserAgentMaxSeconds >= 15 &&
+        settings.browserAgentMaxSeconds <= 600,
+    ],
+    [
+      "browserAgentConcurrency must be 1–4",
+      Number.isInteger(settings.browserAgentConcurrency) &&
+        settings.browserAgentConcurrency >= 1 &&
+        settings.browserAgentConcurrency <= 4,
+    ],
+    [
+      "browserDownloadMaxMb must be 1–50",
+      isFiniteNumber(settings.browserDownloadMaxMb) &&
+        settings.browserDownloadMaxMb >= 1 &&
+        settings.browserDownloadMaxMb <= 50,
+    ],
   ];
 
   const failed = checks.find(([, ok]) => !ok);

@@ -4,6 +4,7 @@ import {
 } from "../../features/completions/index.js";
 import { FETCH_LINK_TOOL_NAME } from "../../features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../features/web-search/index.js";
+import { BROWSER_AGENT_START_TOOL_NAME } from "../../features/web-browse/index.js";
 import {
   HISTORY_TODAY_SEARCH_TOOL_NAME,
   HISTORY_TODAY_GET_LATEST_TOOL_NAME,
@@ -130,6 +131,11 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
   if (enabledToolNames.includes(SEARCH_WEB_TOOL_NAME)) {
     lines.push(
       `- ${SEARCH_WEB_TOOL_NAME}(query): Call ONLY when the user explicitly asks you to search the web, look something up online, verify a claim, or check current facts. Do not use for casual chat or general knowledge.`,
+    );
+  }
+  if (enabledToolNames.includes(BROWSER_AGENT_START_TOOL_NAME)) {
+    lines.push(
+      `- ${BROWSER_AGENT_START_TOOL_NAME}(goal): Owner only. Start a background agent that browses the web — opening pages, clicking, and (owner) downloading files — to accomplish a multi-step goal, then reports back into this chat. Use for research/lookups that need navigating across pages, NOT for a single known URL (${FETCH_LINK_TOOL_NAME}) or a quick lookup (${SEARCH_WEB_TOOL_NAME}). After calling it, briefly tell the user you're on it and will report back.`,
     );
   }
   return lines;

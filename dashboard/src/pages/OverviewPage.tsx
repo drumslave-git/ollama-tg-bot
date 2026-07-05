@@ -207,6 +207,57 @@ export function OverviewPage() {
         </div>
       </Card>
 
+      {stats ? (
+        <Card>
+          <div className="flex items-center gap-2">
+            <span
+              className={cn(
+                "inline-block h-2.5 w-2.5 rounded-full",
+                stats.browserAgentStatus === "running"
+                  ? "bg-accent"
+                  : "bg-muted/40",
+              )}
+              aria-hidden="true"
+            />
+            <h3 className="m-0 text-base font-semibold text-text">
+              Web browsing agent
+            </h3>
+            <span className="text-sm text-muted">
+              {stats.browserAgentStatus === "running"
+                ? "running"
+                : stats.browserAgentQueued
+                  ? `${stats.browserAgentQueued} queued`
+                  : "idle"}
+            </span>
+          </div>
+          {stats.browserAgentStatus === "running" ? (
+            <dl className="m-0 mt-3 grid gap-2 text-sm">
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="m-0 text-muted">Goal</dt>
+                <dd className="m-0 max-w-[70%] truncate text-right font-medium">
+                  {stats.browserAgentGoal ?? "—"}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="m-0 text-muted">Step</dt>
+                <dd className="m-0 font-mono">{stats.browserAgentStep}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="m-0 text-muted">Action</dt>
+                <dd className="m-0 max-w-[70%] truncate text-right">
+                  {stats.browserAgentAction ?? "—"}
+                </dd>
+              </div>
+            </dl>
+          ) : (
+            <Hint>
+              The bot can browse the web in the background when the owner asks it
+              to research something. Enable it on Settings.
+            </Hint>
+          )}
+        </Card>
+      ) : null}
+
       <TokenUsageCard />
 
       <LatencyCard />

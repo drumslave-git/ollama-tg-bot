@@ -20,6 +20,11 @@ export async function closePlaywrightBrowser(): Promise<void> {
   }
 }
 
+/** Shared headless Chromium singleton, reused by the browser agent feature. */
+export async function getSharedChromium(): Promise<Browser> {
+  return ensureBrowser();
+}
+
 async function ensureBrowser(): Promise<Browser> {
   if (browser?.isConnected()) return browser;
   if (!browserInit) {

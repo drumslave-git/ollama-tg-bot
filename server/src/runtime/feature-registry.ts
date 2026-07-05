@@ -18,6 +18,9 @@ import { TASKS_TOOL_NAMES } from "../features/tasks/mcp-tools.js";
 import { summariesDbFeature } from "../features/summaries/db/index.js";
 import { registerMcpTools as registerSummariesTools } from "../features/summaries/register-mcp-tools.js";
 import { SUMMARIES_TOOL_NAMES } from "../features/summaries/mcp-tools.js";
+import { webBrowseDbFeature } from "../features/web-browse/db/index.js";
+import { registerMcpTools as registerWebBrowseTools } from "../features/web-browse/register-mcp-tools.js";
+import { WEB_BROWSE_TOOL_NAMES } from "../features/web-browse/mcp-tools.js";
 
 /**
  * Static registry of features. Replaces the former manifest.json
@@ -166,6 +169,31 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
       workflowStepId: "search",
       toolNames: ["search_web"],
       registrar: registerWebSearchTools,
+    },
+  },
+  {
+    id: "web-browse",
+    name: "Web browsing agent",
+    description:
+      "Background web-browsing agent (navigate, extract, download) started via the browser_agent_start tool; reports back into the chat.",
+    apiBasePath: "/browser",
+    settingsKeys: [
+      "browserAgentEnabled",
+      "browserAgentMaxSteps",
+      "browserAgentMaxSeconds",
+      "browserAgentConcurrency",
+      "browserDownloadMaxMb",
+    ],
+    dataTables: ["browser_agent_runs"],
+    db: webBrowseDbFeature,
+    mcpTools: {
+      // Always registered; gated on the browserAgentEnabled setting (the on/off
+      // switch). Owner-gated at call time via per-turn context.
+      workflowStepId: "browser",
+      toolNames: WEB_BROWSE_TOOL_NAMES,
+      registrar: registerWebBrowseTools,
+      alwaysOn: true,
+      requiresSettingKey: "browserAgentEnabled",
     },
   },
   {

@@ -9,6 +9,10 @@ import { createApiRouter } from "./api/routes.js";
 import { startBot, stopBot } from "./bot/index.js";
 import { closePlaywrightBrowser } from "./features/link-fetch/index.js";
 import {
+  startBrowserAgentRunner,
+  stopBrowserAgentRunner,
+} from "./runtime/browser-agent-runner.js";
+import {
   startMoodCooldownWorker,
   stopMoodCooldownWorker,
 } from "./features/mood/cooldown.js";
@@ -89,6 +93,7 @@ async function main(): Promise<void> {
   void startTaskScheduler();
   startSummariesScheduler();
   startMemoryScheduler();
+  startBrowserAgentRunner();
 
   const shutdown = async () => {
     logInfo("Shutting down...");
@@ -96,6 +101,7 @@ async function main(): Promise<void> {
     stopTaskScheduler();
     stopSummariesScheduler();
     stopMemoryScheduler();
+    stopBrowserAgentRunner();
     await stopBot();
     await closePlaywrightBrowser();
     liveSocket.close();

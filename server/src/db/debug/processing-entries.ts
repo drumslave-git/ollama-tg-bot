@@ -7,7 +7,7 @@ import type { SqlDatabase } from "../../contracts/index.js";
  * feature owns the entries table DDL + CRUD so each domain reuses it.
  */
 
-export type EntryType = "text" | "json";
+export type EntryType = "text" | "json" | "image";
 
 /** Token totals stored on a processing row, summed across its LLM calls. */
 export interface TokenCounts {

@@ -39,6 +39,7 @@ const navSections: NavSection[] = [
       { to: "/memory", label: "Memory" },
       { to: "/vision", label: "Vision" },
       { to: "/tasks", label: "Tasks" },
+      { to: "/browser", label: "Browser" },
     ],
   },
   {
@@ -267,6 +268,20 @@ export function AppLayout() {
                   ? visionCountdown
                     ? `in ${visionCountdown}`
                     : "scheduled"
+                  : "idle"}
+            </Badge>
+            <Badge
+              variant={
+                stats?.browserAgentStatus === "running" ? "ok" : "default"
+              }
+            >
+              Browser{" "}
+              {stats?.browserAgentStatus === "running"
+                ? stats?.browserAgentStep
+                  ? `step ${stats.browserAgentStep}`
+                  : "running"
+                : stats?.browserAgentQueued
+                  ? `${stats.browserAgentQueued} queued`
                   : "idle"}
             </Badge>
           </div>

@@ -1,4 +1,6 @@
 import type {
+  BrowserAgentProcessingDetail,
+  BrowserAgentRun,
   JobRunDetail,
   MessageProcessingDetail,
   ProcessingEntry,
@@ -27,6 +29,16 @@ export function EntryRow({ entry }: { entry: ProcessingEntry }) {
       <div className="border-t border-border px-3.5 py-3">
         {entry.type === "json" ? (
           <DebugJsonView value={entry.content} collapsed={true} />
+        ) : entry.type === "image" ? (
+          entry.content ? (
+            <img
+              src={`data:image/png;base64,${entry.content}`}
+              alt={entry.title}
+              className="max-h-[420px] w-auto max-w-full rounded-lg border border-border"
+            />
+          ) : (
+            <pre className={preClass}>(empty)</pre>
+          )
         ) : (
           <pre className={preClass}>{entry.content || "(empty)"}</pre>
         )}
@@ -83,6 +95,37 @@ export function buildJobRunLogContent(detail: JobRunDetail): string {
 export function downloadJobRunLog(detail: JobRunDetail): void {
   const text = buildJobRunLogContent(detail);
   downloadLog(`${detail.featureId}-run-${detail.id}`, detail.createdAt, text);
+}
+
+export function buildBrowserRunLogContent(
+  run: BrowserAgentRun,
+  processing: BrowserAgentProcessingDetail | null,
+): string {
+  const header = [
+    `Browser agent run #${run.id}`,
+    `Exported: ${new Date().toISOString()}`,
+    `Created: ${run.createdAt}`,
+    `Status: ${run.status}`,
+    `Steps: ${run.stepCount}`,
+    processing?.totalTimeSpent != null
+      ? `Total time: ${processing.totalTimeSpent}ms`
+      : null,
+    `Goal: ${run.goal}`,
+    run.result ? `Result: ${run.result}` : null,
+    "",
+    "--- entries ---",
+    JSON.stringify(processing?.entries ?? [], null, 2),
+  ].filter((line) => line != null);
+
+  return `${header.join("\n")}\n`;
+}
+
+export function downloadBrowserRunLog(
+  run: BrowserAgentRun,
+  processing: BrowserAgentProcessingDetail | null,
+): void {
+  const text = buildBrowserRunLogContent(run, processing);
+  downloadLog(`browser-run-${run.id}`, run.createdAt, text);
 }
 
 function downloadLog(prefix: string, createdAt: string, text: string): void {
