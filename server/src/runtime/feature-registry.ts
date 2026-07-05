@@ -177,23 +177,16 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
     description:
       "Background web-browsing agent (navigate, extract, download) started via the browser_agent_start tool; reports back into the chat.",
     apiBasePath: "/browser",
-    settingsKeys: [
-      "browserAgentEnabled",
-      "browserAgentMaxSteps",
-      "browserAgentMaxSeconds",
-      "browserAgentConcurrency",
-      "browserDownloadMaxMb",
-    ],
+    settingsKeys: ["browserAgentConcurrency", "browserDownloadMaxMb"],
     dataTables: ["browser_agent_runs"],
     db: webBrowseDbFeature,
     mcpTools: {
-      // Always registered; gated on the browserAgentEnabled setting (the on/off
-      // switch). Owner-gated at call time via per-turn context.
+      // Always registered and always exposed — there is no on/off setting. It is
+      // owner-gated at call time via per-turn context (turn-context.ts).
       workflowStepId: "browser",
       toolNames: WEB_BROWSE_TOOL_NAMES,
       registrar: registerWebBrowseTools,
       alwaysOn: true,
-      requiresSettingKey: "browserAgentEnabled",
     },
   },
   {

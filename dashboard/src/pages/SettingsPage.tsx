@@ -155,9 +155,6 @@ export function SettingsPage() {
           />
 
           <BrowserAgentSection
-            browserAgentEnabled={draft.browserAgentEnabled}
-            browserAgentMaxSteps={draft.browserAgentMaxSteps}
-            browserAgentMaxSeconds={draft.browserAgentMaxSeconds}
             browserAgentConcurrency={draft.browserAgentConcurrency}
             browserDownloadMaxMb={draft.browserDownloadMaxMb}
             disabled={configBlocked}

@@ -17,6 +17,8 @@ export interface AgentRunResult {
   report: string;
   files: CollectedFile[];
   steps: number;
+  /** The run was stopped because the model looped on the same steps (see tool-loop). */
+  loopDetected: boolean;
 }
 
 function buildAgentSystemPrompt(isOwner: boolean): string {
@@ -48,9 +50,11 @@ function buildAgentSystemPrompt(isOwner: boolean): string {
 }
 
 /**
- * Run one browsing goal to completion in the given session. Bounded by
- * browserAgentMaxSteps (tool rounds). Returns the model's final report text and
- * any files collected for delivery.
+ * Run one browsing goal to completion in the given session. The run is NOT
+ * step- or time-capped — it takes as many tool rounds as the goal needs — and
+ * is stopped only when the model reports back or the tool loop detects it is
+ * looping (see {@link chatCompleteWithTools}). Returns the model's final report
+ * text, any files collected for delivery, and whether it was cut off by a loop.
  */
 export async function runBrowserAgent(params: {
   goal: string;
@@ -88,10 +92,14 @@ export async function runBrowserAgent(params: {
     numPredict: getAuxiliaryNumPredict(settings),
     tools: BROWSER_AGENT_TOOLS,
     callTool: makeBrowserToolDispatcher(ctx),
-    maxRounds: settings.browserAgentMaxSteps,
     traceTurnId: params.recorder?.traceId,
     traceLabel: "browser agent",
   });
 
-  return { report: extractTelegramReply(result.raw).trim(), files, steps };
+  return {
+    report: extractTelegramReply(result.raw).trim(),
+    files,
+    steps,
+    loopDetected: result.loopDetected ?? false,
+  };
 }

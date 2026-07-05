@@ -532,6 +532,12 @@ export interface ChatCompleteResult {
   thinking: string;
   toolCalls?: ChatCompletionMessageToolCall[];
   conversationMessages?: ChatCompletionMessageParam[];
+  /**
+   * Set by {@link chatCompleteWithTools} when the tool loop was stopped because
+   * the model kept repeating the same action(s) without progress (a loop),
+   * rather than answering on its own. Callers can fail the task on this.
+   */
+  loopDetected?: boolean;
 }
 
 /** Full model output (JSON reply object in content when responseFormat is set). */

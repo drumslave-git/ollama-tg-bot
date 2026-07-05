@@ -33,9 +33,6 @@ export interface Settings {
   reasoningEffort: "low" | "medium" | "high";
   maintenanceModeEnabled: boolean;
   workflowSteps: string[];
-  browserAgentEnabled: boolean;
-  browserAgentMaxSteps: number;
-  browserAgentMaxSeconds: number;
   browserAgentConcurrency: number;
   browserDownloadMaxMb: number;
   contextBudget?: ContextBudget;

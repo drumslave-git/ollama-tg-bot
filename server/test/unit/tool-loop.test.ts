@@ -232,6 +232,53 @@ describe("chatCompleteWithTools", () => {
     expect(finalOptions?.tools).toBeUndefined();
     expect(finalOptions?.traceLabel).toBe("main reply · final");
     expect(result.raw).toBe("answer");
+    // Broken out by the stall guard → flagged as a loop for the caller to fail.
+    expect(result.loopDetected).toBe(true);
+  });
+
+  it("breaks when one call recurs MAX_TOOL_CALL_REPEATS times across mixed rounds", async () => {
+    // Each round mixes the SAME "search a" call with a fresh one, so the
+    // per-round stall guard never fires — but "search a" recurring three times
+    // trips the slow-loop guard and forces a tool-free final answer.
+    const callTool = vi.fn().mockResolvedValue({ text: "result" });
+    const repeated = {
+      id: "call_search_repeat",
+      type: "function" as const,
+      function: { name: "search", arguments: '{"q":"a"}' },
+    };
+    const multiRound = (freshArgs: string) => {
+      const fresh = {
+        id: `call_search_${freshArgs}`,
+        type: "function" as const,
+        function: { name: "search", arguments: freshArgs },
+      };
+      const toolCalls = [repeated, fresh];
+      return {
+        raw: "",
+        thinking: "",
+        toolCalls,
+        conversationMessages: [
+          { role: "user" as const, content: "q" },
+          { role: "assistant" as const, content: "", tool_calls: toolCalls },
+        ],
+      };
+    };
+    mockedChatCompleteDetailed
+      .mockResolvedValueOnce(multiRound('{"q":"0"}'))
+      .mockResolvedValueOnce(multiRound('{"q":"1"}'))
+      .mockResolvedValueOnce(multiRound('{"q":"2"}'))
+      .mockResolvedValueOnce({ raw: "final report", thinking: "" });
+
+    const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
+      tools: [{ type: "function", function: { name: "search", parameters: {} } }],
+      callTool,
+    });
+
+    // Three tool rounds run fully, then a tool-free final is forced.
+    const finalOptions = mockedChatCompleteDetailed.mock.calls.at(-1)?.[1];
+    expect(finalOptions?.tools).toBeUndefined();
+    expect(result.raw).toBe("final report");
+    expect(result.loopDetected).toBe(true);
   });
 
   it("feeds tool result images back as a user image message", async () => {
@@ -281,6 +328,8 @@ describe("chatCompleteWithTools", () => {
     const finalOptions = mockedChatCompleteDetailed.mock.calls[2]?.[1];
     expect(finalOptions?.tools).toBeUndefined();
     expect(result.raw).toBe("final");
+    // Cut off by the round cap, not a loop — the model was still progressing.
+    expect(result.loopDetected).toBeFalsy();
   });
 
   it("accumulates thinking across rounds", async () => {

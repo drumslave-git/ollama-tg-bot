@@ -97,9 +97,6 @@ settingsRouter.patch("/", async (req, res) => {
       "reasoningEffort",
       "maintenanceModeEnabled",
       "workflowSteps",
-      "browserAgentEnabled",
-      "browserAgentMaxSteps",
-      "browserAgentMaxSeconds",
       "browserAgentConcurrency",
       "browserDownloadMaxMb",
     ];

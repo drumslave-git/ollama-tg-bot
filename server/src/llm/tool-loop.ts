@@ -28,10 +28,21 @@ export interface ToolLoopOptions extends ChatCompleteOptions {
   /**
    * Cap on tool-call rounds. When reached, the tools are taken away and the
    * model is asked once for a final tool-free answer. Unset = unbounded (the
-   * default main-reply behavior, which relies on the progress/stall guard).
+   * default: the run finishes when the model answers or the loop guard trips).
    */
   maxRounds?: number;
 }
+
+/**
+ * A single tool call (same name + same arguments) executed this many times over
+ * one run means the model is looping — it keeps retrying the same action, or
+ * cycling through the same set of actions, without making progress. When any
+ * call reaches this count the loop is stopped and a final answer is forced.
+ * This catches slow cycles that the per-round stall guard (a round that ONLY
+ * repeats already-executed calls) misses, since a cycle sneaks a new call in
+ * each round.
+ */
+const MAX_TOOL_CALL_REPEATS = 3;
 
 function toOpenAiSeedMessages(messages: ChatMessage[]): ChatCompletionMessageParam[] {
   // Use the shared converter so user images survive as image_url content —
@@ -70,8 +81,11 @@ function joinThinking(...parts: (string | undefined)[]): string {
  * inference and the backend's prompt cache keeps its prefix between rounds.
  *
  * Termination is progress-driven: a round with no tool calls ends the loop
- * with the answer; a round that only repeats calls already executed this turn
- * (a stuck model) gets the tools taken away for one final forced-answer call.
+ * with the answer; a round that only repeats calls already executed this turn,
+ * or any single call repeated {@link MAX_TOOL_CALL_REPEATS} times (a stuck or
+ * looping model), gets the tools taken away for one final forced-answer call.
+ * When the loop is stopped that way, the result carries `loopDetected: true` so
+ * the caller can fail the task rather than treat the forced answer as success.
  */
 export async function chatCompleteWithTools(
   messages: ChatMessage[],
@@ -79,7 +93,10 @@ export async function chatCompleteWithTools(
 ): Promise<ChatCompleteResult> {
   let conversation = toOpenAiSeedMessages(messages);
   let accumulatedThinking = "";
-  const executedSignatures = new Set<string>();
+  // Count executions per tool-call signature (name+args): membership answers
+  // "did we run this before?" and the count answers "are we looping on it?".
+  const signatureCounts = new Map<string, number>();
+  let loopDetected = false;
   const baseLabel = options.traceLabel ?? "main reply";
 
   for (let round = 0; ; round += 1) {
@@ -111,9 +128,10 @@ export async function chatCompleteWithTools(
     // the model has stopped making progress — take the tools away below and
     // force a text answer.
     const hasNewCall = toolCalls.some(
-      (call) => !executedSignatures.has(toolCallSignature(call)),
+      (call) => !signatureCounts.has(toolCallSignature(call)),
     );
     if (!hasNewCall) {
+      loopDetected = true;
       break;
     }
 
@@ -124,7 +142,12 @@ export async function chatCompleteWithTools(
     for (const toolCall of toolCalls) {
       const fn = toolCall.type === "function" ? toolCall.function : null;
       if (!fn?.name) continue;
-      executedSignatures.add(toolCallSignature(toolCall));
+      const signature = toolCallSignature(toolCall);
+      const timesRun = (signatureCounts.get(signature) ?? 0) + 1;
+      signatureCounts.set(signature, timesRun);
+      // Slow-loop guard: the same action keeps recurring across rounds (a cycle
+      // that dodges the per-round stall check by mixing in a new call each time).
+      if (timesRun >= MAX_TOOL_CALL_REPEATS) loopDetected = true;
 
       const args = parseToolArguments(fn.arguments ?? "{}");
       let toolResult: McpToolCallResult;
@@ -166,6 +189,10 @@ export async function chatCompleteWithTools(
         });
       }
     }
+
+    // A call tripped the repeat threshold above — the tool results are recorded,
+    // so break to the forced final answer with full context of the loop.
+    if (loopDetected) break;
   }
 
   const final = await chatCompleteDetailed(conversation, {
@@ -180,5 +207,6 @@ export async function chatCompleteWithTools(
   return {
     raw: final.raw,
     thinking: joinThinking(accumulatedThinking, final.thinking),
+    loopDetected,
   };
 }

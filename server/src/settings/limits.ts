@@ -301,19 +301,6 @@ export function validateSettingsFields(settings: Settings): void {
         settings.moodCooldownMinutes >= 5 &&
         settings.moodCooldownMinutes <= 1440,
     ],
-    ["browserAgentEnabled must be true or false", isBoolean(settings.browserAgentEnabled)],
-    [
-      "browserAgentMaxSteps must be 1–50",
-      isFiniteNumber(settings.browserAgentMaxSteps) &&
-        settings.browserAgentMaxSteps >= 1 &&
-        settings.browserAgentMaxSteps <= 50,
-    ],
-    [
-      "browserAgentMaxSeconds must be 15–600",
-      isFiniteNumber(settings.browserAgentMaxSeconds) &&
-        settings.browserAgentMaxSeconds >= 15 &&
-        settings.browserAgentMaxSeconds <= 600,
-    ],
     [
       "browserAgentConcurrency must be 1–4",
       Number.isInteger(settings.browserAgentConcurrency) &&

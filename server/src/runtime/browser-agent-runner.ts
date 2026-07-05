@@ -81,20 +81,16 @@ async function deliverReport(
   );
 }
 
-/** Run one link (or the whole goal) with its OWN fresh session, step budget,
- * and wall-clock timeout, then deliver its report. Never throws. */
+/** Run one link (or the whole goal) with its OWN fresh session, to completion,
+ * then deliver its report. There is no step or wall-clock cap — the run ends
+ * when the agent reports back or the tool loop detects it is looping (in which
+ * case the link is a failure). Never throws. */
 async function runOneLink(
   run: BrowserAgentRun,
   goal: string,
   recorder: ProcessingRecorder | null,
 ): Promise<{ ok: boolean; steps: number }> {
   const session = new BrowserSession();
-  const settings = await getSettings();
-  let timedOut = false;
-  const timer = setTimeout(() => {
-    timedOut = true;
-    void session.close();
-  }, settings.browserAgentMaxSeconds * 1000);
 
   try {
     const result = await runBrowserAgent({
@@ -105,27 +101,29 @@ async function runOneLink(
       onProgress: (step, action, url) =>
         setBrowserAgentActivity(run.goal, step, action, url),
     });
-    clearTimeout(timer);
+    if (result.loopDetected) {
+      recorder?.failPhase(
+        "agent",
+        "Agent run",
+        "Stopped: repeated the same steps without progress",
+      );
+      const report =
+        result.report ||
+        "I kept repeating the same steps without making progress, so I stopped.";
+      await deliverReport(run, report, result.files, recorder);
+      return { ok: false, steps: result.steps };
+    }
     const report =
-      result.report ||
-      (timedOut
-        ? "I ran out of time before finishing that."
-        : "I browsed but couldn't find anything useful.");
+      result.report || "I browsed but couldn't find anything useful.";
     await deliverReport(run, report, result.files, recorder);
-    return { ok: Boolean(result.report) && !timedOut, steps: result.steps };
+    return { ok: Boolean(result.report), steps: result.steps };
   } catch (err) {
-    clearTimeout(timer);
-    const message = timedOut
-      ? `Timed out after ${settings.browserAgentMaxSeconds}s`
-      : errorMessage(err);
     logEventError("browser_agent_failed", err, { runId: run.id });
-    recorder?.failPhase("agent", "Agent run", message);
+    recorder?.failPhase("agent", "Agent run", errorMessage(err));
     try {
       await deliverReport(
         run,
-        timedOut
-          ? "I ran out of time before finishing that."
-          : "I hit a problem while browsing and had to stop.",
+        "I hit a problem while browsing and had to stop.",
         [],
         recorder,
       );
