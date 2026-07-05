@@ -4,6 +4,7 @@ import type {
   JobRunDetail,
   MessageProcessingDetail,
   ProcessingEntry,
+  TaskFireDetail,
 } from "../../api";
 import { DebugJsonView } from "../../components/DebugJsonView";
 import { formatTime } from "./debugUtils";
@@ -126,6 +127,37 @@ export function downloadBrowserRunLog(
 ): void {
   const text = buildBrowserRunLogContent(run, processing);
   downloadLog(`browser-run-${run.id}`, run.createdAt, text);
+}
+
+export function buildTaskFireLogContent(detail: TaskFireDetail): string {
+  const header = [
+    `Task fire #${detail.id}`,
+    `Exported: ${new Date().toISOString()}`,
+    `Created: ${detail.createdAt}`,
+    `Status: ${detail.status}`,
+    detail.totalTimeSpent != null
+      ? `Total time: ${detail.totalTimeSpent}ms`
+      : null,
+    detail.taskId != null ? `Task id: ${detail.taskId}` : null,
+    detail.taskInstruction != null
+      ? `Instruction: ${detail.taskInstruction}`
+      : null,
+    `Summary: ${detail.summary}`,
+    "",
+    "--- entries ---",
+    JSON.stringify(detail.entries, null, 2),
+  ].filter((line) => line != null);
+
+  return `${header.join("\n")}\n`;
+}
+
+export function downloadTaskFireLog(detail: TaskFireDetail): void {
+  const text = buildTaskFireLogContent(detail);
+  const prefix =
+    detail.taskId != null
+      ? `task-${detail.taskId}-fire-${detail.id}`
+      : `task-fire-${detail.id}`;
+  downloadLog(prefix, detail.createdAt, text);
 }
 
 function downloadLog(prefix: string, createdAt: string, text: string): void {

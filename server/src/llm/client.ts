@@ -640,8 +640,14 @@ export async function chatCompleteDetailed(
     if (content) {
       return { raw: content, thinking };
     }
-    // Some backends still put side-pass blocks only in reasoning when misconfigured.
-    if (auxiliary && thinking) {
+    // A misconfigured backend can place a *structured* side-pass block only in
+    // the reasoning channel — recover it, but ONLY when a response_format was
+    // requested. A plain-text auxiliary pass (task fire, vision describe) has no
+    // JSON to salvage there, so its reasoning is raw chain-of-thought (e.g. a
+    // "Wait… Wait…" runaway) that must never surface as the reply. Falling
+    // through raises emptyResponseError so the caller fails the fire cleanly
+    // instead of posting the model's thoughts to chat.
+    if (auxiliary && thinking && options?.responseFormat) {
       return { raw: thinking, thinking: "" };
     }
     throw emptyResponseError(model, data, effectiveNumPredict);

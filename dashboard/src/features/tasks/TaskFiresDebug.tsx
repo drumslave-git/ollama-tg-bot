@@ -7,7 +7,10 @@ import {
 } from "@llm-tg-bot/dashboard/api";
 import { useDashboard } from "@llm-tg-bot/dashboard/context/DashboardContext";
 import { useLiveData } from "@llm-tg-bot/dashboard/liveSocket";
-import { EntryRow } from "@llm-tg-bot/dashboard/pages/debug/DebugProcessingEntries";
+import {
+  downloadTaskFireLog,
+  EntryRow,
+} from "@llm-tg-bot/dashboard/pages/debug/DebugProcessingEntries";
 import { formatTokens } from "@llm-tg-bot/dashboard/pages/debug/debugUtils";
 
 const itemBtn =
@@ -92,13 +95,22 @@ export function TaskFiresDebug() {
   if (fire) {
     return (
       <section className="flex flex-col gap-3">
-        <button
-          type="button"
-          className="self-start text-sm text-accent hover:underline"
-          onClick={() => setFire(null)}
-        >
-          ← Back to fires
-        </button>
+        <div className="flex items-center justify-between gap-2">
+          <button
+            type="button"
+            className="self-start text-sm text-accent hover:underline"
+            onClick={() => setFire(null)}
+          >
+            ← Back to fires
+          </button>
+          <button
+            type="button"
+            className="self-start rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:border-accent hover:text-accent"
+            onClick={() => downloadTaskFireLog(fire)}
+          >
+            Download log
+          </button>
+        </div>
         <div className="rounded-lg border border-border bg-surface px-3.5 py-3">
           <div className="mb-1 flex flex-wrap items-center gap-2 text-xs">
             <span className={`font-semibold uppercase ${statusColor(fire.status)}`}>
