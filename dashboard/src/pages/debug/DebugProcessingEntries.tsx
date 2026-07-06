@@ -6,7 +6,7 @@ import type {
   ProcessingEntry,
   TaskFireDetail,
 } from "../../api";
-import { DebugJsonView } from "../../components/DebugJsonView";
+import { DebugJsonEntry, isLlmResponse } from "../../components/DebugJsonEntry";
 import { formatTime } from "./debugUtils";
 
 const preClass =
@@ -16,20 +16,39 @@ const rowHeadClass =
   "grid grid-cols-[1fr_auto] items-center gap-x-3 px-3.5 py-2.5";
 
 export function EntryRow({ entry }: { entry: ProcessingEntry }) {
+  const isLlm = entry.type === "json" && isLlmResponse(entry.content);
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-black/12">
+    <div
+      className={
+        isLlm
+          ? "overflow-hidden rounded-lg border border-violet-400/40 bg-violet-500/[0.07]"
+          : "overflow-hidden rounded-lg border border-border bg-black/12"
+      }
+    >
       <div className={rowHeadClass}>
         <span className="text-sm font-semibold">{entry.title}</span>
         <span className="flex items-center gap-2 text-xs tabular-nums text-muted">
-          <span className="rounded-full bg-slate-400/15 px-1.5 py-0.5 uppercase tracking-wide">
-            {entry.type}
+          <span
+            className={
+              isLlm
+                ? "rounded-full bg-violet-400/20 px-1.5 py-0.5 uppercase tracking-wide text-violet-200"
+                : "rounded-full bg-slate-400/15 px-1.5 py-0.5 uppercase tracking-wide"
+            }
+          >
+            {isLlm ? "llm" : entry.type}
           </span>
           {formatTime(entry.createdAt)}
         </span>
       </div>
-      <div className="border-t border-border px-3.5 py-3">
+      <div
+        className={
+          isLlm
+            ? "border-t border-violet-400/25 px-3.5 py-3"
+            : "border-t border-border px-3.5 py-3"
+        }
+      >
         {entry.type === "json" ? (
-          <DebugJsonView value={entry.content} collapsed={true} />
+          <DebugJsonEntry content={entry.content} />
         ) : entry.type === "image" ? (
           entry.content ? (
             <img
