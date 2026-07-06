@@ -71,7 +71,7 @@ Bot capabilities are organized as plain folders under `server/src/features/<name
 |---------|------|
 | `addressing` | Group address detection (@mention, reply, display name + LLM) |
 | `web-search` | Tavily web search via `search_web` MCP tool during the main reply |
-| `link-fetch` | Playwright page fetch via `fetch_link` MCP tool |
+| `link-fetch` | Playwright page read via `read_page` MCP tool |
 | `vision` | Media download, sticker previews, vision-model image description |
 | `history` | Per-chat message storage, formatting, compression, prompt injection |
 | `mood` | Personality + mood injection; `/mood` command |

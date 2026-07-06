@@ -20,7 +20,7 @@ export type {
   LinkFetchOutput,
 } from "./types.js";
 export {
-  FETCH_LINK_TOOL_NAME,
+  READ_PAGE_TOOL_NAME,
   registerLinkFetchMcpTools,
 } from "./mcp-tools.js";
 export { registerMcpTools } from "./register-mcp-tools.js";

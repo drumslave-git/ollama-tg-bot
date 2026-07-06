@@ -1,7 +1,7 @@
 import type { PipelineTurnState } from "../../contracts/index.js";
 
 /**
- * Per-turn context for the always-on browser_agent_start tool. Mirrors the
+ * Per-turn context for the always-on browse_web tool. Mirrors the
  * tasks feature: the message queue processes one addressed turn at a time, and
  * systemPromptHost sets this before the main-reply tool loop, so a module-level
  * variable is safe — every addressed turn overwrites it before any tool call.

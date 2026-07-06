@@ -23,7 +23,7 @@ const BrowserAgentSection: React.FC<BrowserAgentSectionProps> = ({
       <SectionTitle className="mt-6">Web browsing agent</SectionTitle>
       <Hint>
         The bot runs a background agent (owner only, via the{" "}
-        <code className="font-mono text-[0.85em]">browser_agent_start</code> tool)
+        <code className="font-mono text-[0.85em]">browse_web</code> tool)
         that navigates the web, extracts info, and downloads files, then reports
         back into the chat. It runs each goal to completion — there is no step or
         time limit; a run stops on its own or when it detects it is looping.

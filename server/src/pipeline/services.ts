@@ -23,14 +23,14 @@ import {
   resolveEnabledMcpToolNames,
 } from "../runtime/mcp-tools.js";
 import { SEARCH_WEB_TOOL_NAME } from "../features/web-search/index.js";
-import { FETCH_LINK_TOOL_NAME } from "../features/link-fetch/index.js";
+import { READ_PAGE_TOOL_NAME } from "../features/link-fetch/index.js";
 
 function mcpToolTrace(name: string): { phaseId: string; phaseTitle: string } {
   if (name === SEARCH_WEB_TOOL_NAME) {
     return { phaseId: "search", phaseTitle: "Web search" };
   }
-  if (name === FETCH_LINK_TOOL_NAME) {
-    return { phaseId: "links", phaseTitle: "Link fetch" };
+  if (name === READ_PAGE_TOOL_NAME) {
+    return { phaseId: "links", phaseTitle: "Read page" };
   }
   if (name === IMAGE_GENERATE_TOOL_NAME) {
     return { phaseId: "images", phaseTitle: "Image generation" };

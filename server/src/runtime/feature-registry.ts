@@ -95,10 +95,10 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
     id: "link-fetch",
     name: "Link fetch",
     description:
-      "Fetch linked pages on demand via the fetch_link MCP tool during the main reply.",
+      "Read linked pages on demand via the read_page MCP tool during the main reply.",
     mcpTools: {
       workflowStepId: "links",
-      toolNames: ["fetch_link"],
+      toolNames: ["read_page"],
       registrar: registerLinkFetchTools,
     },
   },
@@ -175,7 +175,7 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
     id: "web-browse",
     name: "Web browsing agent",
     description:
-      "Background web-browsing agent (navigate, extract, download) started via the browser_agent_start tool; reports back into the chat.",
+      "Background web-browsing agent (navigate, extract, download) started via the browse_web tool; reports back into the chat.",
     apiBasePath: "/browser",
     settingsKeys: ["browserAgentConcurrency", "browserDownloadMaxMb"],
     dataTables: ["browser_agent_runs"],

@@ -5,8 +5,8 @@ import { getBrowserTurnContext } from "./turn-context.js";
 import { createBrowserAgentRun } from "./db/browser-agent-runs.js";
 import { emitRunEnqueued } from "./signal.js";
 
-export const BROWSER_AGENT_START_TOOL_NAME = "browser_agent_start";
-export const WEB_BROWSE_TOOL_NAMES = [BROWSER_AGENT_START_TOOL_NAME];
+export const BROWSE_WEB_TOOL_NAME = "browse_web";
+export const WEB_BROWSE_TOOL_NAMES = [BROWSE_WEB_TOOL_NAME];
 
 export interface WebBrowseMcpConfig {
   log?: FeatureLogging;
@@ -17,17 +17,19 @@ export function registerWebBrowseMcpTools(
   config: WebBrowseMcpConfig = {},
 ): void {
   server.registerTool(
-    BROWSER_AGENT_START_TOOL_NAME,
+    BROWSE_WEB_TOOL_NAME,
     {
-      title: "Start web browsing agent",
+      title: "Browse the web",
       description:
-        "Start a background agent that browses the web to accomplish a goal, then reports back " +
-        "into THIS chat when done. Use when the owner asks you to research, look up, find, or " +
-        "gather something online that needs opening pages, clicking, or downloading a file — not " +
-        "for a single known URL (use fetch_link) or a quick search (use search_web). You may pass " +
-        "MULTIPLE links in the goal — the agent processes them one by one and reports on each. " +
-        "The agent runs on its own; after calling this, tell the user you're on it and will report " +
-        "back. Owner only.",
+        "Start a background agent that browses the web and DOWNLOADS files, then reports back " +
+        "into THIS chat when done. This is the tool for downloading files or processing a batch " +
+        "of links: whenever the owner gives one or more links (even a long list) with a " +
+        "download/save/grab-style request, or asks to research, look up, find, or gather " +
+        "something that needs opening pages and clicking, call this with ALL the links in the " +
+        "goal — the agent processes them one by one and reports on each. Do not refuse with " +
+        "\"I can't download files\"; this tool can. NOT for a single page you only need to read " +
+        "(use read_page) or a quick factual search (use search_web). The agent runs on its own; " +
+        "after calling this, tell the user you're on it and will report back. Owner only.",
       inputSchema: z.object({
         goal: z
           .string()

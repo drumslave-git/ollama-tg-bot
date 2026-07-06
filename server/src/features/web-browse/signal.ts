@@ -1,5 +1,5 @@
 /**
- * Decouples "a run was enqueued" (emitted by the browser_agent_start tool) from
+ * Decouples "a run was enqueued" (emitted by the browse_web tool) from
  * the runner (which subscribes at startup). Keeps the feature from importing the
  * runtime runner, avoiding an import cycle.
  */

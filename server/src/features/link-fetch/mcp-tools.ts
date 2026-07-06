@@ -3,19 +3,21 @@ import { z } from "zod";
 import type { LinkFetchConfig } from "./fetch.js";
 import { fetchLink } from "./fetch-link.js";
 
-export const FETCH_LINK_TOOL_NAME = "fetch_link";
+export const READ_PAGE_TOOL_NAME = "read_page";
 
 export function registerLinkFetchMcpTools(
   server: McpServer,
   config: LinkFetchConfig = {},
 ): void {
   server.registerTool(
-    FETCH_LINK_TOOL_NAME,
+    READ_PAGE_TOOL_NAME,
     {
-      title: "Fetch Link",
+      title: "Read Page",
       description:
-        "Fetch a public web page and return its readable text content. " +
-        "Use when the user shares a URL or asks about page content you do not already have.",
+        "Read ONE public web page and return its readable TEXT so you can answer from it. " +
+        "It only reads a single page — it cannot download files (videos, archives, images) and " +
+        "cannot work through a batch of links; for that use browse_web. Call it when the user " +
+        "shares a single URL or asks about page content you do not already have.",
       inputSchema: z.object({
         url: z
           .string()

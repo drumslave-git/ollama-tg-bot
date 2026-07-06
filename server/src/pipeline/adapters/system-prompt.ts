@@ -2,9 +2,9 @@ import {
   buildExplainFormatSpec,
   buildReplyFormatSpec,
 } from "../../features/completions/index.js";
-import { FETCH_LINK_TOOL_NAME } from "../../features/link-fetch/index.js";
+import { READ_PAGE_TOOL_NAME } from "../../features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../features/web-search/index.js";
-import { BROWSER_AGENT_START_TOOL_NAME } from "../../features/web-browse/index.js";
+import { BROWSE_WEB_TOOL_NAME } from "../../features/web-browse/index.js";
 import {
   HISTORY_TODAY_SEARCH_TOOL_NAME,
   HISTORY_TODAY_GET_LATEST_TOOL_NAME,
@@ -123,9 +123,9 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
       `- ${TASKS_LIST_TOOL_NAME}(): Owner only. List this chat's scheduled tasks to answer "what reminders/tasks do I have?".`,
     );
   }
-  if (enabledToolNames.includes(FETCH_LINK_TOOL_NAME)) {
+  if (enabledToolNames.includes(READ_PAGE_TOOL_NAME)) {
     lines.push(
-      `- ${FETCH_LINK_TOOL_NAME}(url): Call when the user shares an http(s) URL or asks about page content you do not already have in this turn. Fetch first, then answer from the returned text.`,
+      `- ${READ_PAGE_TOOL_NAME}(url): Read ONE page's readable TEXT so you can answer from its content. It cannot download files (videos, archives, images) and cannot process a batch of links — if the user wants files saved or gives several links to work through, use ${BROWSE_WEB_TOOL_NAME} instead. Call it when the user shares a single http(s) URL or asks about page content you do not already have; read first, then answer from the returned text.`,
     );
   }
   if (enabledToolNames.includes(SEARCH_WEB_TOOL_NAME)) {
@@ -133,9 +133,9 @@ function buildMcpToolDescriptionLines(enabledToolNames: string[]): string[] {
       `- ${SEARCH_WEB_TOOL_NAME}(query): Call ONLY when the user explicitly asks you to search the web, look something up online, verify a claim, or check current facts. Do not use for casual chat or general knowledge.`,
     );
   }
-  if (enabledToolNames.includes(BROWSER_AGENT_START_TOOL_NAME)) {
+  if (enabledToolNames.includes(BROWSE_WEB_TOOL_NAME)) {
     lines.push(
-      `- ${BROWSER_AGENT_START_TOOL_NAME}(goal): Owner only. Start a background agent that browses the web — opening pages, clicking, and (owner) downloading files — to accomplish a multi-step goal, then reports back into this chat. Include ALL links the user gave in the goal (it processes several one by one and reports on each). Use for research/lookups that need navigating across pages, NOT for a single known URL (${FETCH_LINK_TOOL_NAME}) or a quick lookup (${SEARCH_WEB_TOOL_NAME}). After calling it, briefly tell the user you're on it and will report back.`,
+      `- ${BROWSE_WEB_TOOL_NAME}(goal): Owner only. Start a background agent that browses the web — opening pages, clicking, and downloading files — then reports back into this chat. This IS your way to download files or process a batch of links: whenever the owner gives one or more links (even a long list) with a download/save/grab/"скачай"-style verb, or asks to research/gather/find something that needs navigating across pages, call this with ALL the links in the goal (it handles each one by one and reports on each). Do not reply that you "can't download files" — this tool can; use it instead of refusing. NOT for a single page you only need to read (${READ_PAGE_TOOL_NAME}) or a quick factual lookup (${SEARCH_WEB_TOOL_NAME}). After calling it, briefly tell the user you're on it and will report back.`,
     );
   }
   return lines;

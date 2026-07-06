@@ -6,7 +6,7 @@ import {
   buildSystemPrompt,
   buildTurnContextBlocks,
 } from "../../src/pipeline/adapters/system-prompt.js";
-import { FETCH_LINK_TOOL_NAME } from "../../src/features/link-fetch/index.js";
+import { READ_PAGE_TOOL_NAME } from "../../src/features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../src/features/web-search/index.js";
 import { HISTORY_TODAY_GET_LATEST_TOOL_NAME } from "../../src/features/history/mcp-tools.js";
 import { config } from "../../src/config/index.js";
@@ -102,15 +102,15 @@ describe("buildSystemPrompt", () => {
       customPrompt: "",
     });
     expect(withoutTools).not.toContain("## Tools");
-    expect(withoutTools).not.toContain(FETCH_LINK_TOOL_NAME);
+    expect(withoutTools).not.toContain(READ_PAGE_TOOL_NAME);
 
     const withTools = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
-      enabledToolNames: [FETCH_LINK_TOOL_NAME, SEARCH_WEB_TOOL_NAME],
+      enabledToolNames: [READ_PAGE_TOOL_NAME, SEARCH_WEB_TOOL_NAME],
     });
     expect(withTools).toContain("## Tools");
-    expect(withTools).toContain(FETCH_LINK_TOOL_NAME);
+    expect(withTools).toContain(READ_PAGE_TOOL_NAME);
     expect(withTools).toContain(SEARCH_WEB_TOOL_NAME);
   });
 
@@ -129,7 +129,7 @@ describe("buildSystemPrompt", () => {
     const withoutMemory = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
-      enabledToolNames: [FETCH_LINK_TOOL_NAME],
+      enabledToolNames: [READ_PAGE_TOOL_NAME],
     });
     expect(withoutMemory).not.toMatch(/explicitly asks you to remember/i);
   });
