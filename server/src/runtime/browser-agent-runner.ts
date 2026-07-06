@@ -47,6 +47,7 @@ async function deliverReport(
   text: string,
   files: CollectedFile[],
   recorder: ProcessingRecorder | null,
+  options: { landInHistory?: boolean } = {},
 ): Promise<void> {
   const bot = getBot();
   const extra: { parse_mode: "HTML"; message_thread_id?: number } = {
@@ -75,9 +76,12 @@ async function deliverReport(
     }
   }
 
-  // Land the report in history so the conversation stays coherent.
-  await appendAssistantMessage(run.entityId, text, { messageId: firstMessageId });
-  await recordReply(false);
+  // Per-file messages stream out as downloads land but are NOT each recorded —
+  // the end-of-run recap carries the full list into history (landInHistory).
+  if (options.landInHistory ?? true) {
+    await appendAssistantMessage(run.entityId, text, { messageId: firstMessageId });
+    await recordReply(false);
+  }
   recorder?.okPhase(
     "deliver",
     "Delivered",
@@ -85,15 +89,38 @@ async function deliverReport(
   );
 }
 
-/** What one link (or the whole goal) produced. Each link is reported to the
- * chat as it finishes; a multi-link run adds a final summary once all are done. */
+/** Report ONE finished download to the chat the moment it lands: the small file
+ * as an attachment, a large one as a text line (name / size / source). Wired to
+ * the agent's onDownload so every file is reported as it downloads, uniformly
+ * for single- and multi-link runs. Never recorded individually — the recap does. */
+async function deliverDownload(
+  run: BrowserAgentRun,
+  record: DownloadRecord,
+  file: CollectedFile | null,
+  recorder: ProcessingRecorder | null,
+): Promise<void> {
+  try {
+    await deliverReport(
+      run,
+      formatDownloadReport([record]),
+      file ? [file] : [],
+      recorder,
+      { landInHistory: false },
+    );
+  } catch (err) {
+    logEventError("browser_agent_file_send_failed", err, { runId: run.id });
+  }
+}
+
+/** What one link (or the whole goal) produced. Downloaded files are reported to
+ * the chat as they land (see deliverDownload); this only carries what the
+ * end-of-link message and the end-of-run recap still need. */
 interface LinkOutcome {
   ok: boolean;
   steps: number;
-  files: CollectedFile[];
   downloads: DownloadRecord[];
-  /** Text shown in the final report ONLY when the link produced no download
-   * (a research answer or a failure) — download links use the structured form. */
+  /** Prose shown for this link ONLY when it produced no download (a research
+   * answer or a failure) — downloaded files report themselves as they land. */
   note: string;
 }
 
@@ -115,6 +142,8 @@ async function runOneLink(
       session,
       onProgress: (step, action, url) =>
         setBrowserAgentActivity(run.goal, step, action, url),
+      onDownload: (record, file) =>
+        deliverDownload(run, record, file, recorder),
     });
     const hasDownload = result.downloads.length > 0;
     if (result.loopDetected) {
@@ -124,8 +153,8 @@ async function runOneLink(
         "Stopped: repeated the same steps without progress",
       );
     }
-    // A download link is reported by the deterministic download section, so its
-    // (dropped) prose becomes an empty note.
+    // Downloaded files already reported themselves as they landed, so a link
+    // that produced downloads carries no prose note.
     const note = hasDownload
       ? ""
       : result.loopDetected
@@ -135,7 +164,6 @@ async function runOneLink(
     return {
       ok: hasDownload || (!result.loopDetected && Boolean(result.report)),
       steps: result.steps,
-      files: result.files,
       downloads: result.downloads,
       note,
     };
@@ -145,7 +173,6 @@ async function runOneLink(
     return {
       ok: false,
       steps: 0,
-      files: [],
       downloads: [],
       note: "I hit a problem while browsing and had to stop.",
     };
@@ -154,19 +181,21 @@ async function runOneLink(
   }
 }
 
-/** Build one link's chat report: the deterministic download section (source
- * url / filename / size) plus any research/failure note, prefixed with
- * "Link n/total" for multi-link runs so each message says which URL it is for. */
-function buildLinkReport(
+/** The message a link posts once it finishes. Downloaded files already reported
+ * themselves as they landed, so this is only the prose (a research answer or a
+ * failure), or a "found nothing" fallback when the link produced neither files
+ * nor prose — so every link still says something. Empty = post nothing. */
+function buildLinkMessage(
   outcome: LinkOutcome,
   position: { index: number; total: number } | null,
 ): string {
-  const sections: string[] = [];
-  const downloadSection = formatDownloadReport(outcome.downloads);
-  if (downloadSection) sections.push(downloadSection);
-  if (outcome.note.trim()) sections.push(outcome.note.trim());
+  const prose = outcome.note.trim();
   const body =
-    sections.join("\n\n") || "I browsed but couldn't find anything useful.";
+    prose ||
+    (outcome.downloads.length === 0
+      ? "I browsed but couldn't find anything useful."
+      : "");
+  if (!body) return "";
   return position
     ? `<b>Link ${position.index}/${position.total}</b>\n\n${body}`
     : body;
@@ -179,14 +208,15 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
   const recorder = await beginBrowserAgentProcessing(run.id);
   recorder?.note("Goal", run.goal);
 
-  // Multiple links → process one by one, each with its OWN fresh session, and
-  // report each link to the chat as it finishes (incremental feedback). One/
-  // zero links → a single task whose report IS the whole end-of-task result.
+  // Multiple links → process one by one, each with its OWN fresh session. Every
+  // downloaded file reports itself to the chat as it lands (deliverDownload),
+  // uniformly for single- and multi-link runs; a link only posts a message here
+  // for prose (a research answer or a failure).
   const tasks = planGoalLinks(run.goal);
   const multi = tasks.length > 1;
   let okCount = 0;
   let totalSteps = 0;
-  let totalDownloads = 0;
+  const allDownloads: DownloadRecord[] = [];
 
   for (const [index, task] of tasks.entries()) {
     if (multi) {
@@ -198,16 +228,38 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
     const outcome = await runOneLink(run, task.goal, recorder);
     if (outcome.ok) okCount += 1;
     totalSteps += outcome.steps;
-    totalDownloads += outcome.downloads.length;
+    allDownloads.push(...outcome.downloads);
 
-    // Report this link now, with its own inline files, so the user sees each
-    // URL's result as it lands instead of waiting for the whole run.
-    const report = buildLinkReport(
+    const message = buildLinkMessage(
       outcome,
       multi ? { index: index + 1, total: tasks.length } : null,
     );
+    if (message) {
+      try {
+        await deliverReport(run, message, [], recorder);
+      } catch (deliverErr) {
+        logEventError("browser_agent_report_failed", deliverErr, {
+          runId: run.id,
+        });
+      }
+    }
+  }
+
+  // Unified end-of-run recap: the full list of files downloaded this run (each
+  // was already reported as it landed), plus a link-tally line for multi-link
+  // runs. This is the one message that lands the file list in history.
+  const recapSections: string[] = [];
+  if (multi) {
+    recapSections.push(
+      `<b>All links done — ${okCount}/${tasks.length} succeeded.</b>`,
+    );
+  }
+  if (allDownloads.length > 0) {
+    recapSections.push(formatDownloadReport(allDownloads));
+  }
+  if (recapSections.length > 0) {
     try {
-      await deliverReport(run, report, outcome.files, recorder);
+      await deliverReport(run, recapSections.join("\n\n"), [], recorder);
     } catch (deliverErr) {
       logEventError("browser_agent_report_failed", deliverErr, {
         runId: run.id,
@@ -215,22 +267,7 @@ async function runOne(run: BrowserAgentRun): Promise<void> {
     }
   }
 
-  // Final summary once the whole task is done — only for multi-link runs, where
-  // a single wrap-up line ties the per-link reports together. A single link
-  // needs none: its report above already was the end-of-task report.
-  if (multi) {
-    const summary =
-      `<b>All links done — ${okCount}/${tasks.length} succeeded` +
-      (totalDownloads > 0 ? `, ${totalDownloads} file(s) downloaded.` : ".") +
-      `</b>`;
-    try {
-      await deliverReport(run, summary, [], recorder);
-    } catch (deliverErr) {
-      logEventError("browser_agent_report_failed", deliverErr, {
-        runId: run.id,
-      });
-    }
-  }
+  const totalDownloads = allDownloads.length;
 
   const statusSummary = multi
     ? `${okCount}/${tasks.length} link(s) done`

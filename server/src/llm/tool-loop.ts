@@ -34,15 +34,16 @@ export interface ToolLoopOptions extends ChatCompleteOptions {
 }
 
 /**
- * A single tool call (same name + same arguments) executed this many times over
- * one run means the model is looping — it keeps retrying the same action, or
- * cycling through the same set of actions, without making progress. When any
- * call reaches this count the loop is stopped and a final answer is forced.
- * This catches slow cycles that the per-round stall guard (a round that ONLY
- * repeats already-executed calls) misses, since a cycle sneaks a new call in
- * each round.
+ * This many rounds in a row that introduce NO tool call we have not already run
+ * means the model has stalled — it keeps retrying the same action or cycling a
+ * fixed set without making progress. A single repeated call is NOT a stall:
+ * iterating over many items legitimately revisits a listing URL and re-runs
+ * argument-less tools (e.g. an extractor) between items, so those rounds carry a
+ * repeated signature yet the run is advancing. Only a streak of rounds with no
+ * new action at all — the true "stuck" signal — stops the loop and forces a
+ * final answer. The streak resets the moment any new call appears.
  */
-const MAX_TOOL_CALL_REPEATS = 3;
+const MAX_STALL_ROUNDS = 3;
 
 function toOpenAiSeedMessages(messages: ChatMessage[]): ChatCompletionMessageParam[] {
   // Use the shared converter so user images survive as image_url content —
@@ -81,11 +82,11 @@ function joinThinking(...parts: (string | undefined)[]): string {
  * inference and the backend's prompt cache keeps its prefix between rounds.
  *
  * Termination is progress-driven: a round with no tool calls ends the loop
- * with the answer; a round that only repeats calls already executed this turn,
- * or any single call repeated {@link MAX_TOOL_CALL_REPEATS} times (a stuck or
- * looping model), gets the tools taken away for one final forced-answer call.
- * When the loop is stopped that way, the result carries `loopDetected: true` so
- * the caller can fail the task rather than treat the forced answer as success.
+ * with the answer; a streak of {@link MAX_STALL_ROUNDS} rounds that each
+ * introduce no new call (a stuck or looping model) gets the tools taken away for
+ * one final forced-answer call. When the loop is stopped that way, the result
+ * carries `loopDetected: true` so the caller can fail the task rather than treat
+ * the forced answer as success.
  */
 export async function chatCompleteWithTools(
   messages: ChatMessage[],
@@ -93,9 +94,11 @@ export async function chatCompleteWithTools(
 ): Promise<ChatCompleteResult> {
   let conversation = toOpenAiSeedMessages(messages);
   let accumulatedThinking = "";
-  // Count executions per tool-call signature (name+args): membership answers
-  // "did we run this before?" and the count answers "are we looping on it?".
-  const signatureCounts = new Map<string, number>();
+  // Every tool-call signature (name+args) we have executed this run, to answer
+  // "is this call new, or a repeat?" — a round with at least one new call is
+  // making progress; a streak of rounds with none is a stall (see below).
+  const seenSignatures = new Set<string>();
+  let consecutiveStalls = 0;
   let loopDetected = false;
   const baseLabel = options.traceLabel ?? "main reply";
 
@@ -124,15 +127,22 @@ export async function chatCompleteWithTools(
       return { raw: response.raw, thinking: accumulatedThinking };
     }
 
-    // Stall guard: if every call this round just repeats one already executed,
-    // the model has stopped making progress — take the tools away below and
-    // force a text answer.
-    const hasNewCall = toolCalls.some(
-      (call) => !signatureCounts.has(toolCallSignature(call)),
+    // Stall guard: a round is progress if it introduces at least one call we
+    // have not run before. Rounds that only repeat past calls (revisiting a
+    // listing to grab the next item, re-running an argument-less extractor) are
+    // legitimate mid-iteration, so we allow a streak of them and only give up
+    // when the model produces no new action for MAX_STALL_ROUNDS in a row.
+    const introducesNewCall = toolCalls.some(
+      (call) => !seenSignatures.has(toolCallSignature(call)),
     );
-    if (!hasNewCall) {
-      loopDetected = true;
-      break;
+    if (introducesNewCall) {
+      consecutiveStalls = 0;
+    } else {
+      consecutiveStalls += 1;
+      if (consecutiveStalls >= MAX_STALL_ROUNDS) {
+        loopDetected = true;
+        break;
+      }
     }
 
     if (response.conversationMessages) {
@@ -142,12 +152,7 @@ export async function chatCompleteWithTools(
     for (const toolCall of toolCalls) {
       const fn = toolCall.type === "function" ? toolCall.function : null;
       if (!fn?.name) continue;
-      const signature = toolCallSignature(toolCall);
-      const timesRun = (signatureCounts.get(signature) ?? 0) + 1;
-      signatureCounts.set(signature, timesRun);
-      // Slow-loop guard: the same action keeps recurring across rounds (a cycle
-      // that dodges the per-round stall check by mixing in a new call each time).
-      if (timesRun >= MAX_TOOL_CALL_REPEATS) loopDetected = true;
+      seenSignatures.add(toolCallSignature(toolCall));
 
       const args = parseToolArguments(fn.arguments ?? "{}");
       let toolResult: McpToolCallResult;
@@ -189,10 +194,6 @@ export async function chatCompleteWithTools(
         });
       }
     }
-
-    // A call tripped the repeat threshold above — the tool results are recorded,
-    // so break to the forced final answer with full context of the loop.
-    if (loopDetected) break;
   }
 
   const final = await chatCompleteDetailed(conversation, {

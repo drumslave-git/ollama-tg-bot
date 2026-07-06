@@ -146,8 +146,34 @@ export class BrowserSession {
 
   async click(ref: number): Promise<PageSnapshot> {
     const page = this.requirePage();
-    await this.refLocator(page, ref).click({ timeout: ACTION_TIMEOUT_MS });
+    const locator = this.refLocator(page, ref);
+    // For a link, follow its real href by NAVIGATING rather than dispatching a
+    // synthetic click. Sketchy sites hijack the first click anywhere on the page
+    // into an off-site ad redirect (a pop-under/interstitial), so a DOM click on
+    // a video thumbnail lands on the ad instead of the video. The href is the
+    // exact destination the snapshot already showed the model after "->", so
+    // going straight to it is both safer and truer to intent.
+    const rawHref = await locator.getAttribute("href").catch(() => null);
+    if (rawHref) {
+      let resolved = "";
+      try {
+        resolved = new URL(rawHref, page.url()).href;
+      } catch {
+        resolved = "";
+      }
+      if (/^https?:\/\//i.test(resolved)) return this.navigate(resolved);
+    }
+    // Non-link (button, role=link element, JS onclick): a real click is required.
+    // If it hijacks the main frame to another host, recover by returning to the
+    // page we clicked from — same guard triggerPlayback() uses.
+    const origin = page.url();
+    await locator.click({ timeout: ACTION_TIMEOUT_MS });
     await page.waitForLoadState("domcontentloaded").catch(() => {});
+    if (!this.sameHost(page.url(), origin)) {
+      await page
+        .goto(origin, { waitUntil: "domcontentloaded", timeout: ACTION_TIMEOUT_MS })
+        .catch(() => {});
+    }
     return capturePageSnapshot(page);
   }
 

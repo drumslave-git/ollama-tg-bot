@@ -14,10 +14,25 @@ import {
   type DownloadRecord,
 } from "./tools.js";
 
+/**
+ * Strip tool-call special tokens that leaked into the model's prose. When the
+ * loop takes tools away for the forced final answer, a model still "wanting" to
+ * act sometimes emits its raw tool-call syntax as literal text
+ * (e.g. `<|tool_call>call:browser_navigate{url:<|"|>…<|"|>}<tool_call|>`). That
+ * must never reach the chat: remove any angle-bracket token carrying a pipe and
+ * any leftover `call:name{…}` body. If nothing readable remains, return "" so
+ * the caller falls back to a plain message instead of shipping fragments.
+ */
+export function sanitizeAgentReport(text: string): string {
+  return text
+    .replace(/<[^<>]*\|[^<>]*>/g, "")
+    .replace(/\bcall:\w+\s*\{[^{}]*\}/gi, "")
+    .trim();
+}
+
 export interface AgentRunResult {
   report: string;
-  files: CollectedFile[];
-  /** Every file downloaded this run, for the deterministic end-of-run report. */
+  /** Every file downloaded this run, for the deterministic end-of-run recap. */
   downloads: DownloadRecord[];
   steps: number;
   /** The run was stopped because the model looped on the same steps (see tool-loop). */
@@ -65,9 +80,12 @@ export async function runBrowserAgent(params: {
   recorder: ProcessingRecorder | null;
   session: BrowserSession;
   onProgress: (step: number, action: string, url: string | null) => void;
+  onDownload: (
+    record: DownloadRecord,
+    file: CollectedFile | null,
+  ) => Promise<void>;
 }): Promise<AgentRunResult> {
   const settings = getResolvedSettings(await getSettings());
-  const files: CollectedFile[] = [];
   const downloads: DownloadRecord[] = [];
   let steps = 0;
 
@@ -76,12 +94,12 @@ export async function runBrowserAgent(params: {
     isOwner: params.isOwner,
     downloadMaxMb: settings.browserDownloadMaxMb,
     recorder: params.recorder,
-    files,
     downloads,
     onAction: (action, url) => {
       steps += 1;
       params.onProgress(steps, action, url);
     },
+    onDownload: params.onDownload,
   };
 
   const messages: ChatMessage[] = [
@@ -102,8 +120,7 @@ export async function runBrowserAgent(params: {
   });
 
   return {
-    report: extractTelegramReply(result.raw).trim(),
-    files,
+    report: sanitizeAgentReport(extractTelegramReply(result.raw)),
     downloads,
     steps,
     loopDetected: result.loopDetected ?? false,

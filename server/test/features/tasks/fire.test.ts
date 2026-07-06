@@ -144,6 +144,20 @@ describe("task fire trace", () => {
     expect(h.phases).toContain("note:Variation context");
   });
 
+  it("excludes runaway-sized prior deliveries from the variation context", async () => {
+    // A leaked thinking-runaway (thousands of chars) once got posted and stored;
+    // feeding it back primes another loop, so it must be filtered out while the
+    // clean short nudge is still fed in.
+    const runaway = "Wait, I'll just use: hi. ".repeat(200);
+    h.getRecentTaskMessageTexts.mockResolvedValue([runaway, "clean nudge"]);
+    const ok = await fireTask(makeTask({ scheduleKind: "daily" }));
+    expect(ok).toBe(true);
+    const userMessage = h.generateOutOfBandReplyRaw.mock.calls[0][0].userMessage;
+    expect(userMessage).toContain("clean nudge");
+    expect(userMessage).not.toContain(runaway);
+    expect(h.phases).toContain("note:Variation context");
+  });
+
   it("does not pull previous messages for a one-shot task", async () => {
     const ok = await fireTask(makeTask({ scheduleKind: "once" }));
     expect(ok).toBe(true);

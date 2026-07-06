@@ -34,12 +34,19 @@ export interface AgentToolContext {
   isOwner: boolean;
   downloadMaxMb: number;
   recorder: ProcessingRecorder | null;
-  /** Inline files gathered for delivery when the run reports back. */
-  files: CollectedFile[];
-  /** Every completed download, for the deterministic end-of-run report. */
+  /** Every completed download, for the deterministic end-of-run recap. */
   downloads: DownloadRecord[];
   /** Called before each action to bump the step counter and live status. */
   onAction: (action: string, url: string | null) => void;
+  /**
+   * Report ONE finished download to the chat immediately — a small file as an
+   * attachment, a large one as a text line. Fired as each download completes so
+   * the user sees every file arrive, instead of a batch at the end of the run.
+   */
+  onDownload: (
+    record: DownloadRecord,
+    file: CollectedFile | null,
+  ) => Promise<void>;
 }
 
 function fn(
@@ -252,19 +259,23 @@ export function makeBrowserToolDispatcher(ctx: AgentToolContext) {
           const mb = Math.round(result.sizeBytes / 1024 / 1024);
           // Small enough for Telegram — also attach it to the chat.
           const inline = result.sizeBytes <= ctx.downloadMaxMb * 1024 * 1024;
-          if (inline) {
-            ctx.files.push({
-              buffer: await readFile(result.filePath),
-              filename: result.filename,
-              mime: result.mime,
-            });
-          }
-          ctx.downloads.push({
+          const record: DownloadRecord = {
             sourceUrl: meta?.url ?? ctx.session.currentUrl() ?? url,
             filename: result.filename,
             sizeBytes: result.sizeBytes,
             inline,
-          });
+          };
+          ctx.downloads.push(record);
+          // Report this file to the chat right now — the buffer for a small file,
+          // null for a large one (delivered as a text line by the caller).
+          const file: CollectedFile | null = inline
+            ? {
+                buffer: await readFile(result.filePath),
+                filename: result.filename,
+                mime: result.mime,
+              }
+            : null;
+          await ctx.onDownload(record, file);
           ctx.recorder?.okPhase(
             "browser",
             "Download",

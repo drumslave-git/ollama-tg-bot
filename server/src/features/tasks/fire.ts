@@ -16,6 +16,23 @@ import { recordTaskEvent } from "./db/task-events.js";
 import { beginTaskProcessing } from "../../debug/task-report.js";
 import type { ProcessingRecorder } from "../../debug/processing-recorder.js";
 
+/**
+ * A delivered task nudge is one short chat line. Anything far longer is not a
+ * real prior delivery but leaked model output — historically a thinking-runaway
+ * (a multi-thousand-char "Wait, I'll just use: …" repetition loop) got posted
+ * before the client guard existed and stored in chat history. Feeding such a
+ * blob back as "vary from this" primes a fresh runaway, so it must be excluded
+ * from the variation context entirely.
+ */
+const MAX_VARIATION_SAMPLE_CHARS = 1000;
+
+/** Drop leaked/runaway blobs so only clean prior nudges seed wording variation. */
+function cleanVariationSamples(previousMessages: string[]): string[] {
+  return previousMessages.filter(
+    (text) => text.length <= MAX_VARIATION_SAMPLE_CHARS,
+  );
+}
+
 function buildTaskUserMessage(
   task: TaskRecord,
   previousMessages: string[],
@@ -74,7 +91,9 @@ export async function fireTask(task: TaskRecord): Promise<boolean> {
   const previousMessages =
     task.scheduleKind === "once"
       ? []
-      : await getRecentTaskMessageTexts(task.id, task.entityId, 5);
+      : cleanVariationSamples(
+          await getRecentTaskMessageTexts(task.id, task.entityId, 5),
+        );
   if (previousMessages.length > 0) {
     report?.note(
       "Variation context",

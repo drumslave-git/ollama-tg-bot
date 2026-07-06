@@ -14,9 +14,9 @@ function makeCtx(overrides: Partial<AgentToolContext> = {}): AgentToolContext {
     isOwner: false,
     downloadMaxMb: 20,
     recorder: null,
-    files: [],
     downloads: [],
     onAction: vi.fn(),
+    onDownload: vi.fn(),
     ...overrides,
   };
 }
@@ -27,7 +27,7 @@ describe("browser tool dispatcher", () => {
     const dispatch = makeBrowserToolDispatcher(ctx);
     const res = await dispatch("browser_download", { url: "https://example.com/f.pdf" });
     expect(res.text).toMatch(/owner/i);
-    expect(ctx.files).toHaveLength(0);
+    expect(ctx.onDownload).not.toHaveBeenCalled();
   });
 
   it("returns the screenshot as an image and records a step", async () => {

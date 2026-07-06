@@ -208,12 +208,14 @@ describe("chatCompleteWithTools", () => {
     expect(result.raw).toBe("done");
   });
 
-  it("forces a no-tools answer when a round only repeats an executed tool call", async () => {
+  it("tolerates a single repeated round, then answers without a forced loop-stop", async () => {
+    // One repeat is NOT a loop: iterating over items legitimately revisits a
+    // listing between them. The streak stays under MAX_STALL_ROUNDS, so the run
+    // ends normally when the model answers — not flagged as a loop.
     const callTool = vi.fn().mockResolvedValue({ text: "result" });
     mockedChatCompleteDetailed
       .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
-      // Same call again — no progress, so the loop must break to a forced
-      // final call without tools.
+      // Same call again — a single stall round, allowed.
       .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
       .mockResolvedValueOnce({ raw: "answer", thinking: "" });
 
@@ -223,23 +225,49 @@ describe("chatCompleteWithTools", () => {
       traceLabel: "main reply",
     });
 
-    // The duplicate round was detected before executing, so the tool ran once.
-    expect(callTool).toHaveBeenCalledTimes(1);
-    // round 1 + duplicate round (detected) + forced final.
+    // The repeat round still executes (revisits are allowed), so the tool runs
+    // both times; the model's own answer ends the loop with no forced final.
+    expect(callTool).toHaveBeenCalledTimes(2);
     expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(3);
-    // The forced final call must not offer tools again.
-    const finalOptions = mockedChatCompleteDetailed.mock.calls[2]?.[1];
+    expect(result.raw).toBe("answer");
+    expect(result.loopDetected).toBeFalsy();
+  });
+
+  it("forces a tool-free final answer after MAX_STALL_ROUNDS with no new call", async () => {
+    // A streak of rounds that each introduce no new call is the true "stuck"
+    // signal — after MAX_STALL_ROUNDS (3) in a row the loop breaks to a forced
+    // final answer and flags loopDetected for the caller to fail.
+    const callTool = vi.fn().mockResolvedValue({ text: "result" });
+    mockedChatCompleteDetailed
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
+      .mockResolvedValueOnce(toolRoundResponse("search", '{"q":"a"}'))
+      .mockResolvedValueOnce({ raw: "answer", thinking: "" });
+
+    const result = await chatCompleteWithTools([{ role: "user", content: "q" }], {
+      tools: [{ type: "function", function: { name: "search", parameters: {} } }],
+      callTool,
+      traceLabel: "main reply",
+    });
+
+    // Rounds 0-2 execute (stalls 0,1,2); round 3 hits the streak and breaks
+    // before executing, so the tool ran three times.
+    expect(callTool).toHaveBeenCalledTimes(3);
+    // rounds 0-3 + forced final.
+    expect(mockedChatCompleteDetailed).toHaveBeenCalledTimes(5);
+    const finalOptions = mockedChatCompleteDetailed.mock.calls[4]?.[1];
     expect(finalOptions?.tools).toBeUndefined();
     expect(finalOptions?.traceLabel).toBe("main reply · final");
     expect(result.raw).toBe("answer");
-    // Broken out by the stall guard → flagged as a loop for the caller to fail.
     expect(result.loopDetected).toBe(true);
   });
 
-  it("breaks when one call recurs MAX_TOOL_CALL_REPEATS times across mixed rounds", async () => {
-    // Each round mixes the SAME "search a" call with a fresh one, so the
-    // per-round stall guard never fires — but "search a" recurring three times
-    // trips the slow-loop guard and forces a tool-free final answer.
+  it("treats a repeated call mixed with a fresh one each round as progress", async () => {
+    // Each round repeats "search a" but ALSO introduces a fresh call — that is
+    // exactly how iterating over items looks (re-run the extractor, fetch the
+    // next item). Because every round carries a new call, the stall streak never
+    // builds and the run is never flagged as a loop.
     const callTool = vi.fn().mockResolvedValue({ text: "result" });
     const repeated = {
       id: "call_search_repeat",
@@ -274,11 +302,9 @@ describe("chatCompleteWithTools", () => {
       callTool,
     });
 
-    // Three tool rounds run fully, then a tool-free final is forced.
-    const finalOptions = mockedChatCompleteDetailed.mock.calls.at(-1)?.[1];
-    expect(finalOptions?.tools).toBeUndefined();
+    // The model's own answer ends the loop — no forced final, not a loop.
     expect(result.raw).toBe("final report");
-    expect(result.loopDetected).toBe(true);
+    expect(result.loopDetected).toBeFalsy();
   });
 
   it("feeds tool result images back as a user image message", async () => {
