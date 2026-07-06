@@ -1,6 +1,6 @@
 {
   "name": "llm-tg-bot",
-  "version": "2.2.5",
+  "version": "2.2.6",
   "private": true,
   "description": "Telegram bot powered by an OpenAI-compatible chat completions API with a configuration dashboard",
   "engines": {
