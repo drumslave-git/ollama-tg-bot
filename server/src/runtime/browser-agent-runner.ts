@@ -47,13 +47,16 @@ async function deliverReport(
   text: string,
   files: CollectedFile[],
   recorder: ProcessingRecorder | null,
-  options: { landInHistory?: boolean } = {},
+  options: { landInHistory?: boolean; silent?: boolean } = {},
 ): Promise<void> {
   const bot = getBot();
-  const extra: { parse_mode: "HTML"; message_thread_id?: number } = {
-    parse_mode: "HTML",
-  };
+  const extra: {
+    parse_mode: "HTML";
+    message_thread_id?: number;
+    disable_notification?: boolean;
+  } = { parse_mode: "HTML" };
   if (run.messageThreadId != null) extra.message_thread_id = run.messageThreadId;
+  if (options.silent) extra.disable_notification = true;
 
   const chunks = splitTelegramMessage(prepareTelegramHtml(text));
   let firstMessageId: number | undefined;
@@ -62,14 +65,17 @@ async function deliverReport(
     firstMessageId ??= sent.message_id;
   }
 
+  const docExtra: { message_thread_id?: number; disable_notification?: boolean } =
+    {};
+  if (run.messageThreadId != null) docExtra.message_thread_id = run.messageThreadId;
+  if (options.silent) docExtra.disable_notification = true;
+
   for (const file of files) {
     try {
       await bot.api.sendDocument(
         run.chatId,
         new InputFile(file.buffer, file.filename),
-        run.messageThreadId != null
-          ? { message_thread_id: run.messageThreadId }
-          : undefined,
+        Object.keys(docExtra).length > 0 ? docExtra : undefined,
       );
     } catch (err) {
       logEventError("browser_agent_file_send_failed", err, { runId: run.id });
@@ -92,7 +98,9 @@ async function deliverReport(
 /** Report ONE finished download to the chat the moment it lands: the small file
  * as an attachment, a large one as a text line (name / size / source). Wired to
  * the agent's onDownload so every file is reported as it downloads, uniformly
- * for single- and multi-link runs. Never recorded individually — the recap does. */
+ * for single- and multi-link runs. Sent silently (disable_notification) — these
+ * are intermediate progress messages; the end-of-run recap notifies normally.
+ * Never recorded individually — the recap does. */
 async function deliverDownload(
   run: BrowserAgentRun,
   record: DownloadRecord,
@@ -105,7 +113,7 @@ async function deliverDownload(
       formatDownloadReport([record]),
       file ? [file] : [],
       recorder,
-      { landInHistory: false },
+      { landInHistory: false, silent: true },
     );
   } catch (err) {
     logEventError("browser_agent_file_send_failed", err, { runId: run.id });
