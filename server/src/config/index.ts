@@ -28,12 +28,14 @@ function readEnv(name: string): string {
   return (process.env[name] ?? "").trim();
 }
 
-/** API listen port. `PORT` in `.env` applies in production (Docker) only; local dev uses 3000 for Vite proxy. */
+/**
+ * API listen port. `PORT` in `.env` applies everywhere (defaulting to 3000) so a
+ * machine whose 3000 is unusable — e.g. a Windows Hyper-V/WinNAT reserved port
+ * range — can move the port. In local dev the Vite proxy reads the same `PORT`,
+ * keeping the dashboard's `/api` target in sync.
+ */
 function resolvePort(): number {
-  if (process.env.NODE_ENV === "production") {
-    return Number(process.env.PORT ?? 3000);
-  }
-  return 3000;
+  return Number(process.env.PORT ?? 3000);
 }
 
 function resolveTavilyApiKey(): string {

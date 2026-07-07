@@ -4,7 +4,11 @@ import type { ProcessingRecorder } from "../../debug/processing-recorder.js";
 import type { BrowserSession } from "./session.js";
 import { readFile } from "node:fs/promises";
 import { formatSnapshot, type PageSnapshot } from "./snapshot.js";
-import { downloadToDisk } from "./download.js";
+import {
+  downloadStreamToDisk,
+  downloadToDisk,
+  isStreamingManifest,
+} from "./download.js";
 import { embedMetadata } from "./metadata.js";
 import { UnsafeUrlError } from "./ssrf.js";
 
@@ -197,24 +201,21 @@ export function makeBrowserToolDispatcher(ctx: AgentToolContext) {
         }
         case "browser_extract_media": {
           ctx.onAction("extract media", ctx.session.currentUrl());
-          const urls = await ctx.session.extractMedia();
+          const top = await ctx.session.extractMedia();
           ctx.recorder?.okPhase(
             "browser",
             "Extract media",
-            `${urls.length} candidate URL(s)`,
+            top ? "1 file" : "no media",
             undefined,
-            { urls },
+            { url: top },
           );
-          if (urls.length === 0) {
+          if (!top) {
             return {
               text: "No media URLs captured even after pressing play and retrying. The video may be DRM/login-protected or the player blocked automation. Report that the video could not be extracted.",
             };
           }
-          // Return ONLY the single best URL. The other entries are just
-          // lower-quality variants of the SAME video (HD/SD of one file), not
-          // separate videos — surfacing them makes the model download the same
-          // video several times. Ranking already put the best variant first.
-          const [top] = urls;
+          // extractMedia already resolved to the single best file (the biggest
+          // probed variant), so there is exactly one URL to hand the model.
           return {
             text:
               `Video file URL: ${top}\n` +
@@ -245,9 +246,11 @@ export function makeBrowserToolDispatcher(ctx: AgentToolContext) {
           // — never from a model-supplied name, which is inconsistent (the model
           // sometimes passes the raw URL basename, e.g. "6810.mp4").
           const meta = await ctx.session.getPageMetadata().catch(() => null);
-          const result = await downloadToDisk(url, {
-            title: meta?.title || null,
-          });
+          // A manifest URL (HLS/DASH) is a playlist of segments, not a file to
+          // GET — mux it into an MP4 with ffmpeg; everything else streams direct.
+          const result = isStreamingManifest(url)
+            ? await downloadStreamToDisk(url, { title: meta?.title || null })
+            : await downloadToDisk(url, { title: meta?.title || null });
           // Bake the page's data into the file's own metadata tags.
           const tagged = await embedMetadata(result.filePath, {
             title: meta?.title ?? result.filename,

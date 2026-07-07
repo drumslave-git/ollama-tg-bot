@@ -6,7 +6,7 @@ describe("sanitizeAgentReport", () => {
     // The exact garbage a stalled model emitted into content when tools were
     // taken away for the forced final answer — this must never reach the chat.
     const leaked =
-      '<|tool_call>call:browser_navigate{url:<|"|>https://xvids.huyamba.mobi/videos/?by=duration<|"|>}<tool_call|>';
+      '<|tool_call>call:browser_navigate{url:<|"|>https://example.com/videos/?by=duration<|"|>}<tool_call|>';
     expect(sanitizeAgentReport(leaked)).toBe("");
   });
 

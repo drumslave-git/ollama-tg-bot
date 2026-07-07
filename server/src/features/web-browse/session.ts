@@ -5,6 +5,15 @@ import { capturePageSnapshot, REF_ATTR, type PageSnapshot } from "./snapshot.js"
 import { isLikelyMediaUrl, isMediaContentType } from "./media.js";
 import { probeSize } from "./download.js";
 
+/** A URL ending in an HLS/DASH manifest extension (a streaming playlist). */
+function isManifestUrl(u: string): boolean {
+  return /\.(m3u8|mpd)(\/|\?|$)/i.test(u);
+}
+/** A URL ending in an HLS transport-stream segment (a piece of a manifest). */
+function isSegmentUrl(u: string): boolean {
+  return /\.ts(\/|\?|$)/i.test(u);
+}
+
 /**
  * In-page code (as a STRING — see snapshot.ts for the `__name` rationale) that
  * collects candidate media URLs from `<video>`/`<source>`/`<audio>` sources,
@@ -67,7 +76,74 @@ const TRIGGER_PLAY_SCRIPT = `(() => {
   return vids.length;
 })()`;
 
+/**
+ * In-page code (string — see snapshot.ts) reporting whether the frame holds a
+ * streaming player: a `<video>` whose source is a `blob:`/MediaSource URL. Such
+ * players (JWPlayer, hls.js, etc.) feed HLS/DASH segments into MSE, so the real
+ * file is the manifest — any progressive `.mp4` on the page is almost always an
+ * ad creative, not the requested video.
+ */
+const HAS_STREAMING_PLAYER_SCRIPT = `(() => {
+  var vids = document.querySelectorAll("video");
+  for (var i = 0; i < vids.length; i++) {
+    var s = vids[i].currentSrc || vids[i].getAttribute("src") || "";
+    if (s.indexOf("blob:") === 0 || s.indexOf("mediasource:") === 0) return true;
+  }
+  return false;
+})()`;
+
+/**
+ * In-page code (string — see snapshot.ts) reporting the cross-origin player
+ * embed URL(s) on the page. Hostile DLE tube sites don't ship the player in the
+ * DOM: they inject `<iframe src="https://host/e/ID">` only when the poster is
+ * clicked — and that same click fires an ad pop-under/redirect. But the embed URL
+ * is sitting in the page's inline script as an `iframe.src = "https://..."`
+ * assignment, so we read it straight from source (and from any already-live
+ * iframe) and navigate there directly, skipping the ad trap entirely. Kept
+ * generic — matches on URL SHAPE (cross-origin, non-asset, embed-like path),
+ * never a hardcoded host list. Embed-shaped paths (\`/e/\`, \`/embed/\`, …) rank
+ * first so the real player beats an incidental cross-origin iframe.
+ */
+const EXTRACT_EMBED_SCRIPT = `(() => {
+  var out = [];
+  var ASSET = /\\.(js|css|png|jpe?g|webp|gif|svg|ico|woff2?|ttf|mp4|webm|m3u8|mpd|ts|json|xml)(\\?|$)/i;
+  var add = function(u) {
+    if (!u) return;
+    var abs;
+    try { abs = new URL(u, document.baseURI).href; } catch (e) { return; }
+    if (!/^https?:/i.test(abs)) return;
+    try { if (new URL(abs).host === location.host) return; } catch (e2) { return; }
+    if (ASSET.test(abs)) return;
+    if (out.indexOf(abs) === -1) out.push(abs);
+  };
+  var ifr = document.querySelectorAll("iframe[src]");
+  for (var i = 0; i < ifr.length; i++) add(ifr[i].getAttribute("src"));
+  var scripts = document.querySelectorAll("script");
+  var re = /\\.src\\s*=\\s*["'](https?:\\/\\/[^"']+)["']/g;
+  for (var s = 0; s < scripts.length; s++) {
+    var txt = scripts[s].textContent || "";
+    var m;
+    while ((m = re.exec(txt))) add(m[1]);
+  }
+  var EMBED = /\\/(e|v|embed|iframe|player)\\//i;
+  out.sort(function(a, b) { return (EMBED.test(b) ? 1 : 0) - (EMBED.test(a) ? 1 : 0); });
+  return out;
+})()`;
+
 const ACTION_TIMEOUT_MS = 45_000;
+/**
+ * How long to let the DOM settle after a navigation commits. Junk-laden video
+ * sites stream ads/trackers that keep `domcontentloaded` from ever firing, so we
+ * cap the settle well below ACTION_TIMEOUT_MS and snapshot whatever has rendered
+ * rather than failing a page that was usable seconds earlier.
+ */
+const SETTLE_TIMEOUT_MS = 8_000;
+/** How many candidate files to probe for real byte size when picking the biggest. */
+const MAX_SIZE_PROBES = 10;
+/** Grace period after navigating to a player embed so its HLS manifest loads. */
+const EMBED_SETTLE_MS = 3_500;
+/** Cap on player embeds to try before giving up (bounds run time). */
+const MAX_EMBED_FOLLOWS = 4;
 const USER_AGENT =
   "Mozilla/5.0 (compatible; LLMTGBot/1.0; +https://github.com/llm-tg-bot)";
 
@@ -137,16 +213,35 @@ export class BrowserSession {
   async navigate(url: string): Promise<PageSnapshot> {
     await assertPublicUrl(url);
     const page = await this.ensurePage();
-    await page.goto(url, {
-      waitUntil: "domcontentloaded",
-      timeout: ACTION_TIMEOUT_MS,
-    });
+    // Resolve as soon as the server responds and navigation commits, instead of
+    // blocking on "domcontentloaded". Junk-laden video sites stream ads/trackers
+    // that keep the document "loading" long after the real content is present, so
+    // a strict wait times out on a page that was usable seconds earlier.
+    try {
+      await page.goto(url, { waitUntil: "commit", timeout: ACTION_TIMEOUT_MS });
+    } catch (err) {
+      // Nothing committed (DNS/connection failure) — there is no page to read,
+      // so surface the error. Otherwise fall through and snapshot what loaded.
+      if (page.url() === "about:blank" || page.url() === "") throw err;
+    }
+    // Give the DOM a bounded chance to parse; tolerate the event never firing.
+    await page
+      .waitForLoadState("domcontentloaded", { timeout: SETTLE_TIMEOUT_MS })
+      .catch(() => {});
     return capturePageSnapshot(page);
   }
 
   async click(ref: number): Promise<PageSnapshot> {
     const page = this.requirePage();
     const locator = this.refLocator(page, ref);
+    // Fast-fail an unknown ref. count() is instant, whereas getAttribute/click
+    // would each auto-wait the full ACTION_TIMEOUT_MS for an element that never
+    // appears — a stalled model guessing at refs otherwise burns ~45s per miss.
+    if ((await locator.count().catch(() => 0)) === 0) {
+      throw new Error(
+        `No element with ref ${ref} on the current page. Call browser_read to get the current refs, then click one of those.`,
+      );
+    }
     // For a link, follow its real href by NAVIGATING rather than dispatching a
     // synthetic click. Sketchy sites hijack the first click anywhere on the page
     // into an off-site ad redirect (a pop-under/interstitial), so a DOM click on
@@ -180,6 +275,11 @@ export class BrowserSession {
   async type(ref: number, text: string, submit: boolean): Promise<PageSnapshot> {
     const page = this.requirePage();
     const locator = this.refLocator(page, ref);
+    if ((await locator.count().catch(() => 0)) === 0) {
+      throw new Error(
+        `No element with ref ${ref} on the current page. Call browser_read to get the current refs, then type into one of those.`,
+      );
+    }
     await locator.fill(text, { timeout: ACTION_TIMEOUT_MS });
     if (submit) {
       await locator.press("Enter");
@@ -193,41 +293,111 @@ export class BrowserSession {
   }
 
   /**
-   * Candidate media URLs on the current page: `<video>`/`<source>` sources,
-   * og:video meta, media-file anchors, plus any media seen in network traffic
-   * since the session opened (the reliable source for streamed video).
+   * The single best media file URL for the video on the current page, or null if
+   * none could be captured. Gathers candidates (`<video>`/`<source>` sources,
+   * og:video meta, media anchors, inline player config, and network traffic),
+   * narrows to the requested video, then returns the one file to download.
    */
-  async extractMedia(): Promise<string[]> {
+  async extractMedia(): Promise<string | null> {
     const page = this.requirePage();
-    // Fast path: the direct file URL is usually already in the page source
-    // (inline player config) — no click needed.
+    // Pass 1: scan every frame's DOM/source plus network traffic so far.
     let urls = await this.collectMedia();
-    if (urls.length === 0) {
-      // Lazy player: one real user-gesture play click (pop-ups auto-closed,
-      // same-tab ad redirects recovered), then re-scan. One attempt only, to
-      // stay well under the run time budget.
+    let streaming = await this.hasStreamingPlayer();
+
+    // Pass 2: follow embedded player(s). Hostile tube sites host the real video
+    // on a separate player domain and only inject its `<iframe>` on a click that
+    // also springs an ad pop-under/redirect. The embed URL is already in the
+    // page source, so navigate straight to it — this skips the ad trap and lands
+    // on the player page, where the HLS manifest loads on its own. Done BEFORE
+    // the click fallback so we never trip the ad in the first place. A page can
+    // list several players (tabs); some are ad-laden and expose only a preroll
+    // `.mp4`, so try them in order and STOP at the first that yields a real HLS
+    // manifest — that is the one to download.
+    if (!urls.some((u) => isManifestUrl(u))) {
+      for (const embed of await this.discoverEmbedUrls()) {
+        await this.navigate(embed).catch(() => {});
+        await page.waitForTimeout(EMBED_SETTLE_MS).catch(() => {});
+        urls = await this.collectMedia();
+        if (urls.some((u) => isManifestUrl(u))) {
+          // A manifest loaded → this is a streaming player; its progressive files
+          // are ad prerolls. Force the streaming verdict so pickBest returns the
+          // manifest, not a leftover ad `.mp4` from a sibling player we tried.
+          streaming = true;
+          break;
+        }
+        streaming = await this.hasStreamingPlayer();
+      }
+    }
+
+    // Pass 3: last resort for players that expose no embed URL in source — one
+    // real user-gesture play click across every frame (pop-ups auto-closed,
+    // same-tab ad redirects recovered), then re-scan. Ad creatives (progressive
+    // .mp4s) load instantly, but a blob/MSE player only fetches its manifest ON
+    // play. One attempt only, to stay under the run budget.
+    if (!urls.some((u) => isManifestUrl(u))) {
       await this.triggerPlayback();
       await page.waitForTimeout(2500).catch(() => {});
       urls = await this.collectMedia();
+      streaming = await this.hasStreamingPlayer();
     }
-    const relevant = this.rankByRelevance(urls);
-    return (await this.orderBySize(relevant)).slice(0, 30);
+    return this.pickBest(this.rankByRelevance(urls), streaming);
   }
 
   /**
-   * Order candidates biggest-first so the top URL is the highest-quality
-   * variant (e.g. HD over SD). Probes real byte sizes; playlists (no meaningful
-   * size) go last.
+   * Cross-origin player-embed URLs to follow, embed-shaped first, capped at
+   * {@link MAX_EMBED_FOLLOWS}. Scans every frame's live iframes and inline
+   * scripts (see EXTRACT_EMBED_SCRIPT), keeping only URLs off the current page's
+   * host (so we move to a player, not reload the same ad-laden page).
    */
-  private async orderBySize(urls: string[]): Promise<string[]> {
-    const isPlaylist = (u: string): boolean => /\.(m3u8|mpd|ts)(\/|\?|$)/i.test(u);
-    const files = urls.filter((u) => !isPlaylist(u));
-    const playlists = urls.filter(isPlaylist);
+  private async discoverEmbedUrls(): Promise<string[]> {
+    const page = this.requirePage();
+    const current = page.url();
+    const seen = new Set<string>();
+    for (const frame of page.frames()) {
+      const found = (await frame
+        .evaluate(EXTRACT_EMBED_SCRIPT)
+        .catch(() => [])) as string[];
+      for (const url of found) {
+        if (!this.sameHost(url, current)) seen.add(url);
+      }
+    }
+    return Array.from(seen).slice(0, MAX_EMBED_FOLLOWS);
+  }
+
+  /**
+   * Pick the one URL to download. With a streaming (blob/MSE) player the real
+   * video is the HLS/DASH manifest (ffmpeg muxes it on download), so return that
+   * and NEVER a progressive `.mp4` — those are ad creatives loaded in separate
+   * frames; report nothing if no manifest loaded rather than hand back an ad.
+   * Otherwise the target is a progressive file: pick the largest (probed by real
+   * byte size, so HD wins over SD and over unrelated preview clips), falling back
+   * to a manifest only when no progressive file exists. Returns null when empty.
+   */
+  private async pickBest(urls: string[], streaming: boolean): Promise<string | null> {
+    const playlists = urls.filter(isManifestUrl);
+    // HLS/DASH segments (.ts) are pieces of a manifest, not standalone targets.
+    const files = urls.filter((u) => !isManifestUrl(u) && !isSegmentUrl(u));
+    if (streaming) return playlists[0] ?? null;
+    if (files.length === 0) return playlists[0] ?? null;
     const probed = await Promise.all(
-      files.slice(0, 6).map(async (u) => ({ u, size: await probeSize(u) })),
+      files.slice(0, MAX_SIZE_PROBES).map(async (u) => ({ u, size: await probeSize(u) })),
     );
     probed.sort((a, b) => b.size - a.size);
-    return [...probed.map((x) => x.u), ...files.slice(6), ...playlists];
+    // A probed size of 0 means the HEAD failed, not an empty file — still better
+    // than returning nothing, and better than an unprobed tail file.
+    return probed[0]?.u ?? files[0] ?? playlists[0] ?? null;
+  }
+
+  /** True when any frame hosts a blob/MSE `<video>` (real content is streamed). */
+  private async hasStreamingPlayer(): Promise<boolean> {
+    const page = this.requirePage();
+    for (const frame of page.frames()) {
+      const blob = await frame
+        .evaluate(HAS_STREAMING_PLAYER_SCRIPT)
+        .catch(() => false);
+      if (blob) return true;
+    }
+    return false;
   }
 
   /**
@@ -252,9 +422,18 @@ export class BrowserSession {
   /** Merge in-page media URLs (DOM + page source) with network-observed ones. */
   private async collectMedia(): Promise<string[]> {
     const page = this.requirePage();
-    const inPage = (await page.evaluate(EXTRACT_MEDIA_SCRIPT).catch(() => [])) as string[];
     const merged = new Set<string>();
-    for (const url of inPage) if (url) merged.add(url);
+    // Video players are almost always embedded in an iframe, so the
+    // `<video>`/`<source>` elements and the inline player config that hold the
+    // real file URL live in a child frame, not the main document. Scan every
+    // frame — Playwright evaluates inside each frame's own context, so even
+    // cross-origin player iframes are reachable.
+    for (const frame of page.frames()) {
+      const inFrame = (await frame
+        .evaluate(EXTRACT_MEDIA_SCRIPT)
+        .catch(() => [])) as string[];
+      for (const url of inFrame) if (url) merged.add(url);
+    }
     for (const url of this.mediaUrls) merged.add(url);
     return Array.from(merged);
   }
@@ -276,7 +455,6 @@ export class BrowserSession {
   private async triggerPlayback(): Promise<void> {
     const page = this.requirePage();
     const origin = page.url();
-    await page.evaluate(TRIGGER_PLAY_SCRIPT).catch(() => {});
     const playSelectors = [
       "video",
       ".vjs-big-play-button",
@@ -285,14 +463,19 @@ export class BrowserSession {
       "[class*='player'] [class*='play']",
       "[id*='player']",
     ];
-    for (const selector of playSelectors) {
-      const locator = page.locator(selector).first();
-      const count = await locator.count().catch(() => 0);
-      if (count > 0) {
-        await locator
-          .click({ timeout: 4000, force: true })
-          .catch(() => {});
-        break;
+    // The player is usually inside an iframe, so kick playback in every frame,
+    // not just the main document — otherwise the media request never fires and
+    // nothing is captured. Each frame gets the JS `.play()` nudge plus one real
+    // click on its first play-like element.
+    for (const frame of page.frames()) {
+      await frame.evaluate(TRIGGER_PLAY_SCRIPT).catch(() => {});
+      for (const selector of playSelectors) {
+        const locator = frame.locator(selector).first();
+        const count = await locator.count().catch(() => 0);
+        if (count > 0) {
+          await locator.click({ timeout: 4000, force: true }).catch(() => {});
+          break;
+        }
       }
     }
     await page.waitForTimeout(1500).catch(() => {});

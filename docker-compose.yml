@@ -49,7 +49,10 @@ services:
       - "traefik.http.routers.llm-tg-bot.entrypoints=websecure"
       - "traefik.http.routers.llm-tg-bot.tls=true"
       - "traefik.http.routers.llm-tg-bot.tls.certresolver=cloudflare"
-      - "traefik.http.services.llm-tg-bot.loadbalancer.server.port=${TRAEFIK_SERVICE_PORT:-3000}"
+      # Route Traefik to the app's actual port: follow PORT (as the container's
+      # listen port and published ports do) so setting PORT alone never leaves
+      # Traefik pointing at a stale 3000. TRAEFIK_SERVICE_PORT still overrides.
+      - "traefik.http.services.llm-tg-bot.loadbalancer.server.port=${TRAEFIK_SERVICE_PORT:-${PORT:-3000}}"
 
       - "homepage.group=${HOMEPAGE_GROUP:-AI}"
       - "homepage.name=LLM TG Bot"

@@ -27,7 +27,6 @@ import {
 import { getResolvedSettings } from "../settings/runtime.js";
 import { normalizeImageForChat } from "../features/vision/index.js";
 import {
-  boundedRetryEffort,
   isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
@@ -312,6 +311,7 @@ async function requestChat(
   think: boolean | undefined,
   stop: string[] | undefined,
   settings: Settings,
+  suppressReasoning = false,
 ): Promise<{ data: ChatResponse; choice: ChatCompletion["choices"][number] | undefined }> {
   const providerSettings =
     think === false ? { ...settings, thinkingEnabled: false } : settings;
@@ -325,6 +325,7 @@ async function requestChat(
     tools,
     think,
     stop,
+    suppressReasoning,
   );
   const traceLabelText = traceLabel ?? "llm";
   const traceSampling = formatTraceSamplingLine(
@@ -333,6 +334,7 @@ async function requestChat(
     responseFormat,
     tools,
     stop,
+    suppressReasoning,
   );
   const llmStarted = performance.now();
   if (traceTurnId != null) {
@@ -411,10 +413,15 @@ function formatTraceSamplingLine(
   responseFormat?: JsonSchemaResponseFormat,
   tools?: ChatCompletionTool[],
   stop?: string[],
+  suppressReasoning?: boolean,
 ): string {
   const temp = auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature;
   const extensions = providerChatExtensions(settings, auxiliary);
-  const reasoningEffort = extensions.reasoning_effort ?? "off";
+  // The runaway retry disables thinking via chat_template_kwargs (see
+  // chatCompletionBody) and sends no reasoning_effort, so report both truthfully.
+  const reasoningEffort = suppressReasoning
+    ? "off"
+    : extensions.reasoning_effort ?? "off";
   const responseFormatLine = responseFormat
     ? "response_format: json_schema"
     : null;
@@ -426,7 +433,7 @@ function formatTraceSamplingLine(
     `temperature: ${temp}`,
     `top_p: ${settings.topP}`,
     `num_ctx: ${settings.numCtx}`,
-    `enable_thinking: ${settings.thinkingEnabled}`,
+    `enable_thinking: ${suppressReasoning ? false : settings.thinkingEnabled}`,
     `reasoning_effort: ${reasoningEffort}`,
     responseFormatLine,
     toolsLine,
@@ -478,6 +485,7 @@ function chatCompletionBody(
   tools?: ChatCompletionTool[],
   think?: boolean,
   stop?: string[],
+  suppressReasoning?: boolean,
 ): ChatCompletionCreateParamsNonStreaming {
   const providerSettings =
     think === false ? { ...settings, thinkingEnabled: false } : settings;
@@ -488,7 +496,14 @@ function chatCompletionBody(
     max_tokens: numPredict,
     temperature: auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature,
     top_p: settings.topP,
-    ...providerChatExtensions(providerSettings, auxiliary),
+    // The thinking-runaway retry disables the model's reasoning channel so it
+    // emits an answer instead of spiralling again. reasoning_effort has no effect
+    // here (verified: gemma still thinks at "none"); llama.cpp / Docker Model
+    // Runner disables thinking via the chat template's `enable_thinking` kwarg,
+    // passed through the OpenAI-compatible `chat_template_kwargs` field.
+    ...(suppressReasoning
+      ? { chat_template_kwargs: { enable_thinking: false } }
+      : providerChatExtensions(providerSettings, auxiliary)),
     ...(shouldUseResponseFormat(settings, auxiliary, responseFormat)
       ? { response_format: toOpenAiResponseFormat(responseFormat) }
       : {}),
@@ -602,11 +617,11 @@ export async function chatCompleteDetailed(
         data.finishReason,
       )
     ) {
+      // Retry with thinking OFF (reasoning_effort:"none") and more headroom.
+      // Lowering effort but keeping thinking on just re-spirals — the model
+      // burns the whole budget in the reasoning channel and emits no reply
+      // again; suppressing reasoning forces it to answer.
       effectiveNumPredict = getRunawayRetryNumPredict(numPredict);
-      const retrySettings: Settings = {
-        ...settings,
-        reasoningEffort: boundedRetryEffort(settings.reasoningEffort),
-      };
       ({ data, choice } = await requestChat(
         model,
         prepared,
@@ -619,7 +634,8 @@ export async function chatCompleteDetailed(
         options?.tools,
         options?.think,
         options?.stop,
-        retrySettings,
+        settings,
+        true,
       ));
     }
 

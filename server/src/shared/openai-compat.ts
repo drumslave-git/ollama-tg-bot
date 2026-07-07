@@ -48,8 +48,9 @@ export function boundedRetryEffort(effort: ReasoningEffort): ReasoningEffort {
  * Recognize the "thinking runaway" shape: the model spent its whole generation
  * budget inside the reasoning channel and emitted no reply, so the completion
  * stopped on length with reasoning present but content empty. A one-shot retry
- * with more headroom and bounded reasoning recovers a reply without disabling
- * thinking.
+ * with more headroom and thinking turned OFF (via the chat template's
+ * enable_thinking kwarg) recovers a reply — keeping thinking on, or merely
+ * lowering reasoning_effort, just re-spirals into the same runaway.
  */
 export function isThinkingRunaway(
   parsed: ParsedAssistantMessage,

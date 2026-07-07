@@ -21,7 +21,7 @@ describe("isLikelyMediaUrl", () => {
   it("ignores non-media URLs", () => {
     for (const url of [
       "https://example.com/video/5943/",
-      "https://777.ua/?register",
+      "https://example.com/?register",
       "https://example.com/page.html",
       // Thumbnail whose name only contains ".mp4" as a substring — not a video.
       "https://example.com/screenshots/5943/preview.mp4.jpg",
