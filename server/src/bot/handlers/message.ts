@@ -17,6 +17,7 @@ import { buildTelegramContext } from "../../pipeline/telegram.js";
 import { runIntakePipeline } from "../../pipeline/queue-runner.js";
 import { deliverEarlyReply } from "../../pipeline/deliver.js";
 import { enqueueMessage } from "../../runtime/message-queue.js";
+import { startTypingForMessage } from "../replies/typing.js";
 
 // Ephemeral, process-local handle that keys a turn's in-flight debug report in
 // the shared recorder registry. Not persisted — debug processings are keyed by
@@ -31,6 +32,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
   let turnId = 0;
   let report: ReturnType<typeof beginMessageReport> | null = null;
   let msgLog: EventFields = {};
+  let stopTyping: (() => void) | undefined;
 
   try {
     turnId = allocateTurnId();
@@ -140,15 +142,19 @@ export async function messageHandler(ctx: Context, botToken: string) {
       state.historyPointer = formatHistoryPointer(state.convKey, tgMessageId);
     }
 
+    stopTyping = startTypingForMessage(ctx) ?? undefined;
     enqueueMessage({
       turnId,
       ctx,
       botToken,
       state,
       services,
+      stopTyping,
       historyPointer: state.historyPointer,
     });
+    stopTyping = undefined;
   } catch (err) {
+    stopTyping?.();
     logEventError("handler_error", err, msgLog);
     report?.finalizeError(errorMessage(err));
   }

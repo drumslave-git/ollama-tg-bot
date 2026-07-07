@@ -88,11 +88,11 @@ export async function runIntakePipeline(
 export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
   const { ctx, state, services, turnId } = item;
   const enabledSteps = await services.getWorkflowSteps();
-  let endTyping: (() => void) | undefined;
+  let endTyping: (() => void) | undefined =
+    item.stopTyping ?? startTypingForMessage(ctx) ?? undefined;
 
   try {
     state.shouldReply = true;
-    endTyping = startTypingForMessage(ctx) ?? undefined;
     // Let post-reply hosts show their own chat action (e.g. "choosing sticker").
     state.startChatAction = (action) => startChatActionForMessage(ctx, action);
 

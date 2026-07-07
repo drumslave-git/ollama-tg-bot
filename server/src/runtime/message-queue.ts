@@ -17,6 +17,8 @@ export interface QueuedMessage {
   botToken: string;
   state: PipelineTurnState;
   services: PipelineHostServices;
+  /** Active typing indicator started as soon as intake accepted this turn. */
+  stopTyping?: () => void;
   /** `{convKey}:{telegramMessageId}` anchor for inject / reply placement. */
   historyPointer?: string;
   /** Set by enqueueMessage — start of the queue wait for latency stats. */
