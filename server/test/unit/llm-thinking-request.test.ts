@@ -62,12 +62,12 @@ describe("reasoning_effort request policy", () => {
     );
   });
 
-  it("omits reasoning_effort when thinking is off", () => {
-    // No reasoning field is the OpenAI-standard way to request no reasoning.
+  it("explicitly disables thinking when thinking is off", () => {
     const ext = providerChatExtensions(
       { ...thinkingSettings, thinkingEnabled: false },
       false,
     );
     expect(ext).not.toHaveProperty("reasoning_effort");
+    expect(ext.chat_template_kwargs).toEqual({ enable_thinking: false });
   });
 });

@@ -116,4 +116,32 @@ describe("chatCompleteDetailed thinking-runaway retry", () => {
       chat_template_kwargs: { enable_thinking: false },
     });
   });
+
+  it("uses the dashboard thinking-off setting on the first request", async () => {
+    mocks.getSettings.mockResolvedValueOnce(
+      makeSettings({
+        model: "test-model",
+        thinkingEnabled: false,
+        reasoningEffort: "high",
+        numPredict: 128,
+        numCtx: 4096,
+      }),
+    );
+    mocks.createChatCompletion.mockResolvedValueOnce(successfulCompletion);
+
+    const { chatCompleteDetailed } = await import("../../src/llm/client.js");
+    const result = await chatCompleteDetailed([
+      { role: "user", content: "Answer directly." },
+    ]);
+
+    expect(result.raw).toBe("Final answer.");
+    expect(mocks.createChatCompletion).toHaveBeenCalledTimes(1);
+
+    const request = mocks.createChatCompletion.mock.calls[0]![0] as Record<
+      string,
+      unknown
+    >;
+    expect(request).not.toHaveProperty("reasoning_effort");
+    expect(request.chat_template_kwargs).toEqual({ enable_thinking: false });
+  });
 });

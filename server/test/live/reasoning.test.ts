@@ -78,6 +78,19 @@ describe.skipIf(!cfg || !liveReasoningMode())("live: reasoning (thinking enabled
     expect(result.reply).not.toBe("");
     expect(result.reasoning.length).toBeGreaterThan(20);
   });
+
+  it("honors the dashboard thinking-off setting", async () => {
+    const client = liveClient(cfg!);
+    const result = await runTurn(
+      client,
+      cfg!.model,
+      userTurn("What is 12 + 13? Reply with only the number."),
+      { thinkingEnabled: false, numPredict: 128 },
+    );
+
+    expect(result.reply).not.toBe("");
+    expect(result.reasoning).toBe("");
+  });
 });
 
 // Reproduces the production "thinking runaway" from processing #13910: with

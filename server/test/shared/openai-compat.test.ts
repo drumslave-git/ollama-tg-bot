@@ -14,14 +14,13 @@ function choice(message: Record<string, unknown>): Choice {
 }
 
 describe("providerChatExtensions", () => {
-  it("omits reasoning_effort when thinking is disabled", () => {
-    // No reasoning field is the OpenAI-standard way to request no reasoning.
+  it("explicitly disables thinking when thinking is disabled", () => {
     const ext = providerChatExtensions(
       makeProviderSettings({ thinkingEnabled: false, reasoningEffort: "high" }),
       false,
     );
     expect(ext).not.toHaveProperty("reasoning_effort");
-    expect(ext).toEqual({});
+    expect(ext).toEqual({ chat_template_kwargs: { enable_thinking: false } });
   });
 
   it("sends reasoning_effort when thinking is enabled", () => {

@@ -111,7 +111,10 @@ export async function runTurn(
   // when reasoning burned the whole budget and left content empty, retry the
   // same request once with thinking turned off.
   if (isThinkingRunaway(parsed, finishReason)) {
-    const retryExt = { chat_template_kwargs: { enable_thinking: false } };
+    const retryExt = providerChatExtensions(
+      { ...settings, thinkingEnabled: false },
+      false,
+    );
     completion = await runRequest(numPredict, retryExt);
     choice = completion.choices[0];
     parsed = parseAssistantMessage(choice);

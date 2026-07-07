@@ -76,8 +76,8 @@ export async function auxiliaryChatComplete(
     : AUXILIARY_NUM_PREDICT;
   const numPredict = Math.max(floor, options.numPredict ?? 0);
 
-  // With no provider settings, send no reasoning field (omit) — the standard way
-  // to request no reasoning on the OpenAI-compatible API.
+  // With no provider settings, send no reasoning controls; callers that pass
+  // dashboard provider settings get either reasoning_effort or enable_thinking.
   const providerExt = options.providerSettings
     ? providerChatExtensions(options.providerSettings, true)
     : {};

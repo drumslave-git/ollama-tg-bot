@@ -19,6 +19,9 @@ export interface ParsedAssistantMessage {
 
 export interface ProviderChatExtensions {
   reasoning_effort?: ReasoningEffort;
+  chat_template_kwargs?: {
+    enable_thinking: boolean;
+  };
 }
 
 /** OpenAI-standard reasoning effort levels. */
@@ -54,18 +57,20 @@ export interface ProviderChatSettings {
 /**
  * OpenAI-standard chat request extensions.
  *
- * Only the top-level `reasoning_effort` field is used, and only when thinking is
- * enabled. When thinking is off the field is omitted entirely — the standard way
- * to request no reasoning. Values are `"low" | "medium" | "high"`. Reasoning is
- * parsed from a separate response field when returned, but never merged into
- * user-facing reply text. Side passes use {@link AUXILIARY_REASONING_EFFORT} when
- * thinking is on.
+ * When thinking is enabled, send the top-level `reasoning_effort` field. When
+ * thinking is disabled, explicitly set the chat template flag; the configured
+ * backend otherwise keeps emitting reasoning even when `reasoning_effort` is
+ * omitted. Reasoning is parsed from a separate response field when returned, but
+ * never merged into user-facing reply text. Side passes use
+ * {@link AUXILIARY_REASONING_EFFORT} when thinking is on.
  */
 export function providerChatExtensions(
   settings: ProviderChatSettings,
   auxiliary: boolean,
 ): ProviderChatExtensions {
-  if (!settings.thinkingEnabled) return {};
+  if (!settings.thinkingEnabled) {
+    return { chat_template_kwargs: { enable_thinking: false } };
+  }
   return {
     reasoning_effort: auxiliary
       ? AUXILIARY_REASONING_EFFORT
