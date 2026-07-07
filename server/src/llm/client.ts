@@ -22,7 +22,6 @@ import {
   getAuxiliaryNumPredict,
   getChatTimeoutMs,
   getEffectiveNumPredict,
-  getRunawayRetryNumPredict,
 } from "../settings/limits.js";
 import { getResolvedSettings } from "../settings/runtime.js";
 import { normalizeImageForChat } from "../features/vision/index.js";
@@ -180,14 +179,14 @@ function emptyResponseError(
   let hint =
     "The owner can send /reset to shorten context, or raise generation tokens in Settings.";
   if (reason === "length" && hadReasoning) {
-    // Even after the one-shot runaway retry (raised cap + bounded reasoning),
+    // Even after the one-shot runaway retry (same request, thinking off),
     // all tokens were consumed inside reasoning before any content was emitted:
     // a persistent thinking runaway, not a budget shortfall. Point at the real
     // lever (thinking) rather than a still-larger cap.
     hint =
-      `All ${numPredict} tokens were spent on reasoning before any reply text, even after a retry with more headroom. ` +
-      "This is a thinking runaway, not a budget shortfall, so raising the cap rarely helps. " +
-      "Lower reasoning effort for this call, or the owner can send /reset.";
+      `All ${numPredict} tokens were spent on reasoning before any reply text, even after a retry with thinking turned off. ` +
+      "This usually means the backend ignored the thinking-off request or the context is too large. " +
+      "Check provider reasoning configuration, or the owner can send /reset.";
   } else if (reason === "length") {
     hint = `Generation used all ${numPredict} tokens before a usable reply. Raise generation tokens in Settings (above ${numPredict}), or the owner can send /reset.`;
   } else if (hadReasoning) {
@@ -311,10 +310,12 @@ async function requestChat(
   think: boolean | undefined,
   stop: string[] | undefined,
   settings: Settings,
-  suppressReasoning = false,
+  forceThinkingOff = false,
 ): Promise<{ data: ChatResponse; choice: ChatCompletion["choices"][number] | undefined }> {
   const providerSettings =
-    think === false ? { ...settings, thinkingEnabled: false } : settings;
+    think === false || forceThinkingOff
+      ? { ...settings, thinkingEnabled: false }
+      : settings;
   const requestBody = chatCompletionBody(
     model,
     prepared,
@@ -325,7 +326,7 @@ async function requestChat(
     tools,
     think,
     stop,
-    suppressReasoning,
+    forceThinkingOff,
   );
   const traceLabelText = traceLabel ?? "llm";
   const traceSampling = formatTraceSamplingLine(
@@ -334,7 +335,6 @@ async function requestChat(
     responseFormat,
     tools,
     stop,
-    suppressReasoning,
   );
   const llmStarted = performance.now();
   if (traceTurnId != null) {
@@ -413,15 +413,10 @@ function formatTraceSamplingLine(
   responseFormat?: JsonSchemaResponseFormat,
   tools?: ChatCompletionTool[],
   stop?: string[],
-  suppressReasoning?: boolean,
 ): string {
   const temp = auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature;
   const extensions = providerChatExtensions(settings, auxiliary);
-  // The runaway retry disables thinking via chat_template_kwargs (see
-  // chatCompletionBody) and sends no reasoning_effort, so report both truthfully.
-  const reasoningEffort = suppressReasoning
-    ? "off"
-    : extensions.reasoning_effort ?? "off";
+  const reasoningEffort = extensions.reasoning_effort ?? "off";
   const responseFormatLine = responseFormat
     ? "response_format: json_schema"
     : null;
@@ -433,7 +428,7 @@ function formatTraceSamplingLine(
     `temperature: ${temp}`,
     `top_p: ${settings.topP}`,
     `num_ctx: ${settings.numCtx}`,
-    `enable_thinking: ${suppressReasoning ? false : settings.thinkingEnabled}`,
+    `enable_thinking: ${settings.thinkingEnabled}`,
     `reasoning_effort: ${reasoningEffort}`,
     responseFormatLine,
     toolsLine,
@@ -485,10 +480,12 @@ function chatCompletionBody(
   tools?: ChatCompletionTool[],
   think?: boolean,
   stop?: string[],
-  suppressReasoning?: boolean,
+  forceThinkingOff?: boolean,
 ): ChatCompletionCreateParamsNonStreaming {
   const providerSettings =
-    think === false ? { ...settings, thinkingEnabled: false } : settings;
+    think === false || forceThinkingOff
+      ? { ...settings, thinkingEnabled: false }
+      : settings;
   return {
     model,
     messages: normalizeOpenAiMessages(messages),
@@ -496,12 +493,7 @@ function chatCompletionBody(
     max_tokens: numPredict,
     temperature: auxiliary ? AUXILIARY_TEMPERATURE : settings.temperature,
     top_p: settings.topP,
-    // The thinking-runaway retry disables the model's reasoning channel so it
-    // emits an answer instead of spiralling again. reasoning_effort has no effect
-    // here (verified: gemma still thinks at "none"); llama.cpp / Docker Model
-    // Runner disables thinking via the chat template's `enable_thinking` kwarg,
-    // passed through the OpenAI-compatible `chat_template_kwargs` field.
-    ...(suppressReasoning
+    ...(forceThinkingOff
       ? { chat_template_kwargs: { enable_thinking: false } }
       : providerChatExtensions(providerSettings, auxiliary)),
     ...(shouldUseResponseFormat(settings, auxiliary, responseFormat)
@@ -602,13 +594,9 @@ export async function chatCompleteDetailed(
 
     // Thinking-runaway recovery: the model can spend its whole budget inside the
     // reasoning channel and emit no reply (finish_reason=length, reasoning
-    // present, content empty). Retry once with more headroom and bounded
-    // reasoning. This also covers auxiliary structured passes (e.g. the address
-    // gate) and think:false calls: some backends (gemma) keep reasoning even when
-    // told not to, so a runaway there silently loses the JSON reply and the empty
-    // content parses to a wrong decision (a message that names the bot gets
-    // treated as unaddressed). Only tool rounds are excluded — a tool_call is a
-    // valid empty-content result.
+    // present, content empty). Retry once with the same request, except thinking
+    // is forced off explicitly so the backend emits content instead of reasoning.
+    // Only tool rounds are excluded — a tool_call is a valid empty-content result.
     const noToolCalls = (choice?.message?.tool_calls?.length ?? 0) === 0;
     if (
       noToolCalls &&
@@ -617,11 +605,6 @@ export async function chatCompleteDetailed(
         data.finishReason,
       )
     ) {
-      // Retry with thinking OFF (reasoning_effort:"none") and more headroom.
-      // Lowering effort but keeping thinking on just re-spirals — the model
-      // burns the whole budget in the reasoning channel and emits no reply
-      // again; suppressing reasoning forces it to answer.
-      effectiveNumPredict = getRunawayRetryNumPredict(numPredict);
       ({ data, choice } = await requestChat(
         model,
         prepared,
@@ -632,7 +615,7 @@ export async function chatCompleteDetailed(
         traceLabel ? `${traceLabel} (thinking runaway retry)` : traceLabel,
         options?.responseFormat,
         options?.tools,
-        options?.think,
+        false,
         options?.stop,
         settings,
         true,

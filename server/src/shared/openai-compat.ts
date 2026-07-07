@@ -27,30 +27,12 @@ export type ReasoningEffort = "low" | "medium" | "high";
 /** Side passes use low effort when thinking is enabled (main reply may be higher). */
 export const AUXILIARY_REASONING_EFFORT: ReasoningEffort = "low";
 
-/** Reasoning-effort levels, lowest first. */
-const REASONING_EFFORT_LADDER: readonly ReasoningEffort[] = [
-  "low",
-  "medium",
-  "high",
-];
-
-/**
- * Lower reasoning effort by one step for a thinking-runaway retry, never below
- * "low" so thinking stays on.
- */
-export function boundedRetryEffort(effort: ReasoningEffort): ReasoningEffort {
-  const idx = REASONING_EFFORT_LADDER.indexOf(effort);
-  if (idx <= 0) return "low";
-  return REASONING_EFFORT_LADDER[idx - 1]!;
-}
-
 /**
  * Recognize the "thinking runaway" shape: the model spent its whole generation
  * budget inside the reasoning channel and emitted no reply, so the completion
  * stopped on length with reasoning present but content empty. A one-shot retry
- * with more headroom and thinking turned OFF (via the chat template's
- * enable_thinking kwarg) recovers a reply — keeping thinking on, or merely
- * lowering reasoning_effort, just re-spirals into the same runaway.
+ * of the same request with thinking turned off recovers a reply on compliant
+ * OpenAI-compatible backends.
  */
 export function isThinkingRunaway(
   parsed: ParsedAssistantMessage,

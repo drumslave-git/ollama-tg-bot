@@ -5,7 +5,6 @@ import type {
 } from "openai/resources/chat/completions";
 import type { ChatMessage } from "../../src/llm/client.js";
 import {
-  boundedRetryEffort,
   isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
@@ -15,7 +14,6 @@ import {
   AUXILIARY_NUM_PREDICT,
   AUXILIARY_REASONING_NUM_PREDICT,
   AUXILIARY_TEMPERATURE,
-  getRunawayRetryNumPredict,
 } from "../../src/settings/limits.js";
 import {
   toOpenAiResponseFormat,
@@ -35,7 +33,8 @@ export function liveConfig(): LiveConfig | null {
   const rawBase = process.env.LLM_BASE_URL?.trim();
   const model = process.env.LLM_MODEL?.trim();
   if (!rawBase || !model) return null;
-  const baseURL = rawBase.endsWith("/v1") ? rawBase : `${rawBase}/v1`;
+  const host = rawBase.replace(/\/$/, "");
+  const baseURL = host.endsWith("/v1") ? host : `${host}/v1`;
   return {
     baseURL,
     model,
@@ -91,7 +90,7 @@ export async function runTurn(
   // is taken from content via extractTelegramReply. See completionsHost.
   const runRequest = async (
     maxTokens: number,
-    extensions: Partial<ReturnType<typeof providerChatExtensions>>,
+    extensions: object,
   ): Promise<ChatCompletion> =>
     client.chat.completions.create({
       model,
@@ -109,14 +108,11 @@ export async function runTurn(
   let finishReason = choice?.finish_reason ?? null;
 
   // Mirror production's thinking-runaway recovery (see chatCompleteDetailed):
-  // when reasoning burned the whole budget and left content empty, retry once
-  // with more headroom and bounded reasoning — thinking stays on.
+  // when reasoning burned the whole budget and left content empty, retry the
+  // same request once with thinking turned off.
   if (isThinkingRunaway(parsed, finishReason)) {
-    const retryExt = providerChatExtensions(
-      { ...settings, reasoningEffort: boundedRetryEffort(settings.reasoningEffort) },
-      false,
-    );
-    completion = await runRequest(getRunawayRetryNumPredict(numPredict), retryExt);
+    const retryExt = { chat_template_kwargs: { enable_thinking: false } };
+    completion = await runRequest(numPredict, retryExt);
     choice = completion.choices[0];
     parsed = parseAssistantMessage(choice);
     finishReason = choice?.finish_reason ?? null;

@@ -11,8 +11,6 @@ import {
   getChatTimeoutMs,
   getEffectiveNumPredict,
   getExplainNumPredict,
-  getRunawayRetryNumPredict,
-  RUNAWAY_RETRY_NUM_PREDICT,
   EXPLAIN_NUM_PREDICT,
   getHistoryLimits,
   getReplyLengthGuidance,
@@ -121,21 +119,6 @@ describe("getMaintenanceAnnounceNumPredict", () => {
         makeSettings({ numPredict: 64, thinkingEnabled: true }),
       ),
     ).toBe(MAINTENANCE_ANNOUNCE_REASONING_NUM_PREDICT);
-  });
-});
-
-describe("getRunawayRetryNumPredict", () => {
-  it("floors a tiny exhausted budget at the retry minimum", () => {
-    // A 128-token runaway must retry with enough room for reasoning AND a reply.
-    expect(getRunawayRetryNumPredict(128)).toBe(RUNAWAY_RETRY_NUM_PREDICT);
-  });
-
-  it("quadruples a larger exhausted budget", () => {
-    expect(getRunawayRetryNumPredict(512)).toBe(2048);
-  });
-
-  it("never exceeds the hard cap", () => {
-    expect(getRunawayRetryNumPredict(4096)).toBe(MAX_NUM_PREDICT);
   });
 });
 

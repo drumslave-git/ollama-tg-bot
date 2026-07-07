@@ -1,6 +1,5 @@
 export {
   ASSISTANT_MESSAGE_FIELDS,
-  boundedRetryEffort,
   isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,

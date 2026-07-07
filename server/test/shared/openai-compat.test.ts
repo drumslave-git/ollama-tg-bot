@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  boundedRetryEffort,
   isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
@@ -81,14 +80,6 @@ describe("isThinkingRunaway", () => {
     expect(isThinkingRunaway({ content: "", reasoning: "" }, "length")).toBe(
       false,
     );
-  });
-});
-
-describe("boundedRetryEffort", () => {
-  it("lowers effort one step but never below low", () => {
-    expect(boundedRetryEffort("high")).toBe("medium");
-    expect(boundedRetryEffort("medium")).toBe("low");
-    expect(boundedRetryEffort("low")).toBe("low");
   });
 });
 

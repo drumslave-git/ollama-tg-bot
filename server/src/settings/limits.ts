@@ -38,13 +38,6 @@ export function getExplainNumPredict(
     settings.numCtx - promptTokens - NUM_CTX_GENERATION_HEADROOM;
   return snapNumPredict(Math.max(MIN_NUM_PREDICT, Math.min(target, remaining)));
 }
-/**
- * Minimum generation budget for a thinking-runaway retry. The first attempt
- * burned its whole budget inside reasoning before emitting any reply, so the
- * retry needs enough room for the (bounded) reasoning to finish AND a reply to
- * follow — a tiny cap would just run away again.
- */
-export const RUNAWAY_RETRY_NUM_PREDICT = 1024;
 /** Hard cap on generated tokens; also limited by context size minus prompt headroom. */
 export const MAX_NUM_PREDICT = 8192;
 export const NUM_CTX_GENERATION_HEADROOM = 512;
@@ -92,16 +85,6 @@ export function getEffectiveNumPredict(
   options?: { baseNumPredict?: number },
 ): number {
   return snapNumPredict(options?.baseNumPredict ?? settings.numPredict);
-}
-
-/**
- * Generation budget for a one-shot thinking-runaway retry: quadruple the
- * exhausted budget, floored at {@link RUNAWAY_RETRY_NUM_PREDICT} and capped by
- * {@link MAX_NUM_PREDICT}, so a reply always gets headroom beneath reasoning.
- */
-export function getRunawayRetryNumPredict(current: number): number {
-  const raised = Math.max(current * 4, RUNAWAY_RETRY_NUM_PREDICT);
-  return snapNumPredict(Math.min(MAX_NUM_PREDICT, Math.max(current, raised)));
 }
 
 /** Generation budget for auxiliary LLM side passes (never below the thinking-aware floor). */

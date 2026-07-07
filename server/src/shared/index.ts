@@ -37,7 +37,6 @@ export {
 } from "./telegram-html.js";
 export {
   ASSISTANT_MESSAGE_FIELDS,
-  boundedRetryEffort,
   isThinkingRunaway,
   parseAssistantMessage,
   providerChatExtensions,
