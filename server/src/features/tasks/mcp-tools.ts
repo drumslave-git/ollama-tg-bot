@@ -15,6 +15,14 @@ import {
   updateTaskValidated,
 } from "./service.js";
 import { getTaskTurnContext } from "./turn-context.js";
+import {
+  TASKS_CREATE_DESCRIPTION,
+  TASKS_DELETE_DESCRIPTION,
+  TASKS_GET_DESCRIPTION,
+  TASKS_LIST_DESCRIPTION,
+  TASKS_SEARCH_DESCRIPTION,
+  TASKS_UPDATE_DESCRIPTION,
+} from "./guidance.js";
 
 export const TASKS_CREATE_TOOL_NAME = "tasks_create";
 export const TASKS_UPDATE_TOOL_NAME = "tasks_update";
@@ -77,13 +85,7 @@ export function registerTasksMcpTools(
     TASKS_CREATE_TOOL_NAME,
     {
       title: "Create scheduled task",
-      description:
-        "Create a scheduled task that posts a message into THIS chat at a wall-clock time. " +
-        "Use when the owner asks the bot to do something on a schedule (e.g. 'ask how I'm doing every day at 17:00'). " +
-        "instruction is a self-contained directive the bot will rephrase in-character on each fire — keep entities as " +
-        "[user:name:id] tags from the [SESSION] block or history. schedule_kind: 'daily' (give time), " +
-        "'weekly' (give time + weekdays, 0=Sunday..6=Saturday), or 'once' (give time + date YYYY-MM-DD). " +
-        "time is HH:MM 24-hour in the bot timezone. Owner only.",
+      description: TASKS_CREATE_DESCRIPTION,
       inputSchema: z.object({
         instruction: z
           .string()
@@ -141,10 +143,7 @@ export function registerTasksMcpTools(
     TASKS_UPDATE_TOOL_NAME,
     {
       title: "Update scheduled task",
-      description:
-        "Change an existing task in this chat — its instruction, time, or schedule. " +
-        "Use when the owner replies to a task's message to reschedule it (the [SESSION] block names the linked task id). " +
-        "Pass only the fields to change. To STOP or CANCEL a task, use tasks_delete instead — set enabled:false only to temporarily pause a recurring task. Owner only.",
+      description: TASKS_UPDATE_DESCRIPTION,
       inputSchema: z.object({
         id: z.number().int().describe("Task id to update"),
         instruction: z.string().default("").describe("New instruction (optional)"),
@@ -204,11 +203,7 @@ export function registerTasksMcpTools(
     TASKS_DELETE_TOOL_NAME,
     {
       title: "Delete scheduled task",
-      description:
-        "Permanently remove a task in this chat. This is how you STOP or CANCEL a task — " +
-        "use it whenever the owner says to stop/cancel a task or no longer needs it " +
-        "(often by replying to its message — the [SESSION] block names the linked task id). " +
-        "Prefer this over disabling. Owner only.",
+      description: TASKS_DELETE_DESCRIPTION,
       inputSchema: z.object({
         id: z.number().int().describe("Task id to delete"),
       }),
@@ -239,8 +234,7 @@ export function registerTasksMcpTools(
     TASKS_GET_TOOL_NAME,
     {
       title: "Get scheduled task",
-      description:
-        "Read one task in this chat by id, including its schedule and next run time. Owner only.",
+      description: TASKS_GET_DESCRIPTION,
       inputSchema: z.object({
         id: z.number().int().describe("Task id to read"),
       }),
@@ -266,8 +260,7 @@ export function registerTasksMcpTools(
     TASKS_LIST_TOOL_NAME,
     {
       title: "List scheduled tasks",
-      description:
-        "List all scheduled tasks for THIS chat. Use to answer 'what tasks/reminders do I have?'. Owner only.",
+      description: TASKS_LIST_DESCRIPTION,
       inputSchema: z.object({}),
       annotations: {
         readOnlyHint: true,
@@ -296,8 +289,7 @@ export function registerTasksMcpTools(
     TASKS_SEARCH_TOOL_NAME,
     {
       title: "Search scheduled tasks",
-      description:
-        "Case-insensitive substring search over this chat's task instructions. Owner only.",
+      description: TASKS_SEARCH_DESCRIPTION,
       inputSchema: z.object({
         query: z.string().min(1).describe("Substring to look for in task instructions"),
       }),

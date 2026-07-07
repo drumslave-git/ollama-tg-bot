@@ -8,7 +8,31 @@ import {
 } from "../../src/pipeline/adapters/system-prompt.js";
 import { READ_PAGE_TOOL_NAME } from "../../src/features/link-fetch/index.js";
 import { SEARCH_WEB_TOOL_NAME } from "../../src/features/web-search/index.js";
-import { HISTORY_TODAY_GET_LATEST_TOOL_NAME } from "../../src/features/history/mcp-tools.js";
+import {
+  HISTORY_GET_IN_RANGE_TOOL_NAME,
+  HISTORY_GET_MESSAGES_TOOL_NAME,
+  HISTORY_SEARCH_TOOL_NAME,
+  HISTORY_TODAY_GET_LATEST_TOOL_NAME,
+  HISTORY_TODAY_SEARCH_TOOL_NAME,
+} from "../../src/features/history/mcp-tools.js";
+import { HISTORY_SUMMARIES_SEARCH_TOOL_NAME } from "../../src/features/summaries/mcp-tools.js";
+import {
+  MEMORY_ENTRIES_GET_TOOL_NAME,
+  MEMORY_ENTRIES_SEARCH_TOOL_NAME,
+  MEMORY_GET_TOOL_NAME,
+  MEMORY_SAVE_TOOL_NAME,
+  MEMORY_SEARCH_TOOL_NAME,
+} from "../../src/features/memory/mcp-tools.js";
+import {
+  TASKS_CREATE_TOOL_NAME,
+  TASKS_DELETE_TOOL_NAME,
+  TASKS_GET_TOOL_NAME,
+  TASKS_LIST_TOOL_NAME,
+  TASKS_SEARCH_TOOL_NAME,
+  TASKS_UPDATE_TOOL_NAME,
+} from "../../src/features/tasks/mcp-tools.js";
+import { BROWSE_WEB_TOOL_NAME } from "../../src/features/web-browse/mcp-tools.js";
+import { IMAGE_GENERATE_TOOL_NAME } from "../../src/features/image-gen/mcp-tools.js";
 import { config } from "../../src/config/index.js";
 import { makeSettings } from "../helpers/settings.js";
 
@@ -112,6 +136,41 @@ describe("buildSystemPrompt", () => {
     expect(withTools).toContain("## Tools");
     expect(withTools).toContain(READ_PAGE_TOOL_NAME);
     expect(withTools).toContain(SEARCH_WEB_TOOL_NAME);
+  });
+
+  it("lists every enabled MCP tool from the shared guidance registry", () => {
+    const toolNames = [
+      HISTORY_TODAY_GET_LATEST_TOOL_NAME,
+      HISTORY_TODAY_SEARCH_TOOL_NAME,
+      HISTORY_SUMMARIES_SEARCH_TOOL_NAME,
+      HISTORY_GET_MESSAGES_TOOL_NAME,
+      HISTORY_GET_IN_RANGE_TOOL_NAME,
+      HISTORY_SEARCH_TOOL_NAME,
+      MEMORY_GET_TOOL_NAME,
+      MEMORY_SEARCH_TOOL_NAME,
+      MEMORY_ENTRIES_SEARCH_TOOL_NAME,
+      MEMORY_ENTRIES_GET_TOOL_NAME,
+      MEMORY_SAVE_TOOL_NAME,
+      TASKS_CREATE_TOOL_NAME,
+      TASKS_UPDATE_TOOL_NAME,
+      TASKS_DELETE_TOOL_NAME,
+      TASKS_GET_TOOL_NAME,
+      TASKS_LIST_TOOL_NAME,
+      TASKS_SEARCH_TOOL_NAME,
+      READ_PAGE_TOOL_NAME,
+      SEARCH_WEB_TOOL_NAME,
+      BROWSE_WEB_TOOL_NAME,
+      IMAGE_GENERATE_TOOL_NAME,
+    ];
+    const prompt = buildSystemPrompt({
+      settings: makeSettings(),
+      customPrompt: "",
+      enabledToolNames: toolNames,
+    });
+
+    for (const toolName of toolNames) {
+      expect(prompt).toContain(`- ${toolName}(`);
+    }
   });
 
   it("adds a concrete memory_save protocol only when that tool is enabled", () => {

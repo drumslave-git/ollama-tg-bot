@@ -5,6 +5,7 @@ import {
   runImageGeneration,
   type ImageGenConfig,
 } from "./generate.js";
+import { IMAGE_GENERATE_DESCRIPTION } from "./guidance.js";
 
 export const IMAGE_GENERATE_TOOL_NAME = "image_generate";
 export const IMAGE_GEN_TOOL_NAMES = [IMAGE_GENERATE_TOOL_NAME];
@@ -29,12 +30,7 @@ export function registerImageGenMcpTools(
     IMAGE_GENERATE_TOOL_NAME,
     {
       title: "Generate image",
-      description:
-        "Generate an image from a text prompt and send it to the chat. " +
-        "ONLY call when the user explicitly asks you to generate, create, draw, paint, or make an image, " +
-        "picture, drawing, or illustration. " +
-        "Do NOT call for casual chat or when the user did not ask for an image. " +
-        "The generated image is delivered to the chat automatically; in your reply just briefly acknowledge it.",
+      description: IMAGE_GENERATE_DESCRIPTION,
       inputSchema: z.object({
         prompt: z
           .string()

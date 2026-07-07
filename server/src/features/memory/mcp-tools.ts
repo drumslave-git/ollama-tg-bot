@@ -10,7 +10,13 @@ import {
   type MemoryType,
 } from "./db/entries.js";
 import { getMemoryRecord, searchMemory } from "./db/memory.js";
-import { MEMORY_SAVE_TOOL_DESCRIPTION } from "./guidance.js";
+import {
+  MEMORY_ENTRIES_GET_DESCRIPTION,
+  MEMORY_ENTRIES_SEARCH_DESCRIPTION,
+  MEMORY_GET_DESCRIPTION,
+  MEMORY_SAVE_TOOL_DESCRIPTION,
+  MEMORY_SEARCH_DESCRIPTION,
+} from "./guidance.js";
 
 export const MEMORY_GET_TOOL_NAME = "memory_get";
 export const MEMORY_SEARCH_TOOL_NAME = "memory_search";
@@ -66,13 +72,7 @@ export function registerMemoryMcpTools(
     MEMORY_GET_TOOL_NAME,
     {
       title: "Get memory",
-      description:
-        "Read the consolidated long-term memory for a scope. " +
-        "type 'user' returns durable facts about one person (id = that user's numeric id, " +
-        "from the [SESSION] block or [user:name:id] history tags); " +
-        "type 'general' returns cross-chat knowledge (id is ignored). " +
-        "Note: facts just saved with memory_save are folded in by a daily job — until then " +
-        "use memory_entries_get to see them. Use before claiming you do not know something durable.",
+      description: MEMORY_GET_DESCRIPTION,
       inputSchema: z.object({
         type: memoryScope.describe("Which memory scope to read"),
         id: z
@@ -124,12 +124,7 @@ export function registerMemoryMcpTools(
     MEMORY_SEARCH_TOOL_NAME,
     {
       title: "Search memory",
-      description:
-        "Semantic (vector + keyword) search across all consolidated long-term memory " +
-        "(user and general). Use to recall a durable fact when you do not know which person " +
-        "or scope it belongs to — each result is tagged with its type and id. Pass an array of " +
-        "queries to search several phrasings in one call. If this finds " +
-        "nothing, the fact may be newly saved and not yet consolidated — fall back to memory_entries_search.",
+      description: MEMORY_SEARCH_DESCRIPTION,
       inputSchema: z.object({
         query: queryField(
           "What to look for — a topic, preference, name, or fact; a single string, or an array of strings to search several at once",
@@ -190,12 +185,7 @@ export function registerMemoryMcpTools(
     MEMORY_ENTRIES_SEARCH_TOOL_NAME,
     {
       title: "Search pending memory notes",
-      description:
-        "Keyword search over raw, not-yet-consolidated memory notes (the queue memory_save writes to). " +
-        "Use as a fallback when memory_search finds nothing, since a fact saved earlier this " +
-        "conversation may not be in the consolidated record until the next daily job. " +
-        "Pass an array of queries to search several phrasings in one call. " +
-        "Each result is tagged with its type and id.",
+      description: MEMORY_ENTRIES_SEARCH_DESCRIPTION,
       inputSchema: z.object({
         query: queryField(
           "Keyword(s) to look for in pending notes — a single string, or an array of strings to search several at once",
@@ -240,11 +230,7 @@ export function registerMemoryMcpTools(
     MEMORY_ENTRIES_GET_TOOL_NAME,
     {
       title: "Get pending memory notes",
-      description:
-        "List the raw, not-yet-consolidated memory notes for a scope. " +
-        "type 'user' (id = that user's numeric id) or 'general' (id ignored). " +
-        "Use as a fallback to memory_get when a fact was saved recently and has not been " +
-        "folded into the consolidated record yet.",
+      description: MEMORY_ENTRIES_GET_DESCRIPTION,
       inputSchema: z.object({
         type: memoryScope.describe("Which memory scope to read pending notes for"),
         id: z

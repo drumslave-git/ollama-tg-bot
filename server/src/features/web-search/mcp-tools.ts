@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { FeatureLogging } from "../../shared/index.js";
 import { runWebSearch, type WebSearchConfig } from "./search.js";
 import type { WebSearchSource } from "./types.js";
+import { SEARCH_WEB_DESCRIPTION } from "./guidance.js";
 
 export const SEARCH_WEB_TOOL_NAME = "search_web";
 
@@ -30,11 +31,7 @@ export function registerWebSearchMcpTools(
     SEARCH_WEB_TOOL_NAME,
     {
       title: "Search Web",
-      description:
-        "Search the public web via Tavily and return a summary with sources. " +
-        "ONLY call when the user explicitly asks you to search the web, look something up online, " +
-        "verify a claim, or check current facts. " +
-        "Do NOT use for casual chat, general knowledge, opinions, or fact-checking the user did not request.",
+      description: SEARCH_WEB_DESCRIPTION,
       inputSchema: z.object({
         query: z
           .string()

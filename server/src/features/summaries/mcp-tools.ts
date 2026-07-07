@@ -4,6 +4,7 @@ import type { FeatureLogging } from "../../shared/index.js";
 import { normalizeQueries, queryField } from "../../shared/index.js";
 import { embedOne } from "../../llm/embeddings.js";
 import { searchSummaries, type SummaryMatch } from "./db/summaries.js";
+import { HISTORY_SUMMARIES_SEARCH_DESCRIPTION } from "./guidance.js";
 
 export const HISTORY_SUMMARIES_SEARCH_TOOL_NAME = "history_summaries_search";
 
@@ -33,13 +34,7 @@ export function registerSummariesMcpTools(
     HISTORY_SUMMARIES_SEARCH_TOOL_NAME,
     {
       title: "Search history summaries",
-      description:
-        "Semantic (vector + keyword) search over daily summaries of this chat's past conversations. " +
-        "Use this for older recall AFTER checking today's messages with history_today_search: it finds " +
-        "the topic/day a subject was discussed. Each result has a date and the message_ids that belong " +
-        "to that topic — pass those ids to history_get_messages to read the exact original messages. " +
-        "Pass an array of queries to search several topics/phrasings in one call. " +
-        "entity_id is the chat id from the [SESSION] block.",
+      description: HISTORY_SUMMARIES_SEARCH_DESCRIPTION,
       inputSchema: z.object({
         entity_id: z
           .string()

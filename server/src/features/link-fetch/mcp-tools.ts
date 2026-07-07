@@ -2,6 +2,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { LinkFetchConfig } from "./fetch.js";
 import { fetchLink } from "./fetch-link.js";
+import { READ_PAGE_DESCRIPTION } from "./guidance.js";
 
 export const READ_PAGE_TOOL_NAME = "read_page";
 
@@ -13,11 +14,7 @@ export function registerLinkFetchMcpTools(
     READ_PAGE_TOOL_NAME,
     {
       title: "Read Page",
-      description:
-        "Read ONE public web page and return its readable TEXT so you can answer from it. " +
-        "It only reads a single page — it cannot download files (videos, archives, images) and " +
-        "cannot work through a batch of links; for that use browse_web. Call it when the user " +
-        "shares a single URL or asks about page content you do not already have.",
+      description: READ_PAGE_DESCRIPTION,
       inputSchema: z.object({
         url: z
           .string()
