@@ -296,6 +296,7 @@ export interface Stats {
   browserAgentUrl: string | null;
   browserAgentStep: number;
   browserAgentAction: string | null;
+  browserAgentDownload: string | null;
   browserAgentRunning: number;
   browserAgentQueued: number;
   botUsername: string | null;

@@ -57,6 +57,14 @@ function LiveStatusCard() {
           <dd className="m-0 break-all text-text">
             {stats?.browserAgentUrl ?? "—"}
           </dd>
+          {stats?.browserAgentDownload ? (
+            <>
+              <dt className="text-muted">Download</dt>
+              <dd className="m-0 break-words font-mono text-text">
+                {stats.browserAgentDownload}
+              </dd>
+            </>
+          ) : null}
         </dl>
       ) : (
         <p className="m-0 text-xs text-muted">

@@ -13,6 +13,8 @@ export interface PipelineRuntimeStatus {
   browserAgentUrl: string | null;
   browserAgentStep: number;
   browserAgentAction: string | null;
+  /** Live download speed/progress line while a file is streaming, else null. */
+  browserAgentDownload: string | null;
   browserAgentRunning: number;
   browserAgentQueued: number;
 }
@@ -27,6 +29,7 @@ let browserAgentGoal: string | null = null;
 let browserAgentUrl: string | null = null;
 let browserAgentStep = 0;
 let browserAgentAction: string | null = null;
+let browserAgentDownload: string | null = null;
 let browserAgentRunning = 0;
 let browserAgentQueued = 0;
 
@@ -43,6 +46,7 @@ export function getPipelineRuntimeStatus(): PipelineRuntimeStatus {
     browserAgentUrl,
     browserAgentStep,
     browserAgentAction,
+    browserAgentDownload,
     browserAgentRunning,
     browserAgentQueued,
   };
@@ -59,6 +63,14 @@ export function setBrowserAgentActivity(
   browserAgentStep = step;
   browserAgentAction = action;
   browserAgentUrl = url;
+  // A new action supersedes any prior download's progress line.
+  browserAgentDownload = null;
+  notifyPipelineStatusChanged();
+}
+
+/** Live download speed/progress for the active run, or null when none/finished. */
+export function setBrowserAgentDownload(progress: string | null): void {
+  browserAgentDownload = progress;
   notifyPipelineStatusChanged();
 }
 
@@ -70,6 +82,7 @@ export function setBrowserAgentCounts(running: number, queued: number): void {
     browserAgentGoal = null;
     browserAgentUrl = null;
     browserAgentAction = null;
+    browserAgentDownload = null;
     browserAgentStep = 0;
   }
   notifyPipelineStatusChanged();

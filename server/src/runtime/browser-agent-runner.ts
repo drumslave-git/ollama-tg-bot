@@ -10,6 +10,7 @@ import { logEvent, logEventError } from "../logging/event-log.js";
 import {
   setBrowserAgentActivity,
   setBrowserAgentCounts,
+  setBrowserAgentDownload,
 } from "./pipeline-status.js";
 import { beginBrowserAgentProcessing } from "../debug/browser-agent-report.js";
 import type { ProcessingRecorder } from "../debug/processing-recorder.js";
@@ -152,6 +153,7 @@ async function runOneLink(
         setBrowserAgentActivity(run.goal, step, action, url),
       onDownload: (record, file) =>
         deliverDownload(run, record, file, recorder),
+      onDownloadProgress: (progress) => setBrowserAgentDownload(progress),
     });
     const hasDownload = result.downloads.length > 0;
     if (result.loopDetected) {

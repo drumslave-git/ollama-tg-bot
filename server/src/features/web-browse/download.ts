@@ -29,6 +29,16 @@ export interface DiskDownload {
   sizeBytes: number;
 }
 
+/** Live byte progress of an in-flight streaming download. */
+export interface DownloadProgress {
+  /** Bytes written to disk so far. */
+  receivedBytes: number;
+  /** Total size from Content-Length, or 0 when the server doesn't send it. */
+  totalBytes: number;
+  /** Throughput over the last emit window, in bytes/second. */
+  bytesPerSec: number;
+}
+
 const DOWNLOAD_HEADERS = (url: URL): Record<string, string> => ({
   "user-agent":
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
@@ -75,10 +85,17 @@ export interface DownloadOptions {
   /** Absolute cap on bytes written to disk. */
   maxBytes?: number;
   maxRedirects?: number;
+  /**
+   * Called periodically (throttled) while the body streams to disk, so the
+   * caller can surface live speed/progress. Not called for HLS/DASH muxing.
+   */
+  onProgress?: (progress: DownloadProgress) => void;
 }
 
 const MAX_REDIRECTS_DEFAULT = 5;
 const HEADER_TIMEOUT_MS = 60_000;
+/** Minimum gap between onProgress emits, so we don't flood the status stream. */
+const PROGRESS_INTERVAL_MS = 1000;
 /** Safety cap so a runaway response can't fill the disk (default 6 GB). */
 const MAX_DISK_BYTES_DEFAULT = 6 * 1024 * 1024 * 1024;
 
@@ -134,6 +151,7 @@ export async function downloadToDisk(
   const mime = (response.headers.get("content-type") ?? "application/octet-stream")
     .split(";")[0]!
     .trim();
+  const totalBytes = Number(response.headers.get("content-length")) || 0;
 
   await ensureDownloadsDir();
   const filename = await uniqueFilename(
@@ -141,13 +159,29 @@ export async function downloadToDisk(
   );
   const filePath = path.join(DOWNLOADS_DIR, filename);
 
+  const { onProgress } = options;
   let written = 0;
+  let lastEmit = Date.now();
+  let lastBytes = 0;
   const counter = new Transform({
     transform(chunk: Buffer, _enc, cb) {
       written += chunk.length;
       if (written > maxBytes) {
         cb(new Error(`Download exceeds the ${Math.round(maxBytes / 1024 / 1024)} MB cap`));
         return;
+      }
+      if (onProgress) {
+        const now = Date.now();
+        const elapsed = now - lastEmit;
+        if (elapsed >= PROGRESS_INTERVAL_MS) {
+          onProgress({
+            receivedBytes: written,
+            totalBytes,
+            bytesPerSec: ((written - lastBytes) * 1000) / elapsed,
+          });
+          lastEmit = now;
+          lastBytes = written;
+        }
       }
       cb(null, chunk);
     },

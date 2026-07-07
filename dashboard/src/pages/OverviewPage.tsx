@@ -248,6 +248,14 @@ export function OverviewPage() {
                   {stats.browserAgentAction ?? "—"}
                 </dd>
               </div>
+              {stats.browserAgentDownload ? (
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="m-0 text-muted">Download</dt>
+                  <dd className="m-0 max-w-[70%] truncate text-right font-mono">
+                    {stats.browserAgentDownload}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           ) : (
             <Hint>

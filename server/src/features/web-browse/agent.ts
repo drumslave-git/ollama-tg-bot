@@ -84,6 +84,8 @@ export async function runBrowserAgent(params: {
     record: DownloadRecord,
     file: CollectedFile | null,
   ) => Promise<void>;
+  /** Live download speed/progress line for the status card (null when done). */
+  onDownloadProgress?: (progress: string | null) => void;
 }): Promise<AgentRunResult> {
   const settings = getResolvedSettings(await getSettings());
   const downloads: DownloadRecord[] = [];
@@ -100,6 +102,7 @@ export async function runBrowserAgent(params: {
       params.onProgress(steps, action, url);
     },
     onDownload: params.onDownload,
+    onDownloadProgress: params.onDownloadProgress,
   };
 
   const messages: ChatMessage[] = [

@@ -9,6 +9,7 @@ import {
   downloadToDisk,
   isStreamingManifest,
 } from "./download.js";
+import { formatDownloadProgress } from "./report.js";
 import { embedMetadata } from "./metadata.js";
 import { UnsafeUrlError } from "./ssrf.js";
 
@@ -51,6 +52,12 @@ export interface AgentToolContext {
     record: DownloadRecord,
     file: CollectedFile | null,
   ) => Promise<void>;
+  /**
+   * Live speed/progress of the in-flight download for the status card. Called
+   * repeatedly with a formatted line while a file streams, then once with null
+   * when it finishes (or fails). Optional — omit to skip live progress.
+   */
+  onDownloadProgress?: (progress: string | null) => void;
 }
 
 function fn(
@@ -246,11 +253,25 @@ export function makeBrowserToolDispatcher(ctx: AgentToolContext) {
           // — never from a model-supplied name, which is inconsistent (the model
           // sometimes passes the raw URL basename, e.g. "6810.mp4").
           const meta = await ctx.session.getPageMetadata().catch(() => null);
+          const onDownloadProgress = ctx.onDownloadProgress;
           // A manifest URL (HLS/DASH) is a playlist of segments, not a file to
           // GET — mux it into an MP4 with ffmpeg; everything else streams direct.
-          const result = isStreamingManifest(url)
-            ? await downloadStreamToDisk(url, { title: meta?.title || null })
-            : await downloadToDisk(url, { title: meta?.title || null });
+          // Progressive downloads report live speed/progress; the ffmpeg mux
+          // path can't, so it just shows the frozen "download" action.
+          const result = await (async () => {
+            try {
+              return isStreamingManifest(url)
+                ? await downloadStreamToDisk(url, { title: meta?.title || null })
+                : await downloadToDisk(url, {
+                    title: meta?.title || null,
+                    onProgress: onDownloadProgress
+                      ? (p) => onDownloadProgress(formatDownloadProgress(p))
+                      : undefined,
+                  });
+            } finally {
+              onDownloadProgress?.(null);
+            }
+          })();
           // Bake the page's data into the file's own metadata tags.
           const tagged = await embedMetadata(result.filePath, {
             title: meta?.title ?? result.filename,
