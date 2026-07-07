@@ -89,12 +89,23 @@ export async function processQueuedTurn(item: QueuedMessage): Promise<void> {
   const { ctx, state, services, turnId } = item;
   const enabledSteps = await services.getWorkflowSteps();
   let endTyping: (() => void) | undefined =
-    item.stopTyping ?? startTypingForMessage(ctx) ?? undefined;
+    item.stopTyping ??
+    startTypingForMessage(ctx, {
+      chatId: state.chatId,
+      chat: state.telegram.chat ?? ctx.chat,
+      messageThreadId: state.messageThreadId,
+    }) ??
+    undefined;
 
   try {
     state.shouldReply = true;
     // Let post-reply hosts show their own chat action (e.g. "choosing sticker").
-    state.startChatAction = (action) => startChatActionForMessage(ctx, action);
+    state.startChatAction = (action) =>
+      startChatActionForMessage(ctx, action, {
+        chatId: state.chatId,
+        chat: state.telegram.chat ?? ctx.chat,
+        messageThreadId: state.messageThreadId,
+      });
 
     const trigger = state.replyTrigger ?? "addressed";
     logEvent("message_accepted", {

@@ -26,6 +26,19 @@ function allocateTurnId(): number {
   return allocateTraceId();
 }
 
+function startTypingForTurn(
+  ctx: Context,
+  state: ReturnType<typeof createInitialPipelineState>,
+): (() => void) | undefined {
+  return (
+    startTypingForMessage(ctx, {
+      chatId: state.chatId,
+      chat: state.telegram.chat ?? ctx.chat,
+      messageThreadId: state.messageThreadId,
+    }) ?? undefined
+  );
+}
+
 export async function messageHandler(ctx: Context, botToken: string) {
   if (!ctx.message) return;
 
@@ -142,7 +155,7 @@ export async function messageHandler(ctx: Context, botToken: string) {
       state.historyPointer = formatHistoryPointer(state.convKey, tgMessageId);
     }
 
-    stopTyping = startTypingForMessage(ctx) ?? undefined;
+    stopTyping = startTypingForTurn(ctx, state);
     enqueueMessage({
       turnId,
       ctx,
