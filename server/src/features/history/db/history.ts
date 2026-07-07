@@ -229,6 +229,38 @@ export async function getMessagesInRange(
   return rows.map(rowToStored);
 }
 
+/**
+ * Background readers should not silently drop the tail of a busy day. Iterate a
+ * range in bounded DB pages so callers can keep chunking for the model while
+ * still covering every stored row.
+ */
+export async function* getMessagesInRangeBatches(
+  entityId: string,
+  fromTs: number,
+  toTs: number,
+  pageSize = MAX_RANGE_ROWS,
+): AsyncGenerator<StoredMessage[]> {
+  const limit = clampCount(pageSize, MAX_RANGE_ROWS);
+  let lastId = 0;
+
+  while (true) {
+    const { rows } = await db.query<MessageRow>(
+      `SELECT ${SELECT_COLUMNS} FROM chat_messages
+         WHERE entity_id = $1
+           AND created_at >= $2
+           AND created_at <= $3
+           AND id > $4
+         ORDER BY id LIMIT $5`,
+      [entityId, fromTs, toTs, lastId, limit],
+    );
+    if (rows.length === 0) break;
+
+    yield rows.map(rowToStored);
+    lastId = Number(rows[rows.length - 1]!.id);
+    if (rows.length < limit) break;
+  }
+}
+
 /** Fetch specific messages by their Telegram message_id, oldest first. */
 export async function getMessagesByMessageIds(
   entityId: string,

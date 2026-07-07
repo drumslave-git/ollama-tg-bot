@@ -114,24 +114,27 @@ describe("buildSystemPrompt", () => {
     expect(withTools).toContain(SEARCH_WEB_TOOL_NAME);
   });
 
-  it("nudges memory_save (explicit requests + proactive) only when that tool is enabled", () => {
+  it("adds a concrete memory_save protocol only when that tool is enabled", () => {
     const withMemory = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
       enabledToolNames: ["memory_save"],
     });
-    expect(withMemory).toMatch(/explicitly asks you to remember/i);
-    expect(withMemory).toMatch(/introduc|name/i);
+    expect(withMemory).toMatch(/MEMORY PROTOCOL/i);
+    expect(withMemory).toMatch(/remember.*save.*note.*don't forget/i);
+    expect(withMemory).toMatch(/current speaker id/i);
+    expect(withMemory).toMatch(/\[user:name:id\]/i);
+    expect(withMemory).toMatch(/one concise fact per call/i);
     // Must spell out that a written acknowledgment is not a save — gemma
     // otherwise replies "saved" without emitting the memory_save call.
-    expect(withMemory).toMatch(/stores nothing|ONLY thing that saves/i);
+    expect(withMemory).toMatch(/Acknowledging memory without the tool stores nothing/i);
 
     const withoutMemory = buildSystemPrompt({
       settings: makeSettings(),
       customPrompt: "",
       enabledToolNames: [READ_PAGE_TOOL_NAME],
     });
-    expect(withoutMemory).not.toMatch(/explicitly asks you to remember/i);
+    expect(withoutMemory).not.toMatch(/MEMORY PROTOCOL/i);
   });
 });
 

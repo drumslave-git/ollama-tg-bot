@@ -136,7 +136,10 @@ Telegram → Grammy handlers → message pipeline (feature hosts) → delivery
 `SqlDatabase` handle (`server/src/db/pool.ts`) bound into each feature's `db/*.ts`.
 Raw `chat_messages` carry a `tsvector` for full-text search; `chat_summaries`
 (daily LLM topic summaries) carry a `vector(1024)` embedding for hybrid
-vector + FTS recall. All db access is `async`/awaited end-to-end.
+vector + FTS recall. Daily summary jobs must scan completed days with
+`getMessagesInRangeBatches()` so active chats are processed in bounded chunks
+without silently capping the number of messages summarized for a day. All db
+access is `async`/awaited end-to-end.
 
 ### Message flow
 
@@ -144,7 +147,7 @@ vector + FTS recall. All db access is `async`/awaited end-to-end.
 2. **`server/src/bot/handlers/message.ts`** — Intake filters, maintenance gate, then **intake pipeline** (`runIntakePipeline` in `server/src/pipeline/queue-runner.ts`). Addressed messages are **enqueued** (`server/src/runtime/message-queue.ts`) and processed **one at a time**.
 3. **Intake (every message)** — `preprocess` (turn setup + history intake with base64 media) → `gate` (reply triggers + address check). Not addressed → done. Addressed → queue.
 4. **Queue processing (addressed only)** — synchronous order: vision (media) → system + personality → history inject → mood → main reply (optional MCP tool rounds) → sticker selection → history record → delivery (`server/src/pipeline/deliver.ts`). The vision step downloads + normalizes the turn's images and stashes the base64 on `state.images`; the main reply attaches them to the latest user message so a vision-capable model reads text + images in one pass (no separate describe request per turn). Each queued item carries a history pointer `{convKey}:{telegramMessageId}`; injection uses rows before that message; assistant replies are inserted immediately after the anchored user rows.
-5. **Debounced background jobs** — each feature owns its scheduler and config (`memory_config`, `vision_config`; dashboard Memory / Vision pages). When the queue has been idle for the feature debounce (default 60s): memory maintenance cleans each stored memory document via an LLM pass (skips records whose content fingerprint is unchanged since the last run); vision backfill replaces base64 media rows. New queue activity resets timers; vision backfill finishes the current image then reschedules.
+5. **Background jobs** — each feature owns its scheduler and config. Memory consolidation runs daily after `memory_config.run_hour` while the queue is idle, folding pending `memory_entry` notes into embedded `memory` records. Vision backfill is debounced by queue idleness (`vision_config`) and replaces base64 media rows; new queue activity resets timers, and vision backfill finishes the current image then reschedules.
 6. **`server/src/runtime/feature-hosts.ts`** — Explicitly imports the feature pipeline and bot command hosts from `server/src/features/*`. Intake and queue host arrays define the processing order directly. Static feature metadata/db/MCP wiring is in `server/src/runtime/feature-registry.ts`. Background schedulers are wired in `server/src/runtime/queue-schedulers.ts` via `initQueueSchedulers()` (called at startup — the file has no import-time side effects).
 7. **`server/src/runtime/mcp-tools.ts`** — Loads in-process MCP tools from the static `feature-registry.ts` (`mcpTools.registrar`). Enabled tools are gated by `workflowSteps` (e.g. `links` → `read_page`, `search` → `search_web`). The main reply tool loop (`server/src/llm/tool-loop.ts`) exposes them to the LLM only — one conversation in which the model either answers or emits tool calls; the first tool-free response is the reply. The host executes tools when the model calls them; it never runs them proactively.
 8. **`server/src/pipeline/turn-services.ts`** — Concrete, typed functions (Postgres, Telegram helpers, vision, LLM adapters) that pipeline hosts import directly. Replaces the former `PipelineHostCallbacks` indirection.
@@ -169,14 +172,15 @@ vector + FTS recall. All db access is `async`/awaited end-to-end.
 
 ### Memory
 
-Three layers (per-user, per-group, general — see `server/src/db/*-memory.ts`), driven by **always-on MCP tools** (`server/src/features/memory/mcp-tools.ts`), not by automatic extraction. The model reads and writes memory on demand, the same way it uses the history tools:
+Memory is driven by **always-on MCP tools** (`server/src/features/memory/mcp-tools.ts`), not by automatic/passive extraction from chat history. The main-reply prompt must instruct the model to call `memory_save` when a user explicitly asks the bot to remember/save/note something, and proactively only for clear durable self-facts revealed by the current speaker.
 
-- `memory_get(type, id)` — read the stored document for a `user`/`group`/`general` scope. `id` is the user id or group id (surfaced in the `[SESSION]` block and `[user:name:id]` history tags); ignored for `general`.
-- `memory_search(query)` — case-insensitive substring search across all three scopes.
-- `memory_save(type, id, content)` — append one durable fact (deduped on insert via `addUserFacts`/`addGroupFacts`/`addGeneralFacts`).
-- Memory is **not** injected into the main reply prompt — retrieval is fully tool-driven. The explain/debug view still reads memory from the DB for analysis.
+- `memory_get(type, id)` - read consolidated long-term memory. `type` is `user` (id = numeric Telegram user id from `[SESSION]` or `[user:name:id]` tags) or `general` (id ignored).
+- `memory_search(query)` - vector + keyword search across consolidated `user` and `general` memory.
+- `memory_entries_search(query)` / `memory_entries_get(type, id)` - read raw, not-yet-consolidated notes written by recent `memory_save` calls.
+- `memory_save(type, id, content)` - append one raw durable note to `memory_entry`; use `user` for a specific person and `general` for stable shared chat knowledge, terms, rules, or group preferences. Write one concise fact per call.
+- Memory is **not** injected wholesale into the main reply prompt. The model retrieves it through tools; known chat-user facts are surfaced in the stable participant directory to help resolve nicknames and references.
 
-A **debounced background maintenance job** (`server/src/features/memory/queue-scheduler.ts`, wired from `server/src/runtime/queue-schedulers.ts`) runs when the message queue is idle. It does not extract from history; it validates each existing memory document via an LLM cleanup pass (reusing the merge prompt with no new input) to dedupe, drop stale/contradicted lines, and compact. Per-record content fingerprints in `memory_job_chat_state` skip unchanged records.
+A **daily memory consolidation job** (`server/src/features/memory/scheduler.ts`, wired from `server/src/runtime/memory-scheduler.ts`) runs after `memory_config.run_hour` while the message queue is idle. It does not extract new facts from history. It folds pending `memory_entry` rows into consolidated embedded `memory` records with the merge prompt, then deletes the processed raw notes.
 
 ### Tasks (scheduled jobs)
 

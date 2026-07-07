@@ -44,7 +44,13 @@ export async function embedMetadata(
   args.push(tmp);
 
   const ok = await new Promise<boolean>((resolve) => {
-    const proc = spawn("ffmpeg", args, { stdio: "ignore" });
+    let proc: ReturnType<typeof spawn>;
+    try {
+      proc = spawn("ffmpeg", args, { stdio: "ignore" });
+    } catch {
+      resolve(false);
+      return;
+    }
     proc.on("error", () => resolve(false)); // ffmpeg not installed
     proc.on("close", (code) => resolve(code === 0));
   });

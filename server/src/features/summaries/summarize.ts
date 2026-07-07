@@ -3,7 +3,7 @@ import { asObject, parseJsonContent } from "../../shared/index.js";
 import { chatComplete } from "../../llm/client.js";
 import { embed } from "../../llm/embeddings.js";
 import { getSettings } from "../../db/index.js";
-import { getMessagesInRange } from "../history/db/history.js";
+import { getMessagesInRangeBatches } from "../history/db/history.js";
 import type { StoredMessage } from "../history/index.js";
 import {
   APPROX_CHARS_PER_TOKEN,
@@ -155,31 +155,9 @@ function summaryBatchCharBudget(numCtx: number): number {
   return Math.floor(tokens * APPROX_CHARS_PER_TOKEN);
 }
 
-/**
- * Split a day's messages into batches whose transcripts stay under `charBudget`,
- * so each summary call produces a short output that finishes cleanly instead of
- * looping. A single oversized message becomes its own batch rather than dropping.
- */
-function batchByCharBudget(
-  messages: StoredMessage[],
-  charBudget: number,
-): StoredMessage[][] {
-  const batches: StoredMessage[][] = [];
-  let current: StoredMessage[] = [];
-  let used = 0;
-  for (const message of messages) {
-    // ~64 chars of per-line overhead (ISO timestamp, [id:N], role tag).
-    const cost = (message.content?.length ?? 0) + 64;
-    if (current.length > 0 && used + cost > charBudget) {
-      batches.push(current);
-      current = [];
-      used = 0;
-    }
-    current.push(message);
-    used += cost;
-  }
-  if (current.length > 0) batches.push(current);
-  return batches;
+function transcriptCost(message: StoredMessage): number {
+  // ~64 chars of per-line overhead (ISO timestamp, [id:N], role tag).
+  return (message.content?.length ?? 0) + 64;
 }
 
 /** Run one summary LLM pass over a batch, returning its topics and transcript size. */
@@ -228,34 +206,50 @@ export async function summarizeChatDay(
   options?: SummarizeOptions,
 ): Promise<SummarizeResult> {
   const { startTs, endTs } = dayBoundsEpochSeconds(dateStr, timezone);
-  const messages = await getMessagesInRange(chatId, startTs, endTs);
-  if (messages.length === 0) {
-    await replaceSummariesForDate(chatId, dateStr, []);
-    return { topicCount: 0, messageCount: 0, transcriptChars: 0 };
-  }
-
   const settings = await getSettings();
-  const batches = batchByCharBudget(
-    messages,
-    summaryBatchCharBudget(settings.numCtx),
-  );
+  const charBudget = summaryBatchCharBudget(settings.numCtx);
 
   const topics: ParsedTopic[] = [];
   let transcriptChars = 0;
-  for (const batch of batches) {
+  let messageCount = 0;
+  let currentBatch: StoredMessage[] = [];
+  let currentBatchChars = 0;
+
+  async function flushBatch(): Promise<void> {
+    if (currentBatch.length === 0) return;
     const result = await summarizeBatch(
-      batch,
+      currentBatch,
       dateStr,
       settings.model,
       options?.traceTurnId,
     );
     topics.push(...result.topics);
     transcriptChars += result.transcriptChars;
+    currentBatch = [];
+    currentBatchChars = 0;
+  }
+
+  for await (const page of getMessagesInRangeBatches(chatId, startTs, endTs)) {
+    for (const message of page) {
+      const cost = transcriptCost(message);
+      if (currentBatch.length > 0 && currentBatchChars + cost > charBudget) {
+        await flushBatch();
+      }
+      currentBatch.push(message);
+      currentBatchChars += cost;
+      messageCount += 1;
+    }
+  }
+  await flushBatch();
+
+  if (messageCount === 0) {
+    await replaceSummariesForDate(chatId, dateStr, []);
+    return { topicCount: 0, messageCount: 0, transcriptChars: 0 };
   }
 
   if (topics.length === 0) {
     await replaceSummariesForDate(chatId, dateStr, []);
-    return { topicCount: 0, messageCount: messages.length, transcriptChars };
+    return { topicCount: 0, messageCount, transcriptChars };
   }
 
   const vectors = await embed(topics.map((t) => t.content));
@@ -270,5 +264,5 @@ export async function summarizeChatDay(
   const valid = rows.filter((r) => r.embedding.length > 0);
   await replaceSummariesForDate(chatId, dateStr, valid);
 
-  return { topicCount: valid.length, messageCount: messages.length, transcriptChars };
+  return { topicCount: valid.length, messageCount, transcriptChars };
 }

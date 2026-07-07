@@ -7,6 +7,7 @@ import {
   getLatestMessages,
   getMessagesByMessageIds,
   getMessagesInRange,
+  getMessagesInRangeBatches,
   listHistoryChatKeys,
   searchMessages,
 } from "../../../src/features/history/db/history.js";
@@ -85,6 +86,21 @@ describe.skipIf(!hasTestDb)("history storage (Postgres)", () => {
       (await getMessagesInRange(ENTITY, 1500, 2500)).map((m) => m.content),
     ).toEqual(["mid"]);
     expect(await getMessagesInRange(ENTITY, 1000, 3000)).toHaveLength(3);
+  });
+
+  it("getMessagesInRangeBatches paginates through the full range", async () => {
+    await insertAt(ENTITY, "old", 1000);
+    await insertAt(ENTITY, "one", 2000);
+    await insertAt(ENTITY, "two", 2100);
+    await insertAt(ENTITY, "three", 2200);
+    await insertAt(ENTITY, "new", 3000);
+
+    const batches: string[][] = [];
+    for await (const batch of getMessagesInRangeBatches(ENTITY, 1500, 2500, 2)) {
+      batches.push(batch.map((m) => m.content));
+    }
+
+    expect(batches).toEqual([["one", "two"], ["three"]]);
   });
 
   it("getMessagesByMessageIds fetches specific telegram ids", async () => {
