@@ -1,4 +1,5 @@
 import type { ChatMessage } from "../../shared/index.js";
+import { getRequiredLanguage } from "../languages/db/index.js";
 import type { ExplainTurnDeps, ExplainTurnInput } from "./explain-types.js";
 
 const USER_INSTRUCTION =
@@ -12,6 +13,7 @@ export async function runExplainTurn(
   deps: ExplainTurnDeps,
 ): Promise<void> {
   const settings = await deps.getSettings();
+  const requiredLanguage = await getRequiredLanguage(input.chatId);
 
   const turnLog = {
     chatId: input.chatId,
@@ -57,7 +59,13 @@ export async function runExplainTurn(
 
     const messages: ChatMessage[] = [
       { role: "system", content: system },
-      { role: "user", content: USER_INSTRUCTION },
+      {
+        role: "user",
+        content:
+          `[REQUIRED LANGUAGE]\n` +
+          `Write the Telegram-visible explanation in this language: ${requiredLanguage}.\n\n` +
+          USER_INSTRUCTION,
+      },
     ];
 
     deps.logging.logEvent("llm_reply_started", { ...turnLog, mode: "explain" });

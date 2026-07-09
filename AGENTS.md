@@ -59,6 +59,8 @@ Shared infrastructure: `server/src/shared/` (structured-output helpers, auxiliar
 | `features/vision` | Telegram media download, sticker previews, vision-model image description |
 | `features/completions` | System prompt assembly and main LLM reply (pipeline hosts); owner `/explain` command |
 | `features/history` | Turn setup, history intake/inject/record; LLM compression |
+| `features/languages` | Per-chat required language settings (`chat_languages`) used by Telegram-visible LLM replies; dashboard `/languages` CRUD |
+| `features/summaries` | Daily history topic summaries for long-term semantic recall (`chat_summaries`) |
 | `features/mood` | Personality + mood injection; `/mood` command |
 | `features/sticker` | Sticker selection pass; `/explain`-style picks |
 | `features/memory` | Per-user/group/general memory via always-on MCP tools (get/search/save) + debounced background cleanup job |
@@ -120,7 +122,7 @@ Most useful read endpoints (full list in `server/src/api/routes/*.ts` and each f
   - `GET /api/debug/processing/:id` — the full trace for one processing (this is the JSON an exported `processing-<id>` file is rendered from).
 - **Scheduled task fires** — `GET /api/debug/tasks`, `GET /api/debug/task/:taskId`, `GET /api/debug/task-processing/:id`.
 - **Background job runs** (memory consolidation, summaries, …) — `GET /api/debug/job/:featureId`, `GET /api/debug/job-processing/:id`.
-- **State** — `GET /api/settings`, `GET /api/stats`, and feature reads under `/api/tasks`, `/api/memories`, `/api/mood`, `/api/summaries`, `/api/vision`.
+- **State** — `GET /api/settings`, `GET /api/stats`, and feature reads under `/api/tasks`, `/api/languages`, `/api/memories`, `/api/mood`, `/api/summaries`, `/api/vision`.
 
 Example: `curl "$PUBLIC_URL/api/debug/processing/6019"` returns the same trace a user might hand you as an exported log.
 
@@ -140,8 +142,11 @@ Raw `chat_messages` carry a `tsvector` for full-text search; `chat_summaries`
 (daily LLM topic summaries) carry a `vector(1024)` embedding for hybrid
 vector + FTS recall. Daily summary jobs must scan completed days with
 `getMessagesInRangeBatches()` so active chats are processed in bounded chunks
-without silently capping the number of messages summarized for a day. All db
-access is `async`/awaited end-to-end.
+without silently capping the number of messages summarized for a day. Summary
+transcripts must resolve pending base64 media rows through vision first
+(`resolveSummaryMessageMedia`), persist the described history row, then sanitize
+as a fallback so raw media payloads never enter prompts. All db access is
+`async`/awaited end-to-end.
 
 ### Message flow
 
@@ -253,7 +258,8 @@ The main reply is **plain text** — no `response_format` is sent (grammar-const
 - **No drive-by refactors** or unrelated changes.
 - **Do not commit** unless the user asks. Do not put secrets in git (`.env`, tokens).
 - **NEVER use real or user-provided data in committed code** — do not copy Telegram user IDs, usernames, chat IDs, display names, message text, conversation excerpts, `.env` values, API keys, or any other personal or environment-specific data from bug reports, traces, dashboards, ACP context, or chat into source, tests, fixtures, prompts, or comments. Always invent clearly fictional placeholders (e.g. `user:alice:424242`, `testuser`, `-100999001`).
-- **English-only source — never use Cyrillic anywhere in code.** All source — including prompt strings, system-prompt/tool descriptions, in-prompt examples, tests, comments, and identifiers — must be proper English. No Cyrillic characters and no transliteration of foreign words, even inside example snippets shown to the model (write "my name is …", not a Ukrainian/Russian phrase). The bot still *replies* in the user's language at runtime via the language policy in the prompt — that is data, not source.
+- **English-only source — never use Cyrillic anywhere in code.** All source — including prompt strings, system-prompt/tool descriptions, in-prompt examples, tests, comments, and identifiers — must be proper English. No Cyrillic characters and no transliteration of foreign words, even inside example snippets shown to the model (write "my name is …", not a Ukrainian/Russian phrase). Custom runtime language names are chat data from `chat_languages`, not source.
+- **Language settings** — Telegram-visible LLM replies use `server/src/features/languages/db/` (`chat_languages`) to resolve a required language per chat, defaulting to English. The required language is injected as volatile turn context (`[REQUIRED LANGUAGE]`) for normal replies, out-of-band task/maintenance messages, `/explain`, and the browser agent report. Do not reintroduce hard-coded language policies into persona, tool, or response-format prompts.
 - **No vendor-specific LLM naming** — say “OpenAI-compatible API / provider / backend”, not product names (e.g. Ollama). Optional metadata routes (`/api/show`, `/api/tags`) are provider extensions, not the primary contract.
 - **Settings** (stored in Postgres) — add new keys to `DEFAULT_SETTINGS` in `server/src/db/index.ts`, validation in `server/src/settings/limits.ts`, allowed PATCH keys in `server/src/api/routes/settings.ts`, and dashboard `Settings` in `dashboard/src/api.ts`.
 
@@ -264,6 +270,7 @@ The main reply is **plain text** — no `response_format` is sent (grammar-const
 | `/` | Overview, stats, error log, per-phase reply latency (p50/p95) |
 | `/character` | Default + custom system prompts |
 | `/settings` | LLM, model, owner, maintenance mode, performance, vision, stickers, background maintenance, vision backfill |
+| `/languages` | Per-chat/group required Telegram reply language; defaults to English when unset |
 | `/history` | Stored chat transcripts per Telegram chat |
 | `/memory` | User/group/general facts; `/memory/debug` for the maintenance job run list + phase/LLM detail |
 | `/mood` | Global mood state and cooldown (per-character mood defaults live on `/character`) |
@@ -295,6 +302,7 @@ State: `dashboard/src/context/DashboardContext.tsx`. API client: `dashboard/src/
 | Maintenance | `server/src/bot/maintenance/maintenance.ts`, `server/src/bot/maintenance/announce.ts`, `owner/owner.ts` |
 | Settings DB | `server/src/db/index.ts`, `server/src/api/routes.ts` |
 | History | `server/src/features/history/` (pipeline hosts) + `server/src/features/history/db/`; runtime accessors in `server/src/db/history/` |
+| Languages | `server/src/features/languages/db/`; dashboard page `dashboard/src/features/languages/LanguagesPage.tsx`; prompt injection via `buildTurnContextBlocks()` |
 | Vision | `server/src/features/vision/` (+ `db/`); per-turn images attached in `server/src/features/vision/pipeline.ts`, history backfill describe in `server/src/features/vision/queue-scheduler.ts` |
 | Completions | `server/src/features/completions/` (system prompt + LLM reply hosts, `/explain` bot host, reply JSON schema); prompt assembly `server/src/pipeline/adapters/system-prompt.ts` |
 | Web search | `server/src/features/web-search/` (`search_web` MCP tool; Tavily) |

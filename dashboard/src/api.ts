@@ -362,6 +362,13 @@ export interface Task {
   updatedAt: string;
 }
 
+export interface ChatLanguage {
+  chatId: number;
+  language: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface TaskInputPayload {
   chatId: number;
   instruction: string;
@@ -798,6 +805,24 @@ export const api = {
     }),
   deleteTask: (id: number) =>
     request<{ ok: boolean }>(`/api/tasks/${id}`, { method: "DELETE" }),
+  getLanguages: () =>
+    request<{ defaultLanguage: string; languages: ChatLanguage[] }>(
+      "/api/languages",
+    ),
+  createLanguage: (chatId: number, language: string) =>
+    request<{ language: ChatLanguage }>("/api/languages", {
+      method: "POST",
+      body: JSON.stringify({ chatId, language }),
+    }),
+  updateLanguage: (chatId: number, language: string) =>
+    request<{ language: ChatLanguage }>(`/api/languages/${chatId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ language }),
+    }),
+  deleteLanguage: (chatId: number) =>
+    request<{ ok: boolean }>(`/api/languages/${chatId}`, {
+      method: "DELETE",
+    }),
   getBrowserRuns: () =>
     request<{ runs: BrowserAgentRun[] }>("/api/browser/runs"),
   getBrowserRun: (id: number) =>

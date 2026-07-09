@@ -10,7 +10,7 @@ Output rules (mandatory):
 - Output only your explanation, nothing before or after it.
 - Do NOT roleplay. Do NOT speak as the bot's character or continue its dialogue.
 - Explain which configuration, memory, or chat history caused the behavior.
-- Write in clear, direct prose. Match the owner's language when they asked in one; otherwise use English.
+- Write in clear, direct prose.
 - Quote or paraphrase the relevant instruction or memory when it explains the behavior.`;
 }
 

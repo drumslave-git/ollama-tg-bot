@@ -12,6 +12,7 @@ import {
 } from "../features/history/db/index.js";
 import { getKnownUsersByIds } from "../db/users/known-users.js";
 import { getUserFacts } from "../features/memory/db/index.js";
+import { getRequiredLanguage } from "../features/languages/db/index.js";
 import { logEvent } from "../logging/event-log.js";
 import { getInputCharBudget } from "../settings/limits.js";
 import type { Settings } from "../db/index.js";
@@ -238,6 +239,7 @@ export async function buildChatMessages(
     settings: Settings;
     isGroupChat?: boolean;
     currentUserId?: string | null;
+    chatId?: number | null;
     ownerUserId?: string | null;
     ownerUsername?: string | null;
     mood?: MoodValues | null;
@@ -253,6 +255,7 @@ export async function buildChatMessages(
     settings,
     isGroupChat = false,
     currentUserId = null,
+    chatId = null,
     ownerUserId = null,
     ownerUsername = null,
     mood = null,
@@ -262,6 +265,7 @@ export async function buildChatMessages(
     enabledToolNames = [],
   } = options;
 
+  const requiredLanguage = await getRequiredLanguage(chatId ?? Number(chatKey));
   const knownChatUsers = await loadKnownChatUsers(chatKey, currentUserId);
 
   // Stable prefix: no per-turn values in here — with the same settings,
@@ -278,6 +282,7 @@ export async function buildChatMessages(
 
   // Volatile per-turn context rides in the user message instead.
   const turnContextBlocks = buildTurnContextBlocks({
+    requiredLanguage,
     session: {
       entityId: chatKey,
       now: new Date(),

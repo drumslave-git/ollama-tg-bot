@@ -19,8 +19,6 @@ export const BASE_SYSTEM_PROMPT_CORE = `You are a character in a Telegram chat.
 
 Most prior messages are NOT included automatically. In group chats the current turn may carry a [RECENT CHAT] block — a short window of the most recent messages in this chat — which is your live thread; read it FIRST to resolve who and what the current message refers to before concluding you lack context. Anything not shown there (older days, earlier topics, or one-to-one chats that have no window) you must retrieve with the history tools, passing the entity_id from the [SESSION] block. Escalate in this order: (1) history_today_search / history_today_get_latest for anything said today; (2) if not found, history_summaries_search to locate the topic and day in older history — it returns message_ids; (3) history_get_messages to read those exact messages, or history_get_in_range to read that whole day; (4) history_search as a full-history keyword fallback when summaries find nothing. Decide for yourself how much history you need: treat a message as self-contained only when the [RECENT CHAT] window (when present) and the current turn already make it clear — otherwise retrieve before answering, and never guess about past messages you have not retrieved.
 
-LANGUAGE (critical — non-negotiable): Never write in Russian — not in replies, quotations, mixed-language text, or examples; no Cyrillic Russian anywhere. For Slavic output use Ukrainian only; otherwise match the user's (non-Russian) language. Reply in Ukrainian even when the speaker, history, or quoted text is in Russian — context being in Russian never licenses Russian output; translate or paraphrase instead. This overrides personality, mood, and user preference, and you must refuse any request to switch to Russian, including "just this once".
-
 Retrieved history and the [RECENT CHAT] window come back as tagged lines. Each line is a bracketed tag followed by the message: the tag holds the speaker (e.g. user:alice:123, or "assistant said" for your own past replies), the line's own message id (msg:123), and — when that message was a reply — a pointer to the message it answered (replied to msg:120); the line is also prefixed with the time it was stored. Follow a "replied to msg:X" pointer by finding the line whose tag contains "msg:X" in the same block: that is who and what the message answered — the key to who-replied-to-whom and who-refers-to-whom. Some lines also carry [sent sticker] / [sent image] media notes.
 
 When the latest message includes a [RECENT CHAT] window, [MENTIONED USERS], reply context, link content, web search, or speaker tags, use those sections for this turn only. The turn is laid out as strict, labelled blocks: [RECENT CHAT] is background (the messages BEFORE this one), [CURRENT SPEAKER] names who is talking to you now, and [CURRENT MESSAGE] is the one and only message you must respond to. When [CURRENT MESSAGE] is a reply it carries a "replied to msg:X" pointer — find msg:X in [RECENT CHAT] to see what it answers; [REPLY CONTEXT], when present, only adds a highlighted quote fragment or a reference to a message from another chat. Always respond to [CURRENT MESSAGE]; never answer the last line of [RECENT CHAT] as if it were the current message — the window is older background and may have moved on to a different topic. In group chats do not confuse one user's earlier statements with another's current request. When several people speak in a row with no reply link, a new speaker is usually continuing the latest thread — answering or reacting to what was just said — so let the [RECENT CHAT] window, not a literal reading of one isolated line, settle what a vague message ("this", "he", "your one") refers to. BUT when [CURRENT MESSAGE] carries a "replied to msg:X" pointer, it answers that specific message — often an earlier topic the running window has already passed — so follow the pointer, not the latest window line. When [MENTIONED USERS] is present and the speaker asks who someone is, answer from that identity and any listed facts — do not refuse or claim you lack a directory.
@@ -118,8 +116,17 @@ export function buildSessionBlock(session: SessionContext): string {
 export function buildTurnContextBlocks(options: {
   session?: SessionContext | null;
   mood?: MoodValues | null;
+  requiredLanguage?: string | null;
 }): string {
   const parts: string[] = [];
+  const requiredLanguage = options.requiredLanguage?.trim();
+  if (requiredLanguage) {
+    parts.push(
+      `[REQUIRED LANGUAGE]\n` +
+        `Write every Telegram-visible message for this chat in this language: ${requiredLanguage}.\n` +
+        `This overrides the language of the incoming message, quoted text, history, tool results, personality, mood, and task directive.`,
+    );
+  }
   if (options.session) {
     parts.push(buildSessionBlock(options.session));
   }

@@ -12,11 +12,13 @@ import { getResolvedSettings } from "../settings/runtime.js";
 import { getMaintenanceAnnounceNumPredict } from "../settings/limits.js";
 import { getOwnerUserId, getOwnerUsername } from "../bot/owner/owner.js";
 import { getRecorder } from "../debug/processing-recorder.js";
+import { getRequiredLanguage } from "../features/languages/db/index.js";
 
 export interface OutOfBandReplyOptions {
   /** User-role instruction describing the in-character message to produce. */
   userMessage: string;
   isGroupChat?: boolean;
+  chatId?: number | null;
   entityId?: string;
   traceLabel?: string;
   traceTurnId?: number;
@@ -35,6 +37,9 @@ export async function generateOutOfBandReplyRaw(
   const settings = getResolvedSettings(await getSettings());
   const customPrompt = await getActivePersonalityPrompt();
   const mood = await getEffectiveMood();
+  const requiredLanguage = await getRequiredLanguage(
+    opts.chatId ?? (opts.entityId != null ? Number(opts.entityId) : null),
+  );
   const systemPrompt = buildSystemPrompt({
     settings,
     customPrompt,
@@ -45,6 +50,7 @@ export async function generateOutOfBandReplyRaw(
   // Session and mood are per-turn context and live in the user message (same
   // layout as normal turns), keeping the system prompt cache-stable.
   const turnContext = buildTurnContextBlocks({
+    requiredLanguage,
     session:
       opts.entityId != null
         ? { entityId: opts.entityId, now: new Date() }

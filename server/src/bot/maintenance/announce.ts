@@ -20,9 +20,12 @@ export {
 
 export async function generateMaintenanceAnnouncement(
   enabled: boolean,
+  chatId?: number,
 ): Promise<string> {
   const raw = await generateOutOfBandReplyRaw({
     userMessage: buildMaintenanceAnnouncementUserMessage(enabled),
+    chatId,
+    entityId: chatId != null ? String(chatId) : undefined,
   });
   return parseMaintenanceAnnouncementReply(raw);
 }
@@ -67,26 +70,22 @@ export async function broadcastMaintenanceAnnouncement(
     return;
   }
 
-  let reply: string;
-  try {
-    reply = await generateMaintenanceAnnouncement(enabled);
-  } catch (err) {
-    logEventError("maintenance_announce_generate_failed", err, { enabled });
-    return;
-  }
-
-  const html = prepareTelegramHtml(reply);
   let sent = 0;
   let failed = 0;
 
   for (const chatId of chatIds) {
     try {
+      const reply = await generateMaintenanceAnnouncement(enabled, chatId);
+      const html = prepareTelegramHtml(reply);
       const ok = await sendAnnouncementToChat(chatId, html, reply);
       if (ok) sent++;
       else failed++;
     } catch (err) {
       failed++;
-      logEventError("maintenance_announce_send_failed", err, { chatId, enabled });
+      logEventError("maintenance_announce_send_failed", err, {
+        chatId,
+        enabled,
+      });
     }
   }
 
@@ -99,6 +98,5 @@ export async function broadcastMaintenanceAnnouncement(
     chatCount: chatIds.length,
     sent,
     failed,
-    replyChars: reply.length,
   });
 }

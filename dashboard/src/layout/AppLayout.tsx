@@ -35,6 +35,7 @@ const navSections: NavSection[] = [
   {
     label: "Content",
     items: [
+      { to: "/languages", label: "Languages" },
       { to: "/history", label: "History" },
       { to: "/memory", label: "Memory" },
       { to: "/vision", label: "Vision" },

@@ -116,6 +116,7 @@ describe("buildSystemPrompt", () => {
   it("always ends with the reply format spec", () => {
     const prompt = buildSystemPrompt({ settings: makeSettings(), customPrompt: "" });
     expect(prompt).toContain("plain text");
+    expect(prompt).not.toContain("LANGUAGE (critical");
     expect(prompt).not.toContain("Respond with JSON only");
     expect(prompt.trimEnd().endsWith("you do not have to use tags at all.")).toBe(true);
   });
@@ -242,6 +243,16 @@ describe("buildTurnContextBlocks", () => {
     expect(block).toContain("current speaker id: 312973896");
     expect(block).toContain("[user:alice:312973896]");
     expect(block).toContain("Alice (@alice)");
+  });
+
+  it("carries the required chat language when provided", () => {
+    const block = buildTurnContextBlocks({
+      requiredLanguage: "Portuguese",
+      session: { entityId: "dm-1", now: new Date() },
+    });
+    expect(block).toContain("[REQUIRED LANGUAGE]");
+    expect(block).toContain("Portuguese");
+    expect(block).toMatch(/overrides.*incoming message/i);
   });
 
   it("notes owner status and a replied-to task in the session block", () => {

@@ -4,6 +4,7 @@ import { getSettings } from "../../db/index.js";
 import { getResolvedSettings } from "../../settings/runtime.js";
 import { getAuxiliaryNumPredict } from "../../settings/limits.js";
 import { extractTelegramReply } from "../completions/index.js";
+import { getRequiredLanguage } from "../languages/db/index.js";
 import type { ProcessingRecorder } from "../../debug/processing-recorder.js";
 import type { BrowserSession } from "./session.js";
 import {
@@ -39,7 +40,10 @@ export interface AgentRunResult {
   loopDetected: boolean;
 }
 
-function buildAgentSystemPrompt(isOwner: boolean): string {
+function buildAgentSystemPrompt(
+  isOwner: boolean,
+  requiredLanguage: string,
+): string {
   return (
     `You are a web-browsing agent working in the background for a chat bot. ` +
     `You are given a goal and a set of browser tools. Accomplish the goal by ` +
@@ -62,7 +66,8 @@ function buildAgentSystemPrompt(isOwner: boolean): string {
       ? `- Use browser_download with a real file URL to fetch what the user asked for; it is delivered to the chat.\n`
       : `- Downloads are disabled for this run (only the owner can download files).\n`) +
     `- When you have achieved the goal (or determined it cannot be done), STOP calling tools ` +
-    `and reply with a clear, concise report of what you found, in the same language as the goal. ` +
+    `and reply with a clear, concise report of what you found. ` +
+    `Write the report in this required language: ${requiredLanguage}. ` +
     `That reply is sent to the chat. Do not include raw HTML or tool syntax.`
   );
 }
@@ -76,6 +81,7 @@ function buildAgentSystemPrompt(isOwner: boolean): string {
  */
 export async function runBrowserAgent(params: {
   goal: string;
+  chatId?: number | null;
   isOwner: boolean;
   recorder: ProcessingRecorder | null;
   session: BrowserSession;
@@ -88,6 +94,7 @@ export async function runBrowserAgent(params: {
   onDownloadProgress?: (progress: string | null) => void;
 }): Promise<AgentRunResult> {
   const settings = getResolvedSettings(await getSettings());
+  const requiredLanguage = await getRequiredLanguage(params.chatId);
   const downloads: DownloadRecord[] = [];
   let steps = 0;
 
@@ -106,7 +113,10 @@ export async function runBrowserAgent(params: {
   };
 
   const messages: ChatMessage[] = [
-    { role: "system", content: buildAgentSystemPrompt(params.isOwner) },
+    {
+      role: "system",
+      content: buildAgentSystemPrompt(params.isOwner, requiredLanguage),
+    },
     { role: "user", content: `Goal: ${params.goal}` },
   ];
 

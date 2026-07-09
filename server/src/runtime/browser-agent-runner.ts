@@ -146,6 +146,7 @@ async function runOneLink(
   try {
     const result = await runBrowserAgent({
       goal,
+      chatId: run.chatId,
       isOwner: run.isOwner,
       recorder,
       session,

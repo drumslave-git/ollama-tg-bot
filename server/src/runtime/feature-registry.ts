@@ -2,6 +2,7 @@ import type { FeatureDbExports } from "../contracts/index.js";
 import type { McpToolRegistrar } from "../shared/index.js";
 import { moodEvaluationDbFeature } from "../features/mood/db/index.js";
 import { historyDbFeature } from "../features/history/db/index.js";
+import { languagesDbFeature } from "../features/languages/db/index.js";
 import { visionDbFeature } from "../features/vision/db/index.js";
 import { memoryDbFeature } from "../features/memory/db/index.js";
 import { registerMcpTools as registerLinkFetchTools } from "../features/link-fetch/register-mcp-tools.js";
@@ -59,6 +60,15 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
     id: "completions",
     name: "Chat completions",
     description: "System prompt injection and main LLM reply generation.",
+  },
+  {
+    id: "languages",
+    name: "Languages",
+    description:
+      "Per-chat required response language for Telegram-visible LLM messages.",
+    apiBasePath: "/languages",
+    dataTables: ["chat_languages"],
+    db: languagesDbFeature,
   },
   {
     id: "history",

@@ -10,6 +10,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { DataPage } from "./pages/DataPage";
 import { DebugPage } from "./pages/DebugPage";
 import { HistoryPage } from "./features/history/HistoryPage";
+import { LanguagesPage } from "./features/languages/LanguagesPage";
 import { SummariesDebugPage } from "./features/summaries/SummariesDebugPage";
 import { MemoriesPage } from "./features/memory/MemoriesPage";
 import { MemoryDebugPage } from "./features/memory/MemoryDebugPage";
@@ -59,6 +60,7 @@ function DashboardRoutes() {
       <Route element={<AppLayout />}>
         <Route index element={<OverviewPage />} />
         <Route path="character" element={<CharacterPage />} />
+        <Route path="languages" element={<LanguagesPage />} />
         <Route path="history/*" element={<HistoryPage />} />
         <Route path="history/debug/*" element={<SummariesDebugPage />} />
         <Route path="memory" element={<MemoriesPage />} />

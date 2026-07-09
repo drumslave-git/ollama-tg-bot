@@ -49,7 +49,6 @@ function buildTaskUserMessage(
     `Write ONE short, natural, in-character chat message that *performs* this directive right now. ` +
     `The message IS the reminder/nudge itself, spoken to the people it concerns.\n` +
     `- Do NOT restate the directive as an instruction. Never write "remind X to ..." — instead say what you would actually tell them. (e.g. directive "remind me to call mom" → "Hey, don't forget to call your mom".)\n` +
-    `- Write the ENTIRE message in the same language as the directive. Do not mix languages.\n` +
     `- Address people by @username when you know it, otherwise by name. If it concerns the chat owner themselves, address them directly ("you").\n` +
     `- Plain spoken text only. NEVER output raw chat tags such as [user:name:id], [assistant said], or any metadata.\n` +
     `- Vary the wording from previous times; do not mention that this is scheduled or automated.${previousBlock}\n` +
@@ -70,6 +69,7 @@ async function generateTaskMessage(
   const raw = await generateOutOfBandReplyRaw({
     userMessage: buildTaskUserMessage(task, previousMessages),
     isGroupChat: task.entityId !== String(task.chatId),
+    chatId: task.chatId,
     entityId: task.entityId,
     traceLabel: "task fire",
     traceTurnId,

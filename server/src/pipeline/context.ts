@@ -104,6 +104,7 @@ export async function buildChatContextForTurn(state: PipelineTurnState) {
     {
       settings,
       isGroupChat: state.inGroup,
+      chatId: state.chatId ?? null,
       currentUserId: userId,
       ownerUserId: await getOwnerUserId(),
       ownerUsername: await getOwnerUsername(),
