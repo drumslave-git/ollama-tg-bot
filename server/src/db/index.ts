@@ -8,6 +8,7 @@ import { bindMessageProcessingDatabase } from "./debug/message-processing.js";
 import { bindJobProcessingDatabase } from "./debug/job-processing.js";
 import { bindPhaseTimingsDatabase } from "./debug/phase-timings.js";
 import { bindLlmUsageDatabase } from "./debug/llm-usage.js";
+import { bindKnownChatsDatabase } from "./chats/known-chats.js";
 import { bindKnownUsersDatabase } from "./users/known-users.js";
 import { bindDataBrowserDatabase } from "./data/browser.js";
 import { getPersonalityById } from "../features/mood/db/index.js";
@@ -153,6 +154,7 @@ export async function initDatabase(): Promise<void> {
   configureFeatureDatabases(buildFeatureDbHost());
 
   await bindErrorLogDatabase(db);
+  await bindKnownChatsDatabase(db);
   await bindKnownUsersDatabase(db);
   // After chat_messages (feature dbs) and known_users — message_processings has a
   // FK to chat_messages and its labels read known_users.

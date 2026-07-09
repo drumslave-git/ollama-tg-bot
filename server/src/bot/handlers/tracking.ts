@@ -1,9 +1,11 @@
 import type { Context } from "grammy";
+import { rememberTelegramChat } from "../../db/chats/known-chats.js";
 import { rememberTelegramUser } from "../../db/users/known-users.js";
 import { tryResolveOwnerFromUser } from "../owner/owner-sync.js";
 
 export async function trackTelegramUser(ctx: Context): Promise<void> {
   await rememberTelegramUser(ctx.from);
+  await rememberTelegramChat(ctx.chat);
   await tryResolveOwnerFromUser(ctx.from);
 }
 

@@ -23,7 +23,10 @@ interface NavSection {
 const navSections: NavSection[] = [
   {
     label: null,
-    items: [{ to: "/", label: "Overview", end: true }],
+    items: [
+      { to: "/", label: "Overview", end: true },
+      { to: "/participation", label: "Participation" },
+    ],
   },
   {
     label: "Persona",

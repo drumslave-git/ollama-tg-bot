@@ -5,6 +5,7 @@ import { AppLayout } from "./layout/AppLayout";
 import { LoadingState } from "./components/ui/Layout";
 import { OfflinePage } from "./pages/OfflinePage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { ParticipationPage } from "./pages/ParticipationPage";
 import { CharacterPage } from "./pages/CharacterPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { DataPage } from "./pages/DataPage";
@@ -59,6 +60,7 @@ function DashboardRoutes() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<OverviewPage />} />
+        <Route path="participation" element={<ParticipationPage />} />
         <Route path="character" element={<CharacterPage />} />
         <Route path="languages" element={<LanguagesPage />} />
         <Route path="history/*" element={<HistoryPage />} />

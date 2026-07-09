@@ -130,6 +130,19 @@ export interface DebugChatSummary {
   latestAt: string | null;
 }
 
+export interface ParticipationChat {
+  chatId: string;
+  type: string;
+  title: string | null;
+  username: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  label: string;
+  messageCount: number;
+  lastMessageAt: string | null;
+  updatedAt: string;
+}
+
 export interface MessageProcessingListItem {
   id: number;
   chatMessageId: number;
@@ -657,6 +670,8 @@ export const api = {
       `/api/settings/budget?model=${encodeURIComponent(model)}&numPredict=${numPredict}&numCtx=${numCtx}`,
     ),
   getStats: () => request<Stats>("/api/stats"),
+  getParticipationChats: () =>
+    request<{ chats: ParticipationChat[] }>("/api/participation"),
   clearErrors: () =>
     request<{ ok: boolean }>("/api/stats/errors/clear", {
       method: "POST",

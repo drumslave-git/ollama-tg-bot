@@ -3,6 +3,7 @@ import { settingsRouter } from "./routes/settings.js";
 import { statsRouter } from "./routes/stats.js";
 import { debugRouter } from "./routes/debug.js";
 import { dataRouter } from "./routes/data.js";
+import { participationRouter } from "./routes/participation.js";
 import type { FeatureEntry } from "../runtime/feature-registry.js";
 import type { Router as ExpressRouter } from "express";
 
@@ -17,6 +18,7 @@ export function createApiRouter(
 
   router.use("/settings", settingsRouter);
   router.use("/stats", statsRouter);
+  router.use("/participation", participationRouter);
   router.use("/debug", debugRouter);
   router.use("/data", dataRouter);
 

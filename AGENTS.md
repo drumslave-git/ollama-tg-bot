@@ -67,6 +67,10 @@ Shared infrastructure: `server/src/shared/` (structured-output helpers, auxiliar
 | `features/tasks` | Owner-managed scheduled jobs (once/daily/weekly) that fire an in-character message into a chat at a wall-clock time; always-on `tasks_*` MCP tools + an independent wall-clock scheduler |
 | `features/web-browse` | Owner-triggered **background** web-browsing agent (navigate/click/type/read/screenshot + owner-only download). The `browse_web` tool enqueues a run; a runtime worker drives an autonomous Playwright + LLM loop off the reply path and reports back out-of-band. Its own `browser_agent_runs` debug domain + `/browser` dashboard page |
 
+Dashboard-only operational pages include `/participation`, which lists Telegram
+private chats, groups, supergroups, and channels observed by the bot from the
+`known_chats` table.
+
 The static feature registry (`server/src/runtime/feature-registry.ts`) lists each feature's metadata, db exports, and MCP registrar. Pipeline order is declared explicitly in `server/src/runtime/feature-hosts.ts`.
 
 Rules:
@@ -138,6 +142,8 @@ Telegram → Grammy handlers → message pipeline (feature hosts) → delivery
 
 **Storage is Postgres** (with the `pgvector` extension), accessed through an async
 `SqlDatabase` handle (`server/src/db/pool.ts`) bound into each feature's `db/*.ts`.
+`known_chats` stores the latest Telegram chat metadata seen by the tracking
+middleware and powers the dashboard Participation page.
 Raw `chat_messages` carry a `tsvector` for full-text search; `chat_summaries`
 (daily LLM topic summaries) carry a `vector(1024)` embedding for hybrid
 vector + FTS recall. Daily summary jobs must scan completed days with
