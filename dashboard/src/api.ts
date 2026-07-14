@@ -643,6 +643,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   stickerPreviewUrl: (index: number) => `/api/settings/stickers/${index}/preview`,
+  historyExportUrl: (chatId: string) =>
+    `/api/history/chat/${encodeURIComponent(chatId)}/export`,
   checkHealth: () => request<{ ok: boolean }>("/api/health"),
   getSettings: () => request<Settings>("/api/settings"),
   updateSettings: (patch: Partial<Settings>) =>

@@ -95,6 +95,9 @@ export function ChatSummariesPage() {
           </Link>
           <code className="font-mono text-[0.95em]">{chatId}</code>
         </div>
+        <a href={api.historyExportUrl(chatId)} className={secondaryBtn} download>
+          Export CSV
+        </a>
       </div>
 
       <section className="rounded-lg border border-border bg-surface p-6">

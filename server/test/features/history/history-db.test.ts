@@ -4,6 +4,7 @@ import {
   appendMessage,
   bindHistoryDatabase,
   getHistory,
+  getHistoryBatches,
   getLatestMessages,
   getMessagesByMessageIds,
   getMessagesInRange,
@@ -101,6 +102,19 @@ describe.skipIf(!hasTestDb)("history storage (Postgres)", () => {
     }
 
     expect(batches).toEqual([["one", "two"], ["three"]]);
+  });
+
+  it("getHistoryBatches paginates through the entire history", async () => {
+    for (let i = 1; i <= 5; i += 1)
+      await appendMessage(ENTITY, "user:a:1", `m${i}`);
+    await appendMessage("999", "user:b:2", "other chat");
+
+    const batches: string[][] = [];
+    for await (const batch of getHistoryBatches(ENTITY, 2)) {
+      batches.push(batch.map((m) => m.content));
+    }
+
+    expect(batches).toEqual([["m1", "m2"], ["m3", "m4"], ["m5"]]);
   });
 
   it("getMessagesByMessageIds fetches specific telegram ids", async () => {

@@ -261,6 +261,33 @@ export async function* getMessagesInRangeBatches(
   }
 }
 
+/**
+ * Iterate an entity's entire stored history oldest-first in bounded DB pages.
+ * Used by the export route, which must cover every row without loading a
+ * potentially huge chat into memory at once.
+ */
+export async function* getHistoryBatches(
+  entityId: string,
+  pageSize = MAX_RANGE_ROWS,
+): AsyncGenerator<StoredMessage[]> {
+  const limit = clampCount(pageSize, MAX_RANGE_ROWS);
+  let lastId = 0;
+
+  while (true) {
+    const { rows } = await db.query<MessageRow>(
+      `SELECT ${SELECT_COLUMNS} FROM chat_messages
+         WHERE entity_id = $1 AND id > $2
+         ORDER BY id LIMIT $3`,
+      [entityId, lastId, limit],
+    );
+    if (rows.length === 0) break;
+
+    yield rows.map(rowToStored);
+    lastId = Number(rows[rows.length - 1]!.id);
+    if (rows.length < limit) break;
+  }
+}
+
 /** Fetch specific messages by their Telegram message_id, oldest first. */
 export async function getMessagesByMessageIds(
   entityId: string,

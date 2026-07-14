@@ -75,6 +75,7 @@ export const FEATURE_REGISTRY: FeatureEntry[] = [
     name: "Chat history",
     description:
       "Per-chat verbatim message storage exposed to the model through always-on history MCP tools.",
+    apiBasePath: "/history",
     dataTables: ["chat_messages"],
     db: historyDbFeature,
     mcpTools: {
